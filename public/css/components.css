@@ -88,7 +88,10 @@
       font-size: 12px;
       font-weight: 500;
       line-height: 1.25;
-      white-space: nowrap;
+      width: max-content;
+      max-width: min(320px, 80vw);
+      white-space: normal;
+      word-wrap: break-word;
       pointer-events: none !important;
       opacity: 0;
       visibility: hidden;

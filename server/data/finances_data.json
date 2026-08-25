@@ -12,7 +12,7 @@
     "debtorsSubView": "monthly",
     "theme": "light",
     "year": 2026,
-    "month": 9,
+    "month": 11,
     "profile": {
       "name": "Lorenzo Cabral",
       "baseSalary": 2917.56
@@ -83,7 +83,7 @@
       "Saúde": 500
     },
     "collapsedSections": {
-      "insights": true,
+      "insights": false,
       "destChart": true,
       "categoryChart": true,
       "debtorPerson": true,
@@ -1486,7 +1486,7 @@
       }
     ],
     "customExpensesOrder": [],
-    "lastModified": "2026-08-25T20:52:47.427Z",
+    "lastModified": "2026-08-25T21:29:46.039Z",
     "firstLogin": true
   },
   "usr_25gspgvwmt6n3907": {
