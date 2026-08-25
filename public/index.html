@@ -9357,39 +9357,46 @@
           `;
         }
 
-        // 2. GRÁFICO COMPARATIVO MENSAL (12 MESES)
+        // 2. GRÁFICO COMPARATIVO MENSAL (12 MESES) COM PADRÃO RIBBON
         const barsContainer = $('#simMonthlyBarsContainer');
         if (barsContainer) {
           const maxVal = Math.max(...projection.map(x => Math.max(x.realTotalExp, x.simTotalExp, x.totalIncome)), 100);
 
           barsContainer.innerHTML = `
-            <div style="display:flex; align-items:flex-end; gap:8px; height:160px; border-bottom:1px solid var(--line); padding-bottom:8px; overflow-x:auto;">
+            <div class="ribbon" style="padding: 4px 0;">
               ${projection.map(d => {
-                const hReal = Math.max(6, Math.round((d.realTotalExp / maxVal) * 120));
-                const hSim = Math.max(6, Math.round((d.simTotalExp / maxVal) * 120));
+                const hReal = Math.max(6, Math.round((d.realTotalExp / maxVal) * 64));
+                const hSim = Math.max(6, Math.round((d.simTotalExp / maxVal) * 64));
                 const isCurMonth = d.month === state.month;
-
+                const colClass = `ribbon-col ${isCurMonth ? 'active' : ''} ${d.isSimDeficit ? 'has-deficit' : ''}`;
                 const tip = `${MONTH_NAMES[d.month - 1]}: Despesas Reais ${currency(d.realTotalExp)} -> Com Simulação ${currency(d.simTotalExp)} | Sobra Resultante: ${currency(d.simSobra)}`;
 
                 return `
-                  <div style="flex:1; min-width:34px; display:flex; flex-direction:column; align-items:center; height:100%; justify-content:flex-end; cursor:pointer; padding:2px; border-radius:6px; background:${isCurMonth ? 'var(--brand-soft)' : 'transparent'};"
-                       data-tooltip="${tip}"
-                       onclick="state.month = ${d.month}; render();">
-                    <div style="display:flex; align-items:flex-end; gap:4px; width:100%; justify-content:center;">
-                      <div style="width:10px; height:${hReal}px; background:var(--brand); border-radius:3px 3px 0 0;" title="Real: ${currency(d.realTotalExp)}"></div>
-                      <div style="width:10px; height:${hSim}px; background:${d.isSimDeficit ? 'var(--danger)' : 'var(--warning, #D97706)'}; border-radius:3px 3px 0 0;" title="Simulado: ${currency(d.simTotalExp)}"></div>
+                  <button type="button" class="${colClass}" data-tooltip="${tip}" data-month="${d.month}">
+                    <div class="ribbon-bar" style="flex-direction: row; align-items: flex-end; justify-content: center; gap: 3px; padding: 0 2px;">
+                      <span style="width: 10px; height: ${hReal}px; background: var(--brand); border-radius: 3px 3px 0 0;" title="Real: ${currency(d.realTotalExp)}"></span>
+                      <span style="width: 10px; height: ${hSim}px; background: ${d.isSimDeficit ? 'var(--danger)' : 'var(--warning, #D97706)'}; border-radius: 3px 3px 0 0;" title="Simulado: ${currency(d.simTotalExp)}"></span>
                     </div>
-                    <small style="font-size:0.72rem; color:${d.isSimDeficit ? 'var(--danger)' : (isCurMonth ? 'var(--brand)' : 'var(--muted)')}; font-weight:${isCurMonth || d.isSimDeficit ? '800' : '600'}; margin-top:4px;">
-                      ${MONTH_ABBR[d.month - 1]}
-                    </small>
-                  </div>
+                    <small>${MONTH_ABBR[d.month - 1]}</small>
+                  </button>
                 `;
               }).join('')}
             </div>
           `;
+
+          barsContainer.querySelectorAll('.ribbon-col').forEach(col => {
+            col.addEventListener('click', () => {
+              const m = Number(col.getAttribute('data-month'));
+              if (m) {
+                state.month = m;
+                saveState();
+                render();
+              }
+            });
+          });
         }
 
-        // 3. PAINEL DUPLO: COLUNA ESQUERDA (DESPESAS REAIS DO MÊS)
+        // 3. PAINEL DUPLO: COLUNA ESQUERDA (DESPESAS REAIS DO MÊS - SOMENTE LEITURA COM DESIGN SYSTEM)
         const realListEl = $('#simRealList');
         const realTotalEl = $('#simRealTotal');
         if (realTotalEl) realTotalEl.textContent = currency(curMData.realTotalExp);
@@ -9417,19 +9424,24 @@
                 if ((v.year * 12 + v.month) <= curTarget) activeV = v; else break;
               }
               const amt = activeV ? Number(activeV.amount || 0) : f.amount;
+              const destMeta = f.destination ? getDestMeta(f.destination) : null;
+              const destIconSvg = destMeta ? (DEST_SVG_ICONS[destMeta.icon] || DEST_SVG_ICONS.card) : '';
+              const destPillHtml = (f.destination && f.destination !== 'Renda Extra') ? `
+                <span class="tag dest" style="background:${destMeta.color}22; color:${destMeta.color}; border:1px solid ${destMeta.color}44;">
+                  ${destIconSvg} ${escapeHtml(f.destination)}
+                </span>` : '';
+
               html += `
-                <div class="entry-item" style="border-left:3px solid var(--c-fixed); cursor:default;">
-                  <div class="entry-main">
-                    <span class="entry-title">${escapeHtml(f.name)}</span>
+                <div class="entry-row" style="border-left:3px solid var(--c-fixed); cursor:default;">
+                  <div class="entry-info">
+                    <div class="entry-title">${escapeHtml(f.name)}</div>
                     <div class="entry-meta">
                       <span class="tag" style="background:var(--c-fixed-soft); color:var(--c-fixed);">Fixa</span>
                       <span class="tag">${escapeHtml(f.group || 'Gerais')}</span>
-                      <span>${escapeHtml(f.destination || 'Gerais')}</span>
+                      ${destPillHtml}
                     </div>
                   </div>
-                  <div class="entry-right">
-                    <span class="entry-amount num negative">${currency(amt)}</span>
-                  </div>
+                  <div class="entry-amount num negative">${currency(amt)}</div>
                 </div>
               `;
             });
@@ -9437,19 +9449,24 @@
             activeVar.forEach(v => {
               const sTarget = (v.startYear || state.year) * 12 + (v.startMonth || 1);
               const curInst = (curTarget - sTarget) + 1;
+              const destMeta = v.destination ? getDestMeta(v.destination) : null;
+              const destIconSvg = destMeta ? (DEST_SVG_ICONS[destMeta.icon] || DEST_SVG_ICONS.card) : '';
+              const destPillHtml = (v.destination && v.destination !== 'Renda Extra') ? `
+                <span class="tag dest" style="background:${destMeta.color}22; color:${destMeta.color}; border:1px solid ${destMeta.color}44;">
+                  ${destIconSvg} ${escapeHtml(v.destination)}
+                </span>` : '';
+
               html += `
-                <div class="entry-item" style="border-left:3px solid var(--c-variable); cursor:default;">
-                  <div class="entry-main">
-                    <span class="entry-title">${escapeHtml(v.name)}</span>
+                <div class="entry-row" style="border-left:3px solid var(--c-variable); cursor:default;">
+                  <div class="entry-info">
+                    <div class="entry-title">${escapeHtml(v.name)}</div>
                     <div class="entry-meta">
                       <span class="tag" style="background:var(--c-variable-soft); color:var(--c-variable);">${curInst}/${v.installments || 1}x</span>
                       <span class="tag">${escapeHtml(v.group || 'Gerais')}</span>
-                      <span>${escapeHtml(v.destination || 'Gerais')}</span>
+                      ${destPillHtml}
                     </div>
                   </div>
-                  <div class="entry-right">
-                    <span class="entry-amount num negative">${currency(v.amount)}</span>
-                  </div>
+                  <div class="entry-amount num negative">${currency(v.amount)}</div>
                 </div>
               `;
             });
@@ -9458,7 +9475,7 @@
           }
         }
 
-        // 4. PAINEL DUPLO: COLUNA DIREITA (DESPESAS SIMULADAS)
+        // 4. PAINEL DUPLO: COLUNA DIREITA (DESPESAS SIMULADAS COM DESIGN SYSTEM)
         const injectedListEl = $('#simInjectedList');
         const injectedTotalEl = $('#simInjectedTotal');
         if (injectedTotalEl) injectedTotalEl.textContent = `+${currency(curMData.simExtraExp)}`;
@@ -9493,20 +9510,26 @@
               const sTarget = (sim.startYear || state.year) * 12 + (sim.startMonth || 1);
               const curInst = (curTarget - sTarget) + 1;
               const totalCost = Number(sim.amount) * Number(sim.installments || 1);
+              const destMeta = sim.destination ? getDestMeta(sim.destination) : null;
+              const destIconSvg = destMeta ? (DEST_SVG_ICONS[destMeta.icon] || DEST_SVG_ICONS.card) : '';
+              const destPillHtml = (sim.destination && sim.destination !== 'Renda Extra') ? `
+                <span class="tag dest" style="background:${destMeta.color}22; color:${destMeta.color}; border:1px solid ${destMeta.color}44;">
+                  ${destIconSvg} ${escapeHtml(sim.destination)}
+                </span>` : '';
 
               return `
-                <div class="entry-item" style="border-left:3px solid var(--warning, #D97706);">
-                  <div class="entry-main">
-                    <span class="entry-title">${escapeHtml(sim.name)}</span>
+                <div class="entry-row" style="border-left:3px solid var(--warning, #D97706); cursor:default;">
+                  <div class="entry-info">
+                    <div class="entry-title">${escapeHtml(sim.name)}</div>
                     <div class="entry-meta">
                       <span class="tag" style="background:var(--warning-soft); color:var(--warning); font-weight:800;">Simulado ${curInst}/${sim.installments}x</span>
                       <span class="tag">${escapeHtml(sim.group || 'Gerais')}</span>
-                      <span>${escapeHtml(sim.destination || 'Gerais')}</span>
-                      <span title="Total do Contrato">Total: ${currency(totalCost)}</span>
+                      ${destPillHtml}
+                      <span class="tag" title="Total do Contrato">Total: ${currency(totalCost)}</span>
                     </div>
                   </div>
-                  <div class="entry-right" style="display:flex; align-items:center; gap:8px;">
-                    <span class="entry-amount num negative" style="font-weight:800;">${currency(sim.amount)}</span>
+                  <div class="entry-amount num negative" style="font-weight:800;">${currency(sim.amount)}</div>
+                  <div class="entry-actions">
                     <button type="button" class="icon-btn small edit-sim-btn" data-id="${sim.id}" title="Editar Simulação">
                       <svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                     </button>
