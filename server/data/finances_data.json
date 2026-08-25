@@ -1,0 +1,1891 @@
+{
+  "usr_8dfo5oygmt6m650h": {
+    "userId": "usr_8dfo5oygmt6m650h",
+    "version": 5,
+    "sidebarCollapsed": false,
+    "simplifiedView": false,
+    "chartViewType": "bar",
+    "destChartViewType": "bar",
+    "debtorPersonChartType": "bar",
+    "debtorDestChartType": "bar",
+    "expensesSubView": "monthly",
+    "debtorsSubView": "monthly",
+    "theme": "light",
+    "year": 2026,
+    "month": 9,
+    "profile": {
+      "name": "Lorenzo Cabral",
+      "baseSalary": 2917.56
+    },
+    "destinations": [
+      {
+        "name": "Neon",
+        "color": "#16a7a5",
+        "icon": "card"
+      },
+      {
+        "name": "Pix",
+        "color": "#1f7a5c",
+        "icon": "dollar"
+      },
+      {
+        "name": "Bradesco",
+        "color": "#7a1f1f",
+        "icon": "bank"
+      },
+      {
+        "name": "Outro",
+        "color": "#0a65db",
+        "icon": "globe"
+      },
+      {
+        "name": "Gerais",
+        "color": "#0956d3",
+        "icon": "globe"
+      },
+      {
+        "name": "Nubank PF",
+        "color": "#561f7a",
+        "icon": "card"
+      },
+      {
+        "name": "Nubank PJ",
+        "color": "#260b38",
+        "icon": "card"
+      },
+      {
+        "name": "Nubank",
+        "color": "#371f7a",
+        "icon": "bank"
+      },
+      {
+        "name": "Fernando",
+        "color": "#7a1f1f",
+        "icon": "globe"
+      }
+    ],
+    "categories": [
+      "Moradia",
+      "Lazer",
+      "Gerais",
+      "Assinatura",
+      "Investimento",
+      "Saúde"
+    ],
+    "budgets": {
+      "Moradia": 1000,
+      "Lazer": 800,
+      "Alimentação": 1500,
+      "Cartão": 3000,
+      "Gerais": 1000,
+      "Assinatura": 100,
+      "Investimento": 2000,
+      "Saúde": 500
+    },
+    "collapsedSections": {
+      "insights": true,
+      "destChart": true,
+      "categoryChart": true,
+      "debtorPerson": true,
+      "debtorDest": true,
+      "extrasCharts": true,
+      "benefitsCharts": true,
+      "investSimulator": true,
+      "investCharts": true,
+      "categoryBudget": true,
+      "incomeCategory": true
+    },
+    "benefitsConfig": {
+      "amount": 1053.63
+    },
+    "benefitTransactions": [],
+    "readNotifications": [
+      "backup"
+    ],
+    "incomes": {},
+    "fixed": [
+      {
+        "destination": "Gerais",
+        "paidHistory": {
+          "2026-08": true
+        },
+        "id": "2s2vi2usb524",
+        "name": "INTERNET",
+        "group": "Moradia",
+        "note": "",
+        "versions": [
+          {
+            "id": "vgk0s30ab524",
+            "year": 2026,
+            "month": 8,
+            "amount": 120
+          }
+        ],
+        "endedFrom": null
+      },
+      {
+        "destination": "Nubank PF",
+        "paidHistory": {
+          "2026-08": true
+        },
+        "id": "zf062ujob524",
+        "name": "ACADEMIA Y",
+        "group": "Saúde",
+        "note": "",
+        "versions": [
+          {
+            "id": "ot5i9ditb524",
+            "year": 2026,
+            "month": 8,
+            "amount": 91.7
+          }
+        ],
+        "endedFrom": null,
+        "dueDay": null
+      },
+      {
+        "destination": "Nubank PF",
+        "paidHistory": {
+          "2026-08": true
+        },
+        "id": "m1vxidlib524",
+        "name": "ACADEMIA L",
+        "group": "Saúde",
+        "note": "",
+        "versions": [
+          {
+            "id": "hdfwg05jb524",
+            "year": 2026,
+            "month": 8,
+            "amount": 82.4
+          }
+        ],
+        "endedFrom": null,
+        "dueDay": null
+      },
+      {
+        "destination": "Nubank PF",
+        "paidHistory": {
+          "2026-08": true
+        },
+        "id": "otzxsdbfb524",
+        "name": "SPOTIFY",
+        "group": "Assinatura",
+        "note": "",
+        "versions": [
+          {
+            "id": "d3spugeeb524",
+            "year": 2026,
+            "month": 8,
+            "amount": 12.9
+          }
+        ],
+        "endedFrom": null
+      },
+      {
+        "destination": "Nubank PF",
+        "paidHistory": {
+          "2026-08": true
+        },
+        "id": "dzknc12hb524",
+        "name": "APPLE",
+        "group": "Assinatura",
+        "note": "",
+        "versions": [
+          {
+            "id": "opw7kqtwb524",
+            "year": 2026,
+            "month": 8,
+            "amount": 5.9
+          }
+        ],
+        "endedFrom": null
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": true
+        },
+        "id": "keooi4ykb524",
+        "name": "JOVITOOLS + GEMINI",
+        "group": "Assinatura",
+        "note": "",
+        "versions": [
+          {
+            "id": "x0ibh4bab524",
+            "year": 2026,
+            "month": 8,
+            "amount": 57.21
+          }
+        ],
+        "endedFrom": {
+          "year": 2026,
+          "month": 11
+        }
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": true
+        },
+        "id": "bbr8utr1b524",
+        "name": "AMAZON",
+        "group": "Assinatura",
+        "note": "",
+        "versions": [
+          {
+            "id": "elpj8a8zb524",
+            "year": 2026,
+            "month": 8,
+            "amount": 13.9
+          }
+        ],
+        "endedFrom": null
+      },
+      {
+        "destination": "Gerais",
+        "paidHistory": {
+          "2026-08": true
+        },
+        "id": "0qlio3vzb524",
+        "name": "NUCEL",
+        "group": "Assinatura",
+        "note": "",
+        "versions": [
+          {
+            "id": "o3sbr39ub524",
+            "year": 2026,
+            "month": 8,
+            "amount": 30
+          }
+        ],
+        "endedFrom": null
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-11": false
+        },
+        "id": "0l9etkyzfwn3",
+        "name": "GOOGLE CLOUD",
+        "group": "Assinatura",
+        "note": "",
+        "dueDay": null,
+        "versions": [
+          {
+            "id": "o1fk4jyefwn3",
+            "year": 2026,
+            "month": 11,
+            "amount": 23.99
+          }
+        ],
+        "endedFrom": null
+      },
+      {
+        "destination": "Nubank",
+        "paidHistory": {
+          "2027-02": false
+        },
+        "id": "gbna6iz8iodl",
+        "name": "MOTOCA",
+        "group": "Investimento",
+        "note": "",
+        "dueDay": null,
+        "versions": [
+          {
+            "id": "jxejsqh4iodl",
+            "year": 2027,
+            "month": 2,
+            "amount": 1800
+          }
+        ],
+        "endedFrom": {
+          "year": 2027,
+          "month": 2
+        }
+      },
+      {
+        "destination": "Nubank PF",
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "hp5fgh35j63l",
+        "name": "UBER - 23/08",
+        "group": "Gerais",
+        "note": "Uber para ir pro aniversário do Miguel, sobrinho da Yasmim.",
+        "dueDay": 8,
+        "versions": [
+          {
+            "id": "e7f3xig5j63l",
+            "year": 2026,
+            "month": 9,
+            "amount": 24.4
+          }
+        ],
+        "endedFrom": null
+      }
+    ],
+    "variable": [
+      {
+        "destination": "Fernando",
+        "paidHistory": {
+          "2026-08": true,
+          "2026-09": false,
+          "2026-07": true,
+          "2026-03": true,
+          "2026-04": true,
+          "2026-05": true,
+          "2026-06": true,
+          "2027-01": false
+        },
+        "id": "mbc0grxqb524",
+        "name": "ENERGIA SOLAR",
+        "group": "Investimento",
+        "note": "PAGAR AO FERNANDO",
+        "amount": 1445.41,
+        "startMonth": 4,
+        "startYear": 2026,
+        "endMonth": 2,
+        "endYear": 2027,
+        "dueDay": null
+      },
+      {
+        "destination": "Fernando",
+        "paidHistory": {
+          "2026-08": true,
+          "2026-07": true,
+          "2026-04": true,
+          "2026-05": true,
+          "2026-06": true,
+          "2026-09": false
+        },
+        "id": "ivyd47ueb524",
+        "name": "VOLANTE",
+        "group": "Lazer",
+        "note": "PAGAR AO FERNANDO",
+        "amount": 177.73,
+        "startMonth": 5,
+        "startYear": 2026,
+        "endMonth": 2,
+        "endYear": 2027,
+        "dueDay": null
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": true,
+          "2026-07": true,
+          "2026-05": true,
+          "2026-06": true
+        },
+        "id": "pwwvj4oub524",
+        "name": "COMPRAS DA AMAZON",
+        "group": "Lazer",
+        "note": "",
+        "amount": 55.82,
+        "startMonth": 5,
+        "startYear": 2026,
+        "endMonth": 1,
+        "endYear": 2027
+      },
+      {
+        "destination": "Neon",
+        "paidHistory": {
+          "2026-08": true,
+          "2026-07": true,
+          "2026-05": true,
+          "2026-06": true
+        },
+        "id": "ly4p6anrb524",
+        "name": "LUVAS DE BOXE",
+        "group": "Lazer",
+        "note": "",
+        "amount": 34.73,
+        "startMonth": 5,
+        "startYear": 2026,
+        "endMonth": 10,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": true,
+          "2026-07": true,
+          "2026-05": true,
+          "2026-06": true
+        },
+        "id": "b88v14jtb524",
+        "name": "KIT DE BOXE",
+        "group": "Lazer",
+        "note": "",
+        "amount": 28.28,
+        "startMonth": 5,
+        "startYear": 2026,
+        "endMonth": 10,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": true,
+          "2026-07": true,
+          "2026-05": true,
+          "2026-06": true,
+          "2026-09": false
+        },
+        "id": "zdz38lx1b524",
+        "name": "ROUPAS DA SHEIN",
+        "group": "Lazer",
+        "note": "",
+        "amount": 64.42,
+        "startMonth": 6,
+        "startYear": 2026,
+        "endMonth": 11,
+        "endYear": 2026,
+        "dueDay": null
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": true,
+          "2026-07": true,
+          "2026-05": true,
+          "2026-06": true
+        },
+        "id": "1zoj7elkb524",
+        "name": "ROUPAS DA RENNER",
+        "group": "Lazer",
+        "note": "",
+        "amount": 47.45,
+        "startMonth": 5,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": true,
+          "2026-07": true,
+          "2026-05": true,
+          "2026-06": true
+        },
+        "id": "omq4735sb524",
+        "name": "CASACO DO R10",
+        "group": "Lazer",
+        "note": "",
+        "amount": 43.98,
+        "startMonth": 5,
+        "startYear": 2026,
+        "endMonth": 10,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": true
+        },
+        "id": "01xqcr6ob524",
+        "name": "COMPRAS DO ALIEXPRESS",
+        "group": "Lazer",
+        "note": "",
+        "amount": 59.99,
+        "startMonth": 8,
+        "startYear": 2026,
+        "endMonth": 1,
+        "endYear": 2027
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": true
+        },
+        "id": "3ayc5dryb524",
+        "name": "MELISSA DA YASMIM",
+        "group": "Lazer",
+        "note": "",
+        "amount": 33.99,
+        "startMonth": 8,
+        "startYear": 2026,
+        "endMonth": 1,
+        "endYear": 2027
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": true,
+          "2026-09": false
+        },
+        "id": "gexpa230b524",
+        "name": "GABINETE E COOLER",
+        "group": "Lazer",
+        "note": "",
+        "amount": 108.13,
+        "startMonth": 8,
+        "startYear": 2026,
+        "endMonth": 1,
+        "endYear": 2027,
+        "dueDay": 8
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": true,
+          "2026-09": false
+        },
+        "id": "87s1vxr0b524",
+        "name": "FIGURINHAS DA COPA",
+        "group": "Lazer",
+        "note": "A outra parte dos 62,5 é da Yasmim.",
+        "amount": 31.25,
+        "startMonth": 8,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026,
+        "dueDay": null
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": false
+        },
+        "id": "augnefq5b524",
+        "name": "CONTROLADORA RGB",
+        "group": "Lazer",
+        "note": "",
+        "amount": 34.93,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": false
+        },
+        "id": "qxihtx2xb524",
+        "name": "ALIEXPRESS",
+        "group": "Lazer",
+        "note": "",
+        "amount": 73.25,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 1,
+        "endYear": 2027
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": false
+        },
+        "id": "oxai9ue4b524",
+        "name": "PASTA TERMICA",
+        "group": "Lazer",
+        "note": "",
+        "amount": 17.5,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 12,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": false
+        },
+        "id": "c1ra058zb524",
+        "name": "RECARGA PORTATIL",
+        "group": "Lazer",
+        "note": "",
+        "amount": 20.2,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 11,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": false
+        },
+        "id": "t0kh2x7kb524",
+        "name": "CINEMINHA",
+        "group": "Lazer",
+        "note": "",
+        "amount": 23.48,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 10,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": false
+        },
+        "id": "4n83jl17b524",
+        "name": "LUVAS DE COZINHA",
+        "group": "Lazer",
+        "note": "",
+        "amount": 19.2,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": false
+        },
+        "id": "jdwk0fqab524",
+        "name": "FIGURINHAS DA COPA",
+        "group": "Lazer",
+        "note": "",
+        "amount": 28.28,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 10,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": false,
+          "2026-09": false
+        },
+        "id": "uyrvaav0b524",
+        "name": "ITENS DO GATO",
+        "group": "Gerais",
+        "note": "",
+        "amount": 42,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026,
+        "dueDay": null
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": false
+        },
+        "id": "ee1tpiaob524",
+        "name": "JOELHEIRA",
+        "group": "Lazer",
+        "note": "",
+        "amount": 16.9,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": false
+        },
+        "id": "lz8i6rcfb524",
+        "name": "MANGA DE BLEACH",
+        "group": "Lazer",
+        "note": "",
+        "amount": 17.65,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 11,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": false,
+          "2026-09": false
+        },
+        "id": "p2kkcpajb524",
+        "name": "PORÃO + GASTOS CASUAIS",
+        "group": "Gerais",
+        "note": "R$ 45 - Porão\nR$ 21 - Pizza com os mlk\nR$ 60 - Costa Mendes\nR$ 25 - Pilhas\nR$ 30 - Mercado",
+        "amount": 196,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026,
+        "dueDay": null
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": false,
+          "2026-09": false
+        },
+        "id": "4us7htmsb524",
+        "name": "TRAVESSEIROS",
+        "group": "Saúde",
+        "note": "",
+        "amount": 33.3,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 11,
+        "endYear": 2026,
+        "dueDay": null
+      },
+      {
+        "destination": "Neon",
+        "paidHistory": {
+          "2026-08": false,
+          "2026-09": false
+        },
+        "id": "rcxs7jp7b524",
+        "name": "COSMETICOS",
+        "group": "Lazer",
+        "note": "",
+        "amount": 53,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026,
+        "dueDay": null
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-08": false
+        },
+        "id": "lkih3ba4b524",
+        "name": "ITENS DA SHOPEE",
+        "group": "Lazer",
+        "note": "",
+        "amount": 68.97,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 1,
+        "endYear": 2027
+      },
+      {
+        "destination": "Pix",
+        "paidHistory": {
+          "2026-11": false
+        },
+        "id": "s7tdcyfocmw2",
+        "name": "QUARTO DA YASMIM",
+        "group": "Gerais",
+        "note": "",
+        "dueDay": null,
+        "amount": 300,
+        "startMonth": 11,
+        "startYear": 2026,
+        "endMonth": 11,
+        "endYear": 2026
+      },
+      {
+        "destination": "Pix",
+        "paidHistory": {
+          "2026-12": false
+        },
+        "id": "mdrmct37gjj1",
+        "name": "QUARTO DA YASMIM",
+        "group": "Gerais",
+        "note": "",
+        "dueDay": null,
+        "amount": 300,
+        "startMonth": 12,
+        "startYear": 2026,
+        "endMonth": 12,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "sqo2ohpstcbw",
+        "name": "AREIA DO GATO",
+        "group": "Gerais",
+        "note": "",
+        "dueDay": null,
+        "amount": 37,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "ket2i1qlsxuw",
+        "name": "FRANGO",
+        "group": "Gerais",
+        "note": "",
+        "dueDay": null,
+        "amount": 14.99,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "4qyiq61ran2p",
+        "name": "COOLER 2",
+        "group": "Lazer",
+        "note": "",
+        "dueDay": 8,
+        "amount": 94.71,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 12,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank",
+        "paidHistory": {
+          "2027-02": false
+        },
+        "id": "da0e2l0qu527",
+        "name": "MOTOCA",
+        "group": "Investimento",
+        "note": "",
+        "dueDay": null,
+        "amount": 1800,
+        "startMonth": 3,
+        "startYear": 2027,
+        "endMonth": 12,
+        "endYear": 2027
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "zdp2r8t1g1ap",
+        "name": "CREATINA",
+        "group": "Saúde",
+        "note": "",
+        "dueDay": 8,
+        "amount": 14.23,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 1,
+        "endYear": 2027
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "aow5sr0yzt7e",
+        "name": "GASOLINA",
+        "group": "Gerais",
+        "note": "",
+        "dueDay": 8,
+        "amount": 20,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PJ",
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "rjkkr872e4ia",
+        "name": "UBER - 22/03",
+        "group": "Gerais",
+        "note": "",
+        "dueDay": 8,
+        "amount": 16.8,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PF",
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "ogok16s7jf6c",
+        "name": "GASOLINA - 23/08",
+        "group": "Gerais",
+        "note": "",
+        "dueDay": 23,
+        "amount": 25,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      }
+    ],
+    "extras": [
+      {
+        "id": "4bb6szht87yv",
+        "title": "SHEIN",
+        "source": "Gerais",
+        "amount": 19.6,
+        "sender": "Yasmim",
+        "description": "PARTE DA YASMIM",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 12,
+        "endYear": 2026,
+        "paidHistory": {
+          "2026-09": false,
+          "2026-11": false
+        }
+      },
+      {
+        "id": "fq6cqnkl87yv",
+        "title": "AMAZON",
+        "source": "Gerais",
+        "amount": 6,
+        "sender": "Fernando",
+        "description": "FERNANDO",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 10,
+        "endYear": 2026,
+        "paidHistory": {
+          "2026-09": false,
+          "2026-11": false
+        }
+      },
+      {
+        "id": "hcc62vzv87yv",
+        "title": "PLANTÃO SMARTSPACE",
+        "source": "Gerais",
+        "amount": 120,
+        "sender": "Smartspace",
+        "description": "SOBREAVISO DO DIA 18/07",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026,
+        "paidHistory": {
+          "2026-09": false
+        }
+      },
+      {
+        "id": "9pdpfmrd87yv",
+        "title": "PLANTÃO SMARTSPACE",
+        "source": "Gerais",
+        "amount": 115,
+        "sender": "Smartspace",
+        "description": "SOBREAVISO DO DIA 25/07",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026,
+        "paidHistory": {
+          "2026-09": false
+        }
+      },
+      {
+        "id": "w7xnumtj87yv",
+        "title": "PLANTÃO SMARTSPACE",
+        "source": "Gerais",
+        "amount": 75,
+        "sender": "Smartspace",
+        "description": "SOBREAVISO DO DIA 01/08",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026,
+        "paidHistory": {
+          "2026-09": false
+        }
+      },
+      {
+        "id": "apv0p3o787yv",
+        "title": "PLANTÃO SMARTSPACE",
+        "source": "Gerais",
+        "amount": 185,
+        "sender": "Smartspace",
+        "description": "SOBREAVISO DO DIA 15/08",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026,
+        "paidHistory": {
+          "2026-09": false
+        }
+      },
+      {
+        "id": "skv0h0kcb4jj",
+        "title": "DECIMO TERCEIRO - 1ª PARCELA",
+        "source": "Smartspace",
+        "amount": 936.94,
+        "sender": "Smartspace",
+        "description": "",
+        "startMonth": 11,
+        "startYear": 2026,
+        "endMonth": 11,
+        "endYear": 2026,
+        "paidHistory": {
+          "2026-11": false
+        }
+      },
+      {
+        "id": "lupbystgbkym",
+        "title": "DECIMO TERCEIRO - 2ª PARCELA",
+        "source": "Smartspace",
+        "amount": 789.47,
+        "sender": "Smartspace",
+        "description": "",
+        "startMonth": 12,
+        "startYear": 2026,
+        "endMonth": 12,
+        "endYear": 2026,
+        "paidHistory": {
+          "2026-11": false,
+          "2026-12": false
+        }
+      }
+    ],
+    "debtors": [
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false,
+          "2026-06": true,
+          "2026-07": true,
+          "2026-08": true
+        },
+        "id": "v8hhcjfw0xoj",
+        "title": "CELULAR",
+        "debtorName": "YASMIM",
+        "amount": 400,
+        "destination": "Nubank PJ",
+        "description": "CELULAR DA YASMIM",
+        "startMonth": 6,
+        "startYear": 2026,
+        "endMonth": 12,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false,
+          "2026-07": true,
+          "2026-08": true
+        },
+        "id": "iukqz57p0xoj",
+        "title": "ROUPAS DA SHEIN",
+        "debtorName": "YASMIM",
+        "amount": 19.6,
+        "destination": "Nubank PJ",
+        "description": "COMPRAS NA SHEIN",
+        "startMonth": 7,
+        "startYear": 2026,
+        "endMonth": 12,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false,
+          "2026-08": true
+        },
+        "id": "dor7l9gi0xoj",
+        "title": "SHOOPE",
+        "debtorName": "YASMIM",
+        "amount": 37.25,
+        "destination": "Nubank PJ",
+        "description": "",
+        "startMonth": 8,
+        "startYear": 2026,
+        "endMonth": 10,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "88cgj64m0xoj",
+        "title": "MOCHILA",
+        "debtorName": "YASMIM",
+        "amount": 33.01,
+        "destination": "Nubank PJ",
+        "description": "",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 11,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false,
+          "2026-08": true
+        },
+        "id": "pa7lxfua0xoj",
+        "title": "FIGURINHAS DA COPA",
+        "debtorName": "YASMIM",
+        "amount": 31.25,
+        "destination": "Nubank PJ",
+        "description": "",
+        "startMonth": 8,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false,
+          "2026-08": true
+        },
+        "id": "bq1wv4dg0xoj",
+        "title": "MOCHILA DA CATHARINA",
+        "debtorName": "SYLVIA",
+        "amount": 138.24,
+        "destination": "Neon",
+        "description": "",
+        "startMonth": 8,
+        "startYear": 2026,
+        "endMonth": 10,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false,
+          "2026-08": true
+        },
+        "id": "vynqqizg0xoj",
+        "title": "DROGAS DO PAI",
+        "debtorName": "PAINHO",
+        "amount": 48.48,
+        "destination": "Nubank PJ",
+        "description": "REMEDIOS QUE MÃE QUE COMPROU NO CENTRO",
+        "startMonth": 8,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false,
+          "2026-08": true
+        },
+        "id": "dh3daif80xoj",
+        "title": "COMPRAS DA MÃE",
+        "debtorName": "MAINHA",
+        "amount": 44,
+        "destination": "Nubank PJ",
+        "description": "Aqui inclue a compra dita como \"Soye Comercio\" + uma compra no valor de 11 reais. Ambas divididas por 2.",
+        "startMonth": 8,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false,
+          "2026-08": true
+        },
+        "id": "k6plzjip0xoj",
+        "title": "COSMETICOS DA MÃE",
+        "debtorName": "MAINHA",
+        "amount": 60.67,
+        "destination": "Nubank PJ",
+        "description": "COSMETICOS QUE A MÃE COMPROU NO CENTRO",
+        "startMonth": 8,
+        "startYear": 2026,
+        "endMonth": 10,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false,
+          "2026-06": true,
+          "2026-07": true,
+          "2026-08": true
+        },
+        "id": "zaq6zpdt0xoj",
+        "title": "KIT DE BOXE",
+        "debtorName": "FERNANDO",
+        "amount": 22.9,
+        "destination": "Nubank PJ",
+        "description": "COMPRA DO KIT BOXE",
+        "startMonth": 6,
+        "startYear": 2026,
+        "endMonth": 10,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "sxn9uo9f0xoj",
+        "title": "ARMARIO",
+        "debtorName": "YASMIM",
+        "amount": 36.26,
+        "destination": "Nubank PJ",
+        "description": "MOVEL DO QUARTO DA YASMIM",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 2,
+        "endYear": 2027
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "fxjuhm450xoj",
+        "title": "DESPESAS GERAIS",
+        "debtorName": "YASMIM",
+        "amount": 70,
+        "destination": "Nubank PJ",
+        "description": "",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "jeyqryaqt9uu",
+        "title": "PIZZA",
+        "debtorName": "SÁVIO",
+        "amount": 21,
+        "destination": "Nubank PJ",
+        "description": "Pizza do FDS de FIFA",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "1awqy36atgab",
+        "title": "PIZZA",
+        "debtorName": "FERRER",
+        "amount": 21,
+        "destination": "Nubank PJ",
+        "description": "Pizza do FDS de FIFA",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": true
+        },
+        "id": "3m6ot8gktoh0",
+        "title": "PIZZA",
+        "debtorName": "FERNANDO",
+        "amount": 21,
+        "destination": "Nubank PJ",
+        "description": "Pizza do FDS de FIFA",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "66thmz7btume",
+        "title": "PIZZA",
+        "debtorName": "YASMIM",
+        "amount": 40,
+        "destination": "Nubank PJ",
+        "description": "Pizza do dia 20/08",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "qqbh44o7ubj0",
+        "title": "PIZZA",
+        "debtorName": "PAINHO",
+        "amount": 40,
+        "destination": "Nubank PJ",
+        "description": "Pizza do dia 20/08",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "bfk3f8vfi16i",
+        "title": "TORNOZELEIRA",
+        "debtorName": "YASMIM",
+        "amount": 25,
+        "destination": "Neon",
+        "description": "",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "upt3p0x6ihqi",
+        "title": "ALMOÇO",
+        "debtorName": "YASMIM",
+        "amount": 30.5,
+        "destination": "Neon",
+        "description": "",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "lhbybmqfk0r0",
+        "title": "TEMU",
+        "debtorName": "MAINHA",
+        "amount": 17.36,
+        "destination": "Neon",
+        "description": "",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      }
+    ],
+    "assets": [
+      {
+        "id": "4bpgh4gmvnuu",
+        "name": "Motoca",
+        "category": "Outros",
+        "currentAmount": 0,
+        "goalAmount": 20000,
+        "destination": "Nubank",
+        "note": ""
+      }
+    ],
+    "aportes": [
+      {
+        "id": "86ydkdggok87",
+        "assetId": "0ytpdhnjobwi",
+        "amount": 1800,
+        "month": 9,
+        "year": 2026,
+        "note": ""
+      }
+    ],
+    "customExpensesOrder": [],
+    "lastModified": "2026-08-25T00:34:14.160Z",
+    "firstLogin": false
+  },
+  "usr_25gspgvwmt6n3907": {
+    "userId": "usr_25gspgvwmt6n3907",
+    "version": 5,
+    "sidebarCollapsed": false,
+    "simplifiedView": false,
+    "chartViewType": "bar",
+    "destChartViewType": "bar",
+    "debtorPersonChartType": "bar",
+    "debtorDestChartType": "bar",
+    "expensesSubView": "monthly",
+    "debtorsSubView": "monthly",
+    "theme": "light",
+    "year": 2026,
+    "month": 8,
+    "profile": {
+      "name": "Teste",
+      "baseSalary": 3000
+    },
+    "destinations": [
+      {
+        "name": "XP Investimentos",
+        "color": "#1F7A5C",
+        "icon": "bank"
+      },
+      {
+        "name": "BTG Pactual",
+        "color": "#2563EB",
+        "icon": "bank"
+      },
+      {
+        "name": "Nubank",
+        "color": "#8B5CF6",
+        "icon": "card"
+      },
+      {
+        "name": "Nubank PF",
+        "color": "#8B5CF6",
+        "icon": "card"
+      },
+      {
+        "name": "Nubank PJ",
+        "color": "#8B5CF6",
+        "icon": "card"
+      },
+      {
+        "name": "Neon",
+        "color": "#06B6D4",
+        "icon": "card"
+      },
+      {
+        "name": "Pix",
+        "color": "#10B981",
+        "icon": "dollar"
+      },
+      {
+        "name": "Em dinheiro",
+        "color": "#F59E0B",
+        "icon": "wallet"
+      },
+      {
+        "name": "Fernando",
+        "color": "#EC4899",
+        "icon": "card"
+      },
+      {
+        "name": "Gerais",
+        "color": "#6B7280",
+        "icon": "wallet"
+      },
+      {
+        "name": "Flash Benefícios",
+        "color": "#EC4899",
+        "icon": "card"
+      },
+      {
+        "name": "Terceiro",
+        "color": "#6B7280",
+        "icon": "globe"
+      },
+      {
+        "name": "Itaú",
+        "color": "#F97316",
+        "icon": "card"
+      },
+      {
+        "name": "Bradesco",
+        "color": "#EF4444",
+        "icon": "card"
+      },
+      {
+        "name": "Binance",
+        "color": "#EAB308",
+        "icon": "globe"
+      }
+    ],
+    "categories": [
+      "Moradia",
+      "Lazer",
+      "Alimentação",
+      "Cartão",
+      "Transporte",
+      "Saúde",
+      "Educação",
+      "Gerais",
+      "Investimento",
+      "Assinatura",
+      "Outros"
+    ],
+    "budgets": {
+      "Moradia": 2000,
+      "Lazer": 800,
+      "Alimentação": 1500,
+      "Cartão": 3000,
+      "Gerais": 1000,
+      "Investimento": 2000,
+      "Saúde": 500,
+      "Assinatura": 200
+    },
+    "collapsedSections": {
+      "insights": false,
+      "destChart": false,
+      "categoryChart": false,
+      "debtorPerson": false,
+      "debtorDest": false,
+      "extrasCharts": false,
+      "benefitsCharts": false,
+      "investSimulator": false,
+      "investCharts": false
+    },
+    "benefitsConfig": {
+      "amount": 1053.63
+    },
+    "benefitTransactions": [
+      {
+        "id": "ben_1",
+        "description": "Supermercado Pão de Açúcar",
+        "type": "va",
+        "amount": 320.5,
+        "day": 5,
+        "month": 8,
+        "year": 2026,
+        "note": "Compras da quinzena"
+      },
+      {
+        "id": "ben_2",
+        "description": "Almoço Restaurante Executivo",
+        "type": "vr",
+        "amount": 48.9,
+        "day": 12,
+        "month": 8,
+        "year": 2026,
+        "note": "Almoço trabalho"
+      }
+    ],
+    "readNotifications": [],
+    "incomes": {},
+    "fixed": [
+      {
+        "id": "exp_fix_1",
+        "name": "INTERNET",
+        "amount": 120,
+        "group": "Gerais",
+        "destination": "Gerais",
+        "startMonth": 8,
+        "startYear": 2026,
+        "dueDay": 10,
+        "versions": [
+          {
+            "id": "v1",
+            "year": 2026,
+            "month": 8,
+            "amount": 120
+          }
+        ],
+        "paidHistory": {}
+      },
+      {
+        "id": "exp_fix_2",
+        "name": "ACADEMIA Y",
+        "amount": 91.7,
+        "group": "Saúde",
+        "destination": "Nubank PF",
+        "startMonth": 8,
+        "startYear": 2026,
+        "dueDay": 10,
+        "versions": [
+          {
+            "id": "v2",
+            "year": 2026,
+            "month": 8,
+            "amount": 91.7
+          }
+        ],
+        "paidHistory": {}
+      },
+      {
+        "id": "exp_fix_3",
+        "name": "ACADEMIA L",
+        "amount": 82.4,
+        "group": "Saúde",
+        "destination": "Nubank PF",
+        "startMonth": 8,
+        "startYear": 2026,
+        "dueDay": 10,
+        "versions": [
+          {
+            "id": "v3",
+            "year": 2026,
+            "month": 8,
+            "amount": 82.4
+          }
+        ],
+        "paidHistory": {}
+      },
+      {
+        "id": "exp_fix_4",
+        "name": "JOVITOOLS + GEMINI",
+        "amount": 57.21,
+        "group": "Assinatura",
+        "destination": "Nubank PJ",
+        "startMonth": 8,
+        "startYear": 2026,
+        "dueDay": 8,
+        "versions": [
+          {
+            "id": "v4",
+            "year": 2026,
+            "month": 8,
+            "amount": 57.21
+          }
+        ],
+        "paidHistory": {}
+      }
+    ],
+    "variable": [
+      {
+        "id": "exp_var_1",
+        "name": "ENERGIA SOLAR",
+        "amount": 1445.41,
+        "group": "Investimento",
+        "destination": "Fernando",
+        "startMonth": 3,
+        "startYear": 2026,
+        "endMonth": 1,
+        "endYear": 2027,
+        "installments": 11,
+        "installmentNumber": 6,
+        "dueDay": 10,
+        "paidHistory": {}
+      },
+      {
+        "id": "exp_var_2",
+        "name": "PORÇÃO + GASTOS CASUAIS",
+        "amount": 196,
+        "group": "Gerais",
+        "destination": "Nubank PJ",
+        "startMonth": 8,
+        "startYear": 2026,
+        "endMonth": 8,
+        "endYear": 2026,
+        "installments": 1,
+        "installmentNumber": 1,
+        "dueDay": 10,
+        "paidHistory": {}
+      },
+      {
+        "id": "exp_var_3",
+        "name": "VOLANTE",
+        "amount": 177.73,
+        "group": "Lazer",
+        "destination": "Fernando",
+        "startMonth": 4,
+        "startYear": 2026,
+        "endMonth": 1,
+        "endYear": 2027,
+        "installments": 10,
+        "installmentNumber": 5,
+        "dueDay": 10,
+        "paidHistory": {}
+      },
+      {
+        "id": "exp_var_4",
+        "name": "GABINETE E COOLER",
+        "amount": 108.13,
+        "group": "Lazer",
+        "destination": "Nubank PJ",
+        "startMonth": 3,
+        "startYear": 2026,
+        "endMonth": 8,
+        "endYear": 2026,
+        "installments": 6,
+        "installmentNumber": 2,
+        "dueDay": 8,
+        "paidHistory": {}
+      }
+    ],
+    "extras": [
+      {
+        "id": "ext_1",
+        "title": "Freelance & Consultoria",
+        "source": "Consultoria",
+        "sender": "Empresa X",
+        "amount": 520.6,
+        "month": 8,
+        "year": 2026,
+        "status": "pago"
+      }
+    ],
+    "debtors": [
+      {
+        "id": "deb_1",
+        "title": "Empréstimo Celular",
+        "debtorName": "Yasmim",
+        "amount": 250,
+        "destination": "Nubank",
+        "startMonth": 8,
+        "startYear": 2026,
+        "endMonth": 11,
+        "endYear": 2026,
+        "countInTotal": true,
+        "paidHistory": {}
+      },
+      {
+        "id": "deb_2",
+        "title": "Compras Parceladas",
+        "debtorName": "Sylvia",
+        "amount": 180,
+        "destination": "Nubank",
+        "startMonth": 8,
+        "startYear": 2026,
+        "endMonth": 12,
+        "endYear": 2026,
+        "countInTotal": false,
+        "paidHistory": {}
+      }
+    ],
+    "assets": [
+      {
+        "id": "ast_1",
+        "name": "Tesouro Selic 2029",
+        "category": "Renda Fixa",
+        "destination": "XP Investimentos",
+        "currentAmount": 15400,
+        "goalAmount": 50000,
+        "note": "Reserva de emergência"
+      },
+      {
+        "id": "ast_2",
+        "name": "FII HGLG11 / KNRI11",
+        "category": "FIIs (Imobiliário)",
+        "destination": "BTG Pactual",
+        "currentAmount": 8500,
+        "goalAmount": 25000,
+        "note": "Renda passiva"
+      }
+    ],
+    "aportes": [
+      {
+        "id": "ap_1",
+        "assetId": "ast_1",
+        "amount": 1000,
+        "month": 8,
+        "year": 2026,
+        "note": "Aporte mensal"
+      }
+    ]
+  },
+  "usr_6t17121omt6n52e4": {
+    "userId": "usr_6t17121omt6n52e4",
+    "version": 5,
+    "firstLogin": false,
+    "sidebarCollapsed": false,
+    "simplifiedView": false,
+    "chartViewType": "bar",
+    "destChartViewType": "bar",
+    "debtorPersonChartType": "bar",
+    "debtorDestChartType": "bar",
+    "expensesSubView": "monthly",
+    "debtorsSubView": "monthly",
+    "theme": "light",
+    "year": 2026,
+    "month": 8,
+    "profile": {
+      "name": "teste",
+      "baseSalary": 0
+    },
+    "destinations": [
+      {
+        "name": "XP Investimentos",
+        "color": "#1F7A5C",
+        "icon": "bank"
+      },
+      {
+        "name": "BTG Pactual",
+        "color": "#2563EB",
+        "icon": "bank"
+      },
+      {
+        "name": "Nubank",
+        "color": "#8B5CF6",
+        "icon": "card"
+      },
+      {
+        "name": "Nubank PF",
+        "color": "#8B5CF6",
+        "icon": "card"
+      },
+      {
+        "name": "Nubank PJ",
+        "color": "#8B5CF6",
+        "icon": "card"
+      },
+      {
+        "name": "Neon",
+        "color": "#06B6D4",
+        "icon": "card"
+      },
+      {
+        "name": "Pix",
+        "color": "#10B981",
+        "icon": "dollar"
+      },
+      {
+        "name": "Em dinheiro",
+        "color": "#F59E0B",
+        "icon": "wallet"
+      },
+      {
+        "name": "Gerais",
+        "color": "#6B7280",
+        "icon": "wallet"
+      }
+    ],
+    "categories": [
+      "Moradia",
+      "Lazer",
+      "Alimentação",
+      "Cartão",
+      "Transporte",
+      "Saúde",
+      "Educação",
+      "Gerais",
+      "Investimento",
+      "Assinatura",
+      "Outros"
+    ],
+    "budgets": {
+      "Moradia": 2000,
+      "Lazer": 800,
+      "Alimentação": 1500,
+      "Cartão": 3000,
+      "Gerais": 1000
+    },
+    "collapsedSections": {
+      "insights": false,
+      "destChart": false,
+      "categoryChart": false,
+      "debtorPerson": false,
+      "debtorDest": false,
+      "extrasCharts": false,
+      "benefitsCharts": false,
+      "investSimulator": false,
+      "investCharts": false
+    },
+    "benefitsConfig": {
+      "amount": 0
+    },
+    "benefitTransactions": [],
+    "readNotifications": [],
+    "incomes": {},
+    "fixed": [],
+    "variable": [],
+    "extras": [],
+    "debtors": [],
+    "assets": [],
+    "aportes": [],
+    "customExpensesOrder": [],
+    "lastModified": "2026-08-24T03:05:06.225Z"
+  }
+}

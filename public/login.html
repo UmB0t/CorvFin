@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Finanças Pro - Autenticação</title>
+  <meta name="description"
+    content="Acesse ou crie sua conta no Finanças Pro, o sistema definitivo de gestão financeira pessoal e empresarial.">
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231F7A5C'/%3E%3Cpath d='M32 14c-9.9 0-18 8.1-18 18s8.1 18 18 18 18-8.1 18-18-18zm-2 9h4v2.1c2.8.5 4.8 2.3 4.9 5h-3.4c-.1-1.3-.9-2.2-2.7-2.2-1.7 0-2.6.8-2.6 1.9 0 1.2 1 1.7 3.5 2.3 3.8.9 5.8 2.2 5.8 5.2 0 3-2.2 4.9-5.5 5.4V43h-4v-2.1c-3.1-.5-5.2-2.5-5.3-5.5h3.5c.2 1.6 1.2 2.6 3.1 2.6 1.8 0 2.8-.9 2.8-2 0-1.2-.9-1.8-3.6-2.4-3.6-.9-5.6-2.2-5.6-5.1 0-2.8 2.1-4.7 5.1-5.3V23z' fill='white'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="css/auth.css">
+</head>
+
+<body>
+  <div class="auth-container">
+    <div class="auth-header">
+      <div class="auth-logo" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v10M9 9.5c0-1.4 1.3-2.5 3-2.5s3 1.1 3 2.5-1.3 2.5-3 2.5-3 1.1-3 2.5" />
+        </svg>
+      </div>
+      <h1 class="auth-title">Finanças Pro</h1>
+      <p class="auth-sub" id="auth-sub">Acesse sua conta para continuar</p>
+    </div>
+
+    <!-- Navegação por abas estilo pílula -->
+    <div class="auth-tabs" role="tablist">
+      <button type="button" class="auth-tab active" id="tab-login" role="tab" aria-selected="true"
+        aria-controls="form-login">
+        Entrar
+      </button>
+      <button type="button" class="auth-tab" id="tab-register" role="tab" aria-selected="false"
+        aria-controls="form-register">
+        Criar Conta
+      </button>
+    </div>
+
+    <!-- Formulário de Login -->
+    <form id="form-login" class="auth-form" novalidate>
+      <div class="field">
+        <label for="login-user">Login ou E-mail</label>
+        <input type="text" id="login-user" name="login" placeholder="Ex: email@gmail.com" autocomplete="username"
+          required>
+      </div>
+
+      <div class="field">
+        <label for="login-pass">Senha</label>
+        <input type="password" id="login-pass" name="senha" placeholder="••••••••" autocomplete="current-password"
+          required>
+      </div>
+
+      <button type="submit" class="btn-submit" id="btn-login">
+        <span>Acessar Painel</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      </button>
+    </form>
+
+    <!-- Formulário de Cadastro -->
+    <form id="form-register" class="auth-form" style="display: none;" novalidate>
+      <div class="field">
+        <label for="reg-nome">Nome Completo</label>
+        <input type="text" id="reg-nome" name="nome" placeholder="Ex: Seu Nome" autocomplete="name" required>
+      </div>
+
+      <div class="field">
+        <label for="reg-login">Nome de Usuário (Login)</label>
+        <input type="text" id="reg-login" name="login" placeholder="Ex: seu.nome" autocomplete="username"
+          autocapitalize="none" required>
+      </div>
+
+      <div class="field">
+        <label for="reg-email">E-mail</label>
+        <input type="email" id="reg-email" name="email" placeholder="seu@email.com" autocomplete="email" required>
+      </div>
+
+      <div class="field">
+        <label for="reg-pass">Senha</label>
+        <input type="password" id="reg-pass" name="senha" placeholder="Mínimo 8 caracteres" autocomplete="new-password"
+          required>
+      </div>
+
+      <!-- Validador de Requisitos da Senha -->
+      <div class="password-strength-box" id="password-strength-box">
+        <div class="strength-bar-track">
+          <div class="strength-bar-fill" id="strength-bar-fill"></div>
+        </div>
+        <div class="strength-criteria">
+          <div class="crit-item" id="crit-len">
+            <span class="crit-icon">✕</span> 8+ caracteres
+          </div>
+          <div class="crit-item" id="crit-upper">
+            <span class="crit-icon">✕</span> Letra maiúscula
+          </div>
+          <div class="crit-item" id="crit-lower">
+            <span class="crit-icon">✕</span> Letra minúscula
+          </div>
+          <div class="crit-item" id="crit-num">
+            <span class="crit-icon">✕</span> Número (0-9)
+          </div>
+          <div class="crit-item" id="crit-spec">
+            <span class="crit-icon">✕</span> Caractere especial
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="reg-pass-confirm">Confirmar Senha</label>
+        <input type="password" id="reg-pass-confirm" name="confirma_senha" placeholder="Repita a senha"
+          autocomplete="new-password" required>
+      </div>
+
+      <label class="checkbox-wrap">
+        <input type="checkbox" id="reg-notify" name="notificacoes_ativas" checked>
+        <span>Desejo receber notificações e relatórios por e-mail</span>
+      </label>
+
+      <button type="submit" class="btn-submit" id="btn-register">
+        <span>Criar Minha Conta</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      </button>
+    </form>
+  </div>
+
+  <div id="auth-toast" class="auth-toast" style="display: none;" role="alert"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+</body>
+
+</html>
