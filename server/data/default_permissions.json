@@ -1,0 +1,9 @@
+{
+  "despesas": true,
+  "extras": true,
+  "devedores": true,
+  "investimentos": true,
+  "beneficios": true,
+  "compras": false,
+  "simulacao": false
+}

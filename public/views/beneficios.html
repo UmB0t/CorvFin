@@ -1,0 +1,175 @@
+<!-- ABA: BENEFÍCIOS -->
+<main id="tab-benefits" class="tab-content" hidden>
+  <div class="top-actions-bar" style="margin-bottom:16px;">
+    <div>
+      <h2 style="font-size:1.4rem; font-weight:800; margin:0;">Controle de Benefícios</h2>
+      <p style="margin:2px 0 0; color:var(--muted); font-size:.84rem; font-weight:600;">Gerenciamento de
+        benefícios corporativos (Saúde, VR, VA, Transporte, Educação, Cultura, Farmácia) com saldo mensal
+        compartilhado.</p>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <div class="pill-toolbar" role="toolbar" aria-label="Gráficos de Benefícios">
+        <button class="toolbar-btn active" id="toggleBenefitsChartsBtn" data-tooltip="Alternar Gráficos de Benefícios" aria-label="Alternar Gráficos de Benefícios">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+            <path d="M22 12A10 10 0 0 0 12 2v10z" />
+          </svg>
+        </button>
+      </div>
+      <button class="btn primary small" id="newBenefitBtn" style="height:38px; border-radius:999px;">
+        <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+        Novo Gasto com Benefício
+      </button>
+    </div>
+  </div>
+
+  <section class="metrics" id="benefitMetrics" style="margin-bottom:20px;"></section>
+
+  <!-- SEÇÃO DE GRÁFICOS VISUAIS DE BENEFÍCIOS -->
+  <div class="sections-grid" id="benefitsChartsGrid" style="margin-bottom: 20px;">
+    <!-- GRÁFICO 1: DISTRIBUIÇÃO POR TIPO DE BENEFÍCIO -->
+    <div class="card chart-card">
+      <div class="chart-head" style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 class="chart-title">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+            <path d="M22 12A10 10 0 0 0 12 2v10z" />
+          </svg>
+          Distribuição por Tipo de Benefício
+        </h3>
+        <span class="badge info" id="benefitTypeTotalBadge">R$ 0,00</span>
+      </div>
+      <div id="benefitTypeChartContainer" style="padding:14px;">
+        <div class="dest-bars" id="benefitTypeBars"></div>
+      </div>
+    </div>
+
+    <!-- GRÁFICO 2: EVOLUÇÃO DIÁRIA DE GASTOS & SALDO RESTANTE -->
+    <div class="card chart-card">
+      <div class="chart-head" style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 class="chart-title">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+          Evolução Diária & Saldo Restante
+        </h3>
+        <span class="badge positive" id="benefitRemainingBadge">Saldo: R$ 0,00</span>
+      </div>
+      <div id="benefitDailyChartContainer" style="padding:14px;">
+        <div id="benefitDailyBars" style="display:flex; align-items:flex-end; gap:6px; height:130px; padding:10px 0; border-bottom:1px solid var(--line); overflow-x:auto;"></div>
+        <div id="benefitDailySummary" style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; font-size:.78rem; color:var(--muted); font-weight:700; flex-wrap:wrap; gap:6px;">
+          <span>Total Gasto: <strong id="benefitSpentSummaryText" style="color:var(--danger);">R$ 0,00</strong></span>
+          <span>Crédito Base: <strong id="benefitBaseSummaryText" style="color:var(--brand);">R$ 0,00</strong></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <input id="benefitsSearchInput" placeholder="Pesquisar gastos por descrição, local ou observação...">
+    <select id="benefitsTypeFilter">
+      <option value="all">Todos os Benefícios</option>
+      <option value="saude">Saúde</option>
+      <option value="vr">Vale Refeição (VR)</option>
+      <option value="va">Vale Alimentação (VA)</option>
+      <option value="transporte">Transporte</option>
+      <option value="educacao">Educação</option>
+      <option value="cultura">Cultura</option>
+      <option value="farmacia">Farmácia</option>
+    </select>
+    <select id="benefitsSortFilter">
+      <option value="date-desc">Mais Recentes Primeiro</option>
+      <option value="date-asc">Mais Antigos Primeiro</option>
+      <option value="amount-desc">Maior Valor</option>
+      <option value="amount-asc">Menor Valor</option>
+      <option value="custom">Personalizada (Arrastar)</option>
+    </select>
+  </div>
+
+  <div class="card section-card full-width">
+    <div class="section-head">
+      <div class="section-title">
+        <svg class="svg-icon" viewBox="0 0 24 24">
+          <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
+          <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
+          <line x1="6" y1="1" x2="6" y2="4" />
+          <line x1="10" y1="1" x2="10" y2="4" />
+          <line x1="14" y1="1" x2="14" y2="4" />
+        </svg>
+        Transações & Lançamentos com Benefícios
+      </div>
+      <div class="section-head-right">
+        <span class="section-total" id="sumBenefits">R$ 0,00</span>
+      </div>
+    </div>
+    <div class="entries-list" id="listBenefits"></div>
+  </div>
+</main>
+
+<!-- MODAL: GASTO COM BENEFÍCIO (VA / VR) -->
+<dialog id="benefitDialog">
+  <form id="benefitForm">
+    <div class="dialog-head">
+      <h3 id="benefitDialogTitle">Lançar Gasto com Benefício</h3>
+      <button type="button" class="icon-btn small" data-close="benefitDialog">
+        <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+    <div class="dialog-body">
+      <input type="hidden" id="benefitId">
+
+      <div class="field">
+        <label>Descrição / Estabelecimento</label>
+        <input id="benefitDescription" required placeholder="Ex: Supermercado Extra, Almoço Restaurante, Padaria">
+      </div>
+
+      <div class="field-grid">
+        <div class="field">
+          <label>Tipo de Benefício</label>
+          <select id="benefitType" required>
+            <option value="saude">Saúde</option>
+            <option value="vr">Vale Refeição (VR)</option>
+            <option value="va">Vale Alimentação (VA)</option>
+            <option value="transporte">Transporte</option>
+            <option value="educacao">Educação</option>
+            <option value="cultura">Cultura</option>
+            <option value="farmacia">Farmácia</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Valor Gasto (R$)</label>
+          <input id="benefitAmount" type="number" step="0.01" min="0.01" required placeholder="0,00">
+        </div>
+      </div>
+
+      <div class="field-grid">
+        <div class="field">
+          <label>Dia do Gasto</label>
+          <input id="benefitDay" type="number" min="1" max="31" required placeholder="Dia">
+        </div>
+        <div class="field">
+          <label>Mês / Ano</label>
+          <div style="display:flex; gap:6px;">
+            <select id="benefitMonth"></select>
+            <input id="benefitYear" type="number" min="2000" max="2100" style="width:90px;" required>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Observações / Detalhes (Opcional)</label>
+        <textarea id="benefitNote" rows="2" placeholder="Detalhes opcionais da compra"></textarea>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button type="button" class="btn danger small" id="deleteBenefitBtn" hidden>Excluir</button>
+      <button type="submit" class="btn primary" style="margin-left:auto;">Salvar Lançamento</button>
+    </div>
+  </form>
+</dialog>

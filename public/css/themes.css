@@ -1,0 +1,76 @@
+
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #0B132B;
+      --surface: #1C2541;
+      --surface-2: #2A365C;
+      --surface-3: #3A4A7C;
+      --text: #EDF2F7;
+      --muted: #94A3B8;
+      --line: #2D3748;
+      --shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+      --shadow-lg: 0 20px 45px rgba(0, 0, 0, 0.6);
+
+      --brand: #4E9F3D;
+      --brand-strong: #1E5128;
+      --brand-soft: #1C3322;
+      --danger: #F87171;
+      --danger-soft: #391919;
+      --warning: #FBBF24;
+      --warning-soft: #382A10;
+      --success: #4ADE80;
+      --success-soft: #143822;
+      --info: #60A5FA;
+      --info-soft: #172A46;
+
+      --c-fixed: #818CF8;
+      --c-fixed-soft: #232752;
+      --c-variable: #FBBF24;
+      --c-variable-soft: #382A10;
+      --c-invest: #4ADE80;
+      --c-invest-soft: #1C3322;
+      --c-extra: #34D399;
+      --c-extra-soft: #133A2C;
+      --c-debt: #F87171;
+      --c-debt-soft: #3D1C1C;
+    }
+
+    html[data-theme="dark"] .sidebar-link.active {
+      color: #ffffff !important;
+    }
+
+    [data-theme="dark"] .pill-toolbar {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    }
+
+    [data-theme="dark"] .toolbar-divider {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Dark Mode Tooltips */
+    [data-theme="dark"] [data-tooltip]::after {
+      background: rgba(28, 43, 35, 0.95);
+      color: #f0fdf4;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    }
+
+    [data-theme="dark"] [data-tooltip]::before {
+      border-top-color: rgba(28, 43, 35, 0.95);
+    }
+
+    [data-theme="dark"] .top-actions-bar [data-tooltip]::before {
+      border-bottom-color: rgba(28, 43, 35, 0.95);
+    }
+
+    [data-theme="dark"] .notification-badge {
+      border-color: var(--surface, #1a2821);
+    }
+
+    html[data-theme="dark"] .chart-type-btn.active {
+      background: var(--surface-3) !important;
+      color: #ffffff !important;
+      border-color: var(--line) !important;
+    }

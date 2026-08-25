@@ -1,0 +1,166 @@
+<main id="tab-extras" class="tab-content" hidden>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; flex-wrap:wrap; gap:10px;">
+          <div>
+            <h2 style="font-size:1.4rem; font-weight:800; margin:0;">Rendas Extras</h2>
+            <p style="margin:2px 0 0; color:var(--muted); font-size:.84rem; font-weight:600;">Gerenciamento de receitas adicionais, bônus, freelances e trabalhos pontuais.</p>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div class="pill-toolbar" role="toolbar" aria-label="Gráficos de Rendas Extras">
+              <button class="toolbar-btn active" id="toggleExtrasChartsBtn" data-tooltip="Alternar Gráficos de Renda Extra" aria-label="Alternar Gráficos de Renda Extra">
+                <svg class="svg-icon" viewBox="0 0 24 24">
+                  <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+                  <path d="M22 12A10 10 0 0 0 12 2v10z" />
+                </svg>
+              </button>
+            </div>
+            <button class="btn primary small" id="newExtraBtn" style="height:38px; border-radius:999px;">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Adicionar Renda Extra
+            </button>
+          </div>
+        </div>
+
+        <section class="metrics" id="extraMetrics" style="margin-bottom: 20px;"></section>
+
+        <!-- SEÇÃO DE GRÁFICOS VISUAIS DE RENDAS EXTRAS -->
+        <div class="sections-grid" id="extrasChartsGrid" style="margin-bottom: 20px;">
+          <!-- GRÁFICO 1: DISTRIBUIÇÃO POR ORIGEM / REMETENTE -->
+          <div class="card chart-card">
+            <div class="chart-head" style="display:flex; justify-content:space-between; align-items:center;">
+              <h3 class="chart-title">
+                <svg class="svg-icon" viewBox="0 0 24 24">
+                  <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+                  <path d="M22 12A10 10 0 0 0 12 2v10z" />
+                </svg>
+                Distribuição por Origem / Pagador
+              </h3>
+              <span class="badge info" id="extrasOriginTotalBadge">R$ 0,00</span>
+            </div>
+            <div id="extrasOriginChartContainer" style="padding:14px;">
+              <div class="dest-bars" id="extrasOriginBars"></div>
+            </div>
+          </div>
+
+          <!-- GRÁFICO 2: EVOLUÇÃO ANUAL DE RECEITA EXTRA -->
+          <div class="card chart-card">
+            <div class="chart-head" style="display:flex; justify-content:space-between; align-items:center;">
+              <h3 class="chart-title">
+                <svg class="svg-icon" viewBox="0 0 24 24">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                Evolução Mensal no Ano
+              </h3>
+              <span class="badge positive" id="extrasYearTotalBadge">Total Anual: R$ 0,00</span>
+            </div>
+            <div id="extrasYearChartContainer" style="padding:14px;">
+              <div id="extrasYearBars" style="display:flex; align-items:flex-end; gap:6px; height:130px; padding:10px 0; border-bottom:1px solid var(--line); overflow-x:auto;"></div>
+              <div id="extrasYearSummary" style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; font-size:.78rem; color:var(--muted); font-weight:700;">
+                <span>Média Mensal: <strong id="extrasAvgSummaryText" style="color:var(--brand);">R$ 0,00</strong></span>
+                <span>Total no Ano: <strong id="extrasTotalYearSummaryText" style="color:var(--success);">R$ 0,00</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+          <input id="extrasSearchInput" placeholder="Pesquisar rendas extras por título, origem ou remetente...">
+          <select id="extrasStatusFilter">
+            <option value="all">Todos os Status</option>
+            <option value="pendente">Apenas Pendentes (A Receber)</option>
+            <option value="pago">Apenas Recebidos</option>
+          </select>
+        </div>
+
+        <div class="card section-card">
+          <div class="section-head">
+            <div class="section-title"><span class="swatch" style="background:var(--c-extra)"></span>Rendas Extras do
+              Mês</div>
+            <div class="section-head-right">
+              <span class="section-total" id="sumExtra">R$ 0,00</span>
+              <button class="icon-btn small" id="markAllExtrasPaidBtn"
+                data-tooltip="Marcar todas as rendas extras como RECEBIDAS">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="section-body" id="listExtra"></div>
+        </div>
+      </main>
+
+<dialog id="extraDialog">
+    <form id="extraForm">
+      <div class="dialog-head">
+        <h3 id="extraDialogTitle">Nova Renda Extra</h3>
+        <button type="button" class="icon-btn small" data-close="extraDialog">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+      <div class="dialog-body">
+        <input type="hidden" id="extraId">
+        <div class="field-grid">
+          <div class="field"><label>Título / Descrição</label><input id="extraTitle" required
+              placeholder="Ex: Projeto Freelance"></div>
+          <div class="field"><label>Origem do Valor</label><input id="extraSource" required
+              placeholder="Ex: Consultoria / Venda"></div>
+        </div>
+        <div class="field-grid">
+          <div class="field"><label>Valor (R$)</label><input id="extraAmount" type="number" step="0.01" min="0.01"
+              required placeholder="0,00"></div>
+          <div class="field"><label>Quem vai enviar</label><input id="extraSender" required
+              placeholder="Ex: Cliente João"></div>
+        </div>
+
+        <label style="font-size:.78rem; font-weight:800; color:var(--muted); text-transform:uppercase;">Vigência (Início
+          e Fim)</label>
+        <div class="field-grid">
+          <div class="field"><label>Início</label>
+            <div style="display:flex; gap:6px;">
+              <select id="extraStartMonth"></select>
+              <input id="extraStartYear" type="number" min="2000" max="2100" style="width:90px;">
+            </div>
+          </div>
+          <div class="field"><label>Fim (Encerto)</label>
+            <div style="display:flex; gap:6px;">
+              <select id="extraEndMonth"></select>
+              <input id="extraEndYear" type="number" min="2000" max="2100" style="width:90px;">
+            </div>
+          </div>
+        </div>
+        <div class="calc-badge" id="extraInstallmentsBadge">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <path
+              d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+            <line x1="12" y1="22.08" x2="12" y2="12" />
+          </svg>
+          Período: 1 mês
+        </div>
+
+        <div class="field">
+          <label>Status do Recebimento (Mês Atual)</label>
+          <select id="extraStatus">
+            <option value="pendente">Pendente (A Receber)</option>
+            <option value="pago">Pago (Recebido)</option>
+          </select>
+        </div>
+
+        <div class="field"><label>Descrição / Detalhes</label><textarea id="extraDescription" rows="2"
+            placeholder="Informações adicionais"></textarea></div>
+      </div>
+      <div class="dialog-foot">
+        <button type="button" class="btn danger small" id="deleteExtraBtn" hidden>Excluir</button>
+        <button type="submit" class="btn primary" style="margin-left:auto;">Salvar Renda Extra</button>
+      </div>
+    </form>
+  </dialog>

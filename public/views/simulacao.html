@@ -1,0 +1,169 @@
+<!-- TAB 6: SIMULAÇÃO DE DESPESAS (SANDBOX) -->
+<main id="tab-simulation" class="tab-content" hidden>
+  <!-- CABEÇALHO & BARRA DE AÇÕES DO SANDBOX -->
+  <div id="simHeaderBar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; flex-wrap:wrap; gap:10px;">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span class="tag" style="background:var(--brand-soft); color:var(--brand); font-weight:800; padding:6px 12px; border-radius:999px;">
+        🔒 Ambiente Sandbox Isolado
+      </span>
+      <span style="font-size:0.84rem; color:var(--muted);">Simulações não alteram seus dados reais</span>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <button type="button" class="btn soft" id="simResetBtn" style="border-radius:999px;">
+        <svg class="svg-icon" viewBox="0 0 24 24">
+          <polyline points="1 4 1 10 7 10" />
+          <polyline points="23 20 23 14 17 14" />
+          <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
+        </svg>
+        Resetar Simulação
+      </button>
+      <button type="button" class="btn primary" id="simAddBtn" style="border-radius:999px;">
+        <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+        Adicionar Gasto Simulado
+      </button>
+    </div>
+  </div>
+
+  <!-- CARDS COMPARATIVOS DE IMPACTO (KPIS LADO A LADO) -->
+  <section class="metrics" id="simMetrics" style="margin-bottom:20px;"></section>
+
+  <!-- GRÁFICO COMPARATIVO MENSAL (12 MESES) -->
+  <section class="card chart-card full-width" id="simChartSectionCard" style="margin-bottom: 20px;">
+    <div class="chart-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <h3 class="chart-title">
+        <svg class="svg-icon" viewBox="0 0 24 24">
+          <line x1="18" y1="20" x2="18" y2="10" />
+          <line x1="12" y1="20" x2="12" y2="4" />
+          <line x1="6" y1="20" x2="6" y2="14" />
+        </svg>
+        Projeção Anual: Cenário Oficial vs. Cenário com Simulações (<span id="simYearLabel">2026</span>)
+      </h3>
+      <div class="legend" style="margin:0;">
+        <span><i style="background:var(--brand)"></i> Cenário Oficial</span>
+        <span><i style="background:var(--warning, #D97706)"></i> Com Simulação</span>
+        <span><i style="background:var(--danger, #C0392B)"></i> Em Déficit</span>
+      </div>
+    </div>
+    <div id="simMonthlyBarsContainer" style="padding:16px 4px 8px;"></div>
+  </section>
+
+  <!-- PAINEL DUPLO DE LISTAGEM -->
+  <div class="sections-grid">
+    <!-- Coluna Esquerda: Despesas Reais Atuais -->
+    <div class="card section-card">
+      <div class="section-head">
+        <div class="section-title">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--c-fixed);">
+            <rect x="2" y="5" width="20" height="14" rx="2" />
+            <line x1="2" y1="10" x2="22" y2="10" />
+          </svg>
+          Despesas Reais do Mês (Oficiais)
+        </div>
+        <div class="section-head-right">
+          <span class="section-total" id="simRealTotal">R$ 0,00</span>
+        </div>
+      </div>
+      <div style="padding: 10px 14px 0;">
+        <p class="hint" style="margin:0 0 8px;">Lançamentos vigentes cadastrados na base oficial (somente leitura).</p>
+      </div>
+      <div class="entries-list" id="simRealList" style="padding:10px 14px 16px;"></div>
+    </div>
+
+    <!-- Coluna Direita: Despesas Simuladas Inseridas -->
+    <div class="card section-card">
+      <div class="section-head">
+        <div class="section-title">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand);">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="16" />
+            <line x1="8" y1="12" x2="16" y2="12" />
+          </svg>
+          Novos Gastos Simulados (Hipotéticos)
+        </div>
+        <div class="section-head-right">
+          <span class="section-total" id="simInjectedTotal" style="color:var(--warning);">+R$ 0,00</span>
+        </div>
+      </div>
+      <div style="padding: 10px 14px 0;">
+        <p class="hint" style="margin:0 0 8px;">Gastos adicionais testados neste sandbox.</p>
+      </div>
+      <div class="entries-list" id="simInjectedList" style="padding:10px 14px 16px;"></div>
+    </div>
+  </div>
+</main>
+
+<!-- DIALOG: NOVO / EDITAR GASTO SIMULADO (SANDBOX) -->
+<dialog id="simDialog" style="max-width: 540px; width: 95%;">
+  <div class="dialog-head">
+    <div>
+      <h3 id="simDialogTitle">Adicionar Gasto Simulado</h3>
+      <p style="margin:2px 0 0; color:var(--muted); font-size:.82rem; font-weight:600;">Injete uma despesa hipotética para projetar o impacto financeiro.</p>
+    </div>
+    <button type="button" class="icon-btn small" data-close="simDialog">
+      <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
+        <line x1="18" y1="6" x2="6" y2="18" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+    </button>
+  </div>
+  <form id="simForm">
+    <input type="hidden" id="simFormId">
+    <div class="dialog-body" style="padding: 18px 20px; display: grid; gap: 14px;">
+      <div class="field">
+        <label>Descrição da Compra / Gasto</label>
+        <input type="text" id="simFormName" placeholder="Ex: Financiamento Carro, iPhone 16 Pro, Curso" required>
+      </div>
+
+      <div class="field-grid">
+        <div class="field">
+          <label>Valor da Parcela (R$)</label>
+          <input type="number" step="0.01" min="0.01" id="simFormAmount" placeholder="0,00" required class="num" style="font-weight:800; font-size:1.05rem;">
+        </div>
+        <div class="field">
+          <label>Qtd. de Parcelas</label>
+          <input type="number" min="1" max="360" id="simFormInstallments" value="12" required class="num" style="font-weight:800; font-size:1.05rem; text-align:center;">
+        </div>
+      </div>
+
+      <div class="field-grid">
+        <div class="field">
+          <label>Mês de Início</label>
+          <select id="simFormStartMonth"></select>
+        </div>
+        <div class="field">
+          <label>Ano de Início</label>
+          <select id="simFormStartYear"></select>
+        </div>
+      </div>
+
+      <div class="field-grid">
+        <div class="field">
+          <label>Categoria</label>
+          <select id="simFormCategory"></select>
+        </div>
+        <div class="field">
+          <label>Destino / Conta</label>
+          <select id="simFormDestination"></select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Observações (Opcional)</label>
+        <textarea id="simFormNote" rows="2" placeholder="Detalhes opcionais da simulação"></textarea>
+      </div>
+
+      <div class="calc-badge" id="simFormTotalBadge" style="justify-content:center; padding:10px; font-weight:750;">
+        Total do Contrato: R$ 0,00 (12 parcelas)
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button type="button" class="btn danger small" id="simFormDeleteBtn" hidden>Excluir da Simulação</button>
+      <button type="button" class="btn soft" data-close="simDialog" style="margin-left:auto;">Cancelar</button>
+      <button type="submit" class="btn primary">Injetar no Cenário</button>
+    </div>
+  </form>
+</dialog>
