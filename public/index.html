@@ -9578,6 +9578,15 @@
       }
 
       function initTabs() {
+        const toggleBtn = $('#toggleSidebarBtn');
+        if (toggleBtn) {
+          toggleBtn.addEventListener('click', () => {
+            state.sidebarCollapsed = !state.sidebarCollapsed;
+            saveState();
+            applySidebarState();
+          });
+        }
+
         const user = JSON.parse(localStorage.getItem('user_data') || localStorage.getItem('user') || '{}');
         const isAdmin = !!user.is_admin;
         const sidebarAdminLink = $('#sidebarAdminLink');
