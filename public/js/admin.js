@@ -8,6 +8,15 @@ const AdminModule = (() => {
     return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
   }
 
+  // Toast / Feedback Helper
+  function showFeedback(msg, type = 'success') {
+    if (typeof window.showToast === 'function') {
+      window.showToast(msg, type);
+    } else if (typeof notify === 'function') {
+      notify(msg, type);
+    }
+  }
+
   // Load registered users from API
   async function loadUsers() {
     if (typeof API === 'undefined' || !API.getUsers) return [];
@@ -33,22 +42,42 @@ const AdminModule = (() => {
     try {
       const res = await API.updatePermissions(userId, user.permissions);
       if (res && res.success) {
-        notify(`Permissão de "${moduleKey}" atualizada para ${user.nome}!`, 'success');
+        showFeedback(`Permissão de "${moduleKey}" atualizada para ${user.nome}!`, 'success');
       } else {
-        notify(res.message || 'Erro ao salvar permissão.', 'error');
+        showFeedback(res?.message || 'Erro ao salvar permissão.', 'error');
       }
     } catch (err) {
-      notify('Falha na comunicação com o servidor.', 'error');
+      showFeedback('Falha na comunicação com o servidor.', 'error');
     }
   }
 
   // Open Create User Modal
-  function openCreateUserModal() {
+  async function openCreateUserModal() {
+    let defaultPerms = {
+      despesas: true,
+      extras: true,
+      devedores: true,
+      investimentos: true,
+      beneficios: true,
+      compras: true,
+      simulacao: true
+    };
+    try {
+      if (typeof API !== 'undefined' && API.getDefaultPermissions) {
+        const res = await API.getDefaultPermissions();
+        if (res && res.success && res.permissions) {
+          defaultPerms = res.permissions;
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao buscar permissões padrão para modal:', err);
+    }
+
     let modal = document.getElementById('adminUserCreateDialog');
     if (!modal) {
       modal = document.createElement('dialog');
       modal.id = 'adminUserCreateDialog';
-      modal.style.cssText = 'max-width: 500px; width: 95%; border: none; border-radius: 16px; background: var(--surface); color: var(--text); padding: 0; box-shadow: 0 20px 40px rgba(0,0,0,0.25);';
+      modal.style.cssText = 'max-width: 520px; width: 95%; border: none; border-radius: 16px; background: var(--surface); color: var(--text); padding: 0; box-shadow: 0 20px 40px rgba(0,0,0,0.25);';
       document.body.appendChild(modal);
     }
 
@@ -56,7 +85,9 @@ const AdminModule = (() => {
       <form id="formAdminCreateUser" style="padding: 24px; display: grid; gap: 14px;">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding-bottom:12px;">
           <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:var(--text);">+ Cadastrar Novo Usuário</h3>
-          <button type="button" class="icon-btn small" id="btnCloseCreateUser">✕</button>
+          <button type="button" class="icon-btn small" id="btnCloseCreateUser" style="display:flex; align-items:center; justify-content:center;" aria-label="Fechar">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px; stroke-width:2.5;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
         </div>
 
         <div class="field">
@@ -80,8 +111,35 @@ const AdminModule = (() => {
         </div>
 
         <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
-          <input type="checkbox" id="adminCreateIsAdmin" style="width:16px; height:16px;">
+          <input type="checkbox" id="adminCreateIsAdmin" style="width:16px; height:16px; accent-color:var(--brand); cursor:pointer;">
           <label for="adminCreateIsAdmin" style="font-size:0.85rem; font-weight:700; cursor:pointer;">Conceder perfil de Administrador</label>
+        </div>
+
+        <div style="border-top:1px solid var(--line); padding-top:12px; margin-top:2px;">
+          <label style="font-size:0.8rem; font-weight:700; color:var(--muted); display:block; margin-bottom:8px;">Módulos com Acesso Liberado (Herdados do Padrão)</label>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; font-size:0.78rem; background:var(--surface-2); padding:10px; border-radius:10px; border:1px solid var(--line);">
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
+              <input type="checkbox" id="adminCreatePerm_despesas" ${defaultPerms.despesas !== false ? 'checked' : ''} style="accent-color:var(--brand);"> Despesas
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
+              <input type="checkbox" id="adminCreatePerm_extras" ${defaultPerms.extras !== false ? 'checked' : ''} style="accent-color:var(--brand);"> Rendas Extras
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
+              <input type="checkbox" id="adminCreatePerm_devedores" ${defaultPerms.devedores !== false ? 'checked' : ''} style="accent-color:var(--brand);"> Devedores
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
+              <input type="checkbox" id="adminCreatePerm_investimentos" ${defaultPerms.investimentos !== false ? 'checked' : ''} style="accent-color:var(--brand);"> Investimentos
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
+              <input type="checkbox" id="adminCreatePerm_beneficios" ${defaultPerms.beneficios !== false ? 'checked' : ''} style="accent-color:var(--brand);"> Benefícios
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
+              <input type="checkbox" id="adminCreatePerm_compras" ${defaultPerms.compras !== false ? 'checked' : ''} style="accent-color:var(--brand);"> Compras
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
+              <input type="checkbox" id="adminCreatePerm_simulacao" ${defaultPerms.simulacao !== false ? 'checked' : ''} style="accent-color:var(--brand);"> Simulação
+            </label>
+          </div>
         </div>
 
         <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
@@ -104,21 +162,31 @@ const AdminModule = (() => {
 
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
-        notify('Informe um e-mail válido.', 'error');
+        showFeedback('Informe um e-mail válido.', 'error');
         return;
       }
 
+      const permissions = {
+        despesas: !!document.getElementById('adminCreatePerm_despesas')?.checked,
+        extras: !!document.getElementById('adminCreatePerm_extras')?.checked,
+        devedores: !!document.getElementById('adminCreatePerm_devedores')?.checked,
+        investimentos: !!document.getElementById('adminCreatePerm_investimentos')?.checked,
+        beneficios: !!document.getElementById('adminCreatePerm_beneficios')?.checked,
+        compras: !!document.getElementById('adminCreatePerm_compras')?.checked,
+        simulacao: !!document.getElementById('adminCreatePerm_simulacao')?.checked
+      };
+
       try {
-        const res = await API.createUser({ nome, login, email, senha, is_admin });
+        const res = await API.createUser({ nome, login, email, senha, is_admin, permissions });
         if (res && res.success) {
           modal.close();
-          notify(res.message || 'Usuário criado com sucesso!', 'success');
+          showFeedback(res.message || 'Usuário criado com sucesso!', 'success');
           render();
         } else {
-          notify(res.message || 'Erro ao criar usuário.', 'error');
+          showFeedback(res.message || 'Erro ao criar usuário.', 'error');
         }
       } catch (err) {
-        notify('Erro de conexão.', 'error');
+        showFeedback('Erro de conexão.', 'error');
       }
     });
 
@@ -142,7 +210,9 @@ const AdminModule = (() => {
       <form id="formAdminEditUser" style="padding: 24px; display: grid; gap: 14px;">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding-bottom:12px;">
           <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:var(--text);">Editar Usuário</h3>
-          <button type="button" class="icon-btn small" id="btnCloseEditUser">✕</button>
+          <button type="button" class="icon-btn small" id="btnCloseEditUser" style="display:flex; align-items:center; justify-content:center;" aria-label="Fechar">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px; stroke-width:2.5;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
         </div>
 
         <div class="field">
@@ -166,7 +236,7 @@ const AdminModule = (() => {
         </div>
 
         <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
-          <input type="checkbox" id="adminEditIsAdmin" ${user.is_admin ? 'checked' : ''} style="width:16px; height:16px;">
+          <input type="checkbox" id="adminEditIsAdmin" ${user.is_admin ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--brand); cursor:pointer;">
           <label for="adminEditIsAdmin" style="font-size:0.85rem; font-weight:700; cursor:pointer;">Perfil de Administrador</label>
         </div>
 
@@ -190,7 +260,7 @@ const AdminModule = (() => {
 
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
-        notify('Informe um e-mail válido.', 'error');
+        showFeedback('Informe um e-mail válido.', 'error');
         return;
       }
 
@@ -201,13 +271,13 @@ const AdminModule = (() => {
         const res = await API.updateUser(userId, payload);
         if (res && res.success) {
           modal.close();
-          notify(res.message || 'Dados do usuário atualizados com sucesso!', 'success');
+          showFeedback(res.message || 'Dados do usuário atualizados com sucesso!', 'success');
           render();
         } else {
-          notify(res.message || 'Erro ao atualizar usuário.', 'error');
+          showFeedback(res.message || 'Erro ao atualizar usuário.', 'error');
         }
       } catch (err) {
-        notify('Erro de conexão.', 'error');
+        showFeedback('Erro de conexão.', 'error');
       }
     });
 
@@ -225,12 +295,12 @@ const AdminModule = (() => {
         if (res && res.success) {
           usersList = usersList.filter(u => u.id !== userId);
           render();
-          notify('Usuário e dados excluídos com sucesso!', 'success');
+          showFeedback('Usuário e dados excluídos com sucesso!', 'success');
         } else {
-          notify(res.message || 'Erro ao excluir usuário.', 'error');
+          showFeedback(res.message || 'Erro ao excluir usuário.', 'error');
         }
       } catch (err) {
-        notify('Erro de conexão.', 'error');
+        showFeedback('Erro de conexão.', 'error');
       }
     }
   }
@@ -281,8 +351,10 @@ const AdminModule = (() => {
               ${escapeHtml(u.email)}
             </td>
             <td style="padding:14px 16px; text-align:center;">
-              <span class="tag" style="background:${u.is_admin ? 'var(--brand-soft)' : 'var(--surface-2)'}; color:${u.is_admin ? 'var(--brand)' : 'var(--muted)'}; font-weight:800; font-size:0.75rem; padding:4px 8px; border-radius:6px;">
-                ${u.is_admin ? '👑 Admin' : '👤 Usuário'}
+              <span class="tag" style="background:${u.is_admin ? 'var(--brand-soft)' : 'var(--surface-2)'}; color:${u.is_admin ? 'var(--brand)' : 'var(--muted)'}; font-weight:800; font-size:0.75rem; padding:4px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
+                ${u.is_admin 
+                  ? '<svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Admin' 
+                  : '<svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Usuário'}
               </span>
             </td>
             <td style="padding:14px 16px; text-align:center;">
@@ -308,8 +380,13 @@ const AdminModule = (() => {
               </div>
             </td>
             <td style="padding:14px 16px; text-align:right; white-space:nowrap;">
-              <button type="button" class="btn soft small" data-edit-user="${u.id}" style="margin-right:4px;">✏️ Editar</button>
-              <button type="button" class="btn danger small" data-del-user="${u.id}" ${isSelf ? 'disabled style="opacity:0.3;"' : ''} title="${isSelf ? 'Você não pode excluir sua própria conta' : 'Excluir Usuário'}">🗑️</button>
+              <button type="button" class="btn soft small" data-edit-user="${u.id}" style="margin-right:4px; display:inline-flex; align-items:center; gap:4px;" title="Editar Usuário">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                Editar
+              </button>
+              <button type="button" class="btn danger small" data-del-user="${u.id}" ${isSelf ? 'disabled style="opacity:0.3;"' : ''} title="${isSelf ? 'Você não pode excluir sua própria conta' : 'Excluir Usuário'}" style="display:inline-flex; align-items:center; justify-content:center;">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px; stroke-width:2.2;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+              </button>
             </td>
           </tr>
         `;
@@ -341,12 +418,15 @@ const AdminModule = (() => {
 
     const btnNew = document.getElementById('btnAdminNewUser');
     if (btnNew) {
-      btnNew.onclick = openCreateUserModal;
+      btnNew.onclick = (e) => {
+        if (e) e.preventDefault();
+        openCreateUserModal();
+      };
     }
 
     const btnSaveDefault = document.getElementById('btn-save-default-perms');
     if (btnSaveDefault) {
-      btnSaveDefault.onclick = saveDefaultPermissions;
+      btnSaveDefault.onclick = (e) => saveDefaultPermissions(e);
     }
 
     await loadDefaultPermissions();
@@ -387,7 +467,12 @@ const AdminModule = (() => {
   }
 
   // Save Default Permissions for new users
-  async function saveDefaultPermissions() {
+  async function saveDefaultPermissions(e) {
+    if (e) {
+      e.preventDefault();
+      if (typeof e.stopPropagation === 'function') e.stopPropagation();
+    }
+
     const btn = document.getElementById('btn-save-default-perms');
     const originalText = btn ? btn.innerHTML : 'Salvar Permissões Padrão';
 
@@ -425,9 +510,9 @@ const AdminModule = (() => {
 
       if (res && res.success) {
         if (typeof window.showToast === 'function') {
-          window.showToast('Permissões padrão atualizadas com sucesso!', 'success');
+          window.showToast("Permissões padrão atualizadas com sucesso!", "success");
         } else if (typeof notify === 'function') {
-          notify('Permissões padrão atualizadas com sucesso!', 'success');
+          notify("Permissões padrão atualizadas com sucesso!", "success");
         }
       } else {
         if (typeof window.showToast === 'function') {
