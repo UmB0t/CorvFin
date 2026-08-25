@@ -7,7 +7,7 @@
     "chartViewType": "bar",
     "destChartViewType": "bar",
     "debtorPersonChartType": "bar",
-    "debtorDestChartType": "bar",
+    "debtorDestChartType": "donut",
     "expensesSubView": "monthly",
     "debtorsSubView": "monthly",
     "theme": "light",
@@ -88,7 +88,7 @@
       "categoryChart": true,
       "debtorPerson": true,
       "debtorDest": true,
-      "extrasCharts": true,
+      "extrasCharts": false,
       "benefitsCharts": true,
       "investSimulator": true,
       "investCharts": true,
@@ -1486,7 +1486,7 @@
       }
     ],
     "customExpensesOrder": [],
-    "lastModified": "2026-08-25T20:03:19.733Z",
+    "lastModified": "2026-08-25T20:07:23.974Z",
     "firstLogin": true
   },
   "usr_25gspgvwmt6n3907": {
