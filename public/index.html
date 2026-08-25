@@ -2887,6 +2887,12 @@
 
 
       let state = loadState();
+      window.getState = function getState() {
+        return state;
+      };
+      window.saveState = saveState;
+      window.render = render;
+      window.notify = notify;
       let localFileHandle = null;
 
 
