@@ -51,20 +51,46 @@ function savePermissions(permissions) {
   return safeWriteJSON(config.PERMISSIONS_FILE, permissions);
 }
 
-function getUserPermissions(userId) {
-  const permissions = getPermissions();
-  return permissions[userId] || {
+// Default Permissions Storage Helpers
+function getDefaultPermissions() {
+  const filePath = config.DEFAULT_PERMISSIONS_FILE || path.join(config.DATA_DIR, 'default_permissions.json');
+  return safeReadJSON(filePath, {
     despesas: true,
     extras: true,
     devedores: true,
     investimentos: true,
     beneficios: true,
-    configuracoes: false
-  };
+    compras: true,
+    simulacao: true
+  });
+}
+
+function saveDefaultPermissions(permissions) {
+  const filePath = config.DEFAULT_PERMISSIONS_FILE || path.join(config.DATA_DIR, 'default_permissions.json');
+  return safeWriteJSON(filePath, permissions);
+}
+
+function getUserPermissions(userId) {
+  const permissions = getPermissions();
+  const defaultPerms = getDefaultPermissions();
+  return permissions[userId] || Object.assign(
+    {
+      despesas: true,
+      extras: true,
+      devedores: true,
+      investimentos: true,
+      beneficios: true,
+      compras: true,
+      simulacao: true,
+      configuracoes: false
+    },
+    defaultPerms
+  );
 }
 
 function setUserPermissions(userId, userPerms) {
   const permissions = getPermissions();
+  const defaultPerms = getDefaultPermissions();
   permissions[userId] = Object.assign(
     {
       despesas: true,
@@ -72,8 +98,11 @@ function setUserPermissions(userId, userPerms) {
       devedores: true,
       investimentos: true,
       beneficios: true,
+      compras: true,
+      simulacao: true,
       configuracoes: false
     },
+    defaultPerms,
     userPerms
   );
   savePermissions(permissions);
@@ -172,6 +201,8 @@ module.exports = {
   saveUsers,
   getPermissions,
   savePermissions,
+  getDefaultPermissions,
+  saveDefaultPermissions,
   getUserPermissions,
   setUserPermissions,
   getAllFinances,

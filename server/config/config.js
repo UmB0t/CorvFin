@@ -8,5 +8,6 @@ module.exports = {
   DATA_DIR: path.join(__dirname, '..', 'data'),
   USERS_FILE: path.join(__dirname, '..', 'data', 'users.json'),
   PERMISSIONS_FILE: path.join(__dirname, '..', 'data', 'permissions.json'),
+  DEFAULT_PERMISSIONS_FILE: path.join(__dirname, '..', 'data', 'default_permissions.json'),
   FINANCES_FILE: path.join(__dirname, '..', 'data', 'finances_data.json')
 };

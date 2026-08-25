@@ -14,6 +14,8 @@ const {
   saveUsers,
   getPermissions,
   savePermissions,
+  getDefaultPermissions,
+  saveDefaultPermissions,
   getUserPermissions,
   setUserPermissions,
   getUserFinances,
@@ -92,15 +94,11 @@ app.post('/api/auth/register', async (req, res) => {
     users.push(newUser);
     saveUsers(users);
 
-    // Initial permissions
-    const permissions = setUserPermissions(newUser.id, {
-      despesas: true,
-      extras: true,
-      devedores: true,
-      investimentos: true,
-      beneficios: true,
+    // Initial permissions based on defaults
+    const defaultPerms = getDefaultPermissions();
+    const permissions = setUserPermissions(newUser.id, Object.assign({}, defaultPerms, {
       configuracoes: isFirstUser
-    });
+    }));
 
     // Create initial finances 100% clean and zeroed
     getUserFinances(newUser.id, newUser.nome, 0);
@@ -330,15 +328,10 @@ app.post('/api/admin/users', authMiddleware, adminOnlyMiddleware, async (req, re
     users.push(newUser);
     saveUsers(users);
 
-    setUserPermissions(newUser.id, {
-      despesas: true,
-      extras: true,
-      devedores: true,
-      investimentos: true,
-      beneficios: true,
-      simulacao: true,
+    const defaultPerms = getDefaultPermissions();
+    setUserPermissions(newUser.id, Object.assign({}, defaultPerms, {
       configuracoes: !!is_admin
-    });
+    }));
 
     getUserFinances(newUser.id, newUser.nome, 0);
 
@@ -501,6 +494,46 @@ app.put('/api/admin/permissions/:userId', authMiddleware, adminOnlyMiddleware, (
     return res.status(500).json({ success: false, message: 'Erro ao salvar permissões.' });
   }
 });
+
+// GET /api/admin/default-permissions
+app.get('/api/admin/default-permissions', authMiddleware, adminOnlyMiddleware, (req, res) => {
+  try {
+    const permissions = getDefaultPermissions();
+    return res.json({ success: true, permissions });
+  } catch (err) {
+    console.error('Erro ao buscar permissões padrão:', err);
+    return res.status(500).json({ success: false, message: 'Erro ao buscar permissões padrão.' });
+  }
+});
+
+// POST & PUT /api/admin/default-permissions
+const saveDefaultPermissionsHandler = (req, res) => {
+  try {
+    const permissions = req.body.permissions || req.body;
+    if (!permissions || typeof permissions !== 'object') {
+      return res.status(400).json({ success: false, message: 'Objeto de permissões inválido.' });
+    }
+
+    const permsToSave = {
+      despesas: permissions.despesas !== false,
+      extras: permissions.extras !== false,
+      devedores: permissions.devedores !== false,
+      investimentos: permissions.investimentos !== false,
+      beneficios: permissions.beneficios !== false,
+      compras: permissions.compras !== false,
+      simulacao: permissions.simulacao !== false
+    };
+
+    saveDefaultPermissions(permsToSave);
+    return res.json({ success: true, message: 'Permissões padrão salvas com sucesso!', permissions: permsToSave });
+  } catch (err) {
+    console.error('Erro ao salvar permissões padrão:', err);
+    return res.status(500).json({ success: false, message: 'Erro ao salvar permissões padrão.' });
+  }
+};
+
+app.post('/api/admin/default-permissions', authMiddleware, adminOnlyMiddleware, saveDefaultPermissionsHandler);
+app.put('/api/admin/default-permissions', authMiddleware, adminOnlyMiddleware, saveDefaultPermissionsHandler);
 
 /* ==========================================================================
    STATIC & FALLBACK ROUTES

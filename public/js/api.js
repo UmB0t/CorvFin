@@ -107,6 +107,8 @@ const API = (() => {
     createUser: (payload) => request('/api/admin/users', { method: 'POST', body: JSON.stringify(payload) }),
     updateUser: (userId, payload) => request(`/api/admin/users/${userId}`, { method: 'PUT', body: JSON.stringify(payload) }),
     updatePermissions: (userId, perms) => request(`/api/admin/permissions/${userId}`, { method: 'PUT', body: JSON.stringify({ permissions: perms }) }),
+    getDefaultPermissions: () => request('/api/admin/default-permissions', { method: 'GET' }),
+    saveDefaultPermissions: (permissions) => request('/api/admin/default-permissions', { method: 'POST', body: JSON.stringify({ permissions }) }),
     changeUserRole: (userId, is_admin) => request(`/api/admin/users/${userId}/role`, { method: 'PUT', body: JSON.stringify({ is_admin }) }),
     resetUserPassword: (userId, novaSenha) => request(`/api/admin/users/${userId}/password`, { method: 'PUT', body: JSON.stringify({ novaSenha }) }),
     deleteUser: (userId) => request(`/api/admin/users/${userId}`, { method: 'DELETE' })
@@ -132,3 +134,21 @@ function notify(msg, type = 'info') {
     toast.style.display = 'none';
   }, 3500);
 }
+
+// Global Toast Notifications
+window.showToast = function(message, type = 'success') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = `toast-message toast-${type}`;
+  toast.textContent = message;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+};

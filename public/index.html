@@ -2235,7 +2235,7 @@
             </button>
 
             <!-- POPOVER DE BOAS-VINDAS (ONBOARDING) -->
-            <div id="onboardingPopover" class="onboarding-popover" style="display:none;">
+            <div id="welcome-tour-popover" class="onboarding-popover" style="display: none;">
               <div class="onboarding-arrow">
                 <svg class="onboarding-bounce-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="12" y1="19" x2="12" y2="5"></line>
@@ -2244,7 +2244,6 @@
               </div>
               <div class="onboarding-card">
                 <div class="onboarding-header">
-                  <span class="onboarding-icon">👋</span>
                   <h4 class="onboarding-title">Bem-vindo ao Finanças Pro!</h4>
                 </div>
                 <p class="onboarding-text">
@@ -3635,6 +3634,57 @@
                 <!-- Populado dinamicamente por AdminModule.render() -->
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- SEÇÃO: CONFIGURAÇÃO DE PERMISSÕES PADRÃO (NOVOS USUÁRIOS) -->
+        <div class="card section-card full-width" style="padding: 20px 24px; margin-top: 20px; border-radius: 14px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+            <div>
+              <h3 style="margin:0; font-size:1.1rem; font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px;">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:20px; height:20px;">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                Configuração de Permissões Padrão (Novos Usuários)
+              </h3>
+              <p style="margin:4px 0 0; color:var(--muted); font-size:0.84rem;">
+                Defina quais módulos estarão automaticamente liberados quando um novo usuário for cadastrado no sistema.
+              </p>
+            </div>
+            <button type="button" id="btn-save-default-perms" class="btn primary btn-primary" style="border-radius:10px; font-weight:800; display:flex; align-items:center; gap:6px;">
+              Salvar Permissões Padrão
+            </button>
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; background:var(--surface-2); padding:16px; border-radius:12px; border:1px solid var(--line);">
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; font-weight:700; color:var(--text);">
+              <input type="checkbox" id="default-perm-despesas" data-default-module="despesas" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+              <span>Despesas</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; font-weight:700; color:var(--text);">
+              <input type="checkbox" id="default-perm-extras" data-default-module="extras" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+              <span>Rendas Extras</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; font-weight:700; color:var(--text);">
+              <input type="checkbox" id="default-perm-devedores" data-default-module="devedores" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+              <span>Devedores</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; font-weight:700; color:var(--text);">
+              <input type="checkbox" id="default-perm-investimentos" data-default-module="investimentos" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+              <span>Investimentos</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; font-weight:700; color:var(--text);">
+              <input type="checkbox" id="default-perm-beneficios" data-default-module="beneficios" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+              <span>Benefícios</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; font-weight:700; color:var(--text);">
+              <input type="checkbox" id="default-perm-compras" data-default-module="compras" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+              <span>Lista de Compras</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; font-weight:700; color:var(--text);">
+              <input type="checkbox" id="default-perm-simulacao" data-default-module="simulacao" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+              <span>Simulação</span>
+            </label>
           </div>
         </div>
       </main>
@@ -10818,46 +10868,34 @@
 
       function openBackup() { $('#backupDialog').showModal(); }
       function openInfo() {
-        dismissOnboarding();
+        dismissWelcomeTour();
         $('#infoDialog').showModal();
       }
 
-      function checkOnboarding() {
-        const popover = $('#onboardingPopover');
+      function checkWelcomeTour() {
+        const tourCompleted = localStorage.getItem('tour_manual_completed');
+        const popover = document.getElementById('welcome-tour-popover') || document.getElementById('onboardingPopover');
         if (!popover) return;
-        const user = JSON.parse(localStorage.getItem('user_data') || localStorage.getItem('user') || '{}');
-        const userKey = user && user.id ? `tour_completed_${user.id}` : 'tour_completed';
-        const isTourDone = localStorage.getItem(userKey) === 'true' || localStorage.getItem('tour_completed') === 'true';
 
-        if (state.firstLogin === true || !isTourDone) {
-          popover.style.display = 'block';
+        if (tourCompleted === 'true') {
+          popover.style.display = 'none';
         } else {
+          popover.style.display = 'block';
+        }
+      }
+
+      function dismissWelcomeTour() {
+        localStorage.setItem('tour_manual_completed', 'true');
+        const popover = document.getElementById('welcome-tour-popover') || document.getElementById('onboardingPopover');
+        if (popover) {
           popover.style.display = 'none';
         }
       }
 
-      function dismissOnboarding() {
-        const popover = $('#onboardingPopover');
-        if (!popover || popover.style.display === 'none') return;
-        popover.style.transition = 'opacity 0.22s ease, transform 0.22s ease';
-        popover.style.opacity = '0';
-        popover.style.transform = 'translateY(-6px)';
-        setTimeout(() => {
-          popover.style.display = 'none';
-          popover.style.opacity = '1';
-          popover.style.transform = 'none';
-        }, 240);
+      const checkOnboarding = checkWelcomeTour;
+      const dismissOnboarding = dismissWelcomeTour;
 
-        state.firstLogin = false;
-        localStorage.setItem('tour_completed', 'true');
-        const user = JSON.parse(localStorage.getItem('user_data') || localStorage.getItem('user') || '{}');
-        if (user && user.id) {
-          localStorage.setItem(`tour_completed_${user.id}`, 'true');
-        }
-        saveState();
-      }
-
-      $('#btnDismissOnboarding')?.addEventListener('click', dismissOnboarding);
+      $('#btnDismissOnboarding')?.addEventListener('click', dismissWelcomeTour);
       $('#backupBtn').addEventListener('click', openBackup);
       $('#infoBtn').addEventListener('click', openInfo);
       $('#linkLocalFileBtn').addEventListener('click', linkPhysicalFile);
@@ -11852,7 +11890,7 @@
         try { initConvertFixedToVarDialog(); } catch (e) { console.error('initConvertFixedToVarDialog error:', e); }
         try { initGlobalDropZones(); } catch (e) { console.error('initGlobalDropZones error:', e); }
         try { render(); } catch (e) { console.error('render error:', e); }
-        try { checkOnboarding(); } catch (e) { console.error('checkOnboarding error:', e); }
+        try { checkWelcomeTour(); } catch (e) { console.error('checkWelcomeTour error:', e); }
       }
 
       if (document.readyState === 'loading') {
@@ -11863,6 +11901,7 @@
 
     })();
   </script>
+  <div id="toast-container"></div>
 </body>
 
 </html>

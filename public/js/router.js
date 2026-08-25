@@ -235,34 +235,33 @@ const AppRouter = (() => {
       });
     }
 
-    // Onboarding First Login Check
-    const onboardingPopover = document.getElementById('onboardingPopover');
-    const userKey = user && user.id ? `fp_first_tour_done_${user.id}` : 'fp_first_tour_done';
-    const isTourDone = localStorage.getItem(userKey) === 'true' || localStorage.getItem('fp_first_tour_done') === 'true';
+    // Welcome Tour Popover
+    function checkWelcomeTour() {
+      const tourCompleted = localStorage.getItem('tour_manual_completed');
+      const popover = document.getElementById('welcome-tour-popover') || document.getElementById('onboardingPopover');
+      if (!popover) return;
 
-    if (onboardingPopover) {
-      if (!isTourDone) {
-        onboardingPopover.style.display = 'block';
+      if (tourCompleted === 'true') {
+        popover.style.display = 'none';
+      } else {
+        popover.style.display = 'block';
       }
-
-      function dismissTour() {
-        onboardingPopover.style.transition = 'opacity 0.22s ease, transform 0.22s ease';
-        onboardingPopover.style.opacity = '0';
-        onboardingPopover.style.transform = 'translateY(-6px)';
-        setTimeout(() => {
-          onboardingPopover.style.display = 'none';
-          onboardingPopover.style.opacity = '1';
-          onboardingPopover.style.transform = 'none';
-        }, 240);
-        localStorage.setItem('fp_first_tour_done', 'true');
-        if (user && user.id) localStorage.setItem(`fp_first_tour_done_${user.id}`, 'true');
-      }
-
-      const btnDismiss = document.getElementById('btnDismissOnboarding');
-      if (btnDismiss) btnDismiss.addEventListener('click', dismissTour);
-      const infoBtn = document.getElementById('infoBtn');
-      if (infoBtn) infoBtn.addEventListener('click', dismissTour);
     }
+
+    function dismissWelcomeTour() {
+      localStorage.setItem('tour_manual_completed', 'true');
+      const popover = document.getElementById('welcome-tour-popover') || document.getElementById('onboardingPopover');
+      if (popover) {
+        popover.style.display = 'none';
+      }
+    }
+
+    const btnDismiss = document.getElementById('btnDismissOnboarding');
+    if (btnDismiss) btnDismiss.addEventListener('click', dismissWelcomeTour);
+    const infoBtn = document.getElementById('infoBtn');
+    if (infoBtn) infoBtn.addEventListener('click', dismissWelcomeTour);
+
+    checkWelcomeTour();
   }
 
   // Initialize Router

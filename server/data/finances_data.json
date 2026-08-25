@@ -921,6 +921,54 @@
         "startYear": 2026,
         "endMonth": 9,
         "endYear": 2026
+      },
+      {
+        "destination": "Nubank PF",
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "qbyxgo8uvip9",
+        "name": "UBER - 24/08",
+        "group": "Gerais",
+        "note": "",
+        "dueDay": 8,
+        "amount": 7.9,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PF",
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "6yg2lgh6wpdf",
+        "name": "BOLO - 24/08",
+        "group": "Gerais",
+        "note": "",
+        "dueDay": 8,
+        "amount": 7.5,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PF",
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "eez9leicx52k",
+        "name": "ALMOÇO - YASMIM",
+        "group": "Gerais",
+        "note": "",
+        "dueDay": 8,
+        "amount": 8,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
       }
     ],
     "extras": [
@@ -1263,9 +1311,9 @@
         "id": "jeyqryaqt9uu",
         "title": "PIZZA",
         "debtorName": "SÁVIO",
-        "amount": 21,
+        "amount": 16,
         "destination": "Nubank PJ",
-        "description": "Pizza do FDS de FIFA",
+        "description": "Pizza do FDS de FIFA. Subtraido 5 pila do picole.",
         "startMonth": 9,
         "startYear": 2026,
         "endMonth": 9,
@@ -1382,6 +1430,38 @@
         "startYear": 2026,
         "endMonth": 9,
         "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "p1i7xsblufiz",
+        "title": "CREATINA",
+        "debtorName": "PAINHO",
+        "amount": 34.35,
+        "destination": "Nubank PF",
+        "description": "",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 10,
+        "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "x4215ssxxg2i",
+        "title": "ALMOÇO",
+        "debtorName": "YASMIM",
+        "amount": 20,
+        "destination": "Nubank PF",
+        "description": "",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
       }
     ],
     "assets": [
@@ -1406,8 +1486,8 @@
       }
     ],
     "customExpensesOrder": [],
-    "lastModified": "2026-08-25T00:34:14.160Z",
-    "firstLogin": false
+    "lastModified": "2026-08-25T15:53:04.967Z",
+    "firstLogin": true
   },
   "usr_25gspgvwmt6n3907": {
     "userId": "usr_25gspgvwmt6n3907",

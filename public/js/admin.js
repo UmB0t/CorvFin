@@ -343,6 +343,112 @@ const AdminModule = (() => {
     if (btnNew) {
       btnNew.onclick = openCreateUserModal;
     }
+
+    const btnSaveDefault = document.getElementById('btn-save-default-perms');
+    if (btnSaveDefault) {
+      btnSaveDefault.onclick = saveDefaultPermissions;
+    }
+
+    await loadDefaultPermissions();
+  }
+
+  // Load Default Permissions for new users
+  async function loadDefaultPermissions() {
+    try {
+      let perms = null;
+      if (typeof API !== 'undefined' && API.getDefaultPermissions) {
+        const res = await API.getDefaultPermissions();
+        if (res && res.success && res.permissions) {
+          perms = res.permissions;
+        }
+      } else {
+        const token = localStorage.getItem('token') || localStorage.getItem('fp_token');
+        const res = await fetch('/api/admin/default-permissions', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data && data.success && data.permissions) {
+          perms = data.permissions;
+        }
+      }
+
+      if (perms) {
+        const modules = ['despesas', 'extras', 'devedores', 'investimentos', 'beneficios', 'compras', 'simulacao'];
+        modules.forEach(m => {
+          const el = document.getElementById(`default-perm-${m}`) || document.querySelector(`[data-default-module="${m}"]`);
+          if (el) {
+            el.checked = perms[m] !== false;
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Erro ao carregar permissões padrão:', err);
+    }
+  }
+
+  // Save Default Permissions for new users
+  async function saveDefaultPermissions() {
+    const btn = document.getElementById('btn-save-default-perms');
+    const originalText = btn ? btn.innerHTML : 'Salvar Permissões Padrão';
+
+    const permissions = {
+      despesas: !!(document.getElementById('default-perm-despesas') || document.querySelector('[data-default-module="despesas"]'))?.checked,
+      extras: !!(document.getElementById('default-perm-extras') || document.querySelector('[data-default-module="extras"]'))?.checked,
+      devedores: !!(document.getElementById('default-perm-devedores') || document.querySelector('[data-default-module="devedores"]'))?.checked,
+      investimentos: !!(document.getElementById('default-perm-investimentos') || document.querySelector('[data-default-module="investimentos"]'))?.checked,
+      beneficios: !!(document.getElementById('default-perm-beneficios') || document.querySelector('[data-default-module="beneficios"]'))?.checked,
+      compras: !!(document.getElementById('default-perm-compras') || document.querySelector('[data-default-module="compras"]'))?.checked,
+      simulacao: !!(document.getElementById('default-perm-simulacao') || document.querySelector('[data-default-module="simulacao"]'))?.checked
+    };
+
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Salvando...';
+    }
+
+    try {
+      let res;
+      if (typeof API !== 'undefined' && API.saveDefaultPermissions) {
+        res = await API.saveDefaultPermissions(permissions);
+      } else {
+        const token = localStorage.getItem('token') || localStorage.getItem('fp_token');
+        const resp = await fetch('/api/admin/default-permissions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ permissions })
+        });
+        res = await resp.json();
+      }
+
+      if (res && res.success) {
+        if (typeof window.showToast === 'function') {
+          window.showToast('Permissões padrão atualizadas com sucesso!', 'success');
+        } else if (typeof notify === 'function') {
+          notify('Permissões padrão atualizadas com sucesso!', 'success');
+        }
+      } else {
+        if (typeof window.showToast === 'function') {
+          window.showToast(res?.message || 'Erro ao salvar permissões padrão.', 'error');
+        } else if (typeof notify === 'function') {
+          notify(res?.message || 'Erro ao salvar permissões padrão.', 'error');
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao salvar permissões padrão:', err);
+      if (typeof window.showToast === 'function') {
+        window.showToast('Erro ao salvar permissões padrão.', 'error');
+      } else if (typeof notify === 'function') {
+        notify('Erro ao salvar permissões padrão.', 'error');
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      }
+    }
   }
 
   document.addEventListener('tabChanged', (e) => {
@@ -353,6 +459,8 @@ const AdminModule = (() => {
 
   return {
     render,
+    loadDefaultPermissions,
+    saveDefaultPermissions,
     openCreateUserModal,
     openEditUserModal,
     handleDeleteUser,
