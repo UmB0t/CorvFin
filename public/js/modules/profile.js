@@ -291,11 +291,5 @@ function initProfileForm() {
   window.updateDestinationSelects = updateDestinationSelects;
   window.updateCategoryTagsList = updateCategoryTagsList;
   window.getDestMeta = getDestMeta;
-
-  // Inicializacao sincrona dos formulários e listeners do dominio
-  try {
-    initProfileForm();
-  } catch (err) {
-    console.error('Erro ao inicializar profile.js:', err);
-  }
+  window.initProfileModule = initProfileForm;
 })();

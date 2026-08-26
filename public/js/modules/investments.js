@@ -456,11 +456,11 @@ function renderInvestmentsTab() {
   window.reorderAssets = reorderAssets;
   window.moveAssetToEnd = moveAssetToEnd;
   window.runSimulation = runSimulation;
-    window.renderInvestmentsTab = renderInvestmentsTab;
+  window.renderInvestmentsTab = renderInvestmentsTab;
+  window.initInvestmentsModule = initSimulator;
 
-  // Inicializacao sincrona dos listeners de investimentos e simulador
+  // Inicializacao sincrona dos listeners de investimentos
   try {
-    initSimulator();
     initInvestmentsListeners();
   } catch (err) {
     console.error('Erro ao inicializar listeners de investimentos:', err);

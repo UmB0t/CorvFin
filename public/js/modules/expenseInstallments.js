@@ -693,12 +693,12 @@ function openExpenseTimeline(opts) {
   window.openExpenseTimeline = openExpenseTimeline;
   window.convertVariableToFixed = convertVariableToFixed;
   window.openConvertFixedToVarDialog = openConvertFixedToVarDialog;
+  window.initExpenseInstallmentsModule = initConvertFixedToVarDialog;
 
-  // Inicializacao sincrona do conversor e listeners
+  // Inicializacao sincrona dos listeners estaticos do modulo
   try {
-    initConvertFixedToVarDialog();
     initInstallmentsListeners();
   } catch (err) {
-    console.error('Erro ao inicializar expenseInstallments:', err);
+    console.error('Erro ao inicializar expenseInstallments listeners:', err);
   }
 })();

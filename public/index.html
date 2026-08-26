@@ -3354,8 +3354,6 @@
         }
       }
 
-         MODAL DE VARREDURA TEMPORAL / TIMELINE DA DESPESA
-         ============================================================= */
 
       $('#extrasSearchInput').addEventListener('input', renderExtrasTab);
       $('#extrasStatusFilter').addEventListener('change', renderExtrasTab);
@@ -3735,10 +3733,15 @@
         try { initAuthAndSync(); } catch (e) { console.error('initAuthAndSync error:', e); }
         try { fillMonthSelects(); } catch (e) { console.error('fillMonthSelects error:', e); }
         try { initTabs(); } catch (e) { console.error('initTabs error:', e); }
-        // initProfileForm() inicializado de forma autonoma em profile.js
-        // initCsvDialog() inicializado de forma autonoma em csvImport.js
-        
-        // initConvertFixedToVarDialog() inicializado de forma autonoma em expenseInstallments.js
+        if (window.initInvestmentsModule) {
+          try { window.initInvestmentsModule(); } catch (e) { console.error('initInvestmentsModule error:', e); }
+        }
+        if (window.initProfileModule) {
+          try { window.initProfileModule(); } catch (e) { console.error('initProfileModule error:', e); }
+        }
+        if (window.initExpenseInstallmentsModule) {
+          try { window.initExpenseInstallmentsModule(); } catch (e) { console.error('initExpenseInstallmentsModule error:', e); }
+        }
         try { initGlobalDropZones(); } catch (e) { console.error('initGlobalDropZones error:', e); }
         try { render(); } catch (e) { console.error('render error:', e); }
         try { checkWelcomeTour(); } catch (e) { console.error('checkWelcomeTour error:', e); }
