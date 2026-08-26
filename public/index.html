@@ -6799,7 +6799,7 @@
           }
 
           const fixedActive = activeFixedForMonth(year, month);
-          const varActive = activeVarForMonth(year, month);
+          const varActive = activeVariableForMonth(year, month);
           const extraActive = activeExtrasForMonth(year, month);
 
           const items = [];
@@ -7106,7 +7106,7 @@
         } else if (type === 'detailed_monthly') {
           csv = `Tipo,Descricao,Categoria,Destino,Vencimento,Status,Valor\n`;
           const fixedActive = activeFixedForMonth(year, month);
-          const varActive = activeVarForMonth(year, month);
+          const varActive = activeVariableForMonth(year, month);
           const extraActive = activeExtrasForMonth(year, month);
 
           fixedActive.forEach(f => {
