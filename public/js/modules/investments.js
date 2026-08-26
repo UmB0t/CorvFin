@@ -1,4 +1,98 @@
-window.reorderAssets = function reorderAssets(sourceId, targetId) {
+/* ==========================================================================
+   MODULO DE INVESTIMENTOS & SIMULADOR (investments.js)
+   Financas Pro - Vanilla JS Architecture
+   ========================================================================== */
+
+(function() {
+  'use strict';
+
+  let assetDlgId = null;
+
+  function openAssetDialog(mode, id) {
+    const state = getState();
+    const assetDlg = $('#assetDialog');
+    $('#assetForm').reset();
+    assetDlgId = id || null;
+    $('#deleteAssetBtn').hidden = !id;
+
+    if (mode === 'new') {
+      $('#assetDialogTitle').textContent = 'Novo Investimento';
+      $('#assetType').value = 'renda-fixa';
+      $('#assetColor').value = '#1F7A5C';
+    } else {
+      const a = (state.assets || []).find(x => x.id === id);
+      if (!a) return;
+      $('#assetDialogTitle').textContent = 'Editar Investimento';
+      $('#assetName').value = a.name;
+      $('#assetType').value = a.type || 'renda-fixa';
+      $('#assetCurrent').value = currency(a.currentAmount);
+      $('#assetGoal').value = a.goalAmount ? currency(a.goalAmount) : '';
+      $('#assetColor').value = a.color || '#1F7A5C';
+    }
+    if (assetDlg) assetDlg.showModal();
+  }
+
+  function openAporteDialog(assetId) {
+    const state = getState();
+    const aporteDlg = $('#aporteDialog');
+    if (state.assets.length === 0) {
+      notify('Crie primeiro um ativo em "+ Criar Novo Investimento".', 'warning');
+      return;
+    }
+    $('#aporteForm').reset();
+    $('#aporteMonth').value = state.month;
+    $('#aporteYear').value = state.year;
+    if (assetId) $('#aporteAsset').value = assetId;
+    if (aporteDlg) aporteDlg.showModal();
+  }
+
+  function initSimulator() {
+    const state = getState();
+    const totalInvested = (state.assets || []).reduce((s, a) => s + Number(a.currentAmount || 0), 0);
+    const monthlyAportes = (state.aportes || []).filter(ap => ap.month === state.month && ap.year === state.year).reduce((s, ap) => s + Number(ap.amount || 0), 0);
+
+    const initInput = $('#simInitial');
+    const monthlyInput = $('#simMonthly');
+
+    if (initInput && (!initInput.value || initInput.value === '1000')) {
+      initInput.value = totalInvested > 0 ? totalInvested : 1000;
+    }
+    if (monthlyInput && (!monthlyInput.value || monthlyInput.value === '200')) {
+      monthlyInput.value = monthlyAportes > 0 ? monthlyAportes : 200;
+    }
+
+    $('#simCalcBtn')?.addEventListener('click', runSimulation);
+    $('#simUnit')?.addEventListener('change', runSimulation);
+    ['#simInitial', '#simMonthly', '#simRate', '#simPeriod'].forEach(id => {
+      $(id)?.addEventListener('input', runSimulation);
+    });
+
+    $('#toggleInvestSimulatorBtn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const state = getState();
+      state.collapsedSections.investSimulator = !state.collapsedSections.investSimulator;
+      saveState();
+      renderInvestmentsTab();
+    });
+
+    $('#toggleInvestSimulatorHeader')?.addEventListener('click', () => {
+      const state = getState();
+      state.collapsedSections.investSimulator = !state.collapsedSections.investSimulator;
+      saveState();
+      renderInvestmentsTab();
+    });
+
+    $('#toggleInvestChartsBtn')?.addEventListener('click', () => {
+      const state = getState();
+      state.collapsedSections.investCharts = !state.collapsedSections.investCharts;
+      saveState();
+      renderInvestmentsTab();
+    });
+
+    runSimulation();
+  }
+
+function reorderAssets(sourceId, targetId) {
   const state = getState();
         if (sourceId === targetId) return;
         const sIdx = state.assets.findIndex(a => a.id === sourceId);
@@ -13,7 +107,7 @@ window.reorderAssets = function reorderAssets(sourceId, targetId) {
       
 };
 
-window.moveAssetToEnd = function moveAssetToEnd(sourceId) {
+function moveAssetToEnd(sourceId) {
   const state = getState();
         const sIdx = state.assets.findIndex(a => a.id === sourceId);
         if (sIdx !== -1) {
@@ -26,7 +120,7 @@ window.moveAssetToEnd = function moveAssetToEnd(sourceId) {
       
 };
 
-window.runSimulation = function runSimulation() {
+function runSimulation() {
         const p = Number($('#simInitial')?.value) || 0;
         const pmt = Number($('#simMonthly')?.value) || 0;
         const rateAnual = Number($('#simRate')?.value) || 0;
@@ -105,7 +199,7 @@ window.renderSimpleBarChart = function renderSimpleBarChart(containerSel, mapDat
         }).join('');
       };
 
-window.renderInvestmentsTab = function renderInvestmentsTab() {
+function renderInvestmentsTab() {
   const state = getState();
         const y = state.year, m = state.month;
 
@@ -256,3 +350,119 @@ window.renderInvestmentsTab = function renderInvestmentsTab() {
         });
       
 };
+
+  function initInvestmentsListeners() {
+    const newAssetBtn = $('#newAssetBtn');
+    if (newAssetBtn) newAssetBtn.addEventListener('click', () => openAssetDialog('new'));
+
+    $('#assetForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const state = getState();
+      const assetDlg = $('#assetDialog');
+      const name = $('#assetName').value.trim();
+      const type = $('#assetType').value;
+      const currentAmount = Number(String($('#assetCurrent').value).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
+      const goalRaw = $('#assetGoal').value;
+      const goalAmount = goalRaw ? (Number(String(goalRaw).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0) : null;
+      const color = $('#assetColor').value || '#1F7A5C';
+
+      if (!name) {
+        notify('Informe o nome do investimento.', 'error');
+        return;
+      }
+
+      state.assets = state.assets || [];
+
+      if (assetDlgId) {
+        const a = state.assets.find(x => x.id === assetDlgId);
+        if (a) {
+          a.name = name;
+          a.type = type;
+          a.currentAmount = currentAmount;
+          a.goalAmount = goalAmount;
+          a.color = color;
+        }
+      } else {
+        state.assets.push({
+          id: uid(),
+          name,
+          type,
+          currentAmount,
+          goalAmount,
+          color
+        });
+      }
+
+      saveState();
+      if (assetDlg) assetDlg.close();
+      render();
+      notify('Investimento salvo!', 'success');
+    });
+
+    $('#deleteAssetBtn')?.addEventListener('click', () => {
+      const state = getState();
+      const assetDlg = $('#assetDialog');
+      if (!assetDlgId) return;
+      if (!confirm('Excluir este investimento e seus aportes vinculados?')) return;
+      state.assets = (state.assets || []).filter(x => x.id !== assetDlgId);
+      state.aportes = (state.aportes || []).filter(ap => ap.assetId !== assetDlgId);
+      saveState();
+      if (assetDlg) assetDlg.close();
+      render();
+      notify('Investimento excluído!', 'info');
+    });
+
+    const newAporteBtn = $('#newAporteBtn');
+    if (newAporteBtn) newAporteBtn.addEventListener('click', () => openAporteDialog());
+
+    $('#aporteForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const state = getState();
+      const aporteDlg = $('#aporteDialog');
+      const assetId = $('#aporteAsset').value;
+      const amount = Number(String($('#aporteAmount').value).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
+      const month = Number($('#aporteMonth').value) || state.month;
+      const year = Number($('#aporteYear').value) || state.year;
+      const note = $('#aporteNote').value.trim();
+
+      if (!assetId || amount <= 0) {
+        notify('Selecione o ativo e informe um valor válido para o aporte.', 'error');
+        return;
+      }
+
+      state.aportes = state.aportes || [];
+      state.aportes.push({
+        id: uid(),
+        assetId,
+        amount,
+        month,
+        year,
+        note
+      });
+
+      const asset = (state.assets || []).find(a => a.id === assetId);
+      if (asset) {
+        asset.currentAmount = (Number(asset.currentAmount) || 0) + amount;
+      }
+
+      saveState();
+      if (aporteDlg) aporteDlg.close();
+      render();
+      notify('Aporte registrado com sucesso!', 'success');
+    });
+  }
+
+  // Bridges publicas autorizadas
+  window.reorderAssets = reorderAssets;
+  window.moveAssetToEnd = moveAssetToEnd;
+  window.runSimulation = runSimulation;
+    window.renderInvestmentsTab = renderInvestmentsTab;
+
+  // Inicializacao sincrona dos listeners de investimentos e simulador
+  try {
+    initSimulator();
+    initInvestmentsListeners();
+  } catch (err) {
+    console.error('Erro ao inicializar listeners de investimentos:', err);
+  }
+})();

@@ -1,4 +1,55 @@
-window.activeExtrasForMonth = function activeExtrasForMonth(year, month) {
+/* ==========================================================================
+   MODULO DE RENDAS EXTRAS (extras.js)
+   Financas Pro - Vanilla JS Architecture
+   ========================================================================== */
+
+(function() {
+  'use strict';
+
+  let extraDlgId = null;
+
+  function updateExtraInstallments() {
+    const sm = Number($('#extraStartMonth').value), sy = Number($('#extraStartYear').value);
+    const em = Number($('#extraEndMonth').value), ey = Number($('#extraEndYear').value);
+    const count = Math.max(1, (ey - sy) * 12 + (em - sm) + 1);
+    const el = $('#extraInstallmentsCount');
+    if (el) el.textContent = count > 1 ? `(${count} parcelas)` : '(pagamento único)';
+  }
+
+  function openExtraDialog(mode, id) {
+    const state = getState();
+    const extraDlg = $('#extraIncomeDialog');
+    $('#extraIncomeForm').reset();
+    extraDlgId = id || null;
+    $('#deleteExtraIncomeBtn').hidden = !id;
+
+    if (mode === 'new') {
+      $('#extraDialogTitle').textContent = 'Nova Renda Extra';
+      $('#extraStartMonth').value = state.month;
+      $('#extraStartYear').value = state.year;
+      $('#extraEndMonth').value = state.month;
+      $('#extraEndYear').value = state.year;
+      $('#extraDest').value = (state.destinations[0] || {}).name || 'Nubank';
+      $('#extraGroup').value = (state.categories[0] || {}).name || 'Renda Extra';
+      updateExtraInstallments();
+    } else {
+      const e = (state.extras || []).find(x => x.id === id);
+      if (!e) return;
+      $('#extraDialogTitle').textContent = 'Editar Renda Extra';
+      $('#extraName').value = e.name;
+      $('#extraAmount').value = currency(e.amount);
+      $('#extraGroup').value = e.group || '';
+      $('#extraDest').value = e.destination || (state.destinations[0] || {}).name || 'Nubank';
+      $('#extraStartMonth').value = e.startMonth;
+      $('#extraStartYear').value = e.startYear;
+      $('#extraEndMonth').value = e.endMonth;
+      $('#extraEndYear').value = e.endYear;
+      updateExtraInstallments();
+    }
+    if (extraDlg) extraDlg.showModal();
+  }
+
+function activeExtrasForMonth(year, month) {
   const state = getState();
   const target = mk(year, month);
   const key = ymKey(year, month);
@@ -9,7 +60,7 @@ window.activeExtrasForMonth = function activeExtrasForMonth(year, month) {
     });
 };
 
-window.reorderExtras = function reorderExtras(sourceId, targetId) {
+function reorderExtras(sourceId, targetId) {
   if (sourceId === targetId) return;
   const state = getState();
   const sIdx = (state.extras || []).findIndex(e => e.id === sourceId);
@@ -23,7 +74,7 @@ window.reorderExtras = function reorderExtras(sourceId, targetId) {
   }
 };
 
-window.moveExtraToEnd = function moveExtraToEnd(sourceId) {
+function moveExtraToEnd(sourceId) {
   const state = getState();
   const sIdx = (state.extras || []).findIndex(e => e.id === sourceId);
   if (sIdx !== -1) {
@@ -35,7 +86,7 @@ window.moveExtraToEnd = function moveExtraToEnd(sourceId) {
   }
 };
 
-window.renderExtraIncomeCharts = function renderExtraIncomeCharts() {
+function renderExtraIncomeCharts() {
   const state = getState();
   const grid = $('#extrasChartsGrid');
   const toggleBtn = $('#toggleExtrasChartsBtn');
@@ -128,7 +179,15 @@ window.updateExtraIncomeCharts = function updateExtraIncomeCharts() {
   renderExtraIncomeCharts();
 };
 
-window.renderExtrasTab = function renderExtrasTab() {
+function toggleExtraStatus(id) {
+    toggleExpenseStatus("extra", id);
+  }
+
+  function markAllExtrasPaid() {
+    markAllSectionPaid("extras");
+  }
+
+  function renderExtrasTab() {
   const state = getState();
   const y = state.year, m = state.month;
   const rawExtras = activeExtrasForMonth(y, m);
@@ -178,3 +237,100 @@ window.renderExtrasTab = function renderExtrasTab() {
 
   renderSection('#listExtra', '#sumExtra', rows, extras.reduce((s, e) => s + Number(e.amount), 0));
 };
+
+  function initExtrasListeners() {
+    ['#extraStartMonth', '#extraStartYear', '#extraEndMonth', '#extraEndYear'].forEach(id => {
+      const el = $(id);
+      if (el) el.addEventListener('change', updateExtraInstallments);
+      if (el) el.addEventListener('input', updateExtraInstallments);
+    });
+
+    const newExtraBtn = $('#newExtraBtn');
+    if (newExtraBtn) newExtraBtn.addEventListener('click', () => openExtraDialog('new'));
+
+    $('#extraIncomeForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const state = getState();
+      const extraDlg = $('#extraIncomeDialog');
+      const name = $('#extraName').value.trim();
+      const amount = Number(String($('#extraAmount').value).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
+      const group = $('#extraGroup').value.trim() || 'Renda Extra';
+      const destination = $('#extraDest').value;
+      const sm = Number($('#extraStartMonth').value), sy = Number($('#extraStartYear').value);
+      const em = Number($('#extraEndMonth').value), ey = Number($('#extraEndYear').value);
+
+      if (!name || amount <= 0) {
+        notify('Preencha um nome e valor válidos para a renda extra.', 'error');
+        return;
+      }
+      if (mk(ey, em) < mk(sy, sm)) {
+        notify('O mês/ano final não pode ser anterior ao inicial.', 'error');
+        return;
+      }
+
+      state.extras = state.extras || [];
+      const installments = Math.max(1, (ey - sy) * 12 + (em - sm) + 1);
+
+      if (extraDlgId) {
+        const extra = state.extras.find(x => x.id === extraDlgId);
+        if (extra) {
+          extra.name = name;
+          extra.amount = amount;
+          extra.group = group;
+          extra.destination = destination;
+          extra.startMonth = sm;
+          extra.startYear = sy;
+          extra.endMonth = em;
+          extra.endYear = ey;
+          extra.installments = installments;
+        }
+      } else {
+        state.extras.push({
+          id: uid(),
+          name,
+          amount,
+          group,
+          destination,
+          startMonth: sm,
+          startYear: sy,
+          endMonth: em,
+          endYear: ey,
+          installments,
+          paidHistory: {}
+        });
+      }
+
+      saveState();
+      if (extraDlg) extraDlg.close();
+      render();
+      notify('Renda extra salva com sucesso!', 'success');
+    });
+
+    $('#deleteExtraIncomeBtn')?.addEventListener('click', () => {
+      const state = getState();
+      const extraDlg = $('#extraIncomeDialog');
+      if (!extraDlgId) return;
+      if (!confirm('Excluir esta renda extra?')) return;
+      state.extras = (state.extras || []).filter(x => x.id !== extraDlgId);
+      saveState();
+      if (extraDlg) extraDlg.close();
+      render();
+      notify('Renda extra excluída!', 'info');
+    });
+  }
+
+  // Bridges publicas autorizadas
+  window.activeExtrasForMonth = activeExtrasForMonth;
+  window.reorderExtras = reorderExtras;
+  window.moveExtraToEnd = moveExtraToEnd;
+  window.toggleExtraStatus = toggleExtraStatus;
+  window.markAllExtrasPaid = markAllExtrasPaid;
+  window.renderExtrasTab = renderExtrasTab;
+
+  // Inicializacao sincrona dos listeners de rendas extras
+  try {
+    initExtrasListeners();
+  } catch (err) {
+    console.error('Erro ao inicializar listeners de extras:', err);
+  }
+})();

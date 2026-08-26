@@ -1,9 +1,83 @@
-window.getBenefitTypeInfo = function getBenefitTypeInfo(typeKey) {
+/* ==========================================================================
+   MODULO DE BENEFICIOS (benefits.js)
+   Financas Pro - Vanilla JS Architecture
+   ========================================================================== */
+
+(function() {
+  'use strict';
+
+  let benefitDlgId = null;
+
+  function openBenefitDialog(mode, id) {
+    const state = getState();
+    const benefitDlg = $('#benefitDialog');
+    $('#benefitForm').reset();
+    benefitDlgId = id || null;
+    $('#deleteBenefitBtn').hidden = !id;
+
+    if (mode === 'new') {
+      $('#benefitDialogTitle').textContent = 'Lançar Gasto com Benefício';
+      const now = new Date();
+      $('#benefitDay').value = now.getDate();
+      $('#benefitMonth').value = state.month || (now.getMonth() + 1);
+      $('#benefitYear').value = state.year || now.getFullYear();
+      $('#benefitType').value = 'va';
+    } else {
+      const item = (state.benefitTransactions || []).find(t => t.id === id);
+      if (!item) return;
+      $('#benefitDialogTitle').textContent = 'Editar Gasto com Benefício';
+      $('#benefitDescription').value = item.description || '';
+      $('#benefitType').value = item.type || 'va';
+      $('#benefitAmount').value = item.amount || '';
+      $('#benefitDay').value = item.day || 1;
+      $('#benefitMonth').value = item.month || state.month;
+      $('#benefitYear').value = item.year || state.year;
+      $('#benefitNote').value = item.note || '';
+    }
+    if (benefitDlg) benefitDlg.showModal();
+  }
+
+  function deleteBenefit(id) {
+    const state = getState();
+    const benefitDlg = $('#benefitDialog');
+    if (!confirm('Excluir este lançamento de benefício?')) return;
+    state.benefitTransactions = (state.benefitTransactions || []).filter(t => t.id !== id);
+    saveState();
+    if (benefitDlg && benefitDlg.open) benefitDlg.close();
+    render();
+    notify('Lançamento de benefício excluído!', 'info');
+  }
+
+  function reorderBenefits(sourceId, targetId) {
+    if (sourceId === targetId) return;
+    const state = getState();
+    const sIdx = state.benefitTransactions.findIndex(b => b.id === sourceId);
+    const tIdx = state.benefitTransactions.findIndex(b => b.id === targetId);
+    if (sIdx !== -1 && tIdx !== -1) {
+      const [moved] = state.benefitTransactions.splice(sIdx, 1);
+      state.benefitTransactions.splice(tIdx, 0, moved);
+      saveState();
+      render();
+    }
+  }
+
+  function moveBenefitToEnd(sourceId) {
+    const state = getState();
+    const sIdx = state.benefitTransactions.findIndex(b => b.id === sourceId);
+    if (sIdx !== -1) {
+      const [moved] = state.benefitTransactions.splice(sIdx, 1);
+      state.benefitTransactions.push(moved);
+      saveState();
+      render();
+    }
+  }
+
+function getBenefitTypeInfo(typeKey) {
   if (BENEFIT_TYPES_MAP[typeKey]) return BENEFIT_TYPES_MAP[typeKey];
   return { label: typeKey || 'Outro', short: (typeKey || 'BEN').toUpperCase().slice(0, 5), color: 'var(--brand)', bg: 'var(--brand-soft)' };
 };
 
-window.monthBenefitsTotals = function monthBenefitsTotals(year, month) {
+function monthBenefitsTotals(year, month) {
   const state = getState();
   const config = state.benefitsConfig || { amount: 0 };
   const baseTotal = config.amount != null ? Number(config.amount || 0) : (Number(config.va || 0) + Number(config.vr || 0));
@@ -22,7 +96,7 @@ window.monthBenefitsTotals = function monthBenefitsTotals(year, month) {
   return { baseTotal, spentTotal, remTotal, txs, spentByType };
 };
 
-window.renderBenefitsCharts = function renderBenefitsCharts(bt) {
+function renderBenefitsCharts(bt) {
   const state = getState();
   const grid = $('#benefitsChartsGrid');
   const toggleBtn = $('#toggleBenefitsChartsBtn');
@@ -120,13 +194,13 @@ window.renderBenefitsCharts = function renderBenefitsCharts(bt) {
   }
 };
 
-window.updateBenefitCharts = function updateBenefitCharts() {
+function updateBenefitCharts() {
   const state = getState();
   const bt = monthBenefitsTotals(state.year, state.month);
   renderBenefitsCharts(bt);
 };
 
-window.renderBenefitsTab = function renderBenefitsTab() {
+function renderBenefitsTab() {
   const state = getState();
   const y = state.year, m = state.month;
   const bt = monthBenefitsTotals(y, m);
@@ -224,3 +298,91 @@ window.renderBenefitsTab = function renderBenefitsTab() {
     }
   }
 };
+
+  function initBenefitsListeners() {
+    $('#benefitForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const state = getState();
+      const benefitDlg = $('#benefitDialog');
+      const description = $('#benefitDescription').value.trim();
+      const type = $('#benefitType').value;
+      const amount = Number($('#benefitAmount').value) || 0;
+      const day = Number($('#benefitDay').value) || 1;
+      const month = Number($('#benefitMonth').value) || state.month;
+      const year = Number($('#benefitYear').value) || state.year;
+      const note = $('#benefitNote').value.trim();
+
+      if (!description || !Number.isFinite(amount) || amount <= 0) {
+        notify('Preencha a descrição e um valor válido.', 'error');
+        return;
+      }
+
+      state.benefitTransactions = state.benefitTransactions || [];
+
+      if (benefitDlgId) {
+        const t = state.benefitTransactions.find(x => x.id === benefitDlgId);
+        if (t) {
+          t.description = description;
+          t.type = type;
+          t.amount = amount;
+          t.day = day;
+          t.month = month;
+          t.year = year;
+          t.note = note;
+        }
+      } else {
+        state.benefitTransactions.push({
+          id: uid(),
+          description,
+          type,
+          amount,
+          day,
+          month,
+          year,
+          note
+        });
+      }
+
+      saveState();
+      if (benefitDlg) benefitDlg.close();
+      render();
+      notify('Gasto com benefício salvo com sucesso!', 'success');
+    });
+
+    $('#deleteBenefitBtn')?.addEventListener('click', () => {
+      if (benefitDlgId) deleteBenefit(benefitDlgId);
+    });
+
+    const newBenefitBtn = $('#newBenefitBtn');
+    if (newBenefitBtn) newBenefitBtn.addEventListener('click', () => openBenefitDialog('new'));
+
+    $('#benefitsSearchInput')?.addEventListener('input', renderBenefitsTab);
+    $('#benefitsTypeFilter')?.addEventListener('change', renderBenefitsTab);
+    $('#benefitsSortFilter')?.addEventListener('change', renderBenefitsTab);
+
+    const toggleBenefitsChartsBtn = $('#toggleBenefitsChartsBtn');
+    if (toggleBenefitsChartsBtn) {
+      toggleBenefitsChartsBtn.addEventListener('click', () => {
+        const state = getState();
+        state.collapsedSections.benefitsCharts = !state.collapsedSections.benefitsCharts;
+        saveState();
+        const bt = monthBenefitsTotals(state.year, state.month);
+        renderBenefitsCharts(bt);
+      });
+    }
+  }
+
+  // Bridges publicas autorizadas
+  window.renderBenefitsTab = renderBenefitsTab;
+  window.updateBenefitCharts = updateBenefitCharts;
+  window.monthBenefitsTotals = monthBenefitsTotals;
+  window.reorderBenefits = reorderBenefits;
+  window.moveBenefitToEnd = moveBenefitToEnd;
+
+  // Inicializacao sincrona dos listeners de beneficios
+  try {
+    initBenefitsListeners();
+  } catch (err) {
+    console.error('Erro ao inicializar listeners de beneficios:', err);
+  }
+})();

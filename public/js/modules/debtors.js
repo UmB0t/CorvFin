@@ -1,3 +1,56 @@
+/* ==========================================================================
+   MODULO DE DEVEDORES & COBRANCAS (debtors.js)
+   Financas Pro - Vanilla JS Architecture
+   ========================================================================== */
+
+(function() {
+  'use strict';
+
+  let debtorDlgId = null;
+
+  function updateDebtorInstallments() {
+    const sm = Number($('#debtorStartMonth').value), sy = Number($('#debtorStartYear').value);
+    const em = Number($('#debtorEndMonth').value), ey = Number($('#debtorEndYear').value);
+    const count = Math.max(1, (ey - sy) * 12 + (em - sm) + 1);
+    const el = $('#debtorInstallmentsCount');
+    if (el) el.textContent = count > 1 ? `(${count} parcelas)` : '(pagamento único)';
+  }
+
+  function openDebtorDialog(mode, id) {
+    const state = getState();
+    const debtorDlg = $('#debtorDialog');
+    $('#debtorForm').reset();
+    debtorDlgId = id || null;
+    $('#deleteDebtorBtn').hidden = !id;
+
+    if (mode === 'new') {
+      $('#debtorDialogTitle').textContent = 'Cadastrar Devedor / Empréstimo';
+      $('#debtorStartMonth').value = state.month;
+      $('#debtorStartYear').value = state.year;
+      $('#debtorEndMonth').value = state.month;
+      $('#debtorEndYear').value = state.year;
+      $('#debtorDest').value = (state.destinations[0] || {}).name || 'Nubank';
+      $('#debtorGroup').value = (state.categories[0] || {}).name || 'Devedores';
+      $('#debtorCountInTotal').checked = true;
+      updateDebtorInstallments();
+    } else {
+      const d = (state.debtors || []).find(x => x.id === id);
+      if (!d) return;
+      $('#debtorDialogTitle').textContent = 'Editar Devedor / Empréstimo';
+      $('#debtorName').value = d.name;
+      $('#debtorAmount').value = currency(d.amount);
+      $('#debtorGroup').value = d.group || '';
+      $('#debtorDest').value = d.destination || (state.destinations[0] || {}).name || 'Nubank';
+      $('#debtorStartMonth').value = d.startMonth;
+      $('#debtorStartYear').value = d.startYear;
+      $('#debtorEndMonth').value = d.endMonth;
+      $('#debtorEndYear').value = d.endYear;
+      $('#debtorCountInTotal').checked = d.countInTotal !== false;
+      updateDebtorInstallments();
+    }
+    if (debtorDlg) debtorDlg.showModal();
+  }
+
 function activeDebtorsForMonth(year, month) {
   const state = getState();
   const target = mk(year, month);
@@ -358,7 +411,15 @@ function toggleDebtorDest() {
   render();
 };
 
-function renderDebtorsTab() {
+function toggleDebtorStatus(id) {
+    toggleExpenseStatus("debtor", id);
+  }
+
+  function markAllDebtorsPaid() {
+    markAllSectionPaid("debtors");
+  }
+
+  function renderDebtorsTab() {
   const state = getState();
   const y = state.year, m = state.month;
   const rawDebtors = activeDebtorsForMonth(y, m);
@@ -434,9 +495,6 @@ function renderDebtorsTab() {
   renderSection('#listDebtors', '#sumDebtors', rows, debtors.reduce((s, d) => s + Number(d.amount), 0));
 };
 
-/* ==========================================================================
-   DÍVIDAS TOTAIS & CONTRATOS DE LONGO PRAZO
-   ========================================================================== */
 
       let debtorsTableSort = { key: 'totalDebt', asc: false };
 
@@ -718,3 +776,104 @@ window.renderDynamicDebtorChart = renderDynamicDebtorChart;
 window.renderDebtorCharts = renderDebtorCharts;
 window.updateDebtorCharts = updateDebtorCharts;
 window.renderDebtorsTab = renderDebtorsTab;
+
+  function initDebtorsListeners() {
+    ['#debtorStartMonth', '#debtorStartYear', '#debtorEndMonth', '#debtorEndYear'].forEach(id => {
+      const el = $(id);
+      if (el) el.addEventListener('change', updateDebtorInstallments);
+      if (el) el.addEventListener('input', updateDebtorInstallments);
+    });
+
+    const newDebtorBtn = $('#newDebtorBtn');
+    if (newDebtorBtn) newDebtorBtn.addEventListener('click', () => openDebtorDialog('new'));
+
+    $('#debtorForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const state = getState();
+      const debtorDlg = $('#debtorDialog');
+      const name = $('#debtorName').value.trim();
+      const amount = Number(String($('#debtorAmount').value).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
+      const group = $('#debtorGroup').value.trim() || 'Devedores';
+      const destination = $('#debtorDest').value;
+      const sm = Number($('#debtorStartMonth').value), sy = Number($('#debtorStartYear').value);
+      const em = Number($('#debtorEndMonth').value), ey = Number($('#debtorEndYear').value);
+      const countInTotal = $('#debtorCountInTotal').checked;
+
+      if (!name || amount <= 0) {
+        notify('Preencha um nome e valor válidos para o devedor.', 'error');
+        return;
+      }
+      if (mk(ey, em) < mk(sy, sm)) {
+        notify('O mês/ano final não pode ser anterior ao inicial.', 'error');
+        return;
+      }
+
+      state.debtors = state.debtors || [];
+      const installments = Math.max(1, (ey - sy) * 12 + (em - sm) + 1);
+
+      if (debtorDlgId) {
+        const debtor = state.debtors.find(x => x.id === debtorDlgId);
+        if (debtor) {
+          debtor.name = name;
+          debtor.amount = amount;
+          debtor.group = group;
+          debtor.destination = destination;
+          debtor.startMonth = sm;
+          debtor.startYear = sy;
+          debtor.endMonth = em;
+          debtor.endYear = ey;
+          debtor.installments = installments;
+          debtor.countInTotal = countInTotal;
+        }
+      } else {
+        state.debtors.push({
+          id: uid(),
+          name,
+          amount,
+          group,
+          destination,
+          startMonth: sm,
+          startYear: sy,
+          endMonth: em,
+          endYear: ey,
+          installments,
+          countInTotal,
+          paidHistory: {}
+        });
+      }
+
+      saveState();
+      if (debtorDlg) debtorDlg.close();
+      render();
+      notify('Devedor salvo com sucesso!', 'success');
+    });
+
+    $('#deleteDebtorBtn')?.addEventListener('click', () => {
+      const state = getState();
+      const debtorDlg = $('#debtorDialog');
+      if (!debtorDlgId) return;
+      if (!confirm('Excluir este devedor?')) return;
+      state.debtors = (state.debtors || []).filter(x => x.id !== debtorDlgId);
+      saveState();
+      if (debtorDlg) debtorDlg.close();
+      render();
+      notify('Devedor excluído!', 'info');
+    });
+  }
+
+  // Bridges publicas autorizadas
+  window.activeDebtorsForMonth = activeDebtorsForMonth;
+  window.reorderDebtors = reorderDebtors;
+  window.moveDebtorToEnd = moveDebtorToEnd;
+  window.toggleDebtorStatus = toggleDebtorStatus;
+  window.markAllDebtorsPaid = markAllDebtorsPaid;
+  window.renderDebtorsTab = renderDebtorsTab;
+  window.renderDebtorsTotalsTab = renderDebtorsTotalsTab;
+
+  // Inicializacao sincrona dos listeners de devedores
+  try {
+    initDebtorsListeners();
+  } catch (err) {
+    console.error('Erro ao inicializar listeners de devedores:', err);
+  }
+})();
