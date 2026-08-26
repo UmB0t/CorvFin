@@ -1,0 +1,428 @@
+[
+  {
+    "line": 2972,
+    "name": "updateSyncBadge",
+    "lineText": "function updateSyncBadge(isLinked) {",
+    "linesCount": 17
+  },
+  {
+    "line": 2989,
+    "name": "applyTheme",
+    "lineText": "function applyTheme() {",
+    "linesCount": 5
+  },
+  {
+    "line": 2994,
+    "name": "applySidebarState",
+    "lineText": "function applySidebarState() {",
+    "linesCount": 21
+  },
+  {
+    "line": 3015,
+    "name": "notify",
+    "lineText": "function notify(msg, type = 'info') {",
+    "linesCount": 49
+  },
+  {
+    "line": 3064,
+    "name": "activeFixedForMonth",
+    "lineText": "function activeFixedForMonth(year, month) {",
+    "linesCount": 22
+  },
+  {
+    "line": 3086,
+    "name": "activeVariableForMonth",
+    "lineText": "function activeVariableForMonth(year, month) {",
+    "linesCount": 18
+  },
+  {
+    "line": 3104,
+    "name": "monthTotals",
+    "lineText": "function monthTotals(year, month) {",
+    "linesCount": 27
+  },
+  {
+    "line": 3131,
+    "name": "fillMonthSelects",
+    "lineText": "function fillMonthSelects() {",
+    "linesCount": 27
+  },
+  {
+    "line": 3158,
+    "name": "generateSystemNotifications",
+    "lineText": "function generateSystemNotifications() {",
+    "linesCount": 28
+  },
+  {
+    "line": 3186,
+    "name": "updateNotificationBell",
+    "lineText": "function updateNotificationBell() {",
+    "linesCount": 13
+  },
+  {
+    "line": 3199,
+    "name": "openNotificationsCenter",
+    "lineText": "function openNotificationsCenter() {",
+    "linesCount": 41
+  },
+  {
+    "line": 3240,
+    "name": "getDueDateLabel",
+    "lineText": "function getDueDateLabel(item) {",
+    "linesCount": 28
+  },
+  {
+    "line": 3268,
+    "name": "openFullscreenTable",
+    "lineText": "function openFullscreenTable(presetType) {",
+    "linesCount": 22
+  },
+  {
+    "line": 3290,
+    "name": "renderFullscreenTable",
+    "lineText": "function renderFullscreenTable() {",
+    "linesCount": 90
+  },
+  {
+    "line": 3380,
+    "name": "renderRibbon",
+    "lineText": "function renderRibbon() {",
+    "linesCount": 93
+  },
+  {
+    "line": 3473,
+    "name": "renderDashboardMetrics",
+    "lineText": "function renderDashboardMetrics() {",
+    "linesCount": 65
+  },
+  {
+    "line": 3538,
+    "name": "renderInsightsSection",
+    "lineText": "function renderInsightsSection() {",
+    "linesCount": 76
+  },
+  {
+    "line": 3614,
+    "name": "renderCategoryBarView",
+    "lineText": "function renderCategoryBarView(items, totalIncome, totalSpent) {",
+    "linesCount": 48
+  },
+  {
+    "line": 3662,
+    "name": "renderCategoryColumnView",
+    "lineText": "function renderCategoryColumnView(items, totalIncome, totalSpent) {",
+    "linesCount": 50
+  },
+  {
+    "line": 3712,
+    "name": "renderCategoryDonutView",
+    "lineText": "function renderCategoryDonutView(items, totalIncome, totalSpent) {",
+    "linesCount": 69
+  },
+  {
+    "line": 3781,
+    "name": "renderCategoryLineView",
+    "lineText": "function renderCategoryLineView(items, totalIncome, totalSpent) {",
+    "linesCount": 87
+  },
+  {
+    "line": 3868,
+    "name": "renderCategoryDistributionChart",
+    "lineText": "function renderCategoryDistributionChart() {",
+    "linesCount": 95
+  },
+  {
+    "line": 3963,
+    "name": "markDestinationPaid",
+    "lineText": "function markDestinationPaid(destName) {",
+    "linesCount": 31
+  },
+  {
+    "line": 3994,
+    "name": "renderDestBarView",
+    "lineText": "function renderDestBarView(items, totalAll) {",
+    "linesCount": 24
+  },
+  {
+    "line": 4018,
+    "name": "renderDestColumnView",
+    "lineText": "function renderDestColumnView(items, totalAll) {",
+    "linesCount": 43
+  },
+  {
+    "line": 4061,
+    "name": "renderDestDonutView",
+    "lineText": "function renderDestDonutView(items, totalAll) {",
+    "linesCount": 65
+  },
+  {
+    "line": 4126,
+    "name": "renderDestinationChart",
+    "lineText": "function renderDestinationChart() {",
+    "linesCount": 77
+  },
+  {
+    "line": 4203,
+    "name": "reorderExpenses",
+    "lineText": "function reorderExpenses(type, sourceKey, targetKey) {",
+    "linesCount": 33
+  },
+  {
+    "line": 4236,
+    "name": "moveExpenseToEndOfList",
+    "lineText": "function moveExpenseToEndOfList(type, sourceKey) {",
+    "linesCount": 31
+  },
+  {
+    "line": 4267,
+    "name": "reorderBenefits",
+    "lineText": "function reorderBenefits(sourceId, targetId) {",
+    "linesCount": 15
+  },
+  {
+    "line": 4282,
+    "name": "moveBenefitToEnd",
+    "lineText": "function moveBenefitToEnd(sourceId) {",
+    "linesCount": 13
+  },
+  {
+    "line": 4295,
+    "name": "convertVariableToFixed",
+    "lineText": "function convertVariableToFixed(varId) {",
+    "linesCount": 33
+  },
+  {
+    "line": 4328,
+    "name": "openConvertFixedToVarDialog",
+    "lineText": "function openConvertFixedToVarDialog(fixedId) {",
+    "linesCount": 24
+  },
+  {
+    "line": 4352,
+    "name": "updateConvertVarEndSelectors",
+    "lineText": "function updateConvertVarEndSelectors(monthsCount) {",
+    "linesCount": 37
+  },
+  {
+    "line": 4389,
+    "name": "initConvertFixedToVarDialog",
+    "lineText": "function initConvertFixedToVarDialog() {",
+    "linesCount": 97
+  },
+  {
+    "line": 4486,
+    "name": "initGlobalDropZones",
+    "lineText": "function initGlobalDropZones() {",
+    "linesCount": 123
+  },
+  {
+    "line": 4609,
+    "name": "getFixedActiveMonths",
+    "lineText": "function getFixedActiveMonths(fixedItem, year) {",
+    "linesCount": 17
+  },
+  {
+    "line": 4626,
+    "name": "getVariableActiveMonths",
+    "lineText": "function getVariableActiveMonths(varItem, year) {",
+    "linesCount": 12
+  },
+  {
+    "line": 4638,
+    "name": "highlightRibbonMonths",
+    "lineText": "function highlightRibbonMonths(monthsArray) {",
+    "linesCount": 14
+  },
+  {
+    "line": 4652,
+    "name": "clearRibbonHighlight",
+    "lineText": "function clearRibbonHighlight() {",
+    "linesCount": 6
+  },
+  {
+    "line": 4658,
+    "name": "buildEntryRow",
+    "lineText": "function buildEntryRow({",
+    "linesCount": 169
+  },
+  {
+    "line": 4827,
+    "name": "toggleExpenseStatus",
+    "lineText": "function toggleExpenseStatus(type, idKey, currentStatus) {",
+    "linesCount": 22
+  },
+  {
+    "line": 4849,
+    "name": "markAllSectionPaid",
+    "lineText": "function markAllSectionPaid(type) {",
+    "linesCount": 48
+  },
+  {
+    "line": 4897,
+    "name": "renderSection",
+    "lineText": "function renderSection(listId, sumId, items, sumValue) {",
+    "linesCount": 11
+  },
+  {
+    "line": 4908,
+    "name": "checkDueAlerts",
+    "lineText": "function checkDueAlerts(allExpenses) {",
+    "linesCount": 31
+  },
+  {
+    "line": 4939,
+    "name": "sortExpensesList",
+    "lineText": "function sortExpensesList(list, sortMode = 'amount-desc') {",
+    "linesCount": 35
+  },
+  {
+    "line": 4974,
+    "name": "renderSimplifiedExpenses",
+    "lineText": "function renderSimplifiedExpenses() {",
+    "linesCount": 78
+  },
+  {
+    "line": 5052,
+    "name": "renderExpensesLists",
+    "lineText": "function renderExpensesLists() {",
+    "linesCount": 75
+  },
+  {
+    "line": 5127,
+    "name": "openExpenseTimeline",
+    "lineText": "function openExpenseTimeline(opts) {",
+    "linesCount": 166
+  },
+  {
+    "line": 5293,
+    "name": "updateExpensesSortIcons",
+    "lineText": "function updateExpensesSortIcons() {",
+    "linesCount": 17
+  },
+  {
+    "line": 5310,
+    "name": "renderExpensesInstallmentsTab",
+    "lineText": "function renderExpensesInstallmentsTab() {",
+    "linesCount": 315
+  },
+  {
+    "line": 5625,
+    "name": "initSimulator",
+    "lineText": "function initSimulator() {",
+    "linesCount": 42
+  },
+  {
+    "line": 5667,
+    "name": "initTabs",
+    "lineText": "function initTabs() {",
+    "linesCount": 65
+  },
+  {
+    "line": 5732,
+    "name": "render",
+    "lineText": "function render() {",
+    "linesCount": 127
+  },
+  {
+    "line": 5859,
+    "name": "showTypeBlocks",
+    "lineText": "function showTypeBlocks(type) {",
+    "linesCount": 7
+  },
+  {
+    "line": 5866,
+    "name": "setEntryDialogType",
+    "lineText": "function setEntryDialogType(type) {",
+    "linesCount": 10
+  },
+  {
+    "line": 5876,
+    "name": "updateVarInstallments",
+    "lineText": "function updateVarInstallments() {",
+    "linesCount": 26
+  },
+  {
+    "line": 5902,
+    "name": "openEntryDialog",
+    "lineText": "function openEntryDialog(opts) {",
+    "linesCount": 265
+  },
+  {
+    "line": 6167,
+    "name": "openAssetDialog",
+    "lineText": "function openAssetDialog(mode, id) {",
+    "linesCount": 56
+  },
+  {
+    "line": 6223,
+    "name": "openAporteDialog",
+    "lineText": "function openAporteDialog(assetId) {",
+    "linesCount": 37
+  },
+  {
+    "line": 6260,
+    "name": "updateExtraInstallments",
+    "lineText": "function updateExtraInstallments() {",
+    "linesCount": 22
+  },
+  {
+    "line": 6282,
+    "name": "openExtraDialog",
+    "lineText": "function openExtraDialog(mode, id) {",
+    "linesCount": 85
+  },
+  {
+    "line": 6367,
+    "name": "updateDebtorInstallments",
+    "lineText": "function updateDebtorInstallments() {",
+    "linesCount": 22
+  },
+  {
+    "line": 6389,
+    "name": "openDebtorDialog",
+    "lineText": "function openDebtorDialog(mode, id) {",
+    "linesCount": 103
+  },
+  {
+    "line": 6492,
+    "name": "openBackup",
+    "lineText": "function openBackup() { $('#backupDialog').showModal(); }",
+    "linesCount": 1
+  },
+  {
+    "line": 6493,
+    "name": "openInfo",
+    "lineText": "function openInfo() {",
+    "linesCount": 5
+  },
+  {
+    "line": 6498,
+    "name": "checkWelcomeTour",
+    "lineText": "function checkWelcomeTour() {",
+    "linesCount": 12
+  },
+  {
+    "line": 6510,
+    "name": "dismissWelcomeTour",
+    "lineText": "function dismissWelcomeTour() {",
+    "linesCount": 122
+  },
+  {
+    "line": 6632,
+    "name": "openBenefitDialog",
+    "lineText": "function openBenefitDialog(mode, id) {",
+    "linesCount": 27
+  },
+  {
+    "line": 6659,
+    "name": "deleteBenefit",
+    "lineText": "function deleteBenefit(id) {",
+    "linesCount": 126
+  },
+  {
+    "line": 6785,
+    "name": "initApp",
+    "lineText": "function initApp() {",
+    "linesCount": 26
+  }
+]

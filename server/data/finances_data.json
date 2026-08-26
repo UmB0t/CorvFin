@@ -1031,6 +1031,22 @@
         "startYear": 2026,
         "endMonth": 9,
         "endYear": 2026
+      },
+      {
+        "destination": "Nubank PF",
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "1jewnoh374xa",
+        "name": "MENTOS NO BNB - 26/08",
+        "group": "Gerais",
+        "note": "",
+        "dueDay": 8,
+        "amount": 3.1,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
       }
     ],
     "extras": [
@@ -1579,7 +1595,7 @@
       }
     ],
     "customExpensesOrder": [],
-    "lastModified": "2026-08-26T18:37:41.524Z",
+    "lastModified": "2026-08-26T20:34:58.508Z",
     "firstLogin": true
   },
   "usr_25gspgvwmt6n3907": {

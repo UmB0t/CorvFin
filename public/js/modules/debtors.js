@@ -1,4 +1,4 @@
-window.activeDebtorsForMonth = function activeDebtorsForMonth(year, month) {
+function activeDebtorsForMonth(year, month) {
   const state = getState();
   const target = mk(year, month);
   const key = ymKey(year, month);
@@ -15,7 +15,7 @@ window.activeDebtorsForMonth = function activeDebtorsForMonth(year, month) {
     });
 };
 
-window.reorderDebtors = function reorderDebtors(sourceId, targetId) {
+function reorderDebtors(sourceId, targetId) {
   if (sourceId === targetId) return;
   const state = getState();
   const sIdx = (state.debtors || []).findIndex(d => d.id === sourceId);
@@ -29,7 +29,7 @@ window.reorderDebtors = function reorderDebtors(sourceId, targetId) {
   }
 };
 
-window.moveDebtorToEnd = function moveDebtorToEnd(sourceId) {
+function moveDebtorToEnd(sourceId) {
   const state = getState();
   const sIdx = (state.debtors || []).findIndex(d => d.id === sourceId);
   if (sIdx !== -1) {
@@ -41,7 +41,7 @@ window.moveDebtorToEnd = function moveDebtorToEnd(sourceId) {
   }
 };
 
-window.getDebtorPersonColor = function getDebtorPersonColor(name, index) {
+function getDebtorPersonColor(name, index) {
   if (typeof index === 'number' && index >= 0) {
     return DEBTOR_COLORS_PALETTE[index % DEBTOR_COLORS_PALETTE.length];
   }
@@ -55,7 +55,7 @@ window.getDebtorPersonColor = function getDebtorPersonColor(name, index) {
   return DEBTOR_COLORS_PALETTE[absIdx % DEBTOR_COLORS_PALETTE.length];
 };
 
-window.markDebtorPersonPaid = function markDebtorPersonPaid(debtorName) {
+function markDebtorPersonPaid(debtorName) {
   const state = getState();
   const y = state.year, m = state.month;
   const key = ymKey(y, m);
@@ -81,7 +81,7 @@ window.markDebtorPersonPaid = function markDebtorPersonPaid(debtorName) {
   }
 };
 
-window.markDebtorDestPaid = function markDebtorDestPaid(destName) {
+function markDebtorDestPaid(destName) {
   const state = getState();
   const y = state.year, m = state.month;
   const key = ymKey(y, m);
@@ -107,7 +107,7 @@ window.markDebtorDestPaid = function markDebtorDestPaid(destName) {
   }
 };
 
-window.renderDynamicDebtorChart = function renderDynamicDebtorChart(container, mapData, chartType, isDestination = false, totalBadgeSel = null) {
+function renderDynamicDebtorChart(container, mapData, chartType, isDestination = false, totalBadgeSel = null) {
   if (!container) return;
 
   const entries = Object.entries(mapData).sort((a, b) => b[1] - a[1]);
@@ -272,7 +272,7 @@ window.renderDynamicDebtorChart = function renderDynamicDebtorChart(container, m
   });
 };
 
-window.renderDebtorCharts = function renderDebtorCharts() {
+function renderDebtorCharts() {
   const state = getState();
   const personCard = $('#debtorPersonCard');
   const destCard = $('#debtorDestCard');
@@ -336,11 +336,12 @@ window.renderDebtorCharts = function renderDebtorCharts() {
   }
 };
 
-window.updateDebtorCharts = function updateDebtorCharts() {
+function updateDebtorCharts() {
   renderDebtorCharts();
 };
 
-window.toggleDebtorPerson = function toggleDebtorPerson() {
+function toggleDebtorPerson() {
+  // window.toggleDebtorPerson bridge assigned below
   const state = getState();
   state.collapsedSections = state.collapsedSections || {};
   state.collapsedSections.debtorPerson = !state.collapsedSections.debtorPerson;
@@ -348,7 +349,8 @@ window.toggleDebtorPerson = function toggleDebtorPerson() {
   render();
 };
 
-window.toggleDebtorDest = function toggleDebtorDest() {
+function toggleDebtorDest() {
+  // window.toggleDebtorDest bridge assigned below
   const state = getState();
   state.collapsedSections = state.collapsedSections || {};
   state.collapsedSections.debtorDest = !state.collapsedSections.debtorDest;
@@ -356,7 +358,7 @@ window.toggleDebtorDest = function toggleDebtorDest() {
   render();
 };
 
-window.renderDebtorsTab = function renderDebtorsTab() {
+function renderDebtorsTab() {
   const state = getState();
   const y = state.year, m = state.month;
   const rawDebtors = activeDebtorsForMonth(y, m);
@@ -431,3 +433,288 @@ window.renderDebtorsTab = function renderDebtorsTab() {
 
   renderSection('#listDebtors', '#sumDebtors', rows, debtors.reduce((s, d) => s + Number(d.amount), 0));
 };
+
+/* ==========================================================================
+   DÍVIDAS TOTAIS & CONTRATOS DE LONGO PRAZO
+   ========================================================================== */
+
+      let debtorsTableSort = { key: 'totalDebt', asc: false };
+
+      function updateDebtorsSortIcons() {
+        const keys = ['debtorName', 'destination', 'amount', 'months', 'totalDebt', 'paidAmount', 'remainingDebt', 'progress', 'period'];
+        keys.forEach(k => {
+          const iconEl = $(`#sortIconDeb_${k}`);
+          const thEl = iconEl ? iconEl.closest('.sortable-th') : null;
+          if (iconEl) {
+            if (debtorsTableSort.key === k) {
+              iconEl.textContent = debtorsTableSort.asc ? '▲' : '▼';
+              if (thEl) thEl.classList.add('active-sort');
+            } else {
+              iconEl.textContent = '↕';
+              if (thEl) thEl.classList.remove('active-sort');
+            }
+          }
+        });
+      }
+
+      function renderDebtorsTotalsTab() {
+  const state = getState();
+        let grandTotalDebt = 0;
+        let grandPaidDebt = 0;
+        let grandRemainingDebt = 0;
+        let activeAgreementsCount = 0;
+
+        const items = state.debtors.map(d => {
+          const totalMonths = mk(d.endYear, d.endMonth) - mk(d.startYear, d.startMonth) + 1;
+          const totalDebt = Number(d.amount) * totalMonths;
+          grandTotalDebt += totalDebt;
+
+          let paidMonthsCount = 0;
+          if (d.paidHistory) {
+            Object.values(d.paidHistory).forEach(p => { if (p === true) paidMonthsCount++; });
+          }
+
+          const paidAmount = paidMonthsCount * Number(d.amount);
+          const remainingDebt = Math.max(0, totalDebt - paidAmount);
+          grandPaidDebt += paidAmount;
+          grandRemainingDebt += remainingDebt;
+
+          const isCompleted = paidMonthsCount >= totalMonths;
+          if (!isCompleted) activeAgreementsCount++;
+
+          const pctPaid = totalDebt > 0 ? Math.min(100, Math.round((paidAmount / totalDebt) * 100)) : 0;
+
+          return {
+            id: d.id,
+            debtorName: d.debtorName,
+            title: d.title,
+            destination: d.destination || 'Nubank',
+            amount: Number(d.amount),
+            totalMonths,
+            paidMonthsCount,
+            totalDebt,
+            paidAmount,
+            remainingDebt,
+            isCompleted,
+            pctPaid,
+            startMonth: d.startMonth,
+            startYear: d.startYear,
+            endMonth: d.endMonth,
+            endYear: d.endYear
+          };
+        });
+
+        $('#debtorsTotalsMetrics').innerHTML = `
+      <div class="metric">
+        <div class="label">Montante Global em Dívidas</div>
+        <div class="value num negative">${currency(grandTotalDebt)}</div>
+        <div class="sub">Soma acumulada de todos os acordos</div>
+      </div>
+      <div class="metric">
+        <div class="label">Total Já Quitado</div>
+        <div class="value num positive">${currency(grandPaidDebt)}</div>
+        <div class="sub">Valores recebidos até o momento</div>
+      </div>
+      <div class="metric">
+        <div class="label">Saldo Global a Receber</div>
+        <div class="value num warning">${currency(grandRemainingDebt)}</div>
+        <div class="sub">Total de parcelas futuras</div>
+      </div>
+      <div class="metric">
+        <div class="label">Acordos em Aberto</div>
+        <div class="value num info">${activeAgreementsCount} <small style="font-size:.8rem; color:var(--muted)">de ${items.length}</small></div>
+        <div class="sub">Devedores ativos</div>
+      </div>
+    `;
+
+        // Populate top filter bar selects while preserving selection
+        const debtorSel = $('#debtorsTotalsDebtorFilter');
+        if (debtorSel) {
+          const currentVal = debtorSel.value || 'all';
+          const uniqueDebtors = [...new Set(state.debtors.map(d => d.debtorName).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+          debtorSel.innerHTML = `<option value="all">Todos os Devedores</option>` + uniqueDebtors.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+          debtorSel.value = uniqueDebtors.includes(currentVal) ? currentVal : 'all';
+        }
+
+        const destSel = $('#debtorsTotalsDestFilter');
+        if (destSel) {
+          const currentVal = destSel.value || 'all';
+          const uniqueDests = [...new Set((state.destinations || []).map(d => d.name).concat(items.map(i => i.destination)).filter(Boolean))].sort();
+          destSel.innerHTML = `<option value="all">Todos os Destinos</option>` + uniqueDests.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+          destSel.value = uniqueDests.includes(currentVal) ? currentVal : 'all';
+        }
+
+        const query = ($('#debtorsTotalsSearchInput')?.value || '').toLowerCase().trim();
+        const debtorFilter = $('#debtorsTotalsDebtorFilter')?.value || 'all';
+        const destFilter = $('#debtorsTotalsDestFilter')?.value || 'all';
+        const statusFilter = $('#debtorsTotalsStatusFilter')?.value || 'all';
+
+        const filtered = items.filter(item => {
+          if (debtorFilter !== 'all' && item.debtorName !== debtorFilter) return false;
+          if (destFilter !== 'all' && item.destination !== destFilter) return false;
+          if (statusFilter === 'active' && item.isCompleted) return false;
+          if (statusFilter === 'completed' && !item.isCompleted) return false;
+          if (query) {
+            const text = `${item.debtorName} ${item.title} ${item.destination}`.toLowerCase();
+            if (!text.includes(query)) return false;
+          }
+          return true;
+        });
+
+        // Apply interactive column sort
+        const dir = debtorsTableSort.asc ? 1 : -1;
+        filtered.sort((a, b) => {
+          let diff = 0;
+          switch (debtorsTableSort.key) {
+            case 'debtorName':
+              diff = a.debtorName.localeCompare(b.debtorName) || a.title.localeCompare(b.title);
+              break;
+            case 'destination':
+              diff = (a.destination || '').localeCompare(b.destination || '');
+              break;
+            case 'amount':
+              diff = a.amount - b.amount;
+              break;
+            case 'months':
+              diff = a.totalMonths - b.totalMonths || a.paidMonthsCount - b.paidMonthsCount;
+              break;
+            case 'totalDebt':
+              diff = a.totalDebt - b.totalDebt;
+              break;
+            case 'paidAmount':
+              diff = a.paidAmount - b.paidAmount;
+              break;
+            case 'remainingDebt':
+              diff = a.remainingDebt - b.remainingDebt;
+              break;
+            case 'progress':
+              diff = a.pctPaid - b.pctPaid;
+              break;
+            case 'period':
+              diff = mk(a.startYear, a.startMonth) - mk(b.startYear, b.startMonth);
+              break;
+            default:
+              diff = a.totalDebt - b.totalDebt;
+          }
+          return diff * dir;
+        });
+
+        updateDebtorsSortIcons();
+
+        const sumFiltered = filtered.reduce((s, i) => s + i.totalDebt, 0);
+        $('#sumDebtorsGrandTotal').textContent = `Total: ${currency(sumFiltered)}`;
+
+        const tbody = $('#debtorsTotalsTableBody');
+        if (!tbody) return;
+
+        if (filtered.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:24px; color:var(--muted)">Nenhum contrato de devedor encontrado para os filtros selecionados.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = filtered.map(item => {
+          const destMeta = getDestMeta(item.destination);
+          const iconSvg = DEST_SVG_ICONS[destMeta.icon] || DEST_SVG_ICONS.card;
+          return `
+        <tr>
+          <td><strong>${escapeHtml(item.debtorName)}</strong> — ${escapeHtml(item.title)}</td>
+          <td>
+            <span class="tag dest" style="background:${destMeta.color}22; color:${destMeta.color}; border:1px solid ${destMeta.color}44;">
+              ${iconSvg} ${escapeHtml(item.destination)}
+            </span>
+          </td>
+          <td class="num">${currency(item.amount)}</td>
+          <td><span class="tag">${item.paidMonthsCount} de ${item.totalMonths}x</span></td>
+          <td><strong class="num negative">${currency(item.totalDebt)}</strong></td>
+          <td class="num positive">${currency(item.paidAmount)}</td>
+          <td class="num warning">${currency(item.remainingDebt)}</td>
+          <td style="min-width:120px;">
+            <div class="dest-track" style="margin-bottom:2px;">
+              <div class="dest-fill" style="width:${item.pctPaid}%; background:${item.isCompleted ? 'var(--success)' : 'var(--brand)'};"></div>
+            </div>
+            <small style="font-weight:800; color:var(--muted);">${item.pctPaid}% ${item.isCompleted ? '(Quitado)' : ''}</small>
+          </td>
+          <td><small>${MONTH_ABBR[(item.startMonth || 1) - 1]}/${item.startYear} a ${MONTH_ABBR[(item.endMonth || 1) - 1]}/${item.endYear}</small></td>
+          <td>
+            <button type="button" class="icon-btn small edit-debt-btn" data-debt-id="${item.id}" title="Editar Devedor">${ICONS.edit}</button>
+          </td>
+        </tr>
+      `;
+        }).join('');
+
+        $$('.edit-debt-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-debt-id');
+            if (id) openDebtorDialog('edit', id);
+          });
+        });
+      }
+
+      $$('.sortable-th[data-sort-table="debtors"]').forEach(th => {
+        th.addEventListener('click', () => {
+          const key = th.getAttribute('data-sort-key');
+          if (!key) return;
+          if (debtorsTableSort.key === key) {
+            debtorsTableSort.asc = !debtorsTableSort.asc;
+          } else {
+            debtorsTableSort.key = key;
+            debtorsTableSort.asc = (key === 'debtorName' || key === 'destination');
+          }
+          renderDebtorsTotalsTab();
+        });
+      });
+
+      $('#debtorsTotalsSearchInput')?.addEventListener('input', renderDebtorsTotalsTab);
+      $('#debtorsTotalsDebtorFilter')?.addEventListener('change', renderDebtorsTotalsTab);
+      $('#debtorsTotalsDestFilter')?.addEventListener('change', renderDebtorsTotalsTab);
+      $('#debtorsTotalsStatusFilter')?.addEventListener('change', renderDebtorsTotalsTab);
+
+      /* =============================================================
+         GRÁFICOS DINÂMICOS DE DEVEDORES (PESSOA E DESTINO)
+         ============================================================= */
+
+
+      const toggleDebtorPersonBtn = $('#toggleDebtorPersonBtn');
+      if (toggleDebtorPersonBtn) toggleDebtorPersonBtn.addEventListener('click', toggleDebtorPerson);
+      const closeDebtorPersonBtn = $('#closeDebtorPersonBtn');
+      if (closeDebtorPersonBtn) closeDebtorPersonBtn.addEventListener('click', toggleDebtorPerson);
+
+      const toggleDebtorDestBtn = $('#toggleDebtorDestBtn');
+      if (toggleDebtorDestBtn) toggleDebtorDestBtn.addEventListener('click', toggleDebtorDest);
+      const closeDebtorDestBtn = $('#closeDebtorDestBtn');
+      if (closeDebtorDestBtn) closeDebtorDestBtn.addEventListener('click', toggleDebtorDest);
+
+      const debMonthlyBtn = $('#debtorsMonthlyTabBtn');
+      if (debMonthlyBtn) {
+        debMonthlyBtn.addEventListener('click', () => {
+          const state = getState();
+      state.debtorsSubView = 'monthly';
+          saveState(); render();
+        });
+      }
+
+      const debTotalsBtn = $('#debtorsTotalsTabBtn');
+      if (debTotalsBtn) {
+        debTotalsBtn.addEventListener('click', () => {
+          const state = getState();
+      state.debtorsSubView = 'totals';
+          saveState(); render();
+        });
+      }
+
+
+window.renderDebtorsTotalsTab = renderDebtorsTotalsTab;
+
+window.toggleDebtorPerson = toggleDebtorPerson;
+window.toggleDebtorDest = toggleDebtorDest;
+
+window.activeDebtorsForMonth = activeDebtorsForMonth;
+window.reorderDebtors = reorderDebtors;
+window.moveDebtorToEnd = moveDebtorToEnd;
+window.getDebtorPersonColor = getDebtorPersonColor;
+window.markDebtorPersonPaid = markDebtorPersonPaid;
+window.markDebtorDestPaid = markDebtorDestPaid;
+window.renderDynamicDebtorChart = renderDynamicDebtorChart;
+window.renderDebtorCharts = renderDebtorCharts;
+window.updateDebtorCharts = updateDebtorCharts;
+window.renderDebtorsTab = renderDebtorsTab;
