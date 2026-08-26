@@ -2869,6 +2869,7 @@
   <script src="js/core/dom.js"></script>
   <script src="js/modules/benefits.js"></script>
   <script src="js/modules/extras.js"></script>
+  <script src="js/modules/debtors.js"></script>
   <script>
     (function () {
       "use strict";
@@ -2900,6 +2901,8 @@
       window.renderSection = renderSection;
       window.toggleExpenseStatus = toggleExpenseStatus;
       window.openExtraDialog = openExtraDialog;
+      window.openDebtorDialog = openDebtorDialog;
+      window.getDestMeta = getDestMeta;
       window.selectMonth = function selectMonth(m) {
         state.month = m;
         saveState();
@@ -3087,21 +3090,6 @@
       }
 
 
-
-      function activeDebtorsForMonth(year, month) {
-        const target = mk(year, month);
-        const key = ymKey(year, month);
-        return state.debtors.filter(d => target >= mk(d.startYear, d.startMonth) && target <= mk(d.endYear, d.endMonth))
-          .map(d => {
-            const total = mk(d.endYear, d.endMonth) - mk(d.startYear, d.startMonth) + 1;
-            const idx = target - mk(d.startYear, d.startMonth) + 1;
-            const isPaid = d.paidHistory ? d.paidHistory[key] === true : d.status === 'pago';
-            return Object.assign({}, d, {
-              installmentIndex: idx, installmentTotal: total,
-              status: isPaid ? 'pago' : 'pendente'
-            });
-          });
-      }
 
       function monthTotals(year, month) {
         const fixed = activeFixedForMonth(year, month);
@@ -4439,30 +4427,6 @@
       }
 
 
-
-      function reorderDebtors(sourceId, targetId) {
-        if (sourceId === targetId) return;
-        const sIdx = state.debtors.findIndex(d => d.id === sourceId);
-        const tIdx = state.debtors.findIndex(d => d.id === targetId);
-        if (sIdx !== -1 && tIdx !== -1) {
-          const [moved] = state.debtors.splice(sIdx, 1);
-          state.debtors.splice(tIdx, 0, moved);
-          saveState();
-          render();
-          notify('Ordem dos devedores atualizada!');
-        }
-      }
-
-      function moveDebtorToEnd(sourceId) {
-        const sIdx = state.debtors.findIndex(d => d.id === sourceId);
-        if (sIdx !== -1) {
-          const [moved] = state.debtors.splice(sIdx, 1);
-          state.debtors.push(moved);
-          saveState();
-          render();
-          notify('Ordem dos devedores atualizada!');
-        }
-      }
 
       function reorderBenefits(sourceId, targetId) {
         if (sourceId === targetId) return;
@@ -5822,85 +5786,6 @@
         });
       }
 
-      function renderDebtorsTab() {
-        const y = state.year, m = state.month;
-        const rawDebtors = activeDebtorsForMonth(y, m);
-
-        let grandTotalDebt = 0;
-        let grandPaidDebt = 0;
-
-        state.debtors.forEach(d => {
-          const totalMonths = mk(d.endYear, d.endMonth) - mk(d.startYear, d.startMonth) + 1;
-          const totalValue = Number(d.amount) * totalMonths;
-          grandTotalDebt += totalValue;
-
-          if (d.paidHistory) {
-            Object.values(d.paidHistory).forEach(p => { if (p === true) grandPaidDebt += Number(d.amount); });
-          }
-        });
-
-        const grandRemainingDebt = grandTotalDebt - grandPaidDebt;
-
-        $('#debtorMetrics').innerHTML = `
-      <div class="metric">
-        <div class="label">Montante Total em Dívidas</div>
-        <div class="value num negative">${currency(grandTotalDebt)}</div>
-        <div class="sub">Soma acumulada de todos os acordos</div>
-      </div>
-      <div class="metric">
-        <div class="label">Total Já Recebido</div>
-        <div class="value num positive">${currency(grandPaidDebt)}</div>
-        <div class="sub">Quitado pelos devedores</div>
-      </div>
-      <div class="metric">
-        <div class="label">Restam a Receber</div>
-        <div class="value num warning">${currency(grandRemainingDebt)}</div>
-        <div class="sub">Saldo devedor restante</div>
-      </div>
-      <div class="metric">
-        <div class="label">A Receber no Mês Atual</div>
-        <div class="value num positive">${currency(rawDebtors.reduce((s, d) => s + Number(d.amount), 0))}</div>
-        <div class="sub">Parcelas vigentes de ${MONTH_ABBR[m - 1]}/${y}</div>
-      </div>
-    `;
-
-        renderDebtorCharts();
-
-        const query = ($('#debtorsSearchInput').value || '').toLowerCase().trim();
-        const statusFilter = $('#debtorsStatusFilter').value;
-
-        const debtors = rawDebtors.filter(d => {
-          if (statusFilter !== 'all' && d.status !== statusFilter) return false;
-          if (query) {
-            const text = `${d.debtorName} ${d.title} ${d.description || ''}`.toLowerCase();
-            if (!text.includes(query)) return false;
-          }
-          return true;
-        });
-
-        const rows = debtors.map(d => {
-          const totalDebt = Number(d.amount) * Number(d.installmentTotal);
-          return buildEntryRow({
-            id: d.id, type: 'debtor', title: `${d.debtorName} • ${d.title}`,
-            tags: [
-              `Parcela ${d.installmentIndex}/${d.installmentTotal}`,
-              `Total: ${currency(totalDebt)}`,
-              d.countInTotal ? 'Soma na Renda do Mês' : null,
-              d.description || 'Sem obs'
-            ].filter(Boolean),
-            amount: d.amount, status: d.status, destination: d.destination,
-            onClickToggleStatus: () => toggleExpenseStatus('debtor', d.id, d.status),
-            onClickEdit: () => openDebtorDialog('edit', d.id)
-          });
-        });
-
-        renderSection('#listDebtors', '#sumDebtors', rows, debtors.reduce((s, d) => s + Number(d.amount), 0));
-      }
-
-      $('#debtorsSearchInput').addEventListener('input', renderDebtorsTab);
-      $('#debtorsStatusFilter').addEventListener('change', renderDebtorsTab);
-
-      /* ---------- DÍVIDAS TOTAIS POR DEVEDOR (GLOBAL / CONSOLIDADO) ---------- */
       let debtorsTableSort = { key: 'totalDebt', asc: false };
 
       function updateDebtorsSortIcons() {
@@ -6136,313 +6021,11 @@
          ============================================================= */
 
 
-      function getDebtorPersonColor(name, index) {
-        if (typeof index === 'number' && index >= 0) {
-          return DEBTOR_COLORS_PALETTE[index % DEBTOR_COLORS_PALETTE.length];
-        }
-        let hash = 0;
-        const str = String(name || '');
-        for (let i = 0; i < str.length; i++) {
-          hash = (hash << 5) - hash + str.charCodeAt(i);
-          hash |= 0;
-        }
-        const absIdx = Math.abs(hash);
-        return DEBTOR_COLORS_PALETTE[absIdx % DEBTOR_COLORS_PALETTE.length];
-      }
-
-      function markDebtorPersonPaid(debtorName) {
-        const y = state.year, m = state.month;
-        const key = ymKey(y, m);
-        let count = 0;
-
-        activeDebtorsForMonth(y, m).forEach(d => {
-          if (d.debtorName === debtorName && d.status !== 'pago') {
-            const item = state.debtors.find(x => x.id === d.id);
-            if (item) {
-              item.paidHistory = item.paidHistory || {};
-              item.paidHistory[key] = true;
-              count++;
-            }
-          }
-        });
-
-        if (count > 0) {
-          saveState(); render();
-          notify(`Todas as cobranças de "${debtorName}" neste mês foram marcadas como PAGAS!`, 'success');
-        } else {
-          notify(`Todas as cobranças de "${debtorName}" neste mês já estão pagas!`, 'info');
-        }
-      }
-
-      function markDebtorDestPaid(destName) {
-        const y = state.year, m = state.month;
-        const key = ymKey(y, m);
-        let count = 0;
-
-        activeDebtorsForMonth(y, m).forEach(d => {
-          if ((d.destination || 'Gerais') === destName && d.status !== 'pago') {
-            const item = state.debtors.find(x => x.id === d.id);
-            if (item) {
-              item.paidHistory = item.paidHistory || {};
-              item.paidHistory[key] = true;
-              count++;
-            }
-          }
-        });
-
-        if (count > 0) {
-          saveState(); render();
-          notify(`Todas as cobranças do destino "${destName}" neste mês foram marcadas como PAGAS!`, 'success');
-        } else {
-          notify(`Todas as cobranças de "${destName}" neste mês já estão pagas!`, 'info');
-        }
-      }
-
-      function renderDynamicDebtorChart(container, mapData, chartType, isDestination = false, totalBadgeSel = null) {
-        if (!container) return;
-
-        const entries = Object.entries(mapData).sort((a, b) => b[1] - a[1]);
-        const total = entries.reduce((s, i) => s + i[1], 0);
-
-        if (totalBadgeSel) {
-          const badge = $(totalBadgeSel);
-          if (badge) badge.textContent = `Total: ${currency(total)}`;
-        }
-
-        if (entries.length === 0 || total <= 0) {
-          container.innerHTML = `<div class="empty">Nenhuma cobrança registrada neste mês.</div>`;
-          return;
-        }
-
-        const items = entries.map(([name, val], index) => {
-          const pct = Math.round((val / (total || 1)) * 100);
-          let color = '';
-          let iconSvg = '';
-          const btnClass = isDestination ? 'pay-debt-dest-btn' : 'pay-debt-person-btn';
-
-          if (isDestination) {
-            const meta = getDestMeta(name);
-            color = meta.color;
-            iconSvg = DEST_SVG_ICONS[meta.icon] || DEST_SVG_ICONS.card;
-          } else {
-            color = getDebtorPersonColor(name, index);
-            iconSvg = '<svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
-          }
-
-          return { name, val, pct, color, iconSvg, btnClass };
-        });
-
-        if (chartType === 'column') {
-          const maxVal = Math.max(...items.map(i => i.val), 10);
-          const chartHeight = 170;
-          container.innerHTML = `
-            <div style="padding:8px 0;">
-              <div style="position:relative; height:${chartHeight}px; display:flex; align-items:flex-end; gap:12px; border-bottom:2px solid var(--line); padding:0 8px 8px; margin-bottom:12px; overflow-x:auto;">
-                ${items.map(item => {
-                  const colHeight = Math.max(14, Math.round((item.val / maxVal) * (chartHeight - 40)));
-                  return `
-                    <div style="flex:1; min-width:65px; max-width:95px; display:flex; flex-direction:column; align-items:center; height:100%; justify-content:flex-end;">
-                      <div class="num" style="font-size:.7rem; font-weight:800; margin-bottom:3px; text-align:center;">
-                        ${currency(item.val)}
-                        <div style="font-size:.62rem; color:var(--muted);">${item.pct}%</div>
-                      </div>
-                      <div style="width:100%; height:${colHeight}px; background:${item.color}; border-radius:6px 6px 0 0; transition:height .3s ease; box-shadow:0 2px 5px rgba(0,0,0,0.08);" title="${escapeHtml(item.name)}: ${currency(item.val)} (${item.pct}%)"></div>
-                      <div style="margin-top:6px; font-size:.72rem; font-weight:750; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%; display:flex; align-items:center; justify-content:center; gap:4px;" title="${escapeHtml(item.name)}">
-                        <span style="color:${item.color}; display:inline-flex;">${item.iconSvg}</span>
-                        <span>${escapeHtml(item.name)}</span>
-                      </div>
-                    </div>
-                  `;
-                }).join('')}
-              </div>
-              <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center;">
-                ${items.map(item => `
-                  <div style="display:inline-flex; align-items:center; gap:6px; background:var(--surface-2); padding:4px 8px; border-radius:8px; font-size:.74rem; border:1px solid var(--line);">
-                    <span style="width:8px; height:8px; border-radius:50%; background:${item.color}; flex-shrink:0;"></span>
-                    <strong>${escapeHtml(item.name)}:</strong>
-                    <span class="num">${currency(item.val)} (${item.pct}%)</span>
-                    <button type="button" class="icon-btn small ${item.btnClass}" style="width:22px; height:22px; font-size:.7rem; margin-left:3px;" data-target-name="${escapeHtml(item.name)}" title="Quitar: Marcar todas as cobranças de '${escapeHtml(item.name)}' como PAGAS">
-                      ${ICONS.check}
-                    </button>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          `;
-        } else if (chartType === 'donut') {
-          const size = 180;
-          const strokeWidth = 28;
-          const radius = (size - strokeWidth) / 2;
-          const circumference = 2 * Math.PI * radius;
-          let accumulatedPct = 0;
-
-          const slicesSvg = items.map((item) => {
-            const ratio = item.val / total;
-            const strokeDasharray = `${ratio * circumference} ${circumference}`;
-            const strokeDashoffset = -accumulatedPct * circumference;
-            accumulatedPct += ratio;
-
-            return `
-              <circle cx="${size / 2}" cy="${size / 2}" r="${radius}"
-                fill="transparent"
-                stroke="${item.color}"
-                stroke-width="${strokeWidth}"
-                stroke-dasharray="${strokeDasharray}"
-                stroke-dashoffset="${strokeDashoffset}"
-                transform="rotate(-90 ${size / 2} ${size / 2})"
-                style="transition: stroke-dasharray .4s ease, stroke-dashoffset .4s ease;">
-                <title>${escapeHtml(item.name)}: ${currency(item.val)} (${item.pct}%)</title>
-              </circle>
-            `;
-          }).join('');
-
-          container.innerHTML = `
-            <div style="display:flex; align-items:center; justify-content:space-around; flex-wrap:wrap; gap:16px; padding:8px 0;">
-              <div style="position:relative; width:${size}px; height:${size}px; flex-shrink:0;">
-                <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-                  ${slicesSvg}
-                </svg>
-                <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none;">
-                  <span style="font-size:.68rem; color:var(--muted); font-weight:700;">Total</span>
-                  <span class="num" style="font-size:.95rem; font-weight:800;">${currency(total)}</span>
-                  <span style="font-size:.65rem; color:var(--muted);">${items.length} itens</span>
-                </div>
-              </div>
-              <div style="flex:1; min-width:200px; display:grid; gap:6px; max-height:220px; overflow-y:auto;">
-                ${items.map(item => `
-                  <div style="display:flex; align-items:center; justify-content:space-between; padding:5px 8px; background:var(--surface-2); border-radius:8px; font-size:.76rem; gap:8px; border:1px solid var(--line);">
-                    <div style="display:flex; align-items:center; gap:6px; overflow:hidden;">
-                      <span style="width:8px; height:8px; border-radius:50%; background:${item.color}; flex-shrink:0;"></span>
-                      <span style="color:${item.color}; display:inline-flex;">${item.iconSvg}</span>
-                      <span style="font-weight:750; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(item.name)}</span>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-                      <span class="num" style="font-weight:800;">${currency(item.val)}</span>
-                      <span class="badge info" style="font-size:.68rem;">${item.pct}%</span>
-                      <button type="button" class="icon-btn small ${item.btnClass}" style="width:24px; height:24px; font-size:.72rem;" data-target-name="${escapeHtml(item.name)}" title="Quitar: Marcar todas as cobranças de '${escapeHtml(item.name)}' como PAGAS">
-                        ${ICONS.check}
-                      </button>
-                    </div>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          `;
-        } else {
-          // Horizontal bars
-          container.innerHTML = `
-            <div class="dest-bars" style="display:grid; gap:8px;">
-              ${items.map(item => `
-                <div class="dest-bar-item" style="grid-template-columns: 120px 1fr auto auto; gap: 10px; align-items: center;">
-                  <div style="display:flex; align-items:center; gap:6px; overflow:hidden;">
-                    <span style="width:18px; height:18px; border-radius:5px; background:${item.color}22; color:${item.color}; display:grid; place-items:center; flex-shrink:0;">${item.iconSvg}</span>
-                    <span class="dest-name" title="${escapeHtml(item.name)}"><strong>${escapeHtml(item.name)}</strong></span>
-                  </div>
-                  <div class="dest-track" style="height:10px; background:var(--surface-2); border-radius:999px; overflow:hidden;">
-                    <div class="dest-fill" style="width:${item.pct}%; background:${item.color}; border-radius:999px; height:100%; transition:width .3s ease;"></div>
-                  </div>
-                  <span class="dest-val num" style="font-size:.8rem;"><strong>${currency(item.val)}</strong> <small style="color:var(--muted)">(${item.pct}%)</small></span>
-                  <button type="button" class="icon-btn small ${item.btnClass}" style="width:24px; height:24px; font-size:.75rem;" data-target-name="${escapeHtml(item.name)}" title="Quitar: Marcar todas as cobranças de '${escapeHtml(item.name)}' como PAGAS">
-                    ${ICONS.check}
-                  </button>
-                </div>
-              `).join('')}
-            </div>
-          `;
-        }
-
-        // Attach payment check button listeners
-        container.querySelectorAll('.pay-debt-person-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const name = btn.getAttribute('data-target-name');
-            if (name) markDebtorPersonPaid(name);
-          });
-        });
-
-        container.querySelectorAll('.pay-debt-dest-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const dest = btn.getAttribute('data-target-name');
-            if (dest) markDebtorDestPaid(dest);
-          });
-        });
-      }
-
-      function renderDebtorCharts() {
-        const personCard = $('#debtorPersonCard');
-        const destCard = $('#debtorDestCard');
-        const grid = $('#debtorChartsGrid');
-        const isPersonCollapsed = !!state.collapsedSections.debtorPerson;
-        const isDestCollapsed = !!state.collapsedSections.debtorDest;
-        const isSimp = !!state.simplifiedView;
-
-        if (personCard) personCard.hidden = isSimp || isPersonCollapsed;
-        if (destCard) destCard.hidden = isSimp || isDestCollapsed;
-        if (grid) grid.hidden = isSimp || (isPersonCollapsed && isDestCollapsed);
-
-        if (personCard && destCard) {
-          if (!isPersonCollapsed && isDestCollapsed) {
-            personCard.classList.add('full-width');
-            destCard.classList.remove('full-width');
-          } else if (isPersonCollapsed && !isDestCollapsed) {
-            destCard.classList.add('full-width');
-            personCard.classList.remove('full-width');
-          } else {
-            personCard.classList.remove('full-width');
-            destCard.classList.remove('full-width');
-          }
-        }
-
-        const togglePersonBtn = $('#toggleDebtorPersonBtn');
-        if (togglePersonBtn) togglePersonBtn.classList.toggle('active', !isPersonCollapsed);
-        const toggleDestBtn = $('#toggleDebtorDestBtn');
-        if (toggleDestBtn) toggleDestBtn.classList.toggle('active', !isDestCollapsed);
-
-        const personType = state.debtorPersonChartType || 'bar';
-        $$('.debtor-person-chart-btn').forEach(b => {
-          b.classList.toggle('active', b.dataset.debtorPersonChartType === personType);
-        });
-
-        const destType = state.debtorDestChartType || 'bar';
-        $$('.debtor-dest-chart-btn').forEach(b => {
-          b.classList.toggle('active', b.dataset.debtorDestChartType === destType);
-        });
-
-        if (isSimp || (isPersonCollapsed && isDestCollapsed)) return;
-
-        const rawDebtors = activeDebtorsForMonth(state.year, state.month);
-
-        if (!isPersonCollapsed) {
-          const personMap = {};
-          rawDebtors.forEach(d => {
-            personMap[d.debtorName] = (personMap[d.debtorName] || 0) + Number(d.amount);
-          });
-          const personContainer = $('#debtorPersonChartContent') || $('#debtorPersonBars');
-          renderDynamicDebtorChart(personContainer, personMap, personType, false, '#debtorPersonTotal');
-        }
-
-        if (!isDestCollapsed) {
-          const destMap = {};
-          rawDebtors.forEach(d => {
-            destMap[d.destination || 'Gerais'] = (destMap[d.destination || 'Gerais'] || 0) + Number(d.amount);
-          });
-          const destContainer = $('#debtorDestChartContent') || $('#debtorDestBars');
-          renderDynamicDebtorChart(destContainer, destMap, destType, true, '#debtorDestTotal');
-        }
-      }
-
-      const toggleDebtorPerson = () => {
-        state.collapsedSections.debtorPerson = !state.collapsedSections.debtorPerson;
-        saveState(); render();
-      };
       const toggleDebtorPersonBtn = $('#toggleDebtorPersonBtn');
       if (toggleDebtorPersonBtn) toggleDebtorPersonBtn.addEventListener('click', toggleDebtorPerson);
       const closeDebtorPersonBtn = $('#closeDebtorPersonBtn');
       if (closeDebtorPersonBtn) closeDebtorPersonBtn.addEventListener('click', toggleDebtorPerson);
 
-      const toggleDebtorDest = () => {
-        state.collapsedSections.debtorDest = !state.collapsedSections.debtorDest;
-        saveState(); render();
-      };
       const toggleDebtorDestBtn = $('#toggleDebtorDestBtn');
       if (toggleDebtorDestBtn) toggleDebtorDestBtn.addEventListener('click', toggleDebtorDest);
       const closeDebtorDestBtn = $('#closeDebtorDestBtn');
@@ -8599,9 +8182,7 @@
 
 
 
-      function updateDebtorCharts() {
-        renderDebtorCharts();
-      }
+      
 
 
 

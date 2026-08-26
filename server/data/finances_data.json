@@ -83,8 +83,8 @@
       "Saúde": 500
     },
     "collapsedSections": {
-      "insights": false,
-      "destChart": true,
+      "insights": true,
+      "destChart": false,
       "categoryChart": true,
       "debtorPerson": true,
       "debtorDest": true,
@@ -303,26 +303,6 @@
           "year": 2027,
           "month": 2
         }
-      },
-      {
-        "destination": "Nubank PF",
-        "paidHistory": {
-          "2026-09": false
-        },
-        "id": "hp5fgh35j63l",
-        "name": "UBER - 23/08",
-        "group": "Gerais",
-        "note": "Uber para ir pro aniversário do Miguel, sobrinho da Yasmim.",
-        "dueDay": 8,
-        "versions": [
-          {
-            "id": "e7f3xig5j63l",
-            "year": 2026,
-            "month": 9,
-            "amount": 24.4
-          }
-        ],
-        "endedFrom": null
       }
     ],
     "variable": [
@@ -750,7 +730,8 @@
       {
         "destination": "Nubank PJ",
         "paidHistory": {
-          "2026-08": false
+          "2026-08": false,
+          "2026-09": false
         },
         "id": "lkih3ba4b524",
         "name": "ITENS DA SHOPEE",
@@ -759,8 +740,9 @@
         "amount": 68.97,
         "startMonth": 9,
         "startYear": 2026,
-        "endMonth": 1,
-        "endYear": 2027
+        "endMonth": 2,
+        "endYear": 2027,
+        "dueDay": null
       },
       {
         "destination": "Pix",
@@ -969,6 +951,86 @@
         "startYear": 2026,
         "endMonth": 9,
         "endYear": 2026
+      },
+      {
+        "destination": "Nubank PF",
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "rvomht2o0ne6",
+        "name": "UBER - RI ARQUITETURA",
+        "group": "Gerais",
+        "note": "",
+        "dueDay": 8,
+        "amount": 8.5,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PF",
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "bhjm8rmv16rw",
+        "name": "UBER - 26/08",
+        "group": "Gerais",
+        "note": "",
+        "dueDay": 8,
+        "amount": 9.1,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PF",
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "gjpgxmh04mdq",
+        "name": "CAFÉ DA MANHÃ - 26/08",
+        "group": "Gerais",
+        "note": "",
+        "dueDay": 8,
+        "amount": 15.55,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "destination": "Nubank PF",
+        "paidHistory": {
+          "2027-02": false
+        },
+        "id": "rodc49sneb3s",
+        "name": "UBER - 23/08",
+        "group": "Gerais",
+        "note": "Uber para ir pro aniversário do Miguel, sobrinho da Yasmim.",
+        "dueDay": 8,
+        "amount": 24.4,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
+      },
+      {
+        "destination": "Neon",
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "iorj3osxrpm2",
+        "name": "DESPESAS GERAIS - NUBANK PJ",
+        "group": "Gerais",
+        "note": "Essas despesas são uma divergência dos valores cadastrados no Nubank PJ e no sistema. Com isso, adicionei aqui a diferência para me organizar e preparar para pagar.",
+        "dueDay": 8,
+        "amount": 52.85,
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026
       }
     ],
     "extras": [
@@ -1093,6 +1155,21 @@
         "paidHistory": {
           "2026-11": false,
           "2026-12": false
+        }
+      },
+      {
+        "id": "igxjkifd1sgy",
+        "title": "SERVIÇO - RI ARQUITETURA",
+        "source": "Trabalho Deltech",
+        "amount": 150,
+        "sender": "PAINHO",
+        "description": "",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 9,
+        "endYear": 2026,
+        "paidHistory": {
+          "2026-09": false
         }
       }
     ],
@@ -1462,6 +1539,22 @@
         "startYear": 2026,
         "endMonth": 9,
         "endYear": 2026
+      },
+      {
+        "countInTotal": false,
+        "paidHistory": {
+          "2026-09": false
+        },
+        "id": "0uuaftcob4q0",
+        "title": "ROUPAS DA SHEIN",
+        "debtorName": "YASMIM",
+        "amount": 34.5,
+        "destination": "Nubank PJ",
+        "description": "",
+        "startMonth": 9,
+        "startYear": 2026,
+        "endMonth": 12,
+        "endYear": 2026
       }
     ],
     "assets": [
@@ -1486,7 +1579,7 @@
       }
     ],
     "customExpensesOrder": [],
-    "lastModified": "2026-08-25T22:06:20.534Z",
+    "lastModified": "2026-08-26T14:10:49.807Z",
     "firstLogin": true
   },
   "usr_25gspgvwmt6n3907": {
