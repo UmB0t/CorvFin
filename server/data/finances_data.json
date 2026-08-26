@@ -84,7 +84,7 @@
     },
     "collapsedSections": {
       "insights": true,
-      "destChart": false,
+      "destChart": true,
       "categoryChart": true,
       "debtorPerson": true,
       "debtorDest": true,
@@ -1579,7 +1579,7 @@
       }
     ],
     "customExpensesOrder": [],
-    "lastModified": "2026-08-26T15:31:06.134Z",
+    "lastModified": "2026-08-26T18:37:41.524Z",
     "firstLogin": true
   },
   "usr_25gspgvwmt6n3907": {
