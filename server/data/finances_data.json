@@ -4,7 +4,7 @@
     "version": 5,
     "sidebarCollapsed": false,
     "simplifiedView": false,
-    "chartViewType": "bar",
+    "chartViewType": "line",
     "destChartViewType": "bar",
     "debtorPersonChartType": "bar",
     "debtorDestChartType": "donut",
@@ -1595,7 +1595,7 @@
       }
     ],
     "customExpensesOrder": [],
-    "lastModified": "2026-08-26T20:34:58.508Z",
+    "lastModified": "2026-08-26T21:01:15.521Z",
     "firstLogin": true
   },
   "usr_25gspgvwmt6n3907": {
