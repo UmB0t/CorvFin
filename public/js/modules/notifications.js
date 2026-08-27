@@ -26,16 +26,6 @@
       notifs.push({ id: 'unbudgeted', type: 'warning', title: 'Categorias sem Teto', desc: `${unbudgetedCount} categoria(s) não possuem limite mensal configurado.` });
     }
 
-    const isLinked = typeof isPhysicalFileLinked === 'function'
-      ? isPhysicalFileLinked()
-      : (typeof window.isPhysicalFileLinked === 'function' ? window.isPhysicalFileLinked() : false);
-
-    if (!isLinked) {
-      notifs.push({ id: 'backup', type: 'info', title: 'Arquivo no PC Não Vinculado', desc: 'Vincule um arquivo .json no seu computador para salvamento automático permanente.' });
-    } else {
-      notifs.push({ id: 'backup-ok', type: 'success', title: 'Salvamento Automático Ativo', desc: 'Seus dados estão sendo sincronizados com o arquivo do seu PC.' });
-    }
-
     return notifs;
   }
 

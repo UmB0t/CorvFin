@@ -1,72 +1,17 @@
 /* ==========================================================================
-   MÓDULO DE BACKUP, FILE SYSTEM & SINCRONIZAÇÃO LOCAL (backup.js)
+   MÓDULO DE BACKUP E RESTAURAÇÃO DE DADOS (backup.js)
    Finanças Pro - Vanilla JS Architecture
    ========================================================================== */
 
 (function () {
   "use strict";
 
-  let localFileHandle = null;
-
-  async function linkPhysicalFile() {
-    if ('showSaveFilePicker' in window) {
-      try {
-        localFileHandle = await window.showSaveFilePicker({
-          suggestedName: 'minhas-financas-dados.json',
-          types: [{ description: 'Arquivo de Dados Minhas Finanças', accept: { 'application/json': ['.json'] } }]
-        });
-        await saveToPhysicalFile();
-        updateSyncBadge(true);
-        notify('Arquivo físico no PC vinculado! Alterações salvas nele.');
-      } catch (err) {
-        if (err.name !== 'AbortError') notify('Não foi possível vincular o arquivo.');
-      }
-    } else {
-      notify('Navegador sem suporte a salvamento físico direto. Use Backup.');
-    }
-  }
-
-  async function saveToPhysicalFile() {
-    if (localFileHandle) {
-      try {
-        const state = getState();
-        const writable = await localFileHandle.createWritable();
-        await writable.write(JSON.stringify({ app: 'Minhas Finanças Pro', savedAt: new Date().toISOString(), data: state }, null, 2));
-        await writable.close();
-      } catch (err) {
-        console.warn('Erro arquivo físico:', err);
-      }
-    }
-  }
-
-  function updateSyncBadge(isLinked) {
-    const container = $('#footerMsgContainer');
-    const dialogBtnLabel = $('#dialogSyncBtnLabel');
-
-    if (isLinked) {
-      if (container) container.innerHTML = `<span style="color:var(--success); font-weight:800;">🟢 Seus dados estão sendo salvos automaticamente no arquivo do seu computador.</span>`;
-      if (dialogBtnLabel) dialogBtnLabel.textContent = '🟢 Arquivo Vinculado e Salvando no PC';
-    } else {
-      if (container) {
-        container.innerHTML = `<span>Minhas Finanças Pro • Todos os dados podem ser salvos em arquivo permanente no PC. <button type="button" id="footerLearnMoreBtn" style="background:none; border:none; color:var(--brand); font-weight:800; cursor:pointer; text-decoration:underline; padding:0;">Saber mais</button>.</span>`;
-        const btn = $('#footerLearnMoreBtn');
-        if (btn) btn.addEventListener('click', openBackup);
-      }
-      if (dialogBtnLabel) dialogBtnLabel.textContent = 'Vincular Arquivo Permanente no PC (.json)';
-    }
-  }
-
   function openBackup() {
     $('#backupDialog').showModal();
   }
 
-  function isPhysicalFileLinked() {
-    return localFileHandle !== null;
-  }
-
   // Listeners do domínio de Backup
   $('#backupBtn')?.addEventListener('click', openBackup);
-  $('#linkLocalFileBtn')?.addEventListener('click', linkPhysicalFile);
 
   $('#exportBtn')?.addEventListener('click', () => {
     const state = getState();
@@ -131,8 +76,6 @@
   }
 
   // APIs públicas do Módulo de Backup
-  window.saveToPhysicalFile = saveToPhysicalFile;
-  window.updateSyncBadge = updateSyncBadge;
-  window.isPhysicalFileLinked = isPhysicalFileLinked;
+  window.openBackup = openBackup;
 
 })();

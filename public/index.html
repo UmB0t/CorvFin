@@ -204,7 +204,7 @@
               <line x1="3" y1="18" x2="3.01" y2="18" />
             </svg>
           </button>
-          <button class="toolbar-btn" id="backupBtn" data-tooltip="Gerenciar Backup e Arquivo Permanente" aria-label="Gerenciar Backup e Arquivo Permanente">
+          <button class="toolbar-btn" id="backupBtn" data-tooltip="Backup e Restauração de Dados" aria-label="Backup e Restauração de Dados">
             <svg class="svg-icon" viewBox="0 0 24 24">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
@@ -1633,10 +1633,7 @@
 
       <footer class="foot">
         <div id="footerMsgContainer">
-          <span>Minhas Finanças Pro • Todos os dados podem ser salvos em arquivo permanente no seu computador. Para
-            saber mais, clique em <button type="button" id="footerLearnMoreBtn"
-              style="background:none; border:none; color:var(--brand); font-weight:800; cursor:pointer; text-decoration:underline; padding:0;">Saber
-              mais</button>.</span>
+          <span>Minhas Finanças Pro • Controle Financeiro Pessoal</span>
         </div>
       </footer>
 
@@ -1973,14 +1970,14 @@
           <div style="display:flex; align-items:center; justify-content:space-between;">
             <h4 style="margin:0; font-size:.9rem; font-weight:800; display:flex; align-items:center; gap:8px; color:var(--text);">
               <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--info);"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-              8. Relatórios PDF/CSV & Backup Permanente no PC
+              8. Relatórios PDF/CSV & Backup de Dados
             </h4>
             <span class="badge" style="background:var(--info-soft); color:var(--info);">Segurança & Dados</span>
           </div>
           <ul style="margin:0; padding-left:18px; font-size:.82rem; color:var(--muted); line-height:1.5; display:grid; gap:4px;">
             <li><strong>Relatório Consolidado:</strong> Gere o balanço anual mês a mês e exporte para <strong>Impressão / PDF</strong> ou planilha <strong>Excel (.csv)</strong>.</li>
             <li><strong>Tabela Fullscreen:</strong> Visualize todos os registros em tela cheia com pesquisa global e ordenação interativa por coluna.</li>
-            <li><strong>Sincronização Permanente no PC:</strong> Em <em>"Backup & Arquivo PC"</em>, clique em <strong>"Vincular Arquivo Permanente no PC"</strong> para salvar instantaneamente todas as alterações em um arquivo <code>.json</code> no seu disco.</li>
+            <li><strong>Backup e Restauração:</strong> Exporte cópias de segurança em <code>.json</code> ou restaure dados anteriores a qualquer momento através do menu de Backup.</li>
             <li><strong>Importação em Massa CSV:</strong> Importe planilhas externas usando o modelo padrão para preenchimento rápido.</li>
           </ul>
         </div>
@@ -2570,11 +2567,11 @@
     </form>
   </dialog>
 
-  <!-- DIALOG: BACKUP & FILE SYNC -->
+  <!-- DIALOG: BACKUP & RESTAURAÇÃO DE DADOS -->
   <dialog id="backupDialog">
     <form method="dialog">
       <div class="dialog-head">
-        <h3>Salvar em Arquivo Físico no PC & Backup</h3>
+        <h3>Backup e Restauração de Dados</h3>
         <button type="button" class="icon-btn small" data-close="backupDialog">
           <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -2584,39 +2581,27 @@
       </div>
       <div class="dialog-body">
         <div class="hint" style="margin-bottom:4px;">
-          <strong>Vincular Arquivo Permanente no PC:</strong> Escolha ou crie um arquivo <code>.json</code> no seu
-          computador. Qualquer alteração feita no sistema será gravada instantaneamente e permanentemente nesse arquivo!
+          Seus dados são salvos automaticamente no servidor. Use as opções abaixo para criar uma cópia de segurança ou restaurar um backup anterior.
         </div>
 
-        <button type="button" class="btn primary" id="linkLocalFileBtn" style="justify-content:center;">
-          <svg class="svg-icon" viewBox="0 0 24 24">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-            <polyline points="17 21 17 13 7 13 7 21" />
-            <polyline points="7 3 7 8 15 8" />
-          </svg>
-          <span id="dialogSyncBtnLabel">Vincular Arquivo Permanente no PC (.json)</span>
-        </button>
-
-        <hr style="border:none; border-top:1px solid var(--line); margin:6px 0;">
-
-        <button type="button" class="btn soft" id="exportBtn">
+        <button type="button" class="btn soft" id="exportBtn" style="justify-content:center;">
           <svg class="svg-icon" viewBox="0 0 24 24">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="7 10 12 15 17 10" />
             <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
-          Baixar Cópia Manual (.json)
+          Exportar Cópia de Segurança (.json)
         </button>
-        <button type="button" class="btn soft" id="importBtn">
+        <button type="button" class="btn soft" id="importBtn" style="justify-content:center;">
           <svg class="svg-icon" viewBox="0 0 24 24">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="17 8 12 3 7 8" />
             <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
-          Carregar Arquivo Existente (.json)
+          Importar / Restaurar Backup (.json)
         </button>
         <input type="file" id="importFile" accept="application/json" hidden>
-        <button type="button" class="btn danger" id="resetBtn">Apagar Todos os Dados</button>
+        <button type="button" class="btn danger" id="resetBtn" style="justify-content:center;">Apagar Todos os Dados</button>
       </div>
     </form>
   </dialog>
@@ -2956,7 +2941,6 @@
             }).catch(e => console.warn('Erro ao salvar no servidor:', e));
           } catch (_) {}
         }
-        await saveToPhysicalFile();
       }
 
       function notify(msg, type = 'info') {
@@ -3016,7 +3000,6 @@
         updateCategorySelects();
         updateCategoryTagsList();
         updateNotificationBell();
-        updateSyncBadge(isPhysicalFileLinked());
 
         const isSimp = !!state.simplifiedView;
         const btnView = $('#viewModeToggleBtn');

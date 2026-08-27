@@ -8,26 +8,38 @@
 
   let assetDlgId = null;
 
-  function openAssetDialog(mode, id) {
+    function openAssetDialog(mode, id) {
     const state = getState();
     const assetDlg = $('#assetDialog');
-    $('#assetForm').reset();
+    $('#assetForm')?.reset();
     assetDlgId = id || null;
-    $('#deleteAssetBtn').hidden = !id;
+    if ($('#deleteAssetBtn')) $('#deleteAssetBtn').hidden = !id;
+
+    const destSelect = $('#assetDestination');
+    if (destSelect) {
+      destSelect.innerHTML = (state.destinations || []).map(d => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
+    }
 
     if (mode === 'new') {
-      $('#assetDialogTitle').textContent = 'Novo Investimento';
-      $('#assetType').value = 'renda-fixa';
-      $('#assetColor').value = '#1F7A5C';
+      if ($('#assetDialogTitle')) $('#assetDialogTitle').textContent = 'Novo Investimento';
+      if ($('#assetName')) $('#assetName').value = '';
+      if ($('#assetCategory')) $('#assetCategory').value = 'Renda Fixa';
+      if ($('#assetAmount')) $('#assetAmount').value = '';
+      if ($('#assetGoal')) $('#assetGoal').value = '';
+      if ($('#assetNote')) $('#assetNote').value = '';
+      if (destSelect && state.destinations && state.destinations.length > 0) {
+        destSelect.value = state.destinations[0].name;
+      }
     } else {
       const a = (state.assets || []).find(x => x.id === id);
       if (!a) return;
-      $('#assetDialogTitle').textContent = 'Editar Investimento';
-      $('#assetName').value = a.name;
-      $('#assetType').value = a.type || 'renda-fixa';
-      $('#assetCurrent').value = currency(a.currentAmount);
-      $('#assetGoal').value = a.goalAmount ? currency(a.goalAmount) : '';
-      $('#assetColor').value = a.color || '#1F7A5C';
+      if ($('#assetDialogTitle')) $('#assetDialogTitle').textContent = 'Editar Investimento';
+      if ($('#assetName')) $('#assetName').value = a.name || '';
+      if ($('#assetCategory')) $('#assetCategory').value = a.category || 'Renda Fixa';
+      if ($('#assetAmount')) $('#assetAmount').value = a.currentAmount || 0;
+      if ($('#assetGoal')) $('#assetGoal').value = a.goalAmount || '';
+      if (destSelect) destSelect.value = a.destination || (state.destinations[0] || {}).name || '';
+      if ($('#assetNote')) $('#assetNote').value = a.note || '';
     }
     if (assetDlg) assetDlg.showModal();
   }
@@ -35,14 +47,28 @@
   function openAporteDialog(assetId) {
     const state = getState();
     const aporteDlg = $('#aporteDialog');
-    if (state.assets.length === 0) {
-      notify('Crie primeiro um ativo em "+ Criar Novo Investimento".', 'warning');
+    if (!state.assets || state.assets.length === 0) {
+      notify('Crie primeiro um ativo em "Criar Novo Investimento".', 'warning');
       return;
     }
-    $('#aporteForm').reset();
-    $('#aporteMonth').value = state.month;
-    $('#aporteYear').value = state.year;
-    if (assetId) $('#aporteAsset').value = assetId;
+    $('#aporteForm')?.reset();
+
+    const assetSel = $('#aporteAssetSelect');
+    if (assetSel) {
+      assetSel.innerHTML = (state.assets || []).map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+      if (assetId) assetSel.value = assetId;
+    }
+
+    const mSel = $('#aporteMonth');
+    if (mSel) {
+      mSel.innerHTML = MONTH_ABBR.map((m, idx) => `<option value="${idx + 1}">${m}</option>`).join('');
+      mSel.value = state.month || 1;
+    }
+
+    if ($('#aporteYear')) $('#aporteYear').value = state.year || 2026;
+    if ($('#aporteAmount')) $('#aporteAmount').value = '';
+    if ($('#aporteNote')) $('#aporteNote').value = '';
+
     if (aporteDlg) aporteDlg.showModal();
   }
 
@@ -353,7 +379,7 @@ function renderInvestmentsTab() {
       
 };
 
-  function initInvestmentsListeners() {
+    function initInvestmentsListeners() {
     const newAssetBtn = $('#newAssetBtn');
     if (newAssetBtn) newAssetBtn.addEventListener('click', () => openAssetDialog('new'));
 
@@ -361,12 +387,13 @@ function renderInvestmentsTab() {
       e.preventDefault();
       const state = getState();
       const assetDlg = $('#assetDialog');
-      const name = $('#assetName').value.trim();
-      const type = $('#assetType').value;
-      const currentAmount = Number(String($('#assetCurrent').value).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
-      const goalRaw = $('#assetGoal').value;
-      const goalAmount = goalRaw ? (Number(String(goalRaw).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0) : null;
-      const color = $('#assetColor').value || '#1F7A5C';
+      const name = $('#assetName')?.value.trim();
+      const category = $('#assetCategory')?.value || 'Renda Fixa';
+      const currentAmount = Number($('#assetAmount')?.value) || 0;
+      const goalRaw = $('#assetGoal')?.value;
+      const goalAmount = goalRaw ? Number(goalRaw) || 0 : null;
+      const destination = $('#assetDestination')?.value || (state.destinations[0] || {}).name || 'XP';
+      const note = $('#assetNote')?.value.trim() || '';
 
       if (!name) {
         notify('Informe o nome do investimento.', 'error');
@@ -379,26 +406,28 @@ function renderInvestmentsTab() {
         const a = state.assets.find(x => x.id === assetDlgId);
         if (a) {
           a.name = name;
-          a.type = type;
+          a.category = category;
           a.currentAmount = currentAmount;
           a.goalAmount = goalAmount;
-          a.color = color;
+          a.destination = destination;
+          a.note = note;
         }
       } else {
         state.assets.push({
           id: uid(),
           name,
-          type,
+          category,
           currentAmount,
           goalAmount,
-          color
+          destination,
+          note
         });
       }
 
       saveState();
       if (assetDlg) assetDlg.close();
       render();
-      notify('Investimento salvo!', 'success');
+      notify('Investimento salvo com sucesso!', 'success');
     });
 
     $('#deleteAssetBtn')?.addEventListener('click', () => {
@@ -421,11 +450,11 @@ function renderInvestmentsTab() {
       e.preventDefault();
       const state = getState();
       const aporteDlg = $('#aporteDialog');
-      const assetId = $('#aporteAsset').value;
-      const amount = Number(String($('#aporteAmount').value).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
-      const month = Number($('#aporteMonth').value) || state.month;
-      const year = Number($('#aporteYear').value) || state.year;
-      const note = $('#aporteNote').value.trim();
+      const assetId = $('#aporteAssetSelect')?.value;
+      const amount = Number($('#aporteAmount')?.value) || 0;
+      const month = Number($('#aporteMonth')?.value) || state.month || 1;
+      const year = Number($('#aporteYear')?.value) || state.year || 2026;
+      const note = $('#aporteNote')?.value.trim() || '';
 
       if (!assetId || amount <= 0) {
         notify('Selecione o ativo e informe um valor válido para o aporte.', 'error');

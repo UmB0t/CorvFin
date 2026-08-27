@@ -8,44 +8,64 @@
 
   let debtorDlgId = null;
 
-  function updateDebtorInstallments() {
-    const sm = Number($('#debtorStartMonth').value), sy = Number($('#debtorStartYear').value);
-    const em = Number($('#debtorEndMonth').value), ey = Number($('#debtorEndYear').value);
+    function updateDebtorInstallments() {
+    const sm = Number($('#debtorStartMonth')?.value) || 1, sy = Number($('#debtorStartYear')?.value) || 2026;
+    const em = Number($('#debtorEndMonth')?.value) || 1, ey = Number($('#debtorEndYear')?.value) || 2026;
     const count = Math.max(1, (ey - sy) * 12 + (em - sm) + 1);
-    const el = $('#debtorInstallmentsCount');
-    if (el) el.textContent = count > 1 ? `(${count} parcelas)` : '(pagamento único)';
+    const badge = $('#debtorInstallmentsBadge');
+    if (badge) {
+      badge.innerHTML = `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Quantidade de Parcelas: ${count}x`;
+    }
   }
 
   function openDebtorDialog(mode, id) {
     const state = getState();
     const debtorDlg = $('#debtorDialog');
-    $('#debtorForm').reset();
+    $('#debtorForm')?.reset();
     debtorDlgId = id || null;
-    $('#deleteDebtorBtn').hidden = !id;
+    if ($('#deleteDebtorBtn')) $('#deleteDebtorBtn').hidden = !id;
+
+    const startSel = $('#debtorStartMonth');
+    const endSel = $('#debtorEndMonth');
+    if (startSel) startSel.innerHTML = MONTH_ABBR.map((m, idx) => `<option value="${idx + 1}">${m}</option>`).join('');
+    if (endSel) endSel.innerHTML = MONTH_ABBR.map((m, idx) => `<option value="${idx + 1}">${m}</option>`).join('');
+
+    const destSelect = $('#debtorDestination');
+    if (destSelect) {
+      destSelect.innerHTML = (state.destinations || []).map(d => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
+    }
 
     if (mode === 'new') {
-      $('#debtorDialogTitle').textContent = 'Cadastrar Devedor / Empréstimo';
-      $('#debtorStartMonth').value = state.month;
-      $('#debtorStartYear').value = state.year;
-      $('#debtorEndMonth').value = state.month;
-      $('#debtorEndYear').value = state.year;
-      $('#debtorDest').value = (state.destinations[0] || {}).name || 'Nubank';
-      $('#debtorGroup').value = (state.categories[0] || {}).name || 'Devedores';
-      $('#debtorCountInTotal').checked = true;
+      if ($('#debtorDialogTitle')) $('#debtorDialogTitle').textContent = 'Cadastrar Devedor';
+      if ($('#debtorTitle')) $('#debtorTitle').value = '';
+      if ($('#debtorName')) $('#debtorName').value = '';
+      if ($('#debtorAmount')) $('#debtorAmount').value = '';
+      if ($('#debtorStartMonth')) $('#debtorStartMonth').value = state.month || 1;
+      if ($('#debtorStartYear')) $('#debtorStartYear').value = state.year || 2026;
+      if ($('#debtorEndMonth')) $('#debtorEndMonth').value = state.month || 1;
+      if ($('#debtorEndYear')) $('#debtorEndYear').value = state.year || 2026;
+      if (destSelect && state.destinations && state.destinations.length > 0) {
+        destSelect.value = state.destinations[0].name;
+      }
+      if ($('#debtorStatus')) $('#debtorStatus').value = 'pendente';
+      if ($('#debtorCountInTotal')) $('#debtorCountInTotal').checked = true;
+      if ($('#debtorDescription')) $('#debtorDescription').value = '';
       updateDebtorInstallments();
     } else {
       const d = (state.debtors || []).find(x => x.id === id);
       if (!d) return;
-      $('#debtorDialogTitle').textContent = 'Editar Devedor / Empréstimo';
-      $('#debtorName').value = d.name;
-      $('#debtorAmount').value = currency(d.amount);
-      $('#debtorGroup').value = d.group || '';
-      $('#debtorDest').value = d.destination || (state.destinations[0] || {}).name || 'Nubank';
-      $('#debtorStartMonth').value = d.startMonth;
-      $('#debtorStartYear').value = d.startYear;
-      $('#debtorEndMonth').value = d.endMonth;
-      $('#debtorEndYear').value = d.endYear;
-      $('#debtorCountInTotal').checked = d.countInTotal !== false;
+      if ($('#debtorDialogTitle')) $('#debtorDialogTitle').textContent = 'Editar Devedor';
+      if ($('#debtorTitle')) $('#debtorTitle').value = d.title || '';
+      if ($('#debtorName')) $('#debtorName').value = d.debtorName || d.name || '';
+      if ($('#debtorAmount')) $('#debtorAmount').value = d.amount || '';
+      if (destSelect) destSelect.value = d.destination || (state.destinations[0] || {}).name || 'Nubank';
+      if ($('#debtorStartMonth')) $('#debtorStartMonth').value = d.startMonth || state.month || 1;
+      if ($('#debtorStartYear')) $('#debtorStartYear').value = d.startYear || state.year || 2026;
+      if ($('#debtorEndMonth')) $('#debtorEndMonth').value = d.endMonth || state.month || 1;
+      if ($('#debtorEndYear')) $('#debtorEndYear').value = d.endYear || state.year || 2026;
+      if ($('#debtorStatus')) $('#debtorStatus').value = d.status || 'pendente';
+      if ($('#debtorCountInTotal')) $('#debtorCountInTotal').checked = d.countInTotal !== false;
+      if ($('#debtorDescription')) $('#debtorDescription').value = d.description || '';
       updateDebtorInstallments();
     }
     if (debtorDlg) debtorDlg.showModal();
@@ -777,8 +797,8 @@ window.renderDebtorCharts = renderDebtorCharts;
 window.updateDebtorCharts = updateDebtorCharts;
 window.renderDebtorsTab = renderDebtorsTab;
 
-  function initDebtorsListeners() {
-    $$('.debtor-person-chart-btn').forEach(btn => {
+    function initDebtorsListeners() {
+    $$('.debtor-person-chart-btn')?.forEach(btn => {
       btn.addEventListener('click', () => {
         const state = getState();
         const type = btn.dataset.debtorPersonChartType;
@@ -790,7 +810,7 @@ window.renderDebtorsTab = renderDebtorsTab;
       });
     });
 
-    $$('.debtor-dest-chart-btn').forEach(btn => {
+    $$('.debtor-dest-chart-btn')?.forEach(btn => {
       btn.addEventListener('click', () => {
         const state = getState();
         const type = btn.dataset.debtorDestChartType;
@@ -815,13 +835,17 @@ window.renderDebtorsTab = renderDebtorsTab;
       e.preventDefault();
       const state = getState();
       const debtorDlg = $('#debtorDialog');
-      const name = $('#debtorName').value.trim();
-      const amount = Number(String($('#debtorAmount').value).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
-      const group = $('#debtorGroup').value.trim() || 'Devedores';
-      const destination = $('#debtorDest').value;
-      const sm = Number($('#debtorStartMonth').value), sy = Number($('#debtorStartYear').value);
-      const em = Number($('#debtorEndMonth').value), ey = Number($('#debtorEndYear').value);
-      const countInTotal = $('#debtorCountInTotal').checked;
+      const title = $('#debtorTitle')?.value.trim() || 'Cobrança';
+      const name = $('#debtorName')?.value.trim() || '';
+      const amount = Number($('#debtorAmount')?.value) || 0;
+      const destination = $('#debtorDestination')?.value || (state.destinations[0] || {}).name || 'Nubank';
+      const sm = Number($('#debtorStartMonth')?.value) || state.month || 1;
+      const sy = Number($('#debtorStartYear')?.value) || state.year || 2026;
+      const em = Number($('#debtorEndMonth')?.value) || state.month || 1;
+      const ey = Number($('#debtorEndYear')?.value) || state.year || 2026;
+      const status = $('#debtorStatus')?.value || 'pendente';
+      const countInTotal = $('#debtorCountInTotal')?.checked !== false;
+      const description = $('#debtorDescription')?.value.trim() || '';
 
       if (!name || amount <= 0) {
         notify('Preencha um nome e valor válidos para o devedor.', 'error');
@@ -838,30 +862,36 @@ window.renderDebtorsTab = renderDebtorsTab;
       if (debtorDlgId) {
         const debtor = state.debtors.find(x => x.id === debtorDlgId);
         if (debtor) {
+          debtor.title = title;
+          debtor.debtorName = name;
           debtor.name = name;
           debtor.amount = amount;
-          debtor.group = group;
           debtor.destination = destination;
           debtor.startMonth = sm;
           debtor.startYear = sy;
           debtor.endMonth = em;
           debtor.endYear = ey;
+          debtor.status = status;
           debtor.installments = installments;
           debtor.countInTotal = countInTotal;
+          debtor.description = description;
         }
       } else {
         state.debtors.push({
           id: uid(),
+          title,
+          debtorName: name,
           name,
           amount,
-          group,
           destination,
           startMonth: sm,
           startYear: sy,
           endMonth: em,
           endYear: ey,
+          status,
           installments,
           countInTotal,
+          description,
           paidHistory: {}
         });
       }

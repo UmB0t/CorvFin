@@ -711,12 +711,19 @@ function showTypeBlocks(type) {
 
 function setEntryDialogType(type) {
         entryDlgState.type = type;
-        $$('#typeSelector button').forEach(b => {
+        $$('#typeSelector button, .entry-type-tab').forEach(b => {
           const isActive = b.dataset.type === type;
           b.style.background = isActive ? 'var(--surface)' : 'transparent';
           b.style.color = isActive ? 'var(--text)' : 'var(--muted)';
         });
+        if (entryDlgState.mode === 'new') {
+          const titleEl = $('#entryDialogTitle');
+          if (titleEl) titleEl.textContent = type === 'fixed' ? 'Nova Despesa Fixa' : 'Nova Despesa Variável';
+        }
         showTypeBlocks(type);
+        if (type === 'variable') {
+          updateVarInstallments();
+        }
       }
 
 function updateVarInstallments() {
@@ -885,10 +892,10 @@ function openEntryDialog(opts) {
     $('#addFixedBtn')?.addEventListener('click', () => openEntryDialog({ mode: 'new', type: 'fixed' }));
     $('#addVariableBtn')?.addEventListener('click', () => openEntryDialog({ mode: 'new', type: 'variable' }));
 
-    $$('.entry-type-tab')?.forEach(b => {
+    $$('#typeSelector button, .entry-type-tab')?.forEach(b => {
       b.addEventListener('click', () => {
         const t = b.dataset.type;
-        setEntryDialogType(t);
+        if (t) setEntryDialogType(t);
       });
     });
 
@@ -900,7 +907,7 @@ function openEntryDialog(opts) {
       }
     });
 
-    $$('.preset-inst-btn')?.forEach(btn => {
+    $$('.preset-inst-btn, .inst-pill')?.forEach(btn => {
       btn.addEventListener('click', () => {
         const inst = btn.getAttribute('data-inst');
         const input = $('#varInstallmentsCount');
@@ -932,7 +939,7 @@ function openEntryDialog(opts) {
       }
     });
 
-    $$('.preset-due-btn')?.forEach(btn => {
+    $$('.preset-due-btn, .due-pill')?.forEach(btn => {
       btn.addEventListener('click', () => {
         const day = btn.getAttribute('data-day');
         const input = $('#entryDueDay');
