@@ -429,7 +429,13 @@ const AdminModule = (() => {
       btnSaveDefault.onclick = (e) => saveDefaultPermissions(e);
     }
 
+    const btnSaveMaint = document.getElementById('btn-save-maintenance');
+    if (btnSaveMaint) {
+      btnSaveMaint.onclick = (e) => saveMaintenanceConfig(e);
+    }
+
     await loadDefaultPermissions();
+    await loadMaintenanceConfig();
   }
 
   // Load Default Permissions for new users
@@ -536,6 +542,151 @@ const AdminModule = (() => {
     }
   }
 
+  // Maintenance Configuration State
+  let currentMaintenanceConfig = {};
+
+  // Load Maintenance Configuration
+  async function loadMaintenanceConfig() {
+    const grid = document.getElementById('adminMaintenanceGrid');
+    const saveBtn = document.getElementById('btn-save-maintenance');
+    if (!grid) return;
+
+    grid.innerHTML = '<div style="grid-column: 1 / -1; padding: 16px; color: var(--muted); text-align: center; font-size: 0.88rem;">Carregando status de manutenção...</div>';
+    if (saveBtn) saveBtn.disabled = true;
+
+    try {
+      let data = null;
+      if (typeof API !== 'undefined' && API.getMaintenanceConfig) {
+        const res = await API.getMaintenanceConfig();
+        if (res && res.success && res.maintenance) {
+          data = res.maintenance;
+        } else if (res && !res.success) {
+          showFeedback(res.message || 'Erro ao buscar status de manutenção.', 'error');
+        }
+      }
+
+      if (data) {
+        currentMaintenanceConfig = data;
+        renderMaintenanceGrid();
+      } else {
+        grid.innerHTML = '<div style="grid-column: 1 / -1; padding: 16px; color: var(--danger, #ef4444); text-align: center; font-size: 0.88rem;">Erro ao carregar configurações de manutenção.</div>';
+      }
+    } catch (err) {
+      console.error('Erro ao carregar manutenção:', err);
+      grid.innerHTML = '<div style="grid-column: 1 / -1; padding: 16px; color: var(--danger, #ef4444); text-align: center; font-size: 0.88rem;">Falha de comunicação ao buscar status de manutenção.</div>';
+      showFeedback('Falha de conexão com o servidor.', 'error');
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+    }
+  }
+
+  function renderMaintenanceGrid() {
+    const grid = document.getElementById('adminMaintenanceGrid');
+    if (!grid) return;
+
+    const moduleKeys = Object.keys(currentMaintenanceConfig);
+    if (moduleKeys.length === 0) {
+      grid.innerHTML = '<div style="grid-column: 1 / -1; padding: 16px; color: var(--muted); text-align: center;">Nenhum módulo configurado.</div>';
+      return;
+    }
+
+    grid.innerHTML = moduleKeys.map(key => {
+      const mod = currentMaintenanceConfig[key];
+      const isMaint = !!mod.maintenance;
+      const modName = mod.name || key;
+
+      return `
+        <div style="background:var(--surface-2); padding:14px 16px; border-radius:12px; border:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; transition:border-color 0.2s ease;">
+          <div>
+            <div style="font-weight:700; font-size:0.92rem; color:var(--text);">${escapeHtml(modName)}</div>
+            <div id="maintenance-status-badge-${key}" style="font-size:0.75rem; font-weight:800; margin-top:3px; display:inline-flex; align-items:center; gap:4px; color:${isMaint ? 'var(--warning, #f59e0b)' : 'var(--success, #10b981)'};">
+              <span style="width:6px; height:6px; border-radius:50%; background:${isMaint ? 'var(--warning, #f59e0b)' : 'var(--success, #10b981)'};"></span>
+              ${isMaint ? 'Em Manutenção' : 'Operacional'}
+            </div>
+          </div>
+          <label style="position:relative; display:inline-block; width:44px; height:24px; cursor:pointer;">
+            <input type="checkbox" data-maintenance-module="${key}" ${isMaint ? 'checked' : ''} style="opacity:0; width:0; height:0; position:absolute;">
+            <span class="maint-slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:${isMaint ? 'var(--warning, #f59e0b)' : 'var(--surface-3, #d1d5db)'}; transition:0.3s; border-radius:24px; display:flex; align-items:center;">
+              <span style="position:absolute; content:''; height:18px; width:18px; left:${isMaint ? '22px' : '3px'}; bottom:3px; background:white; transition:0.3s; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.3);"></span>
+            </span>
+          </label>
+        </div>
+      `;
+    }).join('');
+
+    // Listener para feedback visual imediato ao alternar o toggle
+    grid.querySelectorAll('[data-maintenance-module]').forEach(chk => {
+      chk.addEventListener('change', () => {
+        const key = chk.getAttribute('data-maintenance-module');
+        const badge = document.getElementById(`maintenance-status-badge-${key}`);
+        const slider = chk.nextElementSibling;
+        const knob = slider ? slider.firstElementChild : null;
+        const isChecked = chk.checked;
+
+        if (badge) {
+          badge.style.color = isChecked ? 'var(--warning, #f59e0b)' : 'var(--success, #10b981)';
+          badge.innerHTML = `<span style="width:6px; height:6px; border-radius:50%; background:${isChecked ? 'var(--warning, #f59e0b)' : 'var(--success, #10b981)'};"></span> ${isChecked ? 'Em Manutenção' : 'Operacional'}`;
+        }
+        if (slider) {
+          slider.style.background = isChecked ? 'var(--warning, #f59e0b)' : 'var(--surface-3, #d1d5db)';
+        }
+        if (knob) {
+          knob.style.left = isChecked ? '22px' : '3px';
+        }
+      });
+    });
+  }
+
+  // Save Maintenance Configuration
+  async function saveMaintenanceConfig(e) {
+    if (e) {
+      e.preventDefault();
+      if (typeof e.stopPropagation === 'function') e.stopPropagation();
+    }
+
+    const btn = document.getElementById('btn-save-maintenance');
+    const originalText = btn ? btn.innerHTML : 'Salvar Configurações';
+
+    const grid = document.getElementById('adminMaintenanceGrid');
+    if (!grid) return;
+
+    const payload = {};
+    grid.querySelectorAll('[data-maintenance-module]').forEach(chk => {
+      const key = chk.getAttribute('data-maintenance-module');
+      payload[key] = chk.checked;
+    });
+
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Salvando...';
+    }
+
+    try {
+      let res = null;
+      if (typeof API !== 'undefined' && API.saveMaintenanceConfig) {
+        res = await API.saveMaintenanceConfig(payload);
+      }
+
+      if (res && res.success) {
+        if (res.maintenance) {
+          currentMaintenanceConfig = res.maintenance;
+          renderMaintenanceGrid();
+        }
+        showFeedback(res.message || 'Configurações de manutenção atualizadas com sucesso!', 'success');
+      } else {
+        showFeedback(res?.message || 'Erro ao salvar configurações de manutenção.', 'error');
+      }
+    } catch (err) {
+      console.error('Erro ao salvar manutenção:', err);
+      showFeedback('Erro de conexão ao salvar configurações.', 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      }
+    }
+  }
+
   document.addEventListener('tabChanged', (e) => {
     if (e.detail && (e.detail.tabId === 'tab-admin' || e.detail.tabId === 'tab-config')) {
       render();
@@ -546,6 +697,8 @@ const AdminModule = (() => {
     render,
     loadDefaultPermissions,
     saveDefaultPermissions,
+    loadMaintenanceConfig,
+    saveMaintenanceConfig,
     openCreateUserModal,
     openEditUserModal,
     handleDeleteUser,
@@ -555,3 +708,4 @@ const AdminModule = (() => {
 
 // Global registration
 window.AdminModule = AdminModule;
+

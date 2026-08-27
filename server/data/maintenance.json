@@ -1,30 +1,30 @@
 {
   "despesas": {
-    "maintenance": false,
-    "name": "Despesas"
+    "name": "Despesas",
+    "maintenance": false
   },
   "extras": {
-    "maintenance": false,
-    "name": "Rendas Extras"
+    "name": "Rendas Extras",
+    "maintenance": false
   },
   "devedores": {
-    "maintenance": false,
-    "name": "Devedores"
+    "name": "Devedores",
+    "maintenance": false
   },
   "investimentos": {
-    "maintenance": false,
-    "name": "Investimentos"
+    "name": "Investimentos",
+    "maintenance": false
   },
   "beneficios": {
-    "maintenance": false,
-    "name": "Benefícios"
+    "name": "Benefícios",
+    "maintenance": false
   },
   "compras": {
-    "maintenance": false,
-    "name": "Lista de Compras"
+    "name": "Lista de Compras",
+    "maintenance": true
   },
   "simulacao": {
-    "maintenance": false,
-    "name": "Simulação"
+    "name": "Simulação",
+    "maintenance": true
   }
 }

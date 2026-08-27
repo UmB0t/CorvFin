@@ -111,7 +111,12 @@ const API = (() => {
     saveDefaultPermissions: (permissions) => request('/api/admin/default-permissions', { method: 'POST', body: JSON.stringify({ permissions }) }),
     changeUserRole: (userId, is_admin) => request(`/api/admin/users/${userId}/role`, { method: 'PUT', body: JSON.stringify({ is_admin }) }),
     resetUserPassword: (userId, novaSenha) => request(`/api/admin/users/${userId}/password`, { method: 'PUT', body: JSON.stringify({ novaSenha }) }),
-    deleteUser: (userId) => request(`/api/admin/users/${userId}`, { method: 'DELETE' })
+    deleteUser: (userId) => request(`/api/admin/users/${userId}`, { method: 'DELETE' }),
+
+    // System & Maintenance endpoints
+    getSystemMaintenance: () => request('/api/system/maintenance', { method: 'GET' }),
+    getMaintenanceConfig: () => request('/api/admin/maintenance', { method: 'GET' }),
+    saveMaintenanceConfig: (maintenance) => request('/api/admin/maintenance', { method: 'PUT', body: JSON.stringify({ maintenance }) })
   };
 })();
 
