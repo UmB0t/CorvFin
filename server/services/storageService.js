@@ -70,6 +70,50 @@ function saveDefaultPermissions(permissions) {
   return safeWriteJSON(filePath, permissions);
 }
 
+// Maintenance Storage Helpers
+const DEFAULT_MAINTENANCE_CONFIG = {
+  despesas: { maintenance: false, name: 'Despesas' },
+  extras: { maintenance: false, name: 'Rendas Extras' },
+  devedores: { maintenance: false, name: 'Devedores' },
+  investimentos: { maintenance: false, name: 'Investimentos' },
+  beneficios: { maintenance: false, name: 'Benefícios' },
+  compras: { maintenance: false, name: 'Lista de Compras' },
+  simulacao: { maintenance: false, name: 'Simulação' }
+};
+
+function getMaintenanceConfig() {
+  const filePath = config.MAINTENANCE_FILE || path.join(config.DATA_DIR, 'maintenance.json');
+  const saved = safeReadJSON(filePath, DEFAULT_MAINTENANCE_CONFIG);
+  const result = {};
+  Object.keys(DEFAULT_MAINTENANCE_CONFIG).forEach(key => {
+    result[key] = {
+      name: DEFAULT_MAINTENANCE_CONFIG[key].name,
+      maintenance: saved && saved[key] && typeof saved[key].maintenance === 'boolean' ? saved[key].maintenance : false
+    };
+  });
+  return result;
+}
+
+function saveMaintenanceConfig(newConfig) {
+  const filePath = config.MAINTENANCE_FILE || path.join(config.DATA_DIR, 'maintenance.json');
+  const current = getMaintenanceConfig();
+  const allowedKeys = Object.keys(DEFAULT_MAINTENANCE_CONFIG);
+
+  Object.keys(newConfig || {}).forEach(key => {
+    if (allowedKeys.includes(key)) {
+      const val = newConfig[key];
+      const isMaint = typeof val === 'boolean' ? val : (val && typeof val.maintenance === 'boolean' ? val.maintenance : current[key].maintenance);
+      current[key] = {
+        name: DEFAULT_MAINTENANCE_CONFIG[key].name,
+        maintenance: isMaint
+      };
+    }
+  });
+
+  safeWriteJSON(filePath, current);
+  return current;
+}
+
 function getUserPermissions(userId) {
   const permissions = getPermissions();
   const defaultPerms = getDefaultPermissions();
@@ -203,6 +247,8 @@ module.exports = {
   savePermissions,
   getDefaultPermissions,
   saveDefaultPermissions,
+  getMaintenanceConfig,
+  saveMaintenanceConfig,
   getUserPermissions,
   setUserPermissions,
   getAllFinances,

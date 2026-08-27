@@ -16,6 +16,8 @@ const {
   savePermissions,
   getDefaultPermissions,
   saveDefaultPermissions,
+  getMaintenanceConfig,
+  saveMaintenanceConfig,
   getUserPermissions,
   setUserPermissions,
   getUserFinances,
@@ -539,6 +541,85 @@ const saveDefaultPermissionsHandler = (req, res) => {
 
 app.post('/api/admin/default-permissions', authMiddleware, adminOnlyMiddleware, saveDefaultPermissionsHandler);
 app.put('/api/admin/default-permissions', authMiddleware, adminOnlyMiddleware, saveDefaultPermissionsHandler);
+
+/* ==========================================================================
+   SYSTEM & MAINTENANCE ROUTES
+   ========================================================================== */
+
+// GET /api/system/maintenance - Consulta de manutenção para usuários autenticados
+app.get('/api/system/maintenance', authMiddleware, (req, res) => {
+  try {
+    const maintenance = getMaintenanceConfig();
+    return res.json({ success: true, maintenance });
+  } catch (err) {
+    console.error('Erro ao consultar manutenção do sistema:', err);
+    return res.status(500).json({ success: false, message: 'Erro ao consultar status de manutenção.' });
+  }
+});
+
+// GET /api/admin/maintenance - Consulta administrativa de manutenção
+app.get('/api/admin/maintenance', authMiddleware, adminOnlyMiddleware, (req, res) => {
+  try {
+    const maintenance = getMaintenanceConfig();
+    return res.json({ success: true, maintenance });
+  } catch (err) {
+    console.error('Erro ao buscar configuração de manutenção:', err);
+    return res.status(500).json({ success: false, message: 'Erro ao buscar configuração de manutenção.' });
+  }
+});
+
+// PUT /api/admin/maintenance - Atualização administrativa de manutenção
+app.put('/api/admin/maintenance', authMiddleware, adminOnlyMiddleware, (req, res) => {
+  try {
+    const rawMaintenance = req.body.maintenance || req.body;
+    if (!rawMaintenance || typeof rawMaintenance !== 'object' || Array.isArray(rawMaintenance)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payload inválido. Esperado um objeto com as configurações de manutenção.'
+      });
+    }
+
+    const ALLOWED_MODULES = ['despesas', 'extras', 'devedores', 'investimentos', 'beneficios', 'compras', 'simulacao'];
+    const submittedKeys = Object.keys(rawMaintenance);
+
+    // Validação de chaves desconhecidas
+    const unknownKeys = submittedKeys.filter(k => !ALLOWED_MODULES.includes(k));
+    if (unknownKeys.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Módulo(s) inválido(s) ou desconhecido(s): ${unknownKeys.join(', ')}.`
+      });
+    }
+
+    // Validação estrita de tipo boolean
+    const updatePayload = {};
+    for (const key of submittedKeys) {
+      const item = rawMaintenance[key];
+      let isMaint;
+      if (typeof item === 'boolean') {
+        isMaint = item;
+      } else if (item && typeof item === 'object' && typeof item.maintenance === 'boolean') {
+        isMaint = item.maintenance;
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `O valor de manutenção para o módulo "${key}" deve ser estritamente booleano (true/false).`
+        });
+      }
+      updatePayload[key] = isMaint;
+    }
+
+    const updated = saveMaintenanceConfig(updatePayload);
+    return res.json({
+      success: true,
+      message: 'Configuração de manutenção atualizada com sucesso!',
+      maintenance: updated
+    });
+  } catch (err) {
+    console.error('Erro ao salvar configuração de manutenção:', err);
+    return res.status(500).json({ success: false, message: 'Erro ao salvar configuração de manutenção.' });
+  }
+});
 
 /* ==========================================================================
    STATIC & FALLBACK ROUTES

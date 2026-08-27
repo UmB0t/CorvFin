@@ -1,0 +1,30 @@
+{
+  "despesas": {
+    "maintenance": false,
+    "name": "Despesas"
+  },
+  "extras": {
+    "maintenance": false,
+    "name": "Rendas Extras"
+  },
+  "devedores": {
+    "maintenance": false,
+    "name": "Devedores"
+  },
+  "investimentos": {
+    "maintenance": false,
+    "name": "Investimentos"
+  },
+  "beneficios": {
+    "maintenance": false,
+    "name": "Benefícios"
+  },
+  "compras": {
+    "maintenance": false,
+    "name": "Lista de Compras"
+  },
+  "simulacao": {
+    "maintenance": false,
+    "name": "Simulação"
+  }
+}
