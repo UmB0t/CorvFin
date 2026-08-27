@@ -308,14 +308,14 @@ function renderInvestmentsTab() {
 
           // Drag and drop events for asset card
           card.addEventListener('dragstart', (e) => {
-            currentDragItem = { type: 'asset', id: asset.id, itemKey: asset.id };
+            setDragItem({ type: 'asset', id: asset.id, itemKey: asset.id });
             e.dataTransfer.setData('text/plain', asset.id);
             e.dataTransfer.effectAllowed = 'move';
             card.classList.add('dragging');
           });
 
           card.addEventListener('dragend', () => {
-            currentDragItem = null;
+            clearDragItem();
             card.classList.remove('dragging');
             $$('.asset-card').forEach(c => c.classList.remove('drag-over'));
             const grid = $('#assetGridList');
@@ -326,7 +326,8 @@ function renderInvestmentsTab() {
             e.preventDefault();
             e.stopPropagation();
             e.dataTransfer.dropEffect = 'move';
-            if (currentDragItem && currentDragItem.type === 'asset' && currentDragItem.id !== asset.id) {
+            const cur = getDragItem();
+            if (cur && cur.type === 'asset' && cur.id !== asset.id) {
               card.classList.add('drag-over');
             }
           });
@@ -341,8 +342,9 @@ function renderInvestmentsTab() {
             card.classList.remove('drag-over');
             const grid = $('#assetGridList');
             if (grid) grid.classList.remove('drag-container-over');
-            if (currentDragItem && currentDragItem.type === 'asset' && currentDragItem.id !== asset.id) {
-              reorderAssets(currentDragItem.id, asset.id);
+            const cur = getDragItem();
+            if (cur && cur.type === 'asset' && cur.id !== asset.id) {
+              reorderAssets(cur.id, asset.id);
             }
           });
 

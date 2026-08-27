@@ -10,7 +10,6 @@
   let entryDlgState = { mode: 'new', type: 'fixed', id: null, fixedId: null };
   let fsSortKey = 'name';
   let fsSortAsc = true;
-  let currentDragItem = null;
 
 function getDueDateLabel(item) {
         let dueText = '';
@@ -358,14 +357,14 @@ function buildEntryRow({
 
         // HTML5 Drag and Drop events (Global para todas as linhas)
         row.addEventListener('dragstart', (e) => {
-          currentDragItem = { type, id: itemKey, fixedId, itemKey };
+          setDragItem({ type, id: itemKey, fixedId, itemKey });
           e.dataTransfer.setData('text/plain', itemKey);
           e.dataTransfer.effectAllowed = 'move';
           row.classList.add('dragging');
         });
 
         row.addEventListener('dragend', () => {
-          currentDragItem = null;
+          clearDragItem();
           row.classList.remove('dragging');
           $$('.entry-row').forEach(r => r.classList.remove('drag-over'));
           $$('.section-body').forEach(b => b.classList.remove('drag-container-over'));
@@ -375,7 +374,8 @@ function buildEntryRow({
           e.preventDefault();
           e.stopPropagation();
           e.dataTransfer.dropEffect = 'move';
-          if (currentDragItem && currentDragItem.itemKey !== itemKey) {
+          const cur = getDragItem();
+          if (cur && cur.itemKey !== itemKey) {
             row.classList.add('drag-over');
           }
         });
@@ -389,10 +389,11 @@ function buildEntryRow({
           e.stopPropagation();
           row.classList.remove('drag-over');
           $$('.section-body').forEach(b => b.classList.remove('drag-container-over'));
-          if (!currentDragItem) return;
+          const cur = getDragItem();
+          if (!cur) return;
 
-          const sourceType = currentDragItem.type;
-          const sourceKey = currentDragItem.itemKey;
+          const sourceType = cur.type;
+          const sourceKey = cur.itemKey;
           const targetType = type;
           const targetKey = itemKey;
 
@@ -407,9 +408,9 @@ function buildEntryRow({
               reorderBenefits(sourceKey, targetKey);
             }
           } else if (sourceType === 'variable' && targetType === 'fixed') {
-            convertVariableToFixed(currentDragItem.id);
+            convertVariableToFixed(cur.id);
           } else if (sourceType === 'fixed' && targetType === 'variable') {
-            openConvertFixedToVarDialog(currentDragItem.fixedId || currentDragItem.id);
+            openConvertFixedToVarDialog(cur.fixedId || cur.id);
           }
         });
 
