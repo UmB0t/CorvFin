@@ -778,6 +778,30 @@ window.updateDebtorCharts = updateDebtorCharts;
 window.renderDebtorsTab = renderDebtorsTab;
 
   function initDebtorsListeners() {
+    $$('.debtor-person-chart-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const state = getState();
+        const type = btn.dataset.debtorPersonChartType;
+        if (type) {
+          state.debtorPersonChartType = type;
+          saveState();
+          renderDebtorCharts();
+        }
+      });
+    });
+
+    $$('.debtor-dest-chart-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const state = getState();
+        const type = btn.dataset.debtorDestChartType;
+        if (type) {
+          state.debtorDestChartType = type;
+          saveState();
+          renderDebtorCharts();
+        }
+      });
+    });
+
     ['#debtorStartMonth', '#debtorStartYear', '#debtorEndMonth', '#debtorEndYear'].forEach(id => {
       const el = $(id);
       if (el) el.addEventListener('change', updateDebtorInstallments);

@@ -239,6 +239,19 @@ function toggleExtraStatus(id) {
 };
 
   function initExtrasListeners() {
+    $('#extrasSearchInput')?.addEventListener('input', renderExtrasTab);
+    $('#extrasStatusFilter')?.addEventListener('change', renderExtrasTab);
+
+    const toggleExtrasChartsBtn = $('#toggleExtrasChartsBtn');
+    if (toggleExtrasChartsBtn) {
+      toggleExtrasChartsBtn.addEventListener('click', () => {
+        const state = getState();
+        state.collapsedSections.extrasCharts = !state.collapsedSections.extrasCharts;
+        saveState();
+        renderExtraIncomeCharts();
+      });
+    }
+
     ['#extraStartMonth', '#extraStartYear', '#extraEndMonth', '#extraEndYear'].forEach(id => {
       const el = $(id);
       if (el) el.addEventListener('change', updateExtraInstallments);

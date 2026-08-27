@@ -2870,6 +2870,7 @@
   <script src="js/core/financeQueries.js"></script>
   <script src="js/core/uiShell.js"></script>
   <script src="js/core/dragDrop.js"></script>
+  <script src="js/core/authSync.js"></script>
   <script src="js/modules/benefits.js"></script>
   <script src="js/modules/extras.js"></script>
   <script src="js/modules/debtors.js"></script>
@@ -2981,42 +2982,6 @@
           }, 260);
         }, 3400);
       }
-
-      $('#extrasSearchInput').addEventListener('input', renderExtrasTab);
-      $('#extrasStatusFilter').addEventListener('change', renderExtrasTab);
-
-      const toggleExtrasChartsBtn = $('#toggleExtrasChartsBtn');
-      if (toggleExtrasChartsBtn) {
-        toggleExtrasChartsBtn.addEventListener('click', () => {
-          state.collapsedSections.extrasCharts = !state.collapsedSections.extrasCharts;
-          saveState();
-          renderExtraIncomeCharts();
-        });
-      }
-
-      
-
-      $$('.debtor-person-chart-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const type = btn.dataset.debtorPersonChartType;
-          if (type) {
-            state.debtorPersonChartType = type;
-            saveState();
-            renderDebtorCharts();
-          }
-        });
-      });
-
-      $$('.debtor-dest-chart-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const type = btn.dataset.debtorDestChartType;
-          if (type) {
-            state.debtorDestChartType = type;
-            saveState();
-            renderDebtorCharts();
-          }
-        });
-      });
 
       function render() {
         applyTheme();
@@ -3159,55 +3124,6 @@
       
 
 
-
-      async function initAuthAndSync() {
-        const token = localStorage.getItem('auth_token') || localStorage.getItem('token') || localStorage.getItem('financas_pro_jwt_token');
-        if (!token) {
-          window.location.href = '/login';
-          return;
-        }
-
-        const logoutBtn = $('#btnLogout');
-        if (logoutBtn) {
-          logoutBtn.addEventListener('click', () => {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('token');
-            localStorage.removeItem('financas_pro_jwt_token');
-            localStorage.removeItem('user_data');
-            localStorage.removeItem('user');
-            localStorage.removeItem('financas_pro_user_info');
-            window.location.href = '/login';
-          });
-        }
-
-        try {
-          const res = await fetch('/api/finances', {
-            headers: {
-              'Authorization': 'Bearer ' + token,
-              'Content-Type': 'application/json'
-            }
-          });
-          if (res.status === 401) {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('token');
-            localStorage.removeItem('financas_pro_jwt_token');
-            localStorage.removeItem('user_data');
-            localStorage.removeItem('user');
-            localStorage.removeItem('financas_pro_user_info');
-            window.location.href = '/login';
-            return;
-          }
-          const json = await res.json();
-          if (json && json.success && json.data) {
-            state = migrateState(json.data);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-            render();
-            checkOnboarding();
-          }
-        } catch (err) {
-          console.warn('Sincronização com API:', err);
-        }
-      }
 
       function initApp() {
         try { initDialogs(); } catch (e) { console.error('initDialogs error:', e); }
