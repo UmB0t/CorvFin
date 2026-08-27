@@ -37,7 +37,8 @@ window.initialState = function initialState() {
     customExpensesOrder: [],
     debtors: [],
     assets: [],
-    aportes: []
+    aportes: [],
+    shoppingLists: []
   };
 };
 
@@ -73,6 +74,21 @@ window.migrateState = function migrateState(parsed) {
   s.benefitTransactions = parsed.benefitTransactions || [];
   s.customExpensesOrder = parsed.customExpensesOrder || [];
   s.debtors = (parsed.debtors || []).map(d => Object.assign({ countInTotal: false, includeInSimulation: d.includeInSimulation !== false, paidHistory: {} }, d));
+  s.shoppingLists = (parsed.shoppingLists || parsed.shopping || []).map(list => ({
+    id: list.id || (typeof uid === 'function' ? uid() : 'list_' + Math.random().toString(36).substr(2, 9)),
+    name: list.name || 'Lista de Compras',
+    createdAt: list.createdAt || new Date().toISOString(),
+    items: (list.items || []).map(item => ({
+      id: item.id || (typeof uid === 'function' ? uid() : 'item_' + Math.random().toString(36).substr(2, 9)),
+      name: item.name || item.itemName || 'Item',
+      category: item.category || 'Extras',
+      is_checked: !!(item.is_checked || item.isChecked),
+      quantity: Number(item.quantity || 1),
+      unit: item.unit || 'un',
+      price: Number(item.price || item.current_price || item.currentPrice || 0),
+      createdAt: item.createdAt || new Date().toISOString()
+    }))
+  }));
   s.profile = (parsed.profile && parsed.profile.name && parsed.profile.name !== 'Usuário') ? parsed.profile : s.profile;
   s.destinations = normalizeDestinations(parsed.destinations);
   return s;

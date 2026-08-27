@@ -93,6 +93,15 @@
           <span class="link-text">Benefícios</span>
         </button>
 
+        <button class="sidebar-link" data-tab="tab-shopping" data-tooltip="Lista de Compras">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+          </svg>
+          <span class="link-text">Lista de Compras</span>
+        </button>
+
         <button class="sidebar-link" data-tab="tab-simulation" data-tooltip="Simulação">
           <svg class="svg-icon" viewBox="0 0 24 24">
             <rect x="4" y="2" width="16" height="20" rx="2" />
@@ -1277,6 +1286,8 @@
       </main>
 
       <!-- TAB 6: SIMULAÇÃO DE DESPESAS (SANDBOX) -->
+      <main id="tab-shopping" class="tab-content" hidden></main>
+
       <main id="tab-simulation" class="tab-content" hidden>
         <!-- CABEÇALHO & BARRA DE AÇÕES DO SANDBOX -->
         <div id="simHeaderBar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; flex-wrap:wrap; gap:10px;">
@@ -2836,6 +2847,50 @@
   </dialog>
 
   <!-- DIALOG: NOVO / EDITAR GASTO SIMULADO (SANDBOX) -->
+  <!-- MODAL DE PREÇO E QUANTIDADE DA COMPRA -->
+  <dialog id="shoppingPriceModal" class="app-dialog modal-small">
+    <div class="dialog-header">
+      <h3 id="shoppingModalTitle" style="display:flex; align-items:center; gap:8px; margin:0; font-size:1.15rem; font-weight:800;">
+        <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:20px; height:20px;">
+          <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+        </svg>
+        Comprar Item: <span id="shoppingModalItemName" style="color:var(--brand);"></span>
+      </h3>
+      <button type="button" class="dialog-close" id="shoppingModalCloseBtn" aria-label="Fechar">✕</button>
+    </div>
+    <form id="formShoppingPriceModal" class="dialog-body" style="display:flex; flex-direction:column; gap:14px; padding:16px 20px;">
+      <div class="field-row" style="display:flex; gap:12px;">
+        <div class="field-group" style="flex:1;">
+          <label for="shoppingModalQty" style="font-size:0.82rem; font-weight:700; color:var(--text);">Quantidade</label>
+          <input type="number" id="shoppingModalQty" min="0.01" step="any" value="1" required
+            style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-weight:700;">
+        </div>
+        <div class="field-group" style="flex:1;">
+          <label for="shoppingModalUnit" style="font-size:0.82rem; font-weight:700; color:var(--text);">Unidade</label>
+          <select id="shoppingModalUnit" style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-weight:700;">
+            <option value="un">un (unidades)</option>
+            <option value="kg">kg (quilos)</option>
+            <option value="g">g (gramas)</option>
+            <option value="L">L (litros)</option>
+            <option value="ml">ml (mililitros)</option>
+            <option value="pct">pct (pacote)</option>
+            <option value="cx">cx (caixa)</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group">
+        <label id="shoppingModalPriceLabel" for="shoppingModalPrice" style="font-size:0.82rem; font-weight:700; color:var(--text);">Valor total pago (R$):</label>
+        <input type="number" id="shoppingModalPrice" min="0" step="0.01" placeholder="0.00" required
+          style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:1.1rem; font-weight:800;">
+      </div>
+      <div class="dialog-actions" style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px;">
+        <button type="button" class="btn soft" id="shoppingModalCancelBtn" style="border-radius:10px;">Cancelar</button>
+        <button type="submit" class="btn primary" id="shoppingModalConfirmBtn" style="border-radius:10px; font-weight:800;">Salvar / Peguei</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="simDialog" style="max-width: 540px; width: 95%;">
     <div class="dialog-head">
       <div>
@@ -2921,6 +2976,7 @@
   <script src="js/core/dragDrop.js"></script>
   <script src="js/core/authSync.js"></script>
   <script src="js/modules/benefits.js"></script>
+    <script src="js/modules/shopping.js"></script>
   <script src="js/modules/extras.js"></script>
   <script src="js/modules/debtors.js"></script>
   <script src="js/modules/investments.js"></script>
@@ -3144,6 +3200,10 @@
           renderInvestmentsTab();
         } else if (activeTab === 'tab-benefits') {
           renderBenefitsTab();
+        } else if (activeTab === 'tab-shopping') {
+          if (typeof renderShoppingTab === 'function') {
+            renderShoppingTab();
+          }
         } else if (activeTab === 'tab-simulation') {
           renderSimulationTab();
         } else if (activeTab === 'tab-admin') {

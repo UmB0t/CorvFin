@@ -187,6 +187,9 @@
           systemMaintenanceConfig = res.maintenance;
           maintenanceLoadFailed = false;
           updateSidebarMaintenanceBadges();
+          const activeLink = document.querySelector('.sidebar-link.active');
+          const activeTab = activeLink ? (activeLink.getAttribute?.('data-tab') || (activeLink.dataset && activeLink.dataset.tab)) : 'tab-expenses';
+          checkModuleMaintenance(activeTab);
           if (typeof render === 'function') render();
           return;
         }
@@ -196,6 +199,9 @@
     }
     maintenanceLoadFailed = true;
     updateSidebarMaintenanceBadges();
+    const activeLink = document.querySelector('.sidebar-link.active');
+    const activeTab = activeLink ? (activeLink.getAttribute('data-tab') || activeLink.dataset.tab) : 'tab-expenses';
+    checkModuleMaintenance(activeTab);
     if (typeof render === 'function') render();
   }
 
@@ -303,8 +309,17 @@
         `;
         container.appendChild(overlay);
 
-        overlay.querySelector('#btnMaintReload')?.addEventListener('click', () => {
-          loadSystemMaintenance();
+        overlay.querySelector('#btnMaintReload')?.addEventListener('click', async () => {
+          const reloadBtn = overlay.querySelector('#btnMaintReload');
+          if (reloadBtn) {
+            reloadBtn.disabled = true;
+            reloadBtn.textContent = 'Verificando...';
+          }
+          await loadSystemMaintenance();
+          if (reloadBtn) {
+            reloadBtn.disabled = false;
+            reloadBtn.textContent = 'Recarregar';
+          }
         });
       } else {
         maintenanceOverlay.style.display = 'block';
