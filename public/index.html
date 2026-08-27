@@ -2868,6 +2868,7 @@
   <script src="js/core/storage.js"></script>
   <script src="js/core/dom.js"></script>
   <script src="js/core/financeQueries.js"></script>
+  <script src="js/core/uiShell.js"></script>
   <script src="js/modules/benefits.js"></script>
   <script src="js/modules/extras.js"></script>
   <script src="js/modules/debtors.js"></script>
@@ -2880,6 +2881,8 @@
   <script src="js/modules/expenseInstallments.js"></script>
   <script src="js/modules/expenses.js"></script>
   <script src="js/modules/welcomeTour.js"></script>
+  <script src="js/modules/backup.js"></script>
+  <script src="js/modules/notifications.js"></script>
   <script>
     (function () {
       "use strict";
@@ -2911,8 +2914,6 @@
         saveState();
         render();
       };
-      let localFileHandle = null;
-
 
       async function saveState() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -2930,79 +2931,6 @@
           } catch (_) {}
         }
         await saveToPhysicalFile();
-      }
-
-      async function linkPhysicalFile() {
-        if ('showSaveFilePicker' in window) {
-          try {
-            localFileHandle = await window.showSaveFilePicker({
-              suggestedName: 'minhas-financas-dados.json',
-              types: [{ description: 'Arquivo de Dados Minhas Finanças', accept: { 'application/json': ['.json'] } }]
-            });
-            await saveToPhysicalFile();
-            updateSyncBadge(true);
-            notify('Arquivo físico no PC vinculado! Alterações salvas nele.');
-          } catch (err) {
-            if (err.name !== 'AbortError') notify('Não foi possível vincular o arquivo.');
-          }
-        } else {
-          notify('Navegador sem suporte a salvamento físico direto. Use Backup.');
-        }
-      }
-
-      async function saveToPhysicalFile() {
-        if (localFileHandle) {
-          try {
-            const writable = await localFileHandle.createWritable();
-            await writable.write(JSON.stringify({ app: 'Minhas Finanças Pro', savedAt: new Date().toISOString(), data: state }, null, 2));
-            await writable.close();
-          } catch (err) {
-            console.warn('Erro arquivo físico:', err);
-          }
-        }
-      }
-
-      function updateSyncBadge(isLinked) {
-        const container = $('#footerMsgContainer');
-        const dialogBtnLabel = $('#dialogSyncBtnLabel');
-
-        if (isLinked) {
-          if (container) container.innerHTML = `<span style="color:var(--success); font-weight:800;">🟢 Seus dados estão sendo salvos automaticamente no arquivo do seu computador.</span>`;
-          if (dialogBtnLabel) dialogBtnLabel.textContent = '🟢 Arquivo Vinculado e Salvando no PC';
-        } else {
-          if (container) {
-            container.innerHTML = `<span>Minhas Finanças Pro • Todos os dados podem ser salvos em arquivo permanente no PC. <button type="button" id="footerLearnMoreBtn" style="background:none; border:none; color:var(--brand); font-weight:800; cursor:pointer; text-decoration:underline; padding:0;">Saber mais</button>.</span>`;
-            const btn = $('#footerLearnMoreBtn');
-            if (btn) btn.addEventListener('click', openBackup);
-          }
-          if (dialogBtnLabel) dialogBtnLabel.textContent = 'Vincular Arquivo Permanente no PC (.json)';
-        }
-      }
-
-      function applyTheme() {
-        document.documentElement.setAttribute('data-theme', state.theme);
-        $('#themeBtn').innerHTML = state.theme === 'dark' ? ICONS.sun : ICONS.moon;
-      }
-
-      function applySidebarState() {
-        const sidebar = $('#sidebar');
-        if (!sidebar) return;
-        const btn = $('#toggleSidebarBtn');
-        if (state.sidebarCollapsed) {
-          sidebar.classList.add('collapsed');
-          if (btn) {
-            btn.innerHTML = `<svg class="svg-icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>`;
-            btn.setAttribute('data-tooltip', 'Expandir Menu');
-            btn.removeAttribute('title');
-          }
-        } else {
-          sidebar.classList.remove('collapsed');
-          if (btn) {
-            btn.innerHTML = `<svg class="svg-icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>`;
-            btn.setAttribute('data-tooltip', 'Recolher Menu');
-            btn.removeAttribute('title');
-          }
-        }
       }
 
       function notify(msg, type = 'info') {
@@ -3052,114 +2980,6 @@
           }, 260);
         }, 3400);
       }
-
-      function fillMonthSelects() {
-        const optionsHtml = MONTH_NAMES.map((name, i) => `<option value="${i + 1}">${name}</option>`).join('');
-        ['#fixedEffMonth', '#varStartMonth', '#varEndMonth', '#extraStartMonth', '#extraEndMonth', '#debtorStartMonth', '#debtorEndMonth', '#aporteMonth', '#benefitMonth', '#convertVarStartMonth', '#convertVarEndMonth'].forEach(id => {
-          const el = $(id);
-          if (el) {
-            const cur = el.value;
-            el.innerHTML = optionsHtml;
-            if (cur) el.value = cur;
-          }
-        });
-
-        const baseYear = state.year || new Date().getFullYear();
-        const years = [];
-        for (let y = baseYear - 4; y <= baseYear + 10; y++) {
-          years.push(y);
-        }
-        const yearOpts = years.map(y => `<option value="${y}">${y}</option>`).join('');
-        ['#fixedEffYear', '#varStartYear', '#varEndYear', '#extraStartYear', '#extraEndYear', '#debtorStartYear', '#debtorEndYear', '#aporteYear', '#benefitYear', '#convertVarStartYear', '#convertVarEndYear'].forEach(id => {
-          const el = $(id);
-          if (el) {
-            const cur = el.value;
-            el.innerHTML = yearOpts;
-            if (cur) el.value = cur;
-          }
-        });
-      }
-
-      function generateSystemNotifications() {
-        const notifs = [];
-        const t = monthTotals(state.year, state.month);
-
-        const overdueCount = t.allExpenses.filter(e => {
-          if (e.status === 'pago' || !e.dueDay) return false;
-          const now = new Date();
-          return state.year === now.getFullYear() && state.month === (now.getMonth() + 1) && Number(e.dueDay) < now.getDate();
-        }).length;
-
-        if (overdueCount > 0) {
-          notifs.push({ id: 'overdue', type: 'danger', title: 'Contas Vencidas no Mês', desc: `Você possui ${overdueCount} conta(s) em atraso neste mês.` });
-        }
-
-        const unbudgetedCount = state.categories.filter(c => !state.budgets[c] || state.budgets[c] <= 0).length;
-        if (unbudgetedCount > 0) {
-          notifs.push({ id: 'unbudgeted', type: 'warning', title: 'Categorias sem Teto', desc: `${unbudgetedCount} categoria(s) não possuem limite mensal configurado.` });
-        }
-
-        if (!localFileHandle) {
-          notifs.push({ id: 'backup', type: 'info', title: 'Arquivo no PC Não Vinculado', desc: 'Vincule um arquivo .json no seu computador para salvamento automático permanente.' });
-        } else {
-          notifs.push({ id: 'backup-ok', type: 'success', title: 'Salvamento Automático Ativo', desc: 'Seus dados estão sendo sincronizados com o arquivo do seu PC.' });
-        }
-
-        return notifs;
-      }
-
-      function updateNotificationBell() {
-        const allNotifs = generateSystemNotifications();
-        const unread = allNotifs.filter(n => !state.readNotifications.includes(n.id));
-
-        const badge = $('#notifBadge');
-        if (unread.length > 0) {
-          badge.textContent = unread.length;
-          badge.hidden = false;
-        } else {
-          badge.hidden = true;
-        }
-      }
-
-      function openNotificationsCenter() {
-        const notifDlg = $('#notificationsDialog');
-        const container = $('#notifListContainer');
-
-        const notifs = generateSystemNotifications();
-        if (notifs.length === 0) {
-          container.innerHTML = `<div class="empty">Nenhuma notificação recente. Seu sistema está 100% atualizado!</div>`;
-        } else {
-          container.innerHTML = notifs.map(n => {
-            const isRead = state.readNotifications.includes(n.id);
-            let badgeClass = 'info';
-            if (n.type === 'danger') badgeClass = 'danger';
-            else if (n.type === 'warning') badgeClass = 'warning';
-            else if (n.type === 'success') badgeClass = 'success';
-
-            return `
-          <div class="insight-card" style="${isRead ? 'opacity:0.6;' : ''}">
-            <div class="insight-icon" style="background:var(--${badgeClass}-soft); color:var(--${badgeClass});">${ICONS.alert}</div>
-            <div>
-              <div style="font-weight:800; font-size:.88rem;">${n.title} <span class="badge ${badgeClass}">${n.type.toUpperCase()}</span></div>
-              <div style="font-size:.78rem; color:var(--muted); margin-top:2px;">${n.desc}</div>
-            </div>
-          </div>
-        `;
-          }).join('');
-        }
-
-        notifDlg.showModal();
-      }
-
-      $('#notifBellBtn').addEventListener('click', openNotificationsCenter);
-      $('#clearNotifsBtn').addEventListener('click', () => {
-        const notifs = generateSystemNotifications();
-        state.readNotifications = notifs.map(n => n.id);
-        saveState();
-        updateNotificationBell();
-        $('#notificationsDialog').close();
-        notify('Notificações marcadas como lidas.');
-      });
 
       /* ---------- HELPER FOR DUE DATE & PERIOD DISPLAY IN FULLSCREEN TABLE ---------- */
       function initGlobalDropZones() {
@@ -3322,71 +3142,6 @@
         });
       });
 
-      function initTabs() {
-        const toggleBtn = $('#toggleSidebarBtn');
-        if (toggleBtn) {
-          toggleBtn.addEventListener('click', () => {
-            state.sidebarCollapsed = !state.sidebarCollapsed;
-            saveState();
-            applySidebarState();
-          });
-        }
-
-        const user = JSON.parse(localStorage.getItem('user_data') || localStorage.getItem('user') || '{}');
-        const isAdmin = !!user.is_admin;
-        const sidebarAdminLink = $('#sidebarAdminLink');
-        if (sidebarAdminLink) {
-          sidebarAdminLink.style.display = isAdmin ? 'flex' : 'none';
-        }
-
-        const titleMap = {
-          'tab-expenses': 'Despesas',
-          'tab-extras': 'Rendas Extras',
-          'tab-debtors': 'Devedores & Cobranças',
-          'tab-investments': 'Investimentos & Metas',
-          'tab-benefits': 'Benefícios',
-          'tab-simulation': 'Simulador de Cenários & Novas Despesas',
-          'tab-profile': 'Perfil & Categorias',
-          'tab-admin': 'Painel Administrativo'
-        };
-        const subMap = {
-          'tab-expenses': 'Gestão financeira pessoal com devedores e rendas extras',
-          'tab-extras': 'Gerenciamento de fontes adicionais de receita e trabalhos pontuais',
-          'tab-debtors': 'Controle de valores a receber, parcelas e cobranças de terceiros',
-          'tab-investments': 'Acompanhamento de patrimônio, aportes e metas financeiras',
-          'tab-benefits': 'Controle de benefícios corporativos e gastos compartilhados',
-          'tab-simulation': 'Projete o impacto de novos gastos e parcelamentos sem alterar seus dados reais',
-          'tab-profile': 'Configuração de perfil, salário base, categorias e destinos',
-          'tab-admin': 'Gerenciamento de usuários e permissões do sistema'
-        };
-
-        const navLinks = $$('.sidebar-link[data-tab]');
-        navLinks.forEach(link => {
-          link.addEventListener('click', (e) => {
-            e.preventDefault();
-            const tabId = link.getAttribute('data-tab') || link.dataset.tab;
-            if (!tabId) return;
-
-            navLinks.forEach(l => l.classList.remove('active'));
-            link.classList.add('active');
-
-            const tabContents = $$('.tab-content');
-            tabContents.forEach(c => {
-              const isTarget = (c.id === tabId);
-              c.hidden = !isTarget;
-              c.style.display = isTarget ? 'block' : 'none';
-            });
-
-            const titleEl = $('#pageTitle');
-            const subEl = $('.page-sub') || $('#pageSub');
-            if (titleEl) titleEl.textContent = titleMap[tabId] || (typeof TAB_TITLES !== 'undefined' && TAB_TITLES[tabId]) || 'Finanças Pro';
-            if (subEl && subMap[tabId]) subEl.textContent = subMap[tabId];
-
-            render();
-          });
-        });
-      }
-
       function render() {
         applyTheme();
         applySidebarState();
@@ -3396,7 +3151,7 @@
         updateCategorySelects();
         updateCategoryTagsList();
         updateNotificationBell();
-        updateSyncBadge(localFileHandle !== null);
+        updateSyncBadge(isPhysicalFileLinked());
 
         const isSimp = !!state.simplifiedView;
         const btnView = $('#viewModeToggleBtn');
@@ -3507,64 +3262,6 @@
       }
 
       /* ---------- MODALS LOGIC FOR EXPENSES ---------- */
-      function openBackup() { $('#backupDialog').showModal(); }
-      function openInfo() {
-        dismissWelcomeTour();
-        $('#infoDialog').showModal();
-      }
-
-      $('#backupBtn').addEventListener('click', openBackup);
-      $('#infoBtn').addEventListener('click', openInfo);
-      $('#linkLocalFileBtn').addEventListener('click', linkPhysicalFile);
-
-      $('#exportBtn').addEventListener('click', () => {
-        const blob = new Blob([JSON.stringify({ app: 'Minhas Finanças Pro', exportedAt: new Date().toISOString(), data: state }, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = `minhas-financas-backup-${state.year}-${String(state.month).padStart(2, '0')}.json`; a.click();
-        URL.revokeObjectURL(url);
-        notify('Backup baixado com sucesso!', 'success');
-      });
-
-      $('#importBtn').addEventListener('click', () => $('#importFile').click());
-      $('#importFile').addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        try {
-          const text = await file.text();
-          const parsed = JSON.parse(text);
-          if (!confirm('Substituir todos os dados atuais pelo backup selecionado?')) return;
-          state = migrateState(parsed.data || parsed);
-          saveState(); $('#backupDialog').close(); render();
-          notify('Backup importado com sucesso!', 'success');
-        } catch (_) {
-          notify('Arquivo de backup inválido.', 'error');
-        } finally {
-          e.target.value = '';
-        }
-      });
-
-      const resetBtn = $('#resetBtn');
-      if (resetBtn) {
-        resetBtn.addEventListener('click', () => {
-          if (!confirm('ATENÇÃO: Tem certeza de que deseja apagar TODOS os dados do aplicativo? Esta ação é irreversível e resetará o sistema para as configurações iniciais.')) return;
-          localStorage.removeItem(STORAGE_KEY);
-          localStorage.removeItem(OLD_STORAGE_KEY_3);
-          localStorage.removeItem(OLD_STORAGE_KEY_2);
-          try {
-            Object.keys(localStorage).forEach(key => {
-              if (key.startsWith('minhas-financas')) {
-                localStorage.removeItem(key);
-              }
-            });
-          } catch (_) { }
-          state = initialState();
-          saveState();
-          const backupDlg = $('#backupDialog');
-          if (backupDlg && backupDlg.open) backupDlg.close();
-          render();
-          notify('Todos os dados foram apagados com sucesso!');
-        });
-      }
 
       // Listeners de subview de despesas movidos para expenseInstallments.js
 
@@ -3637,6 +3334,7 @@
       }
 
       function initApp() {
+        try { initDialogs(); } catch (e) { console.error('initDialogs error:', e); }
         try { initAuthAndSync(); } catch (e) { console.error('initAuthAndSync error:', e); }
         try { fillMonthSelects(); } catch (e) { console.error('fillMonthSelects error:', e); }
         try { initTabs(); } catch (e) { console.error('initTabs error:', e); }
