@@ -179,13 +179,14 @@
   let systemMaintenanceConfig = null;
   let maintenanceLoadFailed = false;
 
-  async function loadSystemMaintenance() {
+    async function loadSystemMaintenance() {
     try {
       if (typeof API !== 'undefined' && API.getSystemMaintenance) {
         const res = await API.getSystemMaintenance();
         if (res && res.success && res.maintenance) {
           systemMaintenanceConfig = res.maintenance;
           maintenanceLoadFailed = false;
+          updateSidebarMaintenanceBadges();
           if (typeof render === 'function') render();
           return;
         }
@@ -194,7 +195,44 @@
       console.warn('Falha ao obter status de manutenção:', err);
     }
     maintenanceLoadFailed = true;
+    updateSidebarMaintenanceBadges();
     if (typeof render === 'function') render();
+  }
+
+  function updateSidebarMaintenanceBadges() {
+    document.querySelectorAll('.sidebar-link[data-tab]').forEach(link => {
+      const tabId = link.getAttribute('data-tab');
+      const moduleKey = MAINTENANCE_MODULE_MAP[tabId];
+      let isMaint = false;
+
+      if (moduleKey && systemMaintenanceConfig && systemMaintenanceConfig[moduleKey]) {
+        isMaint = !!systemMaintenanceConfig[moduleKey].maintenance;
+      } else if (moduleKey && maintenanceLoadFailed) {
+        isMaint = true;
+      }
+
+      let badge = link.querySelector('.sidebar-maint-badge');
+      if (isMaint) {
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'sidebar-maint-badge';
+          badge.setAttribute('title', 'Módulo em manutenção');
+          badge.style.cssText = 'margin-left:auto; display:inline-flex; align-items:center; color:var(--warning, #f59e0b); flex-shrink:0;';
+          badge.innerHTML = `
+            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--warning, #f59e0b); width:13px; height:13px; stroke-width:2.2;">
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+            </svg>
+          `;
+          link.appendChild(badge);
+        } else {
+          badge.style.display = 'inline-flex';
+        }
+      } else {
+        if (badge) {
+          badge.style.display = 'none';
+        }
+      }
+    });
   }
 
   function isModuleInMaintenance(tabId) {
@@ -257,10 +295,7 @@
               Estamos realizando melhorias em <strong>${typeof escapeHtml === 'function' ? escapeHtml(moduleName) : moduleName}</strong>. Tente novamente em alguns minutos.
             </p>
             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-              <button type="button" class="btn primary" id="btnMaintGoExpenses" style="border-radius:10px; font-weight:700;">
-                Ir para Despesas
-              </button>
-              <button type="button" class="btn soft" id="btnMaintReload" style="border-radius:10px; font-weight:700;">
+              <button type="button" class="btn primary" id="btnMaintReload" style="border-radius:10px; font-weight:700;">
                 Recarregar
               </button>
             </div>
@@ -268,9 +303,6 @@
         `;
         container.appendChild(overlay);
 
-        overlay.querySelector('#btnMaintGoExpenses')?.addEventListener('click', () => {
-          activateTab('tab-expenses', true);
-        });
         overlay.querySelector('#btnMaintReload')?.addEventListener('click', () => {
           loadSystemMaintenance();
         });
@@ -366,5 +398,20 @@
   window.activateTab = activateTab;
   window.checkModuleMaintenance = checkModuleMaintenance;
   window.loadSystemMaintenance = loadSystemMaintenance;
+  window.updateSidebarMaintenanceBadges = updateSidebarMaintenanceBadges;
+  window.isModuleInMaintenance = isModuleInMaintenance;
+
+  window.uiShell = {
+    applyTheme,
+    applySidebarState,
+    fillMonthSelects,
+    initTabs,
+    initDialogs,
+    activateTab,
+    checkModuleMaintenance,
+    loadSystemMaintenance,
+    updateSidebarMaintenanceBadges,
+    isModuleInMaintenance
+  };
 
 })();

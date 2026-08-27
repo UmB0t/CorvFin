@@ -1,8 +1,24 @@
+const MONTH_NAMES = (typeof window !== 'undefined' && window.MONTH_NAMES) || ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const MONTH_ABBR = (typeof window !== 'undefined' && window.MONTH_ABBR) || ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
 /* ==========================================================================
    MÓDULO DE SIMULAÇÃO DE DESPESAS (SANDBOX - 100% EM MEMÓRIA)
    ========================================================================== */
 let simulatedExpenses = [];
 let simDlgId = null;
+let simulationToggles = {
+  includeExtras: false,
+  includeDebtors: false
+};
+
+function getSimulationToggles() {
+  return simulationToggles;
+}
+
+function setSimulationToggles(toggles) {
+  simulationToggles = Object.assign(simulationToggles, toggles);
+  renderSimulationTab();
+}
 const simDlg = $('#simDialog');
 
 function fillSimSelects() {
@@ -140,13 +156,28 @@ $('#simForm')?.addEventListener('submit', (e) => {
 
 $('#simAddBtn')?.addEventListener('click', () => openSimDialog('new'));
 $('#simResetBtn')?.addEventListener('click', () => {
-  if (simulatedExpenses.length === 0) {
-    notify('O sandbox já está sem despesas simuladas.', 'info');
-    return;
-  }
+  const hadSim = simulatedExpenses.length > 0 || simulationToggles.includeExtras || simulationToggles.includeDebtors;
   simulatedExpenses = [];
+  simulationToggles.includeExtras = false;
+  simulationToggles.includeDebtors = false;
+  if ($('#simIncludeExtras')) $('#simIncludeExtras').checked = false;
+  if ($('#simIncludeDebtors')) $('#simIncludeDebtors').checked = false;
   renderSimulationTab();
-  notify('Simulação resetada! O cenário reflete exatamente seus dados oficiais.', 'info');
+  if (hadSim) {
+    notify('Simulação resetada! O cenário reflete exatamente seus dados oficiais.', 'info');
+  } else {
+    notify('O sandbox já está sem despesas simuladas.', 'info');
+  }
+});
+
+$('#simIncludeExtras')?.addEventListener('change', (e) => {
+  simulationToggles.includeExtras = !!e.target.checked;
+  renderSimulationTab();
+});
+
+$('#simIncludeDebtors')?.addEventListener('change', (e) => {
+  simulationToggles.includeDebtors = !!e.target.checked;
+  renderSimulationTab();
 });
 
 function calculateSimProjection() {
@@ -179,26 +210,30 @@ function calculateSimProjection() {
             }
           });
 
-          // Extra Incomes & Debtors (Respeitando includeInSimulation individual e vigência)
+          // Extra Incomes & Debtors (Respeitando toggles globais da simulação, includeInSimulation individual e vigência)
           let realExtra = 0;
-          (state.extras || []).forEach(e => {
-            if (e.includeInSimulation !== false) {
-              const sTarget = (Number(e.startYear) || curYear) * 12 + (Number(e.startMonth) || 1);
-              const eTarget = (Number(e.endYear) || curYear) * 12 + (Number(e.endMonth) || 12);
-              if (target >= sTarget && target <= eTarget) {
-                realExtra += Number(e.amount || 0);
+          if (simulationToggles.includeExtras) {
+            (state.extras || []).forEach(e => {
+              if (e.includeInSimulation !== false) {
+                const sTarget = (Number(e.startYear) || curYear) * 12 + (Number(e.startMonth) || 1);
+                const eTarget = (Number(e.endYear) || curYear) * 12 + (Number(e.endMonth) || 12);
+                if (target >= sTarget && target <= eTarget) {
+                  realExtra += Number(e.amount || 0);
+                }
               }
-            }
-          });
-          (state.debtors || []).forEach(d => {
-            if (d.includeInSimulation !== false) {
-              const sTarget = (Number(d.startYear) || curYear) * 12 + (Number(d.startMonth) || 1);
-              const eTarget = (Number(d.endYear) || curYear) * 12 + (Number(d.endMonth) || 12);
-              if (target >= sTarget && target <= eTarget) {
-                realExtra += Number(d.amount || 0);
+            });
+          }
+          if (simulationToggles.includeDebtors) {
+            (state.debtors || []).forEach(d => {
+              if (d.includeInSimulation !== false) {
+                const sTarget = (Number(d.startYear) || curYear) * 12 + (Number(d.startMonth) || 1);
+                const eTarget = (Number(d.endYear) || curYear) * 12 + (Number(d.endMonth) || 12);
+                if (target >= sTarget && target <= eTarget) {
+                  realExtra += Number(d.amount || 0);
+                }
               }
-            }
-          });
+            });
+          }
 
           const realTotalExp = realFixed + realVar;
           const totalIncome = baseSalary + realExtra;
@@ -236,7 +271,7 @@ function calculateSimProjection() {
       
 }
 
-window.renderSimulationTab = function renderSimulationTab() {
+function renderSimulationTab() {
   const state = getState();
         const yearLabel = $('#simYearLabel');
         if (yearLabel) yearLabel.textContent = state.year;
@@ -479,3 +514,11 @@ window.renderSimulationTab = function renderSimulationTab() {
         }
       
 };
+
+
+window.renderSimulationTab = renderSimulationTab;
+window.getSimulationToggles = getSimulationToggles;
+window.setSimulationToggles = setSimulationToggles;
+window.calculateSimProjection = calculateSimProjection;
+window.openSimDialog = openSimDialog;
+window.deleteSimExpense = deleteSimExpense;
