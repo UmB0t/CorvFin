@@ -15,11 +15,11 @@
 
   $('#exportBtn')?.addEventListener('click', () => {
     const state = getState();
-    const blob = new Blob([JSON.stringify({ app: 'Minhas Finanças Pro', exportedAt: new Date().toISOString(), data: state }, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ app: 'OmniFin', exportedAt: new Date().toISOString(), data: state }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `minhas-financas-backup-${state.year}-${String(state.month).padStart(2, '0')}.json`;
+    a.download = `omnifin-backup-${state.year}-${String(state.month).padStart(2, '0')}.json`;
     a.click();
     URL.revokeObjectURL(url);
     notify('Backup baixado com sucesso!', 'success');

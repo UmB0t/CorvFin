@@ -38,6 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Switch Tab View
   function switchTab(target) {
     if (target === 'register') {
+      document.body.classList.remove('login-mode');
+      document.body.classList.add('register-mode');
+
       tabLogin.classList.remove('active');
       tabLogin.setAttribute('aria-selected', 'false');
       tabRegister.classList.add('active');
@@ -47,6 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
       formRegister.style.display = 'flex';
       authSub.textContent = 'Crie sua conta para gerenciar suas finanças';
     } else {
+      document.body.classList.remove('register-mode');
+      document.body.classList.add('login-mode');
+
       tabRegister.classList.remove('active');
       tabRegister.setAttribute('aria-selected', 'false');
       tabLogin.classList.add('active');

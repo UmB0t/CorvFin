@@ -6,10 +6,28 @@
 (function () {
   "use strict";
 
+    const SUN_ICON = `<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+  const MOON_ICON = `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+
   function applyTheme() {
     const state = getState();
-    document.documentElement.setAttribute('data-theme', state.theme);
-    $('#themeBtn').innerHTML = state.theme === 'dark' ? ICONS.sun : ICONS.moon;
+    const theme = state.theme || 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    const iconHtml = theme === 'dark' ? SUN_ICON : MOON_ICON;
+    const themeBtn = $('#themeBtn');
+    if (themeBtn) themeBtn.innerHTML = iconHtml;
+    const drawerThemeBtn = $('#drawerThemeBtn');
+    if (drawerThemeBtn) {
+      const span = drawerThemeBtn.querySelector('span');
+      if (span) span.textContent = theme === 'dark' ? 'Modo Claro' : 'Modo Noturno';
+    }
+  }
+
+  function toggleTheme() {
+    const state = getState();
+    state.theme = state.theme === 'dark' ? 'light' : 'dark';
+    saveState();
+    applyTheme();
   }
 
   function applySidebarState() {
@@ -152,7 +170,7 @@
 
     const titleEl = $('#pageTitle');
     const subEl = $('.page-sub') || $('#pageSub');
-    if (titleEl) titleEl.textContent = titleMap[targetTabId] || (typeof TAB_TITLES !== 'undefined' && TAB_TITLES[targetTabId]) || 'Finanças Pro';
+    if (titleEl) titleEl.textContent = titleMap[targetTabId] || (typeof TAB_TITLES !== 'undefined' && TAB_TITLES[targetTabId]) || 'OmniFin';
     if (subEl && subMap[targetTabId]) subEl.textContent = subMap[targetTabId];
 
     if (updateUrl) {
@@ -475,8 +493,14 @@
     }
 
     // Ações secundárias do Drawer Mobile
-    $('#drawerThemeBtn')?.addEventListener('click', () => {
-      $('#themeBtn')?.click();
+    $('#themeBtn')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      toggleTheme();
+    });
+
+    $('#drawerThemeBtn')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      toggleTheme();
       drawerOverlay?.classList.remove('open');
     });
 
@@ -541,6 +565,7 @@
 
   // APIs públicas do Módulo de UI Shell & Roteador SPA
   window.applyTheme = applyTheme;
+  window.toggleTheme = toggleTheme;
   window.applySidebarState = applySidebarState;
   window.fillMonthSelects = fillMonthSelects;
   window.initTabs = initTabs;
@@ -553,6 +578,7 @@
 
   window.uiShell = {
     applyTheme,
+    toggleTheme,
     applySidebarState,
     fillMonthSelects,
     initTabs,

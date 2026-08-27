@@ -242,17 +242,32 @@ const AppRouter = (() => {
       if (!popover) return;
 
       if (tourCompleted === 'true') {
-        popover.style.display = 'none';
+        popover.hidden = true;
+        popover.setAttribute('aria-hidden', 'true');
+        popover.classList.add('hidden');
+        popover.classList.remove('open');
+        popover.style.setProperty('display', 'none', 'important');
       } else {
-        popover.style.display = 'block';
+        popover.hidden = false;
+        popover.removeAttribute('aria-hidden');
+        popover.classList.remove('hidden');
+        popover.classList.add('open');
+        popover.style.removeProperty('display');
+        popover.style.setProperty('display', 'flex', 'important');
       }
     }
 
     function dismissWelcomeTour() {
-      localStorage.setItem('tour_manual_completed', 'true');
+      try {
+        localStorage.setItem('tour_manual_completed', 'true');
+      } catch (_) {}
       const popover = document.getElementById('welcome-tour-popover') || document.getElementById('onboardingPopover');
       if (popover) {
-        popover.style.display = 'none';
+        popover.hidden = true;
+        popover.setAttribute('aria-hidden', 'true');
+        popover.classList.add('hidden');
+        popover.classList.remove('open');
+        popover.style.setProperty('display', 'none', 'important');
       }
     }
 

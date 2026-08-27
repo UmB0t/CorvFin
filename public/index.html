@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#1F7A5C">
   <link rel="icon" type="image/svg+xml"
     href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231F7A5C'/%3E%3Cpath d='M32 14c-9.9 0-18 8.1-18 18s8.1 18 18 18 18-8.1 18-18-18zm-2 9h4v2.1c2.8.5 4.8 2.3 4.9 5h-3.4c-.1-1.3-.9-2.2-2.7-2.2-1.7 0-2.6.8-2.6 1.9 0 1.2 1 1.7 3.5 2.3 3.8.9 5.8 2.2 5.8 5.2 0 3-2.2 4.9-5.5 5.4V43h-4v-2.1c-3.1-.5-5.2-2.5-5.3-5.5h3.5c.2 1.6 1.2 2.6 3.1 2.6 1.8 0 2.8-.9 2.8-2 0-1.2-.9-1.8-3.6-2.4-3.6-.9-5.6-2.2-5.6-5.1 0-2.8 2.1-4.7 5.1-5.3V23z' fill='white'/%3E%3C/svg%3E">
-  <title>Minhas Finanças Pro</title>
+  <title>OmniFin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -31,13 +31,13 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <div class="sidebar-brand">
-          <div class="brand-logo" data-tooltip="Minhas Finanças Pro">
+          <div class="brand-logo" data-tooltip="OmniFin">
             <svg class="svg-icon" viewBox="0 0 24 24" style="width:1.4em; height:1.4em; stroke-width:2;">
               <circle cx="12" cy="12" r="9" />
               <path d="M12 7v10M9 9.5c0-1.4 1.3-2.5 3-2.5s3 1.1 3 2.5-1.3 2.5-3 2.5-3 1.1-3 2.5" />
             </svg>
           </div>
-          <span class="brand-text">Finanças Pro</span>
+          <span class="brand-text">OmniFin</span>
         </div>
         <button class="icon-btn small" id="toggleSidebarBtn" data-tooltip="Expandir/Retrair Menu">
           <svg class="svg-icon" viewBox="0 0 24 24">
@@ -153,36 +153,13 @@
             <span class="notification-badge" id="notifBadge" hidden>0</span>
           </button>
           <div class="toolbar-divider"></div>
-          <div style="position:relative; display:inline-flex;">
-            <button class="toolbar-btn" id="infoBtn" data-tooltip="Guia e Instruções do Sistema" aria-label="Guia e Instruções do Sistema">
-              <svg class="svg-icon" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="16" x2="12" y2="12" />
-                <line x1="12" y1="8" x2="12.01" y2="8" />
-              </svg>
-            </button>
-
-            <!-- POPOVER DE BOAS-VINDAS (ONBOARDING) -->
-            <div id="welcome-tour-popover" class="onboarding-popover" style="display: none;">
-              <div class="onboarding-arrow">
-                <svg class="onboarding-bounce-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="19" x2="12" y2="5"></line>
-                  <polyline points="5 12 12 5 19 12"></polyline>
-                </svg>
-              </div>
-              <div class="onboarding-card">
-                <div class="onboarding-header">
-                  <h4 class="onboarding-title">Bem-vindo ao Finanças Pro!</h4>
-                </div>
-                <p class="onboarding-text">
-                  Clique no ícone <strong>(i)</strong> acima para ver o manual de uso e aprender como gerenciar seus lançamentos, cartões e metas.
-                </p>
-                <button type="button" id="btnDismissOnboarding" class="btn primary small onboarding-action-btn">
-                  Entendi, vamos lá!
-                </button>
-              </div>
-            </div>
-          </div>
+                    <button class="toolbar-btn" id="infoBtn" data-tooltip="Guia e Instruções do Sistema" aria-label="Guia e Instruções do Sistema">
+            <svg class="svg-icon" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+          </button>
           <button class="toolbar-btn" id="mobileKebabBtn" data-tooltip="Mais Opções" aria-label="Mais Opções" style="display:none;">
             <svg class="svg-icon" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="1.5" />
@@ -1670,7 +1647,7 @@
 
       <footer class="foot">
         <div id="footerMsgContainer">
-          <span>Minhas Finanças Pro • Controle Financeiro Pessoal</span>
+          <span>OmniFin • Controle Financeiro Pessoal</span>
         </div>
       </footer>
 
@@ -1833,7 +1810,7 @@
         <div id="reportPrintHeader"
           style="margin-bottom:14px; border-bottom:2px solid var(--brand); padding-bottom:10px;">
           <h2 style="margin:0; font-size:1.25rem; font-weight:800; color:var(--brand-strong);" id="reportPreviewTitle">
-            Minhas Finanças Pro • Relatório Consolidado</h2>
+            OmniFin • Relatório Consolidado</h2>
           <div style="font-size:.82rem; color:var(--muted); margin-top:3px;" id="reportPreviewSubtitle">Ano Base: 2026 • Gerado hoje</div>
         </div>
 
@@ -1867,7 +1844,7 @@
           <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
         </div>
         <div>
-          <h3 style="margin:0; font-size:1.05rem; font-weight:800;">Guia do Sistema • Minhas Finanças Pro</h3>
+          <h3 style="margin:0; font-size:1.05rem; font-weight:800;">Guia do Sistema • OmniFin</h3>
           <p style="margin:0; font-size:.78rem; color:var(--muted); font-weight:600;">Manual prático e orientações para todos os módulos e recursos inteligentes</p>
         </div>
       </div>
@@ -1883,7 +1860,7 @@
           <span>✨ Gestão Financeira Pessoal de Alta Performance</span>
         </h4>
         <p style="margin:0; font-size:.83rem; line-height:1.45;">
-          O <strong>Minhas Finanças Pro</strong> é uma plataforma moderna para controle de orçamento, despesas fixas e parceladas, gestão de recebíveis de terceiros, benefícios corporativos com saldo autônomo, investimentos com simulador de juros compostos e backup permanente em arquivo local.
+          O <strong>OmniFin</strong> é uma plataforma moderna para controle de orçamento, despesas fixas e parceladas, gestão de recebíveis de terceiros, benefícios corporativos com saldo autônomo, investimentos com simulador de juros compostos e backup permanente em arquivo local.
         </p>
       </div>
 
@@ -2045,7 +2022,7 @@
     </div>
 
     <div class="dialog-foot">
-      <span style="font-size:.8rem; color:var(--muted); font-weight:700;">Minhas Finanças Pro • Gestão Pessoal Inteligente</span>
+      <span style="font-size:.8rem; color:var(--muted); font-weight:700;">OmniFin • Gestão Pessoal Inteligente</span>
       <button type="button" class="btn primary" data-close="infoDialog" style="margin-left:auto;">Entendi, fechar guia</button>
     </div>
   </dialog>
@@ -3427,6 +3404,29 @@
         <button type="button" class="mobile-drawer-action-item" id="drawerLogoutBtn" style="color:var(--danger);">
           <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--danger);"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
           <span>Sair do Sistema</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- WELCOME TOUR MODAL OVERLAY (PRIMEIRA MENSAGEM APÓS LOGIN) -->
+  <div id="welcome-tour-popover" class="welcome-tour-overlay hidden" hidden style="display: none;" role="dialog" aria-modal="true" aria-labelledby="welcomeTourTitle">
+    <div class="welcome-tour-card">
+      <div class="welcome-tour-header">
+        <div class="brand-logo" style="width:44px; height:44px; margin:0 auto 12px; border-radius:12px; background:var(--brand); color:#fff; display:grid; place-items:center;">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:#fff; width:1.4em; height:1.4em; stroke-width:2.2;">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v10M9 9.5c0-1.4 1.3-2.5 3-2.5s3 1.1 3 2.5-1.3 2.5-3 2.5-3 1.1-3 2.5" />
+          </svg>
+        </div>
+        <h3 id="welcomeTourTitle" class="welcome-tour-title" style="margin:0; font-size:1.25rem; font-weight:800; color:var(--text);">Bem-vindo ao OmniFin!</h3>
+      </div>
+      <p class="welcome-tour-text" style="font-size:.88rem; color:var(--muted); margin:12px 0 20px; line-height:1.45;">
+        Seu painel financeiro completo para controle de despesas, parcelamentos, rendas extras, cobranças de devedores e metas de investimento.
+      </p>
+      <div class="welcome-tour-actions">
+        <button type="button" id="btnDismissOnboarding" class="btn primary onboarding-action-btn" style="width:100%; min-height:44px; font-weight:800; font-size:.92rem;">
+          Entendi, vamos lá!
         </button>
       </div>
     </div>
