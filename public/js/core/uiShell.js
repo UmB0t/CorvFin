@@ -123,12 +123,25 @@
 
   function activateTab(tabId, updateUrl = true) {
     const targetTabId = tabId || DEFAULT_TAB;
-    const navLinks = $$('.sidebar-link[data-tab]');
 
-    navLinks.forEach(l => {
+    // Atualiza links da sidebar, bottom navigation e mobile drawer
+    document.querySelectorAll('[data-tab]').forEach(l => {
       const lTab = l.getAttribute('data-tab') || l.dataset.tab;
       l.classList.toggle('active', lTab === targetTabId);
     });
+
+    // Se a aba ativa for secundária (do drawer), destaca o botão "Mais" no bottom nav
+    const isSecondaryTab = ['tab-benefits', 'tab-shopping', 'tab-simulation', 'tab-profile', 'tab-admin'].includes(targetTabId);
+    const moreBtn = document.getElementById('btnMobileMore') || $('#btnMobileMore');
+    if (moreBtn) {
+      moreBtn.classList.toggle('active', isSecondaryTab);
+    }
+
+    // Fecha o drawer mobile caso esteja aberto
+    const drawerOverlay = document.getElementById('mobileDrawerOverlay') || $('#mobileDrawerOverlay');
+    if (drawerOverlay && drawerOverlay.classList.contains('open')) {
+      drawerOverlay.classList.remove('open');
+    }
 
     const tabContents = $$('.tab-content');
     tabContents.forEach(c => {
@@ -206,6 +219,7 @@
   }
 
   function updateSidebarMaintenanceBadges() {
+    // 1. Atualiza badges na sidebar desktop
     document.querySelectorAll('.sidebar-link[data-tab]').forEach(link => {
       const tabId = link.getAttribute('data-tab');
       const moduleKey = MAINTENANCE_MODULE_MAP[tabId];
@@ -232,6 +246,35 @@
           link.appendChild(badge);
         } else {
           badge.style.display = 'inline-flex';
+        }
+      } else {
+        if (badge) {
+          badge.style.display = 'none';
+        }
+      }
+    });
+
+    // 2. Atualiza badges na barra inferior e drawer mobile
+    document.querySelectorAll('.bottom-nav-item[data-tab], .mobile-drawer-card[data-tab]').forEach(link => {
+      const tabId = link.getAttribute('data-tab');
+      const moduleKey = MAINTENANCE_MODULE_MAP[tabId];
+      let isMaint = false;
+
+      if (moduleKey && systemMaintenanceConfig && systemMaintenanceConfig[moduleKey]) {
+        isMaint = !!systemMaintenanceConfig[moduleKey].maintenance;
+      } else if (moduleKey && maintenanceLoadFailed) {
+        isMaint = true;
+      }
+
+      let badge = link.querySelector('.nav-badge') || link.querySelector('.sidebar-maint-badge');
+      if (isMaint) {
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'nav-badge';
+          badge.setAttribute('title', 'Módulo em manutenção');
+          link.appendChild(badge);
+        } else {
+          badge.style.display = 'block';
         }
       } else {
         if (badge) {
@@ -354,19 +397,111 @@
 
     const user = JSON.parse(localStorage.getItem('user_data') || localStorage.getItem('user') || '{}');
     const isAdmin = !!user.is_admin;
+
+    // Visibilidade Admin na Sidebar e no Drawer Mobile
     const sidebarAdminLink = $('#sidebarAdminLink');
     if (sidebarAdminLink) {
       sidebarAdminLink.style.display = isAdmin ? 'flex' : 'none';
     }
+    const mobileDrawerAdminLink = $('#mobileDrawerAdminLink');
+    if (mobileDrawerAdminLink) {
+      mobileDrawerAdminLink.style.display = isAdmin ? 'flex' : 'none';
+    }
 
-    const navLinks = $$('.sidebar-link[data-tab]');
-    navLinks.forEach(link => {
+    // RBAC: Oculta links se o usuário não tiver permissão
+    if (!isAdmin && user.permissions) {
+      const PERM_MAP = {
+        'tab-expenses': 'despesas',
+        'tab-extras': 'extras',
+        'tab-debtors': 'devedores',
+        'tab-investments': 'investimentos',
+        'tab-benefits': 'beneficios',
+        'tab-shopping': 'compras',
+        'tab-simulation': 'simulacao',
+        'tab-profile': 'perfil',
+        'tab-admin': 'admin'
+      };
+      Object.entries(PERM_MAP).forEach(([tabId, permKey]) => {
+        if (user.permissions[permKey] === false) {
+          document.querySelectorAll(`[data-tab="${tabId}"]`).forEach(el => {
+            el.style.display = 'none';
+          });
+        }
+      });
+    }
+
+    // Listeners de navegação para Sidebar, Bottom Nav e Mobile Drawer
+    document.querySelectorAll('[data-tab]').forEach(link => {
       link.addEventListener('click', (e) => {
         e.preventDefault();
         const tabId = link.getAttribute('data-tab') || link.dataset.tab;
         if (!tabId) return;
         activateTab(tabId, true);
       });
+    });
+
+    // Abertura e Fechamento do Drawer Mobile
+    const drawerOverlay = $('#mobileDrawerOverlay');
+    const btnMobileMore = $('#btnMobileMore');
+    const mobileKebabBtn = $('#mobileKebabBtn');
+    const closeDrawerBtn = $('#closeMobileDrawerBtn');
+
+    if (btnMobileMore && drawerOverlay) {
+      btnMobileMore.addEventListener('click', (e) => {
+        e.preventDefault();
+        drawerOverlay.classList.add('open');
+      });
+    }
+
+    if (mobileKebabBtn && drawerOverlay) {
+      mobileKebabBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        drawerOverlay.classList.add('open');
+      });
+    }
+
+    if (closeDrawerBtn && drawerOverlay) {
+      closeDrawerBtn.addEventListener('click', () => {
+        drawerOverlay.classList.remove('open');
+      });
+    }
+
+    if (drawerOverlay) {
+      drawerOverlay.addEventListener('click', (e) => {
+        if (e.target === drawerOverlay) {
+          drawerOverlay.classList.remove('open');
+        }
+      });
+    }
+
+    // Ações secundárias do Drawer Mobile
+    $('#drawerThemeBtn')?.addEventListener('click', () => {
+      $('#themeBtn')?.click();
+      drawerOverlay?.classList.remove('open');
+    });
+
+    $('#drawerReportBtn')?.addEventListener('click', () => {
+      $('#reportBtn')?.click();
+      drawerOverlay?.classList.remove('open');
+    });
+
+    $('#drawerCsvBtn')?.addEventListener('click', () => {
+      $('#csvBtn')?.click();
+      drawerOverlay?.classList.remove('open');
+    });
+
+    $('#drawerBackupBtn')?.addEventListener('click', () => {
+      $('#backupBtn')?.click();
+      drawerOverlay?.classList.remove('open');
+    });
+
+    $('#drawerInfoBtn')?.addEventListener('click', () => {
+      $('#infoBtn')?.click();
+      drawerOverlay?.classList.remove('open');
+    });
+
+    $('#drawerLogoutBtn')?.addEventListener('click', () => {
+      $('#btnLogout')?.click();
     });
 
     window.addEventListener('popstate', () => {
