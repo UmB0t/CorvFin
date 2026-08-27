@@ -2879,6 +2879,7 @@
   <script src="js/modules/dashboard.js"></script>
   <script src="js/modules/expenseInstallments.js"></script>
   <script src="js/modules/expenses.js"></script>
+  <script src="js/modules/welcomeTour.js"></script>
   <script>
     (function () {
       "use strict";
@@ -3512,30 +3513,6 @@
         $('#infoDialog').showModal();
       }
 
-      function checkWelcomeTour() {
-        const tourCompleted = localStorage.getItem('tour_manual_completed');
-        const popover = document.getElementById('welcome-tour-popover') || document.getElementById('onboardingPopover');
-        if (!popover) return;
-
-        if (tourCompleted === 'true') {
-          popover.style.display = 'none';
-        } else {
-          popover.style.display = 'block';
-        }
-      }
-
-      function dismissWelcomeTour() {
-        localStorage.setItem('tour_manual_completed', 'true');
-        const popover = document.getElementById('welcome-tour-popover') || document.getElementById('onboardingPopover');
-        if (popover) {
-          popover.style.display = 'none';
-        }
-      }
-
-      const checkOnboarding = checkWelcomeTour;
-      const dismissOnboarding = dismissWelcomeTour;
-
-      $('#btnDismissOnboarding')?.addEventListener('click', dismissWelcomeTour);
       $('#backupBtn').addEventListener('click', openBackup);
       $('#infoBtn').addEventListener('click', openInfo);
       $('#linkLocalFileBtn').addEventListener('click', linkPhysicalFile);
