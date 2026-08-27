@@ -13,7 +13,7 @@ function renderRibbon() {
         const ribbonSection = $('#ribbonSection');
         if (!ribbonSection) return;
 
-        if (activeTab === 'tab-investments' || activeTab === 'tab-profile' || activeTab === 'tab-simulation' || activeTab === 'tab-admin') {
+        if (activeTab === 'tab-investments' || activeTab === 'tab-profile' || activeTab === 'tab-simulation' || activeTab === 'tab-admin' || activeTab === 'tab-shopping') {
           ribbonSection.hidden = true;
           return;
         }

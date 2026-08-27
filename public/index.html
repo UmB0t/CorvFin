@@ -2848,18 +2848,28 @@
 
   <!-- DIALOG: NOVO / EDITAR GASTO SIMULADO (SANDBOX) -->
   <!-- MODAL DE PREÇO E QUANTIDADE DA COMPRA -->
-  <dialog id="shoppingPriceModal" class="app-dialog modal-small">
-    <div class="dialog-header">
-      <h3 id="shoppingModalTitle" style="display:flex; align-items:center; gap:8px; margin:0; font-size:1.15rem; font-weight:800;">
-        <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:20px; height:20px;">
-          <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
-          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+  <dialog id="shoppingPriceModal" style="width: min(480px, 95vw); border-radius: 16px;">
+    <div class="dialog-head">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:34px; height:34px; border-radius:10px; background:var(--brand-soft, rgba(31,122,92,0.12)); color:var(--brand); display:grid; place-items:center; flex-shrink:0;">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); stroke-width:2.2; width:18px; height:18px;">
+            <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+          </svg>
+        </div>
+        <div>
+          <h3 id="shoppingModalTitle" style="margin:0; font-size:1.05rem; font-weight:800; color:var(--text);">Comprar Item</h3>
+          <p id="shoppingModalSubtitle" style="margin:0; font-size:.78rem; color:var(--muted); font-weight:600;"><span id="shoppingModalItemName" style="color:var(--brand); font-weight:750;"></span></p>
+        </div>
+      </div>
+      <button type="button" class="icon-btn small" data-close="shoppingPriceModal" id="shoppingModalCloseBtn" aria-label="Fechar">
+        <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
         </svg>
-        Comprar Item: <span id="shoppingModalItemName" style="color:var(--brand);"></span>
-      </h3>
-      <button type="button" class="dialog-close" id="shoppingModalCloseBtn" aria-label="Fechar">✕</button>
+      </button>
     </div>
-    <form id="formShoppingPriceModal" class="dialog-body" style="display:flex; flex-direction:column; gap:14px; padding:16px 20px;">
+    <form id="formShoppingPriceModal" style="display:flex; flex-direction:column; gap:14px; padding:16px 20px;">
       <div class="field-row" style="display:flex; gap:12px;">
         <div class="field-group" style="flex:1;">
           <label for="shoppingModalQty" style="font-size:0.82rem; font-weight:700; color:var(--text);">Quantidade</label>
@@ -2884,9 +2894,10 @@
         <input type="number" id="shoppingModalPrice" min="0" step="0.01" placeholder="0.00" required
           style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:1.1rem; font-weight:800;">
       </div>
+      <div id="shoppingModalHistoryHint" style="font-size:0.8rem; color:var(--muted); padding:8px 12px; background:var(--surface-2); border-radius:8px; border:1px solid var(--line); display:none;"></div>
       <div class="dialog-actions" style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px;">
         <button type="button" class="btn soft" id="shoppingModalCancelBtn" style="border-radius:10px;">Cancelar</button>
-        <button type="submit" class="btn primary" id="shoppingModalConfirmBtn" style="border-radius:10px; font-weight:800;">Salvar / Peguei</button>
+        <button type="submit" class="btn primary" id="shoppingModalConfirmBtn" style="border-radius:10px; font-weight:800;">✓ Salvar no Carrinho</button>
       </div>
     </form>
   </dialog>

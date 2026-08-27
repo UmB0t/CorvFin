@@ -78,16 +78,22 @@ window.migrateState = function migrateState(parsed) {
     id: list.id || (typeof uid === 'function' ? uid() : 'list_' + Math.random().toString(36).substr(2, 9)),
     name: list.name || 'Lista de Compras',
     createdAt: list.createdAt || new Date().toISOString(),
-    items: (list.items || []).map(item => ({
-      id: item.id || (typeof uid === 'function' ? uid() : 'item_' + Math.random().toString(36).substr(2, 9)),
-      name: item.name || item.itemName || 'Item',
-      category: item.category || 'Extras',
-      is_checked: !!(item.is_checked || item.isChecked),
-      quantity: Number(item.quantity || 1),
-      unit: item.unit || 'un',
-      price: Number(item.price || item.current_price || item.currentPrice || 0),
-      createdAt: item.createdAt || new Date().toISOString()
-    }))
+    items: (list.items || []).map(item => {
+      const qty = Number(item.quantity || 1);
+      const p = Number(item.price || item.current_price || item.currentPrice || 0);
+      const uPrice = item.unitPrice != null ? Number(item.unitPrice) : (qty > 0 ? p / qty : p);
+      return {
+        id: item.id || (typeof uid === 'function' ? uid() : 'item_' + Math.random().toString(36).substr(2, 9)),
+        name: item.name || item.itemName || 'Item',
+        category: item.category || 'Extras',
+        is_checked: !!(item.is_checked || item.isChecked),
+        quantity: qty,
+        unit: item.unit || 'un',
+        unitPrice: Math.round(uPrice * 100) / 100,
+        price: Math.round(p * 100) / 100,
+        createdAt: item.createdAt || new Date().toISOString()
+      };
+    })
   }));
   s.profile = (parsed.profile && parsed.profile.name && parsed.profile.name !== 'Usuário') ? parsed.profile : s.profile;
   s.destinations = normalizeDestinations(parsed.destinations);
