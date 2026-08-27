@@ -2474,6 +2474,17 @@
           </select>
         </div>
 
+                <div class="field"
+          style="margin-top:6px; background:var(--surface-2); padding:10px 12px; border-radius:10px; border:1px solid var(--line);">
+          <label
+            style="display:flex; align-items:center; gap:9px; cursor:pointer; text-transform:none; font-size:.88rem; font-weight:750; color:var(--text); margin:0;">
+            <input type="checkbox" id="extraIncludeInSimulation" checked
+              style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+            Incluir na Simulação
+          </label>
+          <small style="color:var(--muted); display:block; margin-top:4px; font-weight:600;">Quando marcado, esta renda extra será considerada como receita adicional nas projeções da aba Simulação.</small>
+        </div>
+
         <div class="field"><label>Descrição / Detalhes</label><textarea id="extraDescription" rows="2"
             placeholder="Informações adicionais"></textarea></div>
       </div>
@@ -2555,6 +2566,17 @@
           </label>
           <small style="color:var(--muted); display:block; margin-top:4px; font-weight:600;">Quando marcado, este valor
             mensal soma na Renda Total do Mês (Entradas) junto com o salário base e rendas extras.</small>
+        </div>
+
+                <div class="field"
+          style="margin-top:6px; background:var(--surface-2); padding:10px 12px; border-radius:10px; border:1px solid var(--line);">
+          <label
+            style="display:flex; align-items:center; gap:9px; cursor:pointer; text-transform:none; font-size:.88rem; font-weight:750; color:var(--text); margin:0;">
+            <input type="checkbox" id="debtorIncludeInSimulation" checked
+              style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+            Incluir na Simulação
+          </label>
+          <small style="color:var(--muted); display:block; margin-top:4px; font-weight:600;">Quando marcado, este recebimento previsto será considerado como entrada nas projeções da aba Simulação.</small>
         </div>
 
         <div class="field"><label>Descrição / Observações</label><textarea id="debtorDescription" rows="2"

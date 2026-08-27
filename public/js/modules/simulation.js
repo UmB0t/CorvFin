@@ -179,17 +179,21 @@ function calculateSimProjection() {
             }
           });
 
-          // Extra Incomes & Debtors
+          // Extra Incomes & Debtors (Respeitando includeInSimulation individual e vigência)
           let realExtra = 0;
           (state.extras || []).forEach(e => {
-            if (Number(e.year) === curYear && Number(e.month) === m) {
-              realExtra += Number(e.amount || 0);
+            if (e.includeInSimulation !== false) {
+              const sTarget = (Number(e.startYear) || curYear) * 12 + (Number(e.startMonth) || 1);
+              const eTarget = (Number(e.endYear) || curYear) * 12 + (Number(e.endMonth) || 12);
+              if (target >= sTarget && target <= eTarget) {
+                realExtra += Number(e.amount || 0);
+              }
             }
           });
           (state.debtors || []).forEach(d => {
-            if (d.countInTotal) {
-              const sTarget = (d.startYear || curYear) * 12 + (d.startMonth || 1);
-              const eTarget = (d.endYear || curYear) * 12 + (d.endMonth || 12);
+            if (d.includeInSimulation !== false) {
+              const sTarget = (Number(d.startYear) || curYear) * 12 + (Number(d.startMonth) || 1);
+              const eTarget = (Number(d.endYear) || curYear) * 12 + (Number(d.endMonth) || 12);
               if (target >= sTarget && target <= eTarget) {
                 realExtra += Number(d.amount || 0);
               }

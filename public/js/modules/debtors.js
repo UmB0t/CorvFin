@@ -49,6 +49,7 @@
       }
       if ($('#debtorStatus')) $('#debtorStatus').value = 'pendente';
       if ($('#debtorCountInTotal')) $('#debtorCountInTotal').checked = true;
+      if ($('#debtorIncludeInSimulation')) $('#debtorIncludeInSimulation').checked = true;
       if ($('#debtorDescription')) $('#debtorDescription').value = '';
       updateDebtorInstallments();
     } else {
@@ -65,6 +66,7 @@
       if ($('#debtorEndYear')) $('#debtorEndYear').value = d.endYear || state.year || 2026;
       if ($('#debtorStatus')) $('#debtorStatus').value = d.status || 'pendente';
       if ($('#debtorCountInTotal')) $('#debtorCountInTotal').checked = d.countInTotal !== false;
+      if ($('#debtorIncludeInSimulation')) $('#debtorIncludeInSimulation').checked = d.includeInSimulation !== false;
       if ($('#debtorDescription')) $('#debtorDescription').value = d.description || '';
       updateDebtorInstallments();
     }
@@ -796,6 +798,7 @@ window.renderDynamicDebtorChart = renderDynamicDebtorChart;
 window.renderDebtorCharts = renderDebtorCharts;
 window.updateDebtorCharts = updateDebtorCharts;
 window.renderDebtorsTab = renderDebtorsTab;
+  window.openDebtorDialog = openDebtorDialog;
 
     function initDebtorsListeners() {
     $$('.debtor-person-chart-btn')?.forEach(btn => {
@@ -845,6 +848,7 @@ window.renderDebtorsTab = renderDebtorsTab;
       const ey = Number($('#debtorEndYear')?.value) || state.year || 2026;
       const status = $('#debtorStatus')?.value || 'pendente';
       const countInTotal = $('#debtorCountInTotal')?.checked !== false;
+      const includeInSimulation = $('#debtorIncludeInSimulation')?.checked !== false;
       const description = $('#debtorDescription')?.value.trim() || '';
 
       if (!name || amount <= 0) {
@@ -874,6 +878,7 @@ window.renderDebtorsTab = renderDebtorsTab;
           debtor.status = status;
           debtor.installments = installments;
           debtor.countInTotal = countInTotal;
+          debtor.includeInSimulation = includeInSimulation;
           debtor.description = description;
         }
       } else {
@@ -891,6 +896,7 @@ window.renderDebtorsTab = renderDebtorsTab;
           status,
           installments,
           countInTotal,
+          includeInSimulation,
           description,
           paidHistory: {}
         });

@@ -41,6 +41,7 @@
       if ($('#extraEndMonth')) $('#extraEndMonth').value = state.month || 1;
       if ($('#extraEndYear')) $('#extraEndYear').value = state.year || 2026;
       if ($('#extraStatus')) $('#extraStatus').value = 'pendente';
+      if ($('#extraIncludeInSimulation')) $('#extraIncludeInSimulation').checked = true;
       if ($('#extraDescription')) $('#extraDescription').value = '';
       updateExtraInstallments();
     } else {
@@ -56,6 +57,7 @@
       if ($('#extraEndMonth')) $('#extraEndMonth').value = e.endMonth || state.month || 1;
       if ($('#extraEndYear')) $('#extraEndYear').value = e.endYear || state.year || 2026;
       if ($('#extraStatus')) $('#extraStatus').value = e.status || 'pendente';
+      if ($('#extraIncludeInSimulation')) $('#extraIncludeInSimulation').checked = e.includeInSimulation !== false;
       if ($('#extraDescription')) $('#extraDescription').value = e.description || '';
       updateExtraInstallments();
     }
@@ -289,6 +291,7 @@ function toggleExtraStatus(id) {
       const ey = Number($('#extraEndYear')?.value) || state.year || 2026;
       const status = $('#extraStatus')?.value || 'pendente';
       const description = $('#extraDescription')?.value.trim() || '';
+      const includeInSimulation = $('#extraIncludeInSimulation')?.checked !== false;
 
       if (!title || amount <= 0) {
         notify('Preencha um título e valor válidos para a renda extra.', 'error');
@@ -316,6 +319,7 @@ function toggleExtraStatus(id) {
           item.status = status;
           item.description = description;
           item.installments = installments;
+          item.includeInSimulation = includeInSimulation;
         }
       } else {
         state.extras.push({
@@ -331,6 +335,7 @@ function toggleExtraStatus(id) {
           status,
           description,
           installments,
+          includeInSimulation,
           paidHistory: {}
         });
       }
@@ -361,6 +366,7 @@ function toggleExtraStatus(id) {
   window.toggleExtraStatus = toggleExtraStatus;
   window.markAllExtrasPaid = markAllExtrasPaid;
   window.renderExtrasTab = renderExtrasTab;
+  window.openExtraDialog = openExtraDialog;
 
   // Inicializacao sincrona dos listeners de rendas extras
   try {

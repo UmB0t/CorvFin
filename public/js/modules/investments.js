@@ -488,6 +488,8 @@ function renderInvestmentsTab() {
   window.moveAssetToEnd = moveAssetToEnd;
   window.runSimulation = runSimulation;
   window.renderInvestmentsTab = renderInvestmentsTab;
+  window.openAssetDialog = openAssetDialog;
+  window.openAporteDialog = openAporteDialog;
   window.initInvestmentsModule = initSimulator;
 
   // Inicializacao sincrona dos listeners de investimentos

@@ -66,13 +66,13 @@ window.migrateState = function migrateState(parsed) {
   s.variable = (parsed.variable && parsed.variable.length > 0) ? parsed.variable.map(v => Object.assign({ destination: 'Nubank', paidHistory: {} }, v)) : s.variable;
   s.assets = parsed.assets || [];
   s.aportes = parsed.aportes || [];
-  s.extras = (parsed.extras && parsed.extras.length > 0) ? parsed.extras : s.extras;
+  s.extras = (parsed.extras && parsed.extras.length > 0) ? parsed.extras.map(e => Object.assign({ includeInSimulation: e.includeInSimulation !== false }, e)) : s.extras;
   const bConf = parsed.benefitsConfig || {};
   const bAmt = bConf.amount != null ? Number(bConf.amount) : (bConf.va != null ? (Number(bConf.va || 0) + Number(bConf.vr || 0)) : s.benefitsConfig.amount);
   s.benefitsConfig = { amount: bAmt };
   s.benefitTransactions = parsed.benefitTransactions || [];
   s.customExpensesOrder = parsed.customExpensesOrder || [];
-  s.debtors = (parsed.debtors || []).map(d => Object.assign({ countInTotal: false, paidHistory: {} }, d));
+  s.debtors = (parsed.debtors || []).map(d => Object.assign({ countInTotal: false, includeInSimulation: d.includeInSimulation !== false, paidHistory: {} }, d));
   s.profile = (parsed.profile && parsed.profile.name && parsed.profile.name !== 'Usuário') ? parsed.profile : s.profile;
   s.destinations = normalizeDestinations(parsed.destinations);
   return s;

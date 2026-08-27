@@ -473,6 +473,7 @@ const AdminModule = (() => {
   }
 
   // Save Default Permissions for new users
+  // Save Default Permissions for new users
   async function saveDefaultPermissions(e) {
     if (e) {
       e.preventDefault();
@@ -515,25 +516,13 @@ const AdminModule = (() => {
       }
 
       if (res && res.success) {
-        if (typeof window.showToast === 'function') {
-          window.showToast("Permissões padrão atualizadas com sucesso!", "success");
-        } else if (typeof notify === 'function') {
-          notify("Permissões padrão atualizadas com sucesso!", "success");
-        }
+        showFeedback(res.message || "Permissões padrão salvas com sucesso!", "success");
       } else {
-        if (typeof window.showToast === 'function') {
-          window.showToast(res?.message || 'Erro ao salvar permissões padrão.', 'error');
-        } else if (typeof notify === 'function') {
-          notify(res?.message || 'Erro ao salvar permissões padrão.', 'error');
-        }
+        showFeedback(res?.message || "Erro ao salvar permissões padrão.", "error");
       }
     } catch (err) {
       console.error('Erro ao salvar permissões padrão:', err);
-      if (typeof window.showToast === 'function') {
-        window.showToast('Erro ao salvar permissões padrão.', 'error');
-      } else if (typeof notify === 'function') {
-        notify('Erro ao salvar permissões padrão.', 'error');
-      }
+      showFeedback('Erro de conexão ao salvar permissões padrão.', 'error');
     } finally {
       if (btn) {
         btn.disabled = false;
