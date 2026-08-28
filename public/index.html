@@ -1445,7 +1445,7 @@
                 ícone para identificação visual.</p>
 
               <input type="hidden" id="editingDestOriginalName">
-              <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; align-items:end;">
+              <div id="profileDestFormGrid" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; align-items:end;">
                 <div class="field">
                   <label>Nome do Destino</label>
                   <input id="newDestInput" placeholder="Ex: Nubank PJ">
@@ -1510,7 +1510,7 @@
                 uma.</p>
 
               <input type="hidden" id="editingCategoryOriginalName">
-              <div style="display: flex; gap: 8px; flex-wrap:wrap;">
+              <div id="profileCatFormGrid" style="display: flex; gap: 8px; flex-wrap:wrap;">
                 <input id="newCategoryInput" placeholder="Ex: Alimentação / Lazer"
                   style="flex: 2; min-width:180px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 11px;">
                 <input id="newCategoryBudgetInput" type="number" step="50" min="0"
