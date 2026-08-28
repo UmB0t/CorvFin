@@ -107,8 +107,8 @@
         if (typeof saveLocalState === 'function') {
           saveLocalState();
         }
-        $('#backupDialog')?.close();
-        render();
+        try { $('#backupDialog')?.close(); } catch (_) {}
+        try { if (typeof render === 'function') render(); } catch (renderErr) { console.warn('Render error after import:', renderErr); }
         notify('Backup importado e salvo com sucesso no servidor!', 'success');
         return true;
       } else {

@@ -12,7 +12,7 @@
   function applyTheme() {
     const state = getState();
     const theme = state.theme || 'light';
-    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement?.setAttribute('data-theme', theme);
     const iconHtml = theme === 'dark' ? SUN_ICON : MOON_ICON;
     const themeBtn = $('#themeBtn');
     if (themeBtn) themeBtn.innerHTML = iconHtml;

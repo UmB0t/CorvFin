@@ -24,7 +24,10 @@
   }
 
   async function revalidateStateFromServer() {
-    const token = localStorage.getItem('auth_token') || localStorage.getItem('token') || localStorage.getItem('financas_pro_jwt_token');
+    const token = (window.API && typeof API.getToken === 'function')
+      ? API.getToken()
+      : (typeof localStorage !== 'undefined' ? (localStorage.getItem('auth_token') || localStorage.getItem('token') || localStorage.getItem('financas_pro_jwt_token')) : null);
+
     if (!token) return false;
 
     try {
@@ -49,16 +52,34 @@
         json = await res.json();
       }
 
-      if (json && json.success && json.data) {
-        const nextState = migrateState(json.data);
+      // O endpoint /api/finances retorna diretamente o documento de finanças ou um objeto { success: true, data }
+      const serverData = (json && json.data) ? json.data : json;
+
+      if (serverData && (serverData.fixed !== undefined || serverData.version !== undefined || serverData.profile !== undefined || serverData.success === true)) {
+        const nextState = migrateState(serverData);
         const state = getState();
         Object.keys(state).forEach(k => delete state[k]);
         Object.assign(state, nextState);
+
+        console.log('[HYDRATION BEFORE]', window.isStateHydrated?.());
+        console.log('[HYDRATION]', {
+          before: window.isStateHydrated?.(),
+          hasSetter: typeof window.setStateHydrated,
+          financesReceived: !!(serverData && (serverData.fixed || serverData.version || serverData.profile))
+        });
+
         if (typeof window.setStateHydrated === 'function') {
           window.setStateHydrated(true);
         }
-        if (typeof render === 'function') {
-          render();
+
+        console.log('[HYDRATION AFTER]', window.isStateHydrated?.());
+
+        try {
+          if (typeof render === 'function') {
+            render();
+          }
+        } catch (renderErr) {
+          console.error('Erro ao renderizar interface após hidratação:', renderErr);
         }
         return true;
       }
