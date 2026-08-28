@@ -187,6 +187,18 @@
       c.style.display = isTarget ? 'block' : 'none';
     });
 
+    // Controle explícito da barra de meses (Ribbon) por módulo/aba
+    const TABS_WITH_MONTH_RIBBON = ['tab-expenses', 'tab-extras', 'tab-debtors', 'tab-benefits'];
+    const showRibbon = TABS_WITH_MONTH_RIBBON.includes(targetTabId);
+    const ribbonSection = document.getElementById('ribbonSection') || (typeof $ === 'function' ? $('#ribbonSection') : null);
+    if (ribbonSection) {
+      ribbonSection.hidden = !showRibbon;
+      ribbonSection.style.display = showRibbon ? '' : 'none';
+      if (showRibbon && typeof renderRibbon === 'function') {
+        renderRibbon(targetTabId);
+      }
+    }
+
     const titleEl = $('#pageTitle');
     const subEl = $('.page-sub') || $('#pageSub');
     if (titleEl) titleEl.textContent = titleMap[targetTabId] || (typeof TAB_TITLES !== 'undefined' && TAB_TITLES[targetTabId]) || 'OmniFin';
@@ -604,6 +616,7 @@
   window.initTabs = initTabs;
   window.initDialogs = initDialogs;
   window.activateTab = activateTab;
+  window.syncRouteFromLocation = syncRouteFromLocation;
   window.checkModuleMaintenance = checkModuleMaintenance;
   window.loadSystemMaintenance = loadSystemMaintenance;
   window.updateSidebarMaintenanceBadges = updateSidebarMaintenanceBadges;
@@ -617,6 +630,7 @@
     initTabs,
     initDialogs,
     activateTab,
+    syncRouteFromLocation,
     checkModuleMaintenance,
     loadSystemMaintenance,
     updateSidebarMaintenanceBadges,

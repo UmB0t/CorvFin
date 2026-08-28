@@ -6,18 +6,32 @@
 (function() {
   'use strict';
 
-function renderRibbon() {
+function renderRibbon(explicitTabId) {
     const state = getState();
-        const activeLink = $('.sidebar-link.active');
-        const activeTab = activeLink ? activeLink.dataset.tab : 'tab-expenses';
-        const ribbonSection = $('#ribbonSection');
-        if (!ribbonSection) return;
+    const ribbonSection = document.getElementById('ribbonSection') || (typeof $ === 'function' ? $('#ribbonSection') : null);
+    if (!ribbonSection) return;
 
-        if (activeTab === 'tab-investments' || activeTab === 'tab-profile' || activeTab === 'tab-simulation' || activeTab === 'tab-admin' || activeTab === 'tab-shopping') {
-          ribbonSection.hidden = true;
-          return;
-        }
-        ribbonSection.hidden = false;
+    let activeTab = explicitTabId;
+    if (!activeTab) {
+      const activeEl = document.querySelector('[data-tab].active');
+      activeTab = activeEl ? (typeof activeEl.getAttribute === 'function' ? (activeEl.getAttribute('data-tab') || activeEl.dataset?.tab) : (activeEl.dataset ? activeEl.dataset.tab : null)) : null;
+    }
+    if (!activeTab) {
+      const visibleContent = document.querySelector('.tab-content:not([hidden])');
+      activeTab = visibleContent ? visibleContent.id : 'tab-expenses';
+    }
+
+    const TABS_WITH_MONTH_RIBBON = ['tab-expenses', 'tab-extras', 'tab-debtors', 'tab-benefits'];
+    const shouldShow = TABS_WITH_MONTH_RIBBON.includes(activeTab);
+
+    if (!shouldShow) {
+      ribbonSection.hidden = true;
+      ribbonSection.style.display = 'none';
+      return;
+    }
+
+    ribbonSection.hidden = false;
+    ribbonSection.style.display = '';
 
         $('#yearLabel').textContent = state.year;
         $('#userAvatar').textContent = (state.profile.name || 'U').charAt(0).toUpperCase();

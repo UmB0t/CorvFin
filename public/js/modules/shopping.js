@@ -1,6 +1,6 @@
 /**
  * Finanças Pro - Módulo de Lista de Compras & Planejamento (shopping.js)
- * Vanilla JS Architecture - Apuração & Dashboards Analíticos
+ * Vanilla JS Architecture - Apuração & Conclusão com Lançamentos Financeiros (V3)
  */
 
 (function () {
@@ -18,6 +18,11 @@
 
   const CATEGORIES = ['Proteína', 'Carboidrato', 'Legumes', 'Frutas', 'Tempero', 'Complemento', 'Extras'];
 
+  const MONTH_NAMES = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+
   const UNIT_LABELS = {
     'un': 'Valor de uma unidade (R$):',
     'kg': 'Valor por kg (R$):',
@@ -31,6 +36,7 @@
   let activeShoppingListId = null;
   let pendingCheckItemId = null;
   let isDashboardCollapsed = false;
+  let completingListId = null;
 
   function escapeHtml(str) {
     return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -39,6 +45,16 @@
   function formatCurrency(val) {
     const num = Number(val) || 0;
     return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
+
+  function formatDate(isoStr) {
+    if (!isoStr) return '';
+    try {
+      const d = new Date(isoStr);
+      return d.toLocaleDateString('pt-BR');
+    } catch (_) {
+      return '';
+    }
   }
 
   function getActiveList() {
@@ -51,9 +67,6 @@
 
   // --- HISTÓRICO DE PREÇOS E ECONOMIA ---
 
-  /**
-   * Obtém histórico de preços unitários de um item a partir de outras listas no state
-   */
   function getShoppingPriceHistory(itemName, itemUnit, currentListId) {
     const state = getState();
     const lists = state.shoppingLists || [];
@@ -72,7 +85,6 @@
           const uPrice = it.unitPrice != null ? Number(it.unitPrice) : (qty > 0 ? rawPrice / qty : rawPrice);
 
           if (uPrice > 0) {
-            // Verifica compatibilidade estrita de unidade
             const pastUnit = (it.unit || 'un').toLowerCase();
             const targetUnit = (itemUnit || 'un').toLowerCase();
             if (pastUnit === targetUnit) {
@@ -106,9 +118,6 @@
     };
   }
 
-  /**
-   * Calcula economia ou aumento de um item comprado em relação ao histórico de preço unitário
-   */
   function calculateItemEconomy(item, currentListId) {
     if (!item.is_checked) return null;
     const qty = Number(item.quantity || 1);
@@ -168,7 +177,6 @@
       }
     });
 
-    // Economia e Aumentos consolidados
     let totalSavings = 0;
     let totalIncrease = 0;
 
@@ -209,6 +217,7 @@
     const newList = {
       id: typeof uid === 'function' ? uid() : 'list_' + Math.random().toString(36).substr(2, 9),
       name: trimmed,
+      status: 'open',
       createdAt: new Date().toISOString(),
       items: []
     };
@@ -241,6 +250,11 @@
     const list = (state.shoppingLists || []).find(l => l.id === listId);
     if (!list) return;
 
+    if (list.status === 'completed') {
+      if (typeof notify === 'function') notify('Listas concluídas não podem ser renomeadas.', 'warning');
+      return;
+    }
+
     const newName = prompt('Editar nome da lista:', list.name);
     if (newName && newName.trim() && newName.trim() !== list.name) {
       list.name = newName.trim();
@@ -262,13 +276,18 @@
 
   // --- CRUD ITENS ---
 
-  function addShoppingItem(name, category) {
+  function addShoppingItem(name, category, qty = 1, unit = 'un') {
     const list = getActiveList();
     if (!list) return;
 
+    if (list.status === 'completed') {
+      if (typeof notify === 'function') notify('Não é possível adicionar itens a uma lista já concluída.', 'warning');
+      return;
+    }
+
     const trimmed = (name || '').trim();
     if (!trimmed) {
-      if (typeof notify === 'function') notify('Informe o nome do item a comprar.', 'error');
+      if (typeof notify === 'function') notify('Informe o nome do item.', 'error');
       return;
     }
 
@@ -278,8 +297,8 @@
       name: trimmed,
       category: category || 'Extras',
       is_checked: false,
-      quantity: 1,
-      unit: 'un',
+      quantity: Number(qty) || 1,
+      unit: unit || 'un',
       unitPrice: 0,
       price: 0,
       createdAt: new Date().toISOString()
@@ -288,16 +307,22 @@
     list.items.push(newItem);
     saveState();
     renderShoppingTab();
-    if (typeof notify === 'function') notify(`"${trimmed}" adicionado à lista!`, 'success');
+    if (typeof notify === 'function') notify(`Item "${trimmed}" adicionado à lista!`, 'success');
   }
 
   function editShoppingItemName(itemId) {
     const list = getActiveList();
     if (!list) return;
+
+    if (list.status === 'completed') {
+      if (typeof notify === 'function') notify('Esta lista está concluída (somente leitura).', 'warning');
+      return;
+    }
+
     const item = (list.items || []).find(i => i.id === itemId);
     if (!item) return;
 
-    const newName = prompt('Editar nome do produto:', item.name);
+    const newName = prompt('Editar nome do item:', item.name);
     if (newName && newName.trim() && newName.trim() !== item.name) {
       item.name = newName.trim();
       saveState();
@@ -310,6 +335,11 @@
     const list = getActiveList();
     if (!list) return;
 
+    if (list.status === 'completed') {
+      if (typeof notify === 'function') notify('Esta lista está concluída (somente leitura).', 'warning');
+      return;
+    }
+
     list.items = (list.items || []).filter(i => i.id !== itemId);
     saveState();
     renderShoppingTab();
@@ -319,6 +349,12 @@
   function uncheckShoppingItem(itemId) {
     const list = getActiveList();
     if (!list) return;
+
+    if (list.status === 'completed') {
+      if (typeof notify === 'function') notify('Esta lista está concluída (somente leitura).', 'warning');
+      return;
+    }
+
     const item = (list.items || []).find(i => i.id === itemId);
     if (!item) return;
 
@@ -342,6 +378,12 @@
   function openPriceModal(itemId) {
     const list = getActiveList();
     if (!list) return;
+
+    if (list.status === 'completed') {
+      if (typeof notify === 'function') notify('Esta lista está concluída (somente leitura).', 'warning');
+      return;
+    }
+
     const item = (list.items || []).find(i => i.id === itemId);
     if (!item) return;
 
@@ -358,7 +400,6 @@
     if (qtyEl) qtyEl.value = item.quantity || 1;
     if (unitEl) unitEl.value = item.unit || 'un';
 
-    // Preenche com o unitPrice existente (ou deriva de price/quantity se faltar)
     const existingUnitPrice = item.unitPrice != null && Number(item.unitPrice) > 0
       ? item.unitPrice
       : (item.quantity > 0 && Number(item.price) > 0 ? Number(item.price) / Number(item.quantity) : '');
@@ -366,7 +407,6 @@
     if (priceEl) priceEl.value = existingUnitPrice;
     updatePriceModalLabel();
 
-    // Referência Histórica do Preço Unitário
     const history = getShoppingPriceHistory(item.name, item.unit || 'un', list.id);
     if (histHintEl) {
       if (history && history.avgUnitPrice > 0) {
@@ -402,6 +442,12 @@
     if (!pendingCheckItemId) return;
     const list = getActiveList();
     if (!list) return;
+
+    if (list.status === 'completed') {
+      closePriceModal();
+      return;
+    }
+
     const item = (list.items || []).find(i => i.id === pendingCheckItemId);
     if (!item) return;
 
@@ -409,9 +455,6 @@
     const unit = $('#shoppingModalUnit')?.value || 'un';
     const unitPriceVal = Number($('#shoppingModalPrice')?.value) || 0;
 
-    // REGRA DE NEGÓCIO CANÔNICA:
-    // unitPrice = valor digitado no input
-    // price = quantity * unitPrice (Total da compra)
     const calculatedTotal = Math.round(qty * unitPriceVal * 100) / 100;
 
     item.is_checked = true;
@@ -424,6 +467,423 @@
     closePriceModal();
     renderShoppingTab();
     if (typeof notify === 'function') notify(`"${item.name}" adicionado ao carrinho por ${formatCurrency(calculatedTotal)}!`, 'success');
+  }
+
+  // --- MODAL DE CONCLUSÃO DE LISTA DE COMPRAS COM LANÇAMENTO FINANCEIRO ---
+
+  function openShoppingCompleteModal(listId) {
+    const state = getState();
+    const lists = state.shoppingLists || [];
+    const list = lists.find(l => l.id === listId);
+    if (!list) return;
+
+    if (list.status === 'completed') {
+      if (typeof notify === 'function') notify('Esta lista já foi concluída anteriormente.', 'info');
+      return;
+    }
+
+    completingListId = list.id;
+
+    const modal = $('#shoppingCompleteDialog');
+    if (!modal) return;
+
+    const listNameEl = $('#shoppingCompleteListName');
+    const totalItemsEl = $('#shoppingCompleteTotalItems');
+    const checkedItemsEl = $('#shoppingCompleteCheckedItems');
+    const totalPurchasedEl = $('#shoppingCompleteTotalPurchased');
+    const warningBox = $('#shoppingCompleteWarningBox');
+    const warningMsg = $('#shoppingCompleteWarningMsg');
+    const submitBtn = $('#shoppingCompleteSubmitBtn');
+
+    if (listNameEl) listNameEl.textContent = list.name;
+
+    const items = list.items || [];
+    const checkedItems = items.filter(i => i.is_checked);
+    const totalCost = checkedItems.reduce((acc, i) => acc + Number(i.price || 0), 0);
+
+    if (totalItemsEl) totalItemsEl.textContent = items.length;
+    if (checkedItemsEl) checkedItemsEl.textContent = checkedItems.length;
+    if (totalPurchasedEl) totalPurchasedEl.textContent = formatCurrency(totalCost);
+
+    // Validações de Bloqueio (Itens zerados ou sem preço)
+    let isBlocked = false;
+    let blockerHtml = '';
+
+    if (checkedItems.length === 0) {
+      isBlocked = true;
+      blockerHtml = 'Nenhum item marcado como pego nesta lista. Marque os itens comprados antes de efetuar o fechamento financeiro.';
+    } else {
+      const invalidPriceItems = checkedItems.filter(i => !Number(i.price) || Number(i.price) <= 0);
+      if (invalidPriceItems.length > 0) {
+        isBlocked = true;
+        const itemNames = invalidPriceItems.map(i => `<strong>${escapeHtml(i.name)}</strong>`).join(', ');
+        blockerHtml = `Os seguintes itens marcados como pegos não possuem preço cadastrado: ${itemNames}. Defina o valor pago de cada item antes de concluir.`;
+      }
+    }
+
+    if (warningBox && warningMsg) {
+      if (isBlocked) {
+        warningBox.style.display = 'block';
+        warningMsg.innerHTML = blockerHtml;
+      } else {
+        warningBox.style.display = 'none';
+      }
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = isBlocked;
+      submitBtn.style.opacity = isBlocked ? '0.5' : '1';
+      submitBtn.style.cursor = isBlocked ? 'not-allowed' : 'pointer';
+    }
+
+    // Popula Mês e Ano de Competência
+    const monthSelect = $('#shoppingCompleteMonth');
+    const yearSelect = $('#shoppingCompleteYear');
+
+    if (monthSelect) {
+      monthSelect.innerHTML = MONTH_NAMES.map((mName, idx) => {
+        const mVal = idx + 1;
+        const sel = mVal === Number(state.month || (new Date().getMonth() + 1)) ? 'selected' : '';
+        return `<option value="${mVal}" ${sel}>${mName} (Mês ${mVal})</option>`;
+      }).join('');
+    }
+
+    if (yearSelect) {
+      const curY = Number(state.year || new Date().getFullYear());
+      const years = [curY - 1, curY, curY + 1, curY + 2];
+      yearSelect.innerHTML = years.map(y => {
+        const sel = y === curY ? 'selected' : '';
+        return `<option value="${y}" ${sel}>${y}</option>`;
+      }).join('');
+    }
+
+    // Popula Categorias e Destinos (Despesa Consolidada)
+    const metrics = getShoppingListMetrics(list);
+    const catSelect = $('#shoppingCompleteExpenseCategory');
+    const destSelect = $('#shoppingCompleteExpenseDestination');
+    const splitCatSelect = $('#shoppingCompleteSplitCategory');
+    const splitDestSelect = $('#shoppingCompleteSplitDestination');
+
+    const appCategories = (state.categories && state.categories.length > 0) ? state.categories : CATEGORIES;
+    const defaultCat = metrics.topCategory || (appCategories.includes('Alimentação') ? 'Alimentação' : appCategories[0] || 'Extras');
+
+    const categoriesHtml = appCategories.map(c => {
+      const sel = c === defaultCat ? 'selected' : '';
+      return `<option value="${escapeHtml(c)}" ${sel}>${escapeHtml(c)}</option>`;
+    }).join('');
+
+    if (catSelect) catSelect.innerHTML = categoriesHtml;
+    if (splitCatSelect) splitCatSelect.innerHTML = categoriesHtml;
+
+    const appDestinations = (state.destinations && state.destinations.length > 0)
+      ? state.destinations.map(d => typeof d === 'string' ? d : (d.name || 'Conta'))
+      : ['Nubank'];
+    const defaultDest = appDestinations.includes('Nubank') ? 'Nubank' : (appDestinations[0] || 'Nubank');
+
+    const destsHtml = appDestinations.map(d => {
+      const sel = d === defaultDest ? 'selected' : '';
+      return `<option value="${escapeHtml(d)}" ${sel}>${escapeHtml(d)}</option>`;
+    }).join('');
+
+    if (destSelect) destSelect.innerHTML = destsHtml;
+    if (splitDestSelect) splitDestSelect.innerHTML = destsHtml;
+
+    // Reseta Rádio para "Despesas" e Atualiza Painéis
+    const radioExpenses = document.querySelector('input[name="shoppingAllocationMode"][value="expenses"]');
+    if (radioExpenses) radioExpenses.checked = true;
+    updateAllocationPanels(list);
+
+    if (typeof modal.showModal === 'function') {
+      modal.showModal();
+    }
+  }
+
+  function updateAllocationPanels(list) {
+    const selectedMode = document.querySelector('input[name="shoppingAllocationMode"]:checked')?.value || 'expenses';
+
+    const panelExpenses = $('#shoppingCompletePanelExpenses');
+    const panelBenefits = $('#shoppingCompletePanelBenefits');
+    const panelSplit = $('#shoppingCompletePanelSplit');
+
+    // Destaque visual dos botões/cards de opção
+    document.querySelectorAll('.allocation-opt-label').forEach(lbl => {
+      const radio = lbl.querySelector('input[type="radio"]');
+      if (radio && radio.checked) {
+        lbl.style.borderColor = 'var(--brand)';
+        lbl.style.background = 'var(--surface)';
+      } else {
+        lbl.style.borderColor = 'var(--line)';
+        lbl.style.background = 'var(--surface-2)';
+      }
+    });
+
+    if (panelExpenses) panelExpenses.style.display = selectedMode === 'expenses' ? 'flex' : 'none';
+    if (panelBenefits) panelBenefits.style.display = selectedMode === 'benefits' ? 'flex' : 'none';
+    if (panelSplit) panelSplit.style.display = selectedMode === 'split' ? 'flex' : 'none';
+
+    if (selectedMode === 'split' && list) {
+      renderSplitModeItemsTable(list);
+    }
+  }
+
+  function renderSplitModeItemsTable(list) {
+    const splitContainer = $('#shoppingCompleteSplitItemsList');
+    if (!splitContainer) return;
+
+    const checkedItems = (list.items || []).filter(i => i.is_checked);
+    if (checkedItems.length === 0) {
+      splitContainer.innerHTML = '<div style="color:var(--muted); font-size:0.8rem; font-style:italic;">Nenhum item marcado como comprado.</div>';
+      return;
+    }
+
+    splitContainer.innerHTML = checkedItems.map(item => {
+      const p = Number(item.price || 0);
+      const isFood = ['Proteína', 'Carboidrato', 'Legumes', 'Frutas', 'Alimentação'].includes(item.category);
+      const defaultAlloc = item.allocation || (isFood ? 'benefit' : 'expense');
+
+      return `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 10px; border-radius:8px; background:var(--surface); border:1px solid var(--line);">
+          <div style="min-width:0; flex:1;">
+            <div style="font-weight:750; font-size:0.84rem; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(item.name)}</div>
+            <div style="font-size:0.75rem; color:var(--muted);">${item.quantity} ${escapeHtml(item.unit || 'un')} • <strong style="color:var(--text);">${formatCurrency(p)}</strong></div>
+          </div>
+          <div style="flex-shrink:0;">
+            <select class="shopping-split-item-alloc" data-item-id="${item.id}" data-item-price="${p}"
+              style="padding:5px 8px; border-radius:6px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.78rem; font-weight:750;">
+              <option value="expense" ${defaultAlloc === 'expense' ? 'selected' : ''}>Despesa</option>
+              <option value="benefit" ${defaultAlloc === 'benefit' ? 'selected' : ''}>Benefício</option>
+            </select>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Listeners nos selects de divisão por item
+    splitContainer.querySelectorAll('.shopping-split-item-alloc').forEach(sel => {
+      sel.addEventListener('change', () => {
+        recalculateSplitTotals();
+      });
+    });
+
+    recalculateSplitTotals();
+  }
+
+  function recalculateSplitTotals() {
+    let totalExp = 0;
+    let totalBen = 0;
+
+    document.querySelectorAll('.shopping-split-item-alloc').forEach(sel => {
+      const p = Number(sel.getAttribute('data-item-price')) || 0;
+      if (sel.value === 'benefit') {
+        totalBen += p;
+      } else {
+        totalExp += p;
+      }
+    });
+
+    totalExp = Math.round(totalExp * 100) / 100;
+    totalBen = Math.round(totalBen * 100) / 100;
+
+    const expTotalEl = $('#shoppingCompleteSplitExpenseTotal');
+    const benTotalEl = $('#shoppingCompleteSplitBenefitTotal');
+    const expConfigsEl = $('#shoppingCompleteSplitExpenseConfigs');
+    const benConfigsEl = $('#shoppingCompleteSplitBenefitConfigs');
+
+    if (expTotalEl) expTotalEl.textContent = formatCurrency(totalExp);
+    if (benTotalEl) benTotalEl.textContent = formatCurrency(totalBen);
+
+    if (expConfigsEl) expConfigsEl.style.display = totalExp > 0 ? 'flex' : 'none';
+    if (benConfigsEl) benConfigsEl.style.display = totalBen > 0 ? 'flex' : 'none';
+  }
+
+  function closeShoppingCompleteModal() {
+    const modal = $('#shoppingCompleteDialog');
+    if (modal && modal.open && typeof modal.close === 'function') {
+      modal.close();
+    }
+    completingListId = null;
+  }
+
+  async function confirmShoppingCompletion() {
+    if (!completingListId) return;
+    const state = getState();
+    const list = (state.shoppingLists || []).find(l => l.id === completingListId);
+    if (!list) return;
+
+    if (list.status === 'completed') {
+      if (typeof notify === 'function') notify('Esta lista já foi concluída anteriormente.', 'warning');
+      closeShoppingCompleteModal();
+      return;
+    }
+
+    const checkedItems = (list.items || []).filter(i => i.is_checked);
+    if (checkedItems.length === 0) {
+      if (typeof notify === 'function') notify('Nenhum item marcado como pego na lista.', 'error');
+      return;
+    }
+
+    const invalidPriceItems = checkedItems.filter(i => !Number(i.price) || Number(i.price) <= 0);
+    if (invalidPriceItems.length > 0) {
+      if (typeof notify === 'function') notify('Existem itens pegos sem preço definido.', 'error');
+      return;
+    }
+
+    // Leitura dos parâmetros do formulário
+    const compMonth = Number($('#shoppingCompleteMonth')?.value) || Number(state.month || (new Date().getMonth() + 1));
+    const compYear = Number($('#shoppingCompleteYear')?.value) || Number(state.year || new Date().getFullYear());
+    const mode = document.querySelector('input[name="shoppingAllocationMode"]:checked')?.value || 'expenses';
+
+    let expenseAmount = 0;
+    let benefitAmount = 0;
+    let category = null;
+    let destination = null;
+    let status = 'pago';
+    let benefitType = null;
+    let itemsAllocation = null;
+
+    if (mode === 'expenses') {
+      expenseAmount = Math.round(checkedItems.reduce((acc, i) => acc + Number(i.price || 0), 0) * 100) / 100;
+      category = $('#shoppingCompleteExpenseCategory')?.value || 'Alimentação';
+      destination = $('#shoppingCompleteExpenseDestination')?.value || 'Nubank';
+      status = $('#shoppingCompleteExpenseStatus')?.value || 'pago';
+    } else if (mode === 'benefits') {
+      benefitAmount = Math.round(checkedItems.reduce((acc, i) => acc + Number(i.price || 0), 0) * 100) / 100;
+      benefitType = $('#shoppingCompleteBenefitType')?.value || 'va';
+    } else if (mode === 'split') {
+      const allocMap = {};
+      let sumExp = 0;
+      let sumBen = 0;
+
+      document.querySelectorAll('.shopping-split-item-alloc').forEach(sel => {
+        const itId = sel.getAttribute('data-item-id');
+        const val = sel.value;
+        allocMap[itId] = val;
+
+        const it = checkedItems.find(x => x.id === itId);
+        if (it) {
+          it.allocation = val;
+          const p = Number(it.price || 0);
+          if (val === 'benefit') sumBen += p;
+          else sumExp += p;
+        }
+      });
+
+      expenseAmount = Math.round(sumExp * 100) / 100;
+      benefitAmount = Math.round(sumBen * 100) / 100;
+      category = $('#shoppingCompleteSplitCategory')?.value || 'Alimentação';
+      destination = $('#shoppingCompleteSplitDestination')?.value || 'Nubank';
+      benefitType = $('#shoppingCompleteSplitBenefitType')?.value || 'va';
+      status = 'pago';
+      itemsAllocation = allocMap;
+    }
+
+    // SNAPSHOT DE SEGURANÇA PARA ROLLBACK EM CASO DE ERRO DE PERSISTÊNCIA / 409
+    const rollbackVariable = JSON.parse(JSON.stringify(state.variable || []));
+    const rollbackBenefits = JSON.parse(JSON.stringify(state.benefitTransactions || []));
+    const rollbackLists = JSON.parse(JSON.stringify(state.shoppingLists || []));
+
+    // MONTAGEM DOS LANÇAMENTOS EM MEMÓRIA
+    const createdVariableIds = [];
+    const createdBenefitIds = [];
+
+    if (expenseAmount > 0) {
+      const newVarId = typeof uid === 'function' ? uid() : 'var_' + Math.random().toString(36).substr(2, 9);
+      const ym = `${compYear}-${String(compMonth).padStart(2, '0')}`;
+      const paidHist = {};
+      paidHist[ym] = (status === 'pago');
+
+      state.variable = state.variable || [];
+      state.variable.push({
+        id: newVarId,
+        name: `Lista de Compras: ${list.name}`,
+        amount: expenseAmount,
+        group: category,
+        destination: destination,
+        dueDay: 1,
+        note: `Gerado automaticamente na conclusão da lista "${list.name}"`,
+        startMonth: compMonth,
+        startYear: compYear,
+        endMonth: compMonth,
+        endYear: compYear,
+        installments: 1,
+        paidHistory: paidHist,
+        sourceType: 'shopping_list',
+        sourceId: list.id
+      });
+      createdVariableIds.push(newVarId);
+    }
+
+    if (benefitAmount > 0) {
+      const newBenId = typeof uid === 'function' ? uid() : 'ben_' + Math.random().toString(36).substr(2, 9);
+      state.benefitTransactions = state.benefitTransactions || [];
+      state.benefitTransactions.push({
+        id: newBenId,
+        description: `Lista de Compras: ${list.name}`,
+        type: benefitType || 'va',
+        amount: benefitAmount,
+        day: 1,
+        month: compMonth,
+        year: compYear,
+        note: `Gerado automaticamente na conclusão da lista "${list.name}"`,
+        sourceType: 'shopping_list',
+        sourceId: list.id
+      });
+      createdBenefitIds.push(newBenId);
+    }
+
+    // ATUALIZAÇÃO DO STATUS DA LISTA
+    list.status = 'completed';
+    list.completedAt = new Date().toISOString();
+    list.completionMonth = compMonth;
+    list.completionYear = compYear;
+    list.allocation = {
+      mode,
+      expenseAmount,
+      benefitAmount,
+      category: expenseAmount > 0 ? category : null,
+      destination: expenseAmount > 0 ? destination : null,
+      benefitType: benefitAmount > 0 ? benefitType : null,
+      status: expenseAmount > 0 ? status : null,
+      itemsAllocation
+    };
+
+    // PERSISTÊNCIA ATÔMICA ÚNICA NO MONGODB
+    let saveSuccess = false;
+    try {
+      saveSuccess = await saveState('shopping-list-complete');
+    } catch (err) {
+      console.error('Erro durante saveState na conclusão da lista:', err);
+      saveSuccess = false;
+    }
+
+    // TRATAMENTO DE FALHA / CONFLITO / REJEIÇÃO
+    if (!saveSuccess) {
+      // Reverte estado em memória para evitar estado corrompido / falso positivo
+      state.variable = rollbackVariable;
+      state.benefitTransactions = rollbackBenefits;
+      const origList = rollbackLists.find(l => l.id === list.id);
+      if (origList) {
+        Object.keys(list).forEach(k => delete list[k]);
+        Object.assign(list, origList);
+      }
+      state.shoppingLists = rollbackLists;
+
+      if (typeof notify === 'function') {
+        notify('⚠️ Falha ao registrar conclusão no servidor. Nenhuma alteração foi gravada.', 'error');
+      }
+      return;
+    }
+
+    // SUCESSO (HTTP 200)
+    closeShoppingCompleteModal();
+    if (typeof notify === 'function') {
+      notify(`Lista "${list.name}" concluída e lançamentos financeiros gerados com sucesso!`, 'success');
+    }
+
+    renderShoppingTab();
+    try {
+      if (typeof render === 'function') render();
+    } catch (_) {}
   }
 
   // --- RENDERIZAÇÃO DA ABA ---
@@ -497,91 +957,129 @@
     } else {
       lists.forEach(l => {
         const metrics = getShoppingListMetrics(l);
+        const isCompleted = l.status === 'completed';
+        const dateStr = l.createdAt ? formatDate(l.createdAt) : '';
+        const completedDateStr = l.completedAt ? formatDate(l.completedAt) : '';
+
+        let allocationSummary = '';
+        if (isCompleted && l.allocation) {
+          if (l.allocation.mode === 'expenses') {
+            allocationSummary = `<div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">Destinado a <strong>Despesas</strong>: <span style="color:var(--text); font-weight:750;">${formatCurrency(l.allocation.expenseAmount)}</span></div>`;
+          } else if (l.allocation.mode === 'benefits') {
+            allocationSummary = `<div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">Destinado a <strong>Benefícios</strong>: <span style="color:var(--brand); font-weight:750;">${formatCurrency(l.allocation.benefitAmount)}</span></div>`;
+          } else if (l.allocation.mode === 'split') {
+            allocationSummary = `<div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">Dividido: <strong>Despesas</strong> ${formatCurrency(l.allocation.expenseAmount)} • <strong>Benefícios</strong> ${formatCurrency(l.allocation.benefitAmount)}</div>`;
+          }
+        }
 
         html += `
-          <div class="card section-card" style="padding:18px 20px; border-radius:14px; display:flex; flex-direction:column; justify-content:space-between; transition:transform 0.15s ease, border-color 0.15s ease; border:1px solid var(--line);">
+          <div class="card" style="padding:18px; border-radius:14px; background:var(--surface); border:1px solid ${isCompleted ? 'rgba(16, 185, 129, 0.35)' : 'var(--line)'}; display:flex; flex-direction:column; justify-content:space-between; gap:14px; position:relative; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
             <div>
-              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
-                <h3 style="margin:0; font-size:1.12rem; font-weight:800; color:var(--text); cursor:pointer;" data-open-list="${l.id}">
-                  ${escapeHtml(l.name)}
-                </h3>
-                <div style="display:flex; gap:6px;">
-                  <button type="button" class="icon-btn small" data-edit-list="${l.id}" title="Renomear Lista">
-                    <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                  </button>
-                  <button type="button" class="icon-btn small" data-del-list="${l.id}" title="Excluir Lista" style="color:var(--danger);">
-                    <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                  </button>
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; gap:8px;">
+                <div>
+                  <h3 style="margin:0 0 4px; font-size:1.05rem; font-weight:800; color:var(--text); word-break:break-word;">
+                    ${escapeHtml(l.name)}
+                  </h3>
+                  <div style="font-size:0.75rem; color:var(--muted);">Criada em ${dateStr}</div>
+                </div>
+                <div style="flex-shrink:0;">
+                  ${isCompleted ? `
+                    <span class="badge" style="background:rgba(16, 185, 129, 0.15); color:#10b981; font-weight:800; font-size:0.72rem; padding:3px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:3px;">
+                      ✓ Concluída
+                    </span>
+                  ` : `
+                    <span class="badge" style="background:rgba(59, 130, 246, 0.12); color:#3b82f6; font-weight:800; font-size:0.72rem; padding:3px 8px; border-radius:6px;">
+                      Aberta
+                    </span>
+                  `}
                 </div>
               </div>
 
-              <div style="font-size:0.82rem; color:var(--muted); margin-bottom:14px;">
-                ${metrics.totalChecked} de ${metrics.totalItems} itens comprados (${metrics.percent}%)
+              <!-- RESUMO DE ITENS E VALOR -->
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:10px; background:var(--surface-2); margin-bottom:10px;">
+                <div>
+                  <div style="font-size:0.72rem; color:var(--muted); font-weight:700;">ITENS PEGOS</div>
+                  <div style="font-size:0.95rem; font-weight:800; color:var(--text);">${metrics.totalChecked} / ${metrics.totalItems} <span style="font-size:0.76rem; color:var(--muted);">(${metrics.percent}%)</span></div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-size:0.72rem; color:var(--muted); font-weight:700;">TOTAL GASTO</div>
+                  <div style="font-size:1.15rem; font-weight:850; color:var(--brand);">${formatCurrency(metrics.totalCost)}</div>
+                </div>
               </div>
 
-              <div style="background:var(--surface-2); border-radius:8px; height:6px; overflow:hidden; margin-bottom:16px;">
-                <div style="background:var(--brand); height:100%; width:${metrics.percent}%; transition:width 0.3s ease;"></div>
+              <!-- BARRA DE PROGRESSO -->
+              <div style="background:var(--line); border-radius:6px; height:6px; overflow:hidden; margin-bottom:6px;">
+                <div style="background:${isCompleted ? '#10b981' : 'var(--brand)'}; height:100%; width:${metrics.percent}%; transition:width 0.3s ease;"></div>
               </div>
+
+              ${allocationSummary}
             </div>
 
-            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--line); padding-top:12px; margin-top:6px;">
-              <div>
-                <span style="font-size:0.72rem; color:var(--muted); font-weight:800; text-transform:uppercase;">Total no Carrinho</span>
-                <div style="font-size:1.25rem; font-weight:850; color:var(--brand); line-height:1.2;">${formatCurrency(metrics.totalCost)}</div>
-              </div>
-              <button type="button" class="btn primary small" data-open-list="${l.id}" style="border-radius:8px; font-weight:700;">
-                Abrir Lista →
+            <div style="display:flex; justify-content:space-between; align-items:center; pt:8px; border-top:1px solid var(--line);">
+              <button type="button" class="btn ${isCompleted ? 'soft' : 'primary'} small" data-open-list="${l.id}" style="border-radius:8px; font-weight:800; padding:6px 14px;">
+                ${isCompleted ? 'Ver Detalhes →' : 'Abrir Lista →'}
               </button>
+              <div style="display:flex; gap:6px;">
+                ${!isCompleted ? `
+                  <button type="button" class="icon-btn small" data-edit-list-name="${l.id}" title="Renomear Lista">
+                    <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                  </button>
+                ` : ''}
+                <button type="button" class="icon-btn small" data-del-list="${l.id}" title="Excluir Lista" style="color:var(--danger);">
+                  <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
+              </div>
             </div>
           </div>
         `;
       });
     }
 
-    html += `</div>`;
+    html += '</div>';
     container.innerHTML = html;
 
-    // Listeners do Overview
+    // Listeners do formulário de criação
     $('#formNewShoppingList')?.addEventListener('submit', (e) => {
       e.preventDefault();
-      const val = $('#inputNewListName')?.value;
-      createShoppingList(val);
+      const input = $('#inputNewListName');
+      if (input && input.value) {
+        createShoppingList(input.value);
+        input.value = '';
+      }
     });
 
-    container.querySelectorAll('[data-open-list]').forEach(el => {
-      el.addEventListener('click', () => {
-        const id = el.getAttribute('data-open-list');
+    // Listeners de Ações dos Cards
+    container.querySelectorAll('[data-open-list]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-open-list');
         openShoppingList(id);
       });
     });
 
-    container.querySelectorAll('[data-edit-list]').forEach(el => {
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const id = el.getAttribute('data-edit-list');
+    container.querySelectorAll('[data-edit-list-name]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-edit-list-name');
         editShoppingListName(id);
       });
     });
 
-    container.querySelectorAll('[data-del-list]').forEach(el => {
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const id = el.getAttribute('data-del-list');
+    container.querySelectorAll('[data-del-list]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-del-list');
         deleteShoppingList(id);
       });
     });
   }
 
-  // Visualização 2: Detalhes de Uma Lista Específica (Layout de Apuração)
+  // Visualização 2: Detalhe de Uma Lista Única
   function renderSingleListDetail(container, list) {
-    const items = list.items || [];
     const metrics = getShoppingListMetrics(list);
-    const state = getState();
-    const allLists = state.shoppingLists || [];
+    const allLists = (getState().shoppingLists || []);
+    const isCompleted = list.status === 'completed';
 
     // Geração do Card 1: Distribuição por Categoria
     let categoryBreakdownHtml = '';
-    const activeCats = Object.entries(metrics.catTotals).filter(([_, val]) => val > 0).sort((a, b) => b[1] - a[1]);
+    const activeCats = Object.entries(metrics.catTotals).filter(([_, val]) => val > 0);
 
     if (activeCats.length === 0) {
       categoryBreakdownHtml = `<div style="color:var(--muted); font-size:0.84rem; font-style:italic; padding:12px 0;">Nenhum item comprado registrado ainda nesta lista.</div>`;
@@ -616,7 +1114,7 @@
     } else {
       historyListsHtml = otherLists.map(l => {
         const lMetrics = getShoppingListMetrics(l);
-        const dateStr = l.createdAt ? new Date(l.createdAt).toLocaleDateString('pt-BR') : 'Data não informada';
+        const dateStr = l.createdAt ? formatDate(l.createdAt) : 'Data não informada';
         return `
           <div style="padding:10px 14px; border-radius:10px; background:var(--surface); border:1px solid var(--line); display:flex; justify-content:space-between; align-items:center;">
             <div>
@@ -631,6 +1129,17 @@
       }).join('');
     }
 
+    let completionStatusBadge = '';
+    if (isCompleted) {
+      const compDate = list.completedAt ? formatDate(list.completedAt) : '';
+      completionStatusBadge = `
+        <div style="display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:8px; background:rgba(16, 185, 129, 0.15); color:#10b981; font-weight:800; font-size:0.80rem;">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:#10b981; width:14px; height:14px; stroke-width:2.5;"><polyline points="20 6 9 17 4 12"/></svg>
+          Lista Concluída em ${compDate} (Competência: ${list.completionMonth}/${list.completionYear})
+        </div>
+      `;
+    }
+
     let html = `
       <!-- CABEÇALHO DA LISTA ATIVA -->
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; flex-wrap:wrap; gap:16px;">
@@ -639,27 +1148,47 @@
             ← Todas as Listas
           </button>
           <div>
-            <h2 style="margin:0; font-size:1.35rem; font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px;">
-              ${escapeHtml(list.name)}
-              <button type="button" class="icon-btn small" id="btnEditCurrentListName" title="Renomear Lista" style="display:inline-flex;">
-                <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-              </button>
-            </h2>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <h2 style="margin:0; font-size:1.35rem; font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px;">
+                ${escapeHtml(list.name)}
+                ${!isCompleted ? `
+                  <button type="button" class="icon-btn small" id="btnEditCurrentListName" title="Renomear Lista" style="display:inline-flex;">
+                    <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                  </button>
+                ` : ''}
+              </h2>
+              ${completionStatusBadge}
+            </div>
             <p style="margin:2px 0 0; color:var(--muted); font-size:0.84rem;">${metrics.totalChecked} de ${metrics.totalItems} itens marcados como comprados</p>
           </div>
         </div>
 
-        <!-- RESUMO DO TOTAL NO CARRINHO -->
-        <div class="card" style="padding:12px 20px; border-radius:14px; background:var(--surface); border:2px solid var(--brand); display:flex; align-items:center; gap:12px; min-width:210px; box-shadow:0 4px 12px rgba(0,0,0,0.04);">
-          <div style="width:38px; height:38px; border-radius:10px; background:var(--brand-soft, rgba(31,122,92,0.12)); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:20px; height:20px; stroke-width:2.2;">
-              <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
-              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-            </svg>
-          </div>
-          <div>
-            <div style="font-size:0.70rem; color:var(--muted); font-weight:800; text-transform:uppercase; letter-spacing:0.06em;">TOTAL NO CARRINHO</div>
-            <div style="font-size:1.45rem; font-weight:850; color:var(--brand); line-height:1.2;">${formatCurrency(metrics.totalCost)}</div>
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <!-- BOTÃO CONCLUIR LISTA (SE ABERTA) OU STATUS FINAL (SE CONCLUÍDA) -->
+          ${!isCompleted ? `
+            <button type="button" class="btn primary" id="btnOpenShoppingCompleteModal" style="border-radius:12px; font-weight:800; padding:10px 18px; display:flex; align-items:center; gap:8px; box-shadow:0 4px 14px rgba(31,122,92,0.22);">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="width:18px; height:18px; stroke-width:2.5;"><polyline points="20 6 9 17 4 12"/></svg>
+              Concluir Lista
+            </button>
+          ` : `
+            <div style="padding:8px 14px; border-radius:10px; background:var(--surface-2); border:1px solid var(--line); font-size:0.82rem; font-weight:800; color:var(--muted); display:flex; align-items:center; gap:6px;">
+              <span style="width:8px; height:8px; border-radius:50%; background:#10b981;"></span>
+              Modo Somente Leitura
+            </div>
+          `}
+
+          <!-- RESUMO DO TOTAL NO CARRINHO -->
+          <div class="card" style="padding:10px 18px; border-radius:14px; background:var(--surface); border:2px solid var(--brand); display:flex; align-items:center; gap:12px; min-width:190px; box-shadow:0 4px 12px rgba(0,0,0,0.04);">
+            <div style="width:36px; height:36px; border-radius:10px; background:var(--brand-soft, rgba(31,122,92,0.12)); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:18px; height:18px; stroke-width:2.2;">
+                <circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+              </svg>
+            </div>
+            <div>
+              <div style="font-size:0.68rem; color:var(--muted); font-weight:800; text-transform:uppercase; letter-spacing:0.06em;">TOTAL NO CARRINHO</div>
+              <div style="font-size:1.35rem; font-weight:850; color:var(--brand); line-height:1.2;">${formatCurrency(metrics.totalCost)}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -752,60 +1281,56 @@
         </div>
       </div>
 
-      <!-- FORMULÁRIO DE ADICIONAR ITEM -->
-      <div class="card section-card full-width" style="padding:16px 20px; margin-bottom:18px; border-radius:14px;">
-        <form id="formAddShoppingItem" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <input type="text" id="inputShoppingItemName" placeholder="Nome do item (ex: Arroz 5kg, Alcatra, Café...)" required
-            style="flex:2; min-width:200px; padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.92rem;">
+      <!-- FORMULÁRIO DE NOVO ITEM NA LISTA (APENAS SE ABERTA) -->
+      ${!isCompleted ? `
+        <div class="card section-card full-width" style="padding:16px 20px; margin-bottom:20px; border-radius:14px;">
+          <form id="formAddShoppingItem" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <input type="text" id="inputNewItemName" placeholder="Nome do Item (ex: Arroz, Peito de Frango, Detergente)" required
+              style="flex:2; min-width:200px; padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.92rem;">
 
-          <select id="selectShoppingItemCategory" style="flex:1; min-width:140px; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-weight:600;">
-            ${CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
-          </select>
+            <select id="selectNewItemCategory"
+              style="flex:1; min-width:140px; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.92rem;">
+              ${CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
+            </select>
 
-          <button type="submit" class="btn primary" style="border-radius:10px; font-weight:800; display:flex; align-items:center; gap:6px;">
-            <svg class="svg-icon" viewBox="0 0 24 24" style="width:16px; height:16px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            + Adicionar Item
-          </button>
-        </form>
-      </div>
+            <div style="display:flex; gap:6px; flex:1; min-width:160px;">
+              <input type="number" id="inputNewItemQty" min="0.01" step="any" value="1" placeholder="Qtd" required
+                style="width:70px; padding:10px 10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.92rem; text-align:center;">
 
-      <!-- BARRA DE FILTROS -->
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:14px; margin-bottom:18px; flex-wrap:wrap; background:var(--surface); padding:12px 18px; border-radius:12px; border:1px solid var(--line);">
-        <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:200px;">
-          <input type="text" id="shoppingSearchFilter" placeholder="Buscar item na lista..."
-            style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.86rem;">
+              <select id="selectNewItemUnit"
+                style="flex:1; padding:10px 8px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.92rem;">
+                <option value="un">un</option>
+                <option value="kg">kg</option>
+                <option value="g">g</option>
+                <option value="L">L</option>
+                <option value="ml">ml</option>
+                <option value="pct">pct</option>
+                <option value="cx">cx</option>
+              </select>
+            </div>
+
+            <button type="submit" class="btn primary" style="border-radius:10px; font-weight:800; display:flex; align-items:center; gap:6px; padding:10px 18px;">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="width:16px; height:16px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              + Adicionar Item
+            </button>
+          </form>
         </div>
+      ` : ''}
 
-        <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
-          <select id="shoppingCategoryFilter" style="padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.86rem; font-weight:600;">
-            <option value="Todas">Todas as Categorias</option>
-            ${CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
-          </select>
-
-          <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.84rem; font-weight:700; color:var(--text); margin:0;">
-            <input type="checkbox" id="shoppingHideChecked" style="width:16px; height:16px; accent-color:var(--brand); cursor:pointer;">
-            Ocultar Comprados
-          </label>
-
-          <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.84rem; font-weight:700; color:var(--text); margin:0;">
-            <input type="checkbox" id="shoppingSortAlpha" style="width:16px; height:16px; accent-color:var(--brand); cursor:pointer;">
-            Ordem A-Z
-          </label>
-        </div>
-      </div>
-
-      <!-- LISTA DE ITENS POR CATEGORIA -->
-      <div id="shoppingItemsContainer" style="display:flex; flex-direction:column; gap:16px;">
-        <!-- Renderizado dinamicamente por applyItemFilters -->
+      <!-- ITENS DA LISTA AGRUPADOS POR CATEGORIA -->
+      <div id="shoppingItemsGroupedContainer" style="display:flex; flex-direction:column; gap:16px;">
+        <!-- Injetado por renderGroupedItems -->
       </div>
     `;
 
     container.innerHTML = html;
 
-    // Listeners da Lista Individual
+    // Listeners do Cabeçalho da Lista
     $('#btnBackToShoppingLists')?.addEventListener('click', closeShoppingList);
     $('#btnEditCurrentListName')?.addEventListener('click', () => editShoppingListName(list.id));
+    $('#btnOpenShoppingCompleteModal')?.addEventListener('click', () => openShoppingCompleteModal(list.id));
 
+    // Listener do Toggle do Dashboard Retrátil
     $('#toggleShoppingDashboardBtn')?.addEventListener('click', () => {
       isDashboardCollapsed = !isDashboardCollapsed;
       const body = $('#shoppingDashboardBody');
@@ -814,62 +1339,61 @@
       if (chevron) chevron.style.transform = isDashboardCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
     });
 
+    // Listener do Formulário de Adicionar Item
     $('#formAddShoppingItem')?.addEventListener('submit', (e) => {
       e.preventDefault();
-      const name = $('#inputShoppingItemName')?.value;
-      const cat = $('#selectShoppingItemCategory')?.value;
-      addShoppingItem(name, cat);
+      const nameInput = $('#inputNewItemName');
+      const catSelect = $('#selectNewItemCategory');
+      const qtyInput = $('#inputNewItemQty');
+      const unitSelect = $('#selectNewItemUnit');
+
+      if (nameInput && nameInput.value) {
+        addShoppingItem(
+          nameInput.value,
+          catSelect ? catSelect.value : 'Extras',
+          qtyInput ? qtyInput.value : 1,
+          unitSelect ? unitSelect.value : 'un'
+        );
+        nameInput.value = '';
+        if (qtyInput) qtyInput.value = '1';
+      }
     });
 
-    $('#shoppingSearchFilter')?.addEventListener('input', applyItemFilters);
-    $('#shoppingCategoryFilter')?.addEventListener('change', applyItemFilters);
-    $('#shoppingHideChecked')?.addEventListener('change', applyItemFilters);
-    $('#shoppingSortAlpha')?.addEventListener('change', applyItemFilters);
-
-    applyItemFilters();
+    // Renderiza Itens Agrupados
+    renderGroupedItems(list);
   }
 
-  function applyItemFilters() {
-    const list = getActiveList();
-    if (!list) return;
-
-    const s = ($('#shoppingSearchFilter')?.value || '').toLowerCase();
-    const c = $('#shoppingCategoryFilter')?.value || 'Todas';
-    const hideChecked = !!$('#shoppingHideChecked')?.checked;
-    const sortAlpha = !!$('#shoppingSortAlpha')?.checked;
-
-    let items = (list.items || []).filter(item => {
-      const matchSearch = item.name.toLowerCase().includes(s);
-      const matchCat = (c === 'Todas') || (item.category === c);
-      const matchChecked = hideChecked ? !item.is_checked : true;
-      return matchSearch && matchCat && matchChecked;
-    });
-
-    if (sortAlpha) {
-      items.sort((a, b) => a.name.localeCompare(b.name));
-    }
-
-    const container = $('#shoppingItemsContainer');
+  function renderGroupedItems(list) {
+    const container = $('#shoppingItemsGroupedContainer');
     if (!container) return;
+
+    const items = list.items || [];
+    const isCompleted = list.status === 'completed';
 
     if (items.length === 0) {
       container.innerHTML = `
-        <div style="padding:36px; text-align:center; color:var(--muted); background:var(--surface); border-radius:12px; border:1px solid var(--line);">
-          Nenhum item encontrado nesta lista.
+        <div style="padding:36px 20px; text-align:center; background:var(--surface); border-radius:14px; border:1px solid var(--line);">
+          <p style="color:var(--muted); font-size:0.92rem; margin:0;">Esta lista ainda não possui itens. Adicione o primeiro item no campo acima!</p>
         </div>
       `;
       return;
     }
 
-    // Agrupa por categoria
-    let groupedHtml = '';
-    CATEGORIES.forEach(cat => {
-      const catItems = items.filter(i => (i.category || 'Extras') === cat);
-      if (catItems.length === 0) return;
+    const itemsByCategory = {};
+    items.forEach(item => {
+      const cat = item.category || 'Extras';
+      if (!itemsByCategory[cat]) itemsByCategory[cat] = [];
+      itemsByCategory[cat].push(item);
+    });
 
+    let groupedHtml = '';
+
+    Object.keys(itemsByCategory).forEach(cat => {
+      const catItems = itemsByCategory[cat];
       const catColor = CATEGORY_COLORS[cat] || '#8d99ae';
+
       groupedHtml += `
-        <div class="card section-card full-width" style="padding:14px 18px; border-radius:14px; border-left:4px solid ${catColor};">
+        <div class="card" style="padding:16px 18px; border-radius:12px; background:var(--surface); border:1px solid var(--line);">
           <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; font-weight:800; font-size:0.92rem; color:var(--text);">
             <span style="width:10px; height:10px; border-radius:50%; background:${catColor};"></span>
             ${escapeHtml(cat)}
@@ -907,12 +1431,12 @@
               return `
                 <div class="entry-row" style="padding:10px 14px; border-radius:10px; background:var(--surface-2); border:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; gap:12px; ${isChecked ? 'opacity:0.92;' : ''}">
                   <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:0;">
-                    <button type="button" class="btn-check-item" data-item-id="${item.id}" data-is-checked="${isChecked}"
-                      style="width:28px; height:28px; border-radius:50%; border:2px solid ${isChecked ? 'var(--brand)' : 'var(--line)'}; background:${isChecked ? 'var(--brand)' : 'transparent'}; color:white; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;">
+                    <button type="button" class="btn-check-item" data-item-id="${item.id}" data-is-checked="${isChecked}" ${isCompleted ? 'disabled style="cursor:default;"' : ''}
+                      style="width:28px; height:28px; border-radius:50%; border:2px solid ${isChecked ? 'var(--brand)' : 'var(--line)'}; background:${isChecked ? 'var(--brand)' : 'transparent'}; color:white; display:flex; align-items:center; justify-content:center; cursor:${isCompleted ? 'default' : 'pointer'}; flex-shrink:0;">
                       ${isChecked ? '✓' : ''}
                     </button>
                     <div style="min-width:0;">
-                      <div style="font-weight:750; font-size:0.92rem; color:var(--text); ${isChecked ? 'text-decoration:line-through; color:var(--muted);' : ''} cursor:pointer;" data-edit-item="${item.id}" title="Clique para renomear">
+                      <div style="font-weight:750; font-size:0.92rem; color:var(--text); ${isChecked ? 'text-decoration:line-through; color:var(--muted);' : ''} ${!isCompleted ? 'cursor:pointer;' : ''}" ${!isCompleted ? `data-edit-item="${item.id}" title="Clique para renomear"` : ''}>
                         ${escapeHtml(item.name)}
                       </div>
                       <div style="font-size:0.8rem; margin-top:2px;">
@@ -922,21 +1446,35 @@
                   </div>
 
                   <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
-                    ${!isChecked ? `
-                      <button type="button" class="btn primary small" data-check-item="${item.id}" style="border-radius:8px; font-weight:750; padding:5px 12px;">
-                        Peguei
+                    ${!isCompleted ? (
+                      !isChecked ? `
+                        <button type="button" class="btn primary small" data-check-item="${item.id}" style="border-radius:8px; font-weight:750; padding:5px 12px;">
+                          Peguei
+                        </button>
+                      ` : `
+                        <span class="badge" style="background:rgba(31, 122, 92, 0.15); color:var(--brand); font-weight:800; font-size:0.78rem; padding:4px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
+                          ✓ Comprado
+                        </span>
+                        <button type="button" class="btn soft small" data-uncheck-item="${item.id}" title="Desfazer e voltar para pendente" style="border-radius:6px; font-size:0.72rem; padding:3px 6px;">
+                          Desfazer
+                        </button>
+                      `
+                    ) : (
+                      isChecked ? `
+                        <span class="badge" style="background:rgba(16, 185, 129, 0.15); color:#10b981; font-weight:800; font-size:0.78rem; padding:4px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
+                          ✓ Comprado
+                        </span>
+                      ` : `
+                        <span class="badge" style="background:rgba(141, 153, 174, 0.15); color:var(--muted); font-weight:700; font-size:0.75rem; padding:4px 8px; border-radius:6px;">
+                          Não comprado
+                        </span>
+                      `
+                    )}
+                    ${!isCompleted ? `
+                      <button type="button" class="icon-btn small" data-del-item="${item.id}" title="Excluir Item" style="color:var(--danger);">
+                        <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                       </button>
-                    ` : `
-                      <span class="badge" style="background:rgba(31, 122, 92, 0.15); color:var(--brand); font-weight:800; font-size:0.78rem; padding:4px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
-                        ✓ Comprado
-                      </span>
-                      <button type="button" class="btn soft small" data-uncheck-item="${item.id}" title="Desfazer e voltar para pendente" style="border-radius:6px; font-size:0.72rem; padding:3px 6px;">
-                        Desfazer
-                      </button>
-                    `}
-                    <button type="button" class="icon-btn small" data-del-item="${item.id}" title="Excluir Item" style="color:var(--danger);">
-                      <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </button>
+                    ` : ''}
                   </div>
                 </div>
               `;
@@ -948,47 +1486,50 @@
 
     container.innerHTML = groupedHtml;
 
-    // Listeners dos itens
-    container.querySelectorAll('.btn-check-item').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-item-id');
-        const isChecked = btn.getAttribute('data-is-checked') === 'true';
-        if (isChecked) uncheckShoppingItem(id);
-        else openPriceModal(id);
+    if (!isCompleted) {
+      // Listeners dos itens
+      container.querySelectorAll('.btn-check-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-item-id');
+          const isChecked = btn.getAttribute('data-is-checked') === 'true';
+          if (isChecked) uncheckShoppingItem(id);
+          else openPriceModal(id);
+        });
       });
-    });
 
-    container.querySelectorAll('[data-check-item]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-check-item');
-        openPriceModal(id);
+      container.querySelectorAll('[data-check-item]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-check-item');
+          openPriceModal(id);
+        });
       });
-    });
 
-    container.querySelectorAll('[data-uncheck-item]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-uncheck-item');
-        uncheckShoppingItem(id);
+      container.querySelectorAll('[data-uncheck-item]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-uncheck-item');
+          uncheckShoppingItem(id);
+        });
       });
-    });
 
-    container.querySelectorAll('[data-edit-item]').forEach(el => {
-      el.addEventListener('click', () => {
-        const id = el.getAttribute('data-edit-item');
-        editShoppingItemName(id);
+      container.querySelectorAll('[data-edit-item]').forEach(el => {
+        el.addEventListener('click', () => {
+          const id = el.getAttribute('data-edit-item');
+          editShoppingItemName(id);
+        });
       });
-    });
 
-    container.querySelectorAll('[data-del-item]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-del-item');
-        deleteShoppingItem(id);
+      container.querySelectorAll('[data-del-item]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-del-item');
+          deleteShoppingItem(id);
+        });
       });
-    });
+    }
   }
 
-  // --- MODAL DIALOG HANDLERS ---
+  // --- MODAL DIALOG HANDLERS & INITS ---
   function initShoppingModal() {
+    // Modal de Preço Unitário
     $('#shoppingModalCloseBtn')?.addEventListener('click', closePriceModal);
     $('#shoppingModalCancelBtn')?.addEventListener('click', closePriceModal);
     $('#formShoppingPriceModal')?.addEventListener('submit', (e) => {
@@ -997,6 +1538,22 @@
     });
     $('#shoppingModalUnit')?.addEventListener('change', () => {
       updatePriceModalLabel();
+    });
+
+    // Modal de Conclusão da Lista
+    $('#shoppingCompleteCloseBtn')?.addEventListener('click', closeShoppingCompleteModal);
+    $('#shoppingCompleteCancelBtn')?.addEventListener('click', closeShoppingCompleteModal);
+    $('#formShoppingComplete')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      confirmShoppingCompletion();
+    });
+
+    // Eventos de troca de modo de destinação no modal de conclusão
+    document.querySelectorAll('input[name="shoppingAllocationMode"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const list = completingListId ? (getState().shoppingLists || []).find(l => l.id === completingListId) : null;
+        updateAllocationPanels(list);
+      });
     });
   }
 
@@ -1025,7 +1582,10 @@
     getShoppingListMetrics,
     getShoppingPriceHistory,
     calculateItemEconomy,
-    updatePriceModalLabel
+    updatePriceModalLabel,
+    openShoppingCompleteModal,
+    closeShoppingCompleteModal,
+    confirmShoppingCompletion
   };
 
   window.renderShoppingTab = renderShoppingTab;

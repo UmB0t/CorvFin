@@ -108,6 +108,11 @@
     s.shoppingLists = (parsed.shoppingLists || parsed.shopping || []).map(list => ({
       id: list.id || (typeof uid === 'function' ? uid() : 'list_' + Math.random().toString(36).substr(2, 9)),
       name: list.name || 'Lista de Compras',
+      status: list.status || 'open',
+      completedAt: list.completedAt || null,
+      completionMonth: list.completionMonth != null ? Number(list.completionMonth) : null,
+      completionYear: list.completionYear != null ? Number(list.completionYear) : null,
+      allocation: list.allocation || null,
       createdAt: list.createdAt || new Date().toISOString(),
       items: (list.items || []).map(item => {
         const qty = Number(item.quantity || 1);
@@ -122,6 +127,7 @@
           unit: item.unit || 'un',
           unitPrice: Math.round(uPrice * 100) / 100,
           price: Math.round(p * 100) / 100,
+          allocation: item.allocation || null,
           createdAt: item.createdAt || new Date().toISOString()
         };
       })

@@ -2957,6 +2957,187 @@
     </form>
   </dialog>
 
+  
+  <!-- MODAL DE CONCLUSÃO DE LISTA DE COMPRAS COM LANÇAMENTO FINANCEIRO -->
+  <dialog id="shoppingCompleteDialog" style="max-width: 620px; width: 95%; max-height: 90vh; border-radius: 16px;">
+    <div class="dialog-head">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:36px; height:36px; border-radius:10px; background:var(--brand-soft, rgba(31,122,92,0.12)); color:var(--brand); display:grid; place-items:center; flex-shrink:0;">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); stroke-width:2.2; width:20px; height:20px;">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+        <div>
+          <h3 style="margin:0; font-size:1.1rem; font-weight:800; color:var(--text);">Concluir Lista de Compras</h3>
+          <p style="margin:2px 0 0; font-size:.78rem; color:var(--muted); font-weight:600;">Finalizar apuração e gerar lançamentos financeiros para: <strong id="shoppingCompleteListName" style="color:var(--brand);"></strong></p>
+        </div>
+      </div>
+      <button type="button" class="icon-btn small" data-close="shoppingCompleteDialog" id="shoppingCompleteCloseBtn" aria-label="Fechar">
+        <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+
+    <form id="formShoppingComplete" style="display:flex; flex-direction:column; gap:0;">
+      <div class="dialog-body" style="padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; max-height: calc(90vh - 140px); overflow-y: auto;">
+        
+        <!-- RESUMO DA APURAÇÃO -->
+        <div class="card" style="padding: 12px 16px; background: var(--surface-2); border-radius: 12px; border: 1px solid var(--line); display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; align-items: center;">
+          <div>
+            <div style="font-size: 0.70rem; font-weight: 800; color: var(--muted); text-transform: uppercase;">Total Itens</div>
+            <div id="shoppingCompleteTotalItems" style="font-size: 1.15rem; font-weight: 850; color: var(--text);">0</div>
+          </div>
+          <div>
+            <div style="font-size: 0.70rem; font-weight: 800; color: var(--muted); text-transform: uppercase;">Itens Pegos</div>
+            <div id="shoppingCompleteCheckedItems" style="font-size: 1.15rem; font-weight: 850; color: var(--brand);">0</div>
+          </div>
+          <div>
+            <div style="font-size: 0.70rem; font-weight: 800; color: var(--muted); text-transform: uppercase;">Total Comprado</div>
+            <div id="shoppingCompleteTotalPurchased" style="font-size: 1.25rem; font-weight: 900; color: var(--brand);">R$ 0,00</div>
+          </div>
+        </div>
+
+        <!-- ALERTA DE BLOQUEIO POR FALTA DE PREÇO OU ITENS ZERADOS -->
+        <div id="shoppingCompleteWarningBox" style="display:none; padding: 12px 14px; border-radius: 10px; background: rgba(239, 68, 68, 0.10); border: 1px solid rgba(239, 68, 68, 0.25); color: #ef4444; font-size: 0.84rem;">
+          <div style="font-weight: 800; display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:#ef4444; width:16px; height:16px; stroke-width:2.5;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span id="shoppingCompleteWarningTitle">Atenção ao Concluir</span>
+          </div>
+          <div id="shoppingCompleteWarningMsg" style="line-height: 1.4;"></div>
+        </div>
+
+        <!-- SEÇÃO: MÊS E ANO DE COMPETÊNCIA -->
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label style="font-size:0.82rem; font-weight:750; color:var(--text);">Mês e Ano de Competência Financeira</label>
+          <div class="field-grid" style="display:grid; grid-template-columns: 1.5fr 1fr; gap:10px;">
+            <div class="field">
+              <select id="shoppingCompleteMonth" required style="width:100%; padding:9px 12px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-weight:700;"></select>
+            </div>
+            <div class="field">
+              <select id="shoppingCompleteYear" required style="width:100%; padding:9px 12px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-weight:700;"></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEÇÃO: FORMA DE DESTINAÇÃO -->
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <label style="font-size:0.82rem; font-weight:750; color:var(--text);">Forma de Lançamento</label>
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;">
+            <label class="allocation-opt-label" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:10px 8px; border-radius:10px; border:2px solid var(--line); background:var(--surface-2); cursor:pointer; text-align:center; transition:all 0.15s ease;">
+              <input type="radio" name="shoppingAllocationMode" value="expenses" checked style="display:none;">
+              <span style="font-weight:800; font-size:0.84rem; color:var(--text);">Despesas</span>
+              <span style="font-size:0.72rem; color:var(--muted);">Tudo em Despesas</span>
+            </label>
+            <label class="allocation-opt-label" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:10px 8px; border-radius:10px; border:2px solid var(--line); background:var(--surface-2); cursor:pointer; text-align:center; transition:all 0.15s ease;">
+              <input type="radio" name="shoppingAllocationMode" value="benefits" style="display:none;">
+              <span style="font-weight:800; font-size:0.84rem; color:var(--text);">Benefícios</span>
+              <span style="font-size:0.72rem; color:var(--muted);">Tudo em Benefícios</span>
+            </label>
+            <label class="allocation-opt-label" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:10px 8px; border-radius:10px; border:2px solid var(--line); background:var(--surface-2); cursor:pointer; text-align:center; transition:all 0.15s ease;">
+              <input type="radio" name="shoppingAllocationMode" value="split" style="display:none;">
+              <span style="font-weight:800; font-size:0.84rem; color:var(--text);">Dividido</span>
+              <span style="font-size:0.72rem; color:var(--muted);">Dividir por Item</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- PAINEL DINÂMICO 1: TUDO EM DESPESAS -->
+        <div id="shoppingCompletePanelExpenses" style="display:flex; flex-direction:column; gap:10px; padding:12px; background:var(--surface-2); border-radius:10px; border:1px solid var(--line);">
+          <div style="font-weight:800; font-size:0.84rem; color:var(--text);">Configuração da Despesa Consolidada</div>
+          <div class="field-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <div class="field">
+              <label style="font-size:.74rem; color:var(--muted); font-weight:700;">Categoria</label>
+              <select id="shoppingCompleteExpenseCategory" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--text); font-weight:700;"></select>
+            </div>
+            <div class="field">
+              <label style="font-size:.74rem; color:var(--muted); font-weight:700;">Destino / Conta</label>
+              <select id="shoppingCompleteExpenseDestination" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--text); font-weight:700;"></select>
+            </div>
+          </div>
+          <div class="field">
+            <label style="font-size:.74rem; color:var(--muted); font-weight:700;">Status do Pagamento</label>
+            <select id="shoppingCompleteExpenseStatus" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--text); font-weight:700;">
+              <option value="pago">Pago</option>
+              <option value="pendente">Pendente de Pagamento</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- PAINEL DINÂMICO 2: TUDO EM BENEFÍCIOS -->
+        <div id="shoppingCompletePanelBenefits" style="display:none; flex-direction:column; gap:10px; padding:12px; background:var(--surface-2); border-radius:10px; border:1px solid var(--line);">
+          <div style="font-weight:800; font-size:0.84rem; color:var(--text);">Configuração do Gasto com Benefício</div>
+          <div class="field">
+            <label style="font-size:.74rem; color:var(--muted); font-weight:700;">Tipo de Benefício</label>
+            <select id="shoppingCompleteBenefitType" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--text); font-weight:700;">
+              <option value="va">Vale Alimentação (VA)</option>
+              <option value="vr">Vale Refeição (VR)</option>
+              <option value="outros">Outros Benefícios</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- PAINEL DINÂMICO 3: DIVIDIDO POR ITEM -->
+        <div id="shoppingCompletePanelSplit" style="display:none; flex-direction:column; gap:12px;">
+          <!-- Tabela de Itens Comprados -->
+          <div style="font-weight:800; font-size:0.84rem; color:var(--text);">Classificação por Item Comprado</div>
+          <div id="shoppingCompleteSplitItemsList" style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; padding-right:4px;">
+            <!-- Renderizado dinamicamente via JS -->
+          </div>
+
+          <!-- Resumo dos Subtotais no Modo Dividido -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:10px 14px; background:var(--surface-2); border-radius:10px; border:1px solid var(--line);">
+            <div>
+              <div style="font-size:0.70rem; font-weight:800; color:var(--muted); text-transform:uppercase;">Subtotal Despesas</div>
+              <div id="shoppingCompleteSplitExpenseTotal" style="font-size:1.1rem; font-weight:850; color:var(--text);">R$ 0,00</div>
+            </div>
+            <div>
+              <div style="font-size:0.70rem; font-weight:800; color:var(--muted); text-transform:uppercase;">Subtotal Benefícios</div>
+              <div id="shoppingCompleteSplitBenefitTotal" style="font-size:1.1rem; font-weight:850; color:var(--brand);">R$ 0,00</div>
+            </div>
+          </div>
+
+          <!-- Configurações Extras do Modo Dividido -->
+          <div id="shoppingCompleteSplitExpenseConfigs" style="display:flex; flex-direction:column; gap:10px; padding:12px; background:var(--surface-2); border-radius:10px; border:1px solid var(--line);">
+            <div style="font-weight:800; font-size:0.80rem; color:var(--text);">Destinação da Parcela em Despesas</div>
+            <div class="field-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+              <div class="field">
+                <label style="font-size:.74rem; color:var(--muted); font-weight:700;">Categoria</label>
+                <select id="shoppingCompleteSplitCategory" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--text); font-weight:700;"></select>
+              </div>
+              <div class="field">
+                <label style="font-size:.74rem; color:var(--muted); font-weight:700;">Destino / Conta</label>
+                <select id="shoppingCompleteSplitDestination" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--text); font-weight:700;"></select>
+              </div>
+            </div>
+          </div>
+
+          <div id="shoppingCompleteSplitBenefitConfigs" style="display:flex; flex-direction:column; gap:10px; padding:12px; background:var(--surface-2); border-radius:10px; border:1px solid var(--line);">
+            <div style="font-weight:800; font-size:0.80rem; color:var(--text);">Destinação da Parcela em Benefícios</div>
+            <div class="field">
+              <label style="font-size:.74rem; color:var(--muted); font-weight:700;">Tipo de Benefício</label>
+              <select id="shoppingCompleteSplitBenefitType" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--text); font-weight:700;">
+                <option value="va">Vale Alimentação (VA)</option>
+                <option value="vr">Vale Refeição (VR)</option>
+                <option value="outros">Outros Benefícios</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="dialog-foot" style="padding:14px 20px; border-top:1px solid var(--line); display:flex; justify-content:flex-end; gap:10px; background:var(--surface);">
+        <button type="button" class="btn soft" data-close="shoppingCompleteDialog" id="shoppingCompleteCancelBtn" style="border-radius:10px;">Cancelar</button>
+        <button type="submit" class="btn primary" id="shoppingCompleteSubmitBtn" style="border-radius:10px; font-weight:800; display:flex; align-items:center; gap:6px;">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="width:16px; height:16px; stroke-width:2.5;"><polyline points="20 6 9 17 4 12"/></svg>
+          Confirmar Conclusão & Lançar
+        </button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" hidden></div>
 
   <script src="config.js"></script>
