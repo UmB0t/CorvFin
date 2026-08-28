@@ -198,7 +198,14 @@
       }
     }
 
-    render();
+    // Lazy Render: se a aba ainda não foi renderizada no ciclo atual, renderiza especificamente ela
+    const targetContainer = document.getElementById(targetTabId);
+    const alreadyRendered = targetContainer && typeof targetContainer.getAttribute === 'function' && targetContainer.getAttribute('data-rendered') === 'true';
+
+    if (!alreadyRendered && typeof window.renderTabContent === 'function') {
+      window.renderTabContent(targetTabId);
+      if (targetContainer && typeof targetContainer.setAttribute === 'function') targetContainer.setAttribute('data-rendered', 'true');
+    }
   }
 
   function syncRouteFromLocation() {
