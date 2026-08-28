@@ -46,6 +46,46 @@ const API = (() => {
     return !!(t && t.length > 10);
   }
 
+  function getBasePath() {
+    if (typeof window.__BASE_PATH__ === 'string') {
+      return window.__BASE_PATH__.trim().replace(/\/+$/, '');
+    }
+    const meta = document.querySelector('meta[name="base-path"]');
+    if (meta && meta.content) {
+      return meta.content.trim().replace(/\/+$/, '');
+    }
+    // Auto-detection: checks if pathname starts with a subpath prefix (e.g. /omnifin)
+    const p = window.location.pathname || '';
+    const match = p.match(/^(\/[a-zA-Z0-9_\-]+)(\/|$)/);
+    if (match) {
+      const firstSeg = match[1].toLowerCase();
+      const knownRootRoutes = [
+        '/despesas', '/extras', '/devedores', '/investimentos',
+        '/beneficios', '/compras', '/simulacao', '/perfil',
+        '/admin', '/login', '/api', '/css', '/js', '/views'
+      ];
+      if (!knownRootRoutes.includes(firstSeg) && firstSeg !== '/index.html') {
+        return match[1];
+      }
+    }
+    return '';
+  }
+
+  function resolveUrl(path) {
+    const base = getBasePath();
+    if (!path) return base ? `${base}/` : '/';
+    if (!path.startsWith('/')) {
+      return path;
+    }
+    if (base) {
+      if (path === base || path.startsWith(base + '/')) {
+        return path;
+      }
+      return `${base}${path}`;
+    }
+    return path;
+  }
+
   // Base HTTP Request Wrapper with JWT & 401 Interceptor
   async function request(endpoint, options = {}) {
     const token = getToken();
@@ -58,15 +98,17 @@ const API = (() => {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+    const resolvedUrl = resolveUrl(endpoint);
+
     try {
-      const response = await fetch(endpoint, Object.assign({}, options, { headers }));
+      const response = await fetch(resolvedUrl, Object.assign({}, options, { headers }));
 
       // 401 Unauthorized Interceptor
       if (response.status === 401) {
         clearSession();
         const currentPath = window.location.pathname;
         if (!currentPath.endsWith('login.html') && !currentPath.endsWith('/login')) {
-          window.location.href = '/login';
+          window.location.href = resolveUrl('/login');
         }
         return { success: false, message: 'Sessão expirada. Faça login novamente.' };
       }
@@ -80,6 +122,8 @@ const API = (() => {
   }
 
   return {
+    getBasePath,
+    resolveUrl,
     getToken,
     setSession,
     getUser,

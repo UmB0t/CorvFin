@@ -449,7 +449,8 @@ const AdminModule = (() => {
         }
       } else {
         const token = localStorage.getItem('token') || localStorage.getItem('fp_token');
-        const res = await fetch('/api/admin/default-permissions', {
+        const endpoint = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/api/admin/default-permissions') : '/api/admin/default-permissions';
+        const res = await fetch(endpoint, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
@@ -472,7 +473,6 @@ const AdminModule = (() => {
     }
   }
 
-  // Save Default Permissions for new users
   // Save Default Permissions for new users
   async function saveDefaultPermissions(e) {
     if (e) {
@@ -504,7 +504,8 @@ const AdminModule = (() => {
         res = await API.saveDefaultPermissions(permissions);
       } else {
         const token = localStorage.getItem('token') || localStorage.getItem('fp_token');
-        const resp = await fetch('/api/admin/default-permissions', {
+        const endpoint = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/api/admin/default-permissions') : '/api/admin/default-permissions';
+        const resp = await fetch(endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

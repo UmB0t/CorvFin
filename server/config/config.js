@@ -12,6 +12,7 @@ if (!ALLOWED_STORAGE_DRIVERS.includes(rawStorageDriver)) {
 
 module.exports = {
   PORT: process.env.PORT || 3000,
+  BASE_PATH: (process.env.BASE_PATH || '').trim().replace(/\/+$/, ''),
   JWT_SECRET: process.env.JWT_SECRET || 'financas_pro_secret_key_jwt_2026_super_safe',
   JWT_EXPIRES_IN: '7d',
   STORAGE_DRIVER: rawStorageDriver,

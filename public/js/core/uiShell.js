@@ -131,12 +131,17 @@
   };
 
   function getTabFromPath(pathname) {
-    const cleanPath = (pathname || window.location.pathname || '').replace(/\/+$/, '').toLowerCase();
+    let cleanPath = (pathname || window.location.pathname || '').replace(/\/+$/, '').toLowerCase();
+    const base = (window.API && typeof API.getBasePath === 'function') ? API.getBasePath().toLowerCase() : '';
+    if (base && cleanPath.startsWith(base)) {
+      cleanPath = cleanPath.slice(base.length) || '/';
+    }
     return ROUTE_MAP[cleanPath] || null;
   }
 
   function getPathFromTab(tabId) {
-    return TAB_TO_ROUTE[tabId] || '/despesas';
+    const relPath = TAB_TO_ROUTE[tabId] || '/despesas';
+    return (window.API && typeof API.resolveUrl === 'function') ? API.resolveUrl(relPath) : relPath;
   }
 
   function activateTab(tabId, updateUrl = true) {
@@ -189,8 +194,9 @@
 
     if (!targetTab) {
       targetTab = DEFAULT_TAB;
-      if (rawPath !== '/login' && !rawPath.endsWith('login.html') && window.history && typeof window.history.replaceState === 'function') {
-        window.history.replaceState({ tabId: DEFAULT_TAB }, '', '/despesas');
+      const isLoginPage = rawPath.endsWith('/login') || rawPath.endsWith('login.html');
+      if (!isLoginPage && window.history && typeof window.history.replaceState === 'function') {
+        window.history.replaceState({ tabId: DEFAULT_TAB }, '', getPathFromTab(DEFAULT_TAB));
       }
     }
 

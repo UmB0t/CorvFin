@@ -231,7 +231,7 @@ const AppRouter = (() => {
       logoutBtn.addEventListener('click', (e) => {
         e.preventDefault();
         API.clearSession();
-        window.location.href = '/login';
+        window.location.href = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/login') : '/login';
       });
     }
 
@@ -283,7 +283,7 @@ const AppRouter = (() => {
   function init() {
     // Check Authentication
     if (!API.isAuthenticated()) {
-      window.location.href = 'login.html';
+      window.location.href = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/login') : 'login.html';
       return;
     }
 

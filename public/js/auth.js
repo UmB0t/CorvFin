@@ -142,23 +142,34 @@ document.addEventListener('DOMContentLoaded', () => {
       btnSubmit.innerHTML = '<span>Entrando...</span>';
 
       try {
-        const response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ login, senha })
-        });
-        const result = await response.json();
+        let result;
+        if (typeof API !== 'undefined' && API.login) {
+          result = await API.login(login, senha);
+        } else {
+          const endpoint = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/api/auth/login') : '/api/auth/login';
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ login, senha })
+          });
+          result = await response.json();
+        }
 
         if (result && result.success && result.token) {
           // Unified Session Storage
-          localStorage.setItem('auth_token', result.token);
-          localStorage.setItem('token', result.token);
-          localStorage.setItem('user_data', JSON.stringify(result.user));
-          localStorage.setItem('user', JSON.stringify(result.user));
+          if (typeof API !== 'undefined' && API.setSession) {
+            API.setSession(result.token, result.user);
+          } else {
+            localStorage.setItem('auth_token', result.token);
+            localStorage.setItem('token', result.token);
+            localStorage.setItem('user_data', JSON.stringify(result.user));
+            localStorage.setItem('user', JSON.stringify(result.user));
+          }
 
           showToast(result.message || 'Login efetuado com sucesso!');
           setTimeout(() => {
-            window.location.href = '/';
+            const redirectPath = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/despesas') : '/';
+            window.location.href = redirectPath;
           }, 500);
         } else {
           showToast(result.message || 'Credenciais inválidas. Verifique os dados.', true);
@@ -214,23 +225,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
       try {
         const payload = { nome, login, email, senha, notificacoes_ativas };
-        const response = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const result = await response.json();
+        let result;
+        if (typeof API !== 'undefined' && API.register) {
+          result = await API.register(payload);
+        } else {
+          const endpoint = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/api/auth/register') : '/api/auth/register';
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          result = await response.json();
+        }
 
         if (result && result.success && result.token) {
           // Unified Session Storage
-          localStorage.setItem('auth_token', result.token);
-          localStorage.setItem('token', result.token);
-          localStorage.setItem('user_data', JSON.stringify(result.user));
-          localStorage.setItem('user', JSON.stringify(result.user));
+          if (typeof API !== 'undefined' && API.setSession) {
+            API.setSession(result.token, result.user);
+          } else {
+            localStorage.setItem('auth_token', result.token);
+            localStorage.setItem('token', result.token);
+            localStorage.setItem('user_data', JSON.stringify(result.user));
+            localStorage.setItem('user', JSON.stringify(result.user));
+          }
 
           showToast(result.message || 'Cadastro realizado com sucesso!');
           setTimeout(() => {
-            window.location.href = '/';
+            const redirectPath = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/despesas') : '/';
+            window.location.href = redirectPath;
           }, 600);
         } else {
           showToast(result.message || 'Erro ao realizar cadastro.', true);

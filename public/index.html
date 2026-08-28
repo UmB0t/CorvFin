@@ -2960,8 +2960,8 @@
 
   <div id="toast" class="toast" hidden></div>
 
-  <script src="/js/api.js"></script>
-  <script src="/js/admin.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/admin.js"></script>
   <script src="js/core/constants.js"></script>
   <script src="js/core/utils.js"></script>
   <script src="js/core/state.js"></script>
@@ -3020,18 +3020,23 @@
 
       async function saveState() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        const token = localStorage.getItem('auth_token') || localStorage.getItem('token') || localStorage.getItem('financas_pro_jwt_token');
-        if (token) {
-          try {
-            fetch('/api/finances', {
-              method: 'PUT',
-              headers: {
-                'Authorization': 'Bearer ' + token,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(state)
-            }).catch(e => console.warn('Erro ao salvar no servidor:', e));
-          } catch (_) {}
+        if (window.API && typeof API.saveFinances === 'function') {
+          API.saveFinances(state).catch(e => console.warn('Erro ao salvar no servidor:', e));
+        } else {
+          const token = localStorage.getItem('auth_token') || localStorage.getItem('token') || localStorage.getItem('financas_pro_jwt_token');
+          if (token) {
+            try {
+              const endpoint = (window.API && typeof API.resolveUrl === 'function') ? API.resolveUrl('/api/finances') : '/api/finances';
+              fetch(endpoint, {
+                method: 'PUT',
+                headers: {
+                  'Authorization': 'Bearer ' + token,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(state)
+              }).catch(e => console.warn('Erro ao salvar no servidor:', e));
+            } catch (_) {}
+          }
         }
       }
 

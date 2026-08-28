@@ -9,41 +9,56 @@
   async function initAuthAndSync() {
     const token = localStorage.getItem('auth_token') || localStorage.getItem('token') || localStorage.getItem('financas_pro_jwt_token');
     if (!token) {
-      window.location.href = '/login';
+      window.location.href = (window.API && typeof API.resolveUrl === 'function') ? API.resolveUrl('/login') : '/login';
       return;
     }
 
     const logoutBtn = $('#btnLogout');
     if (logoutBtn) {
       logoutBtn.addEventListener('click', () => {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('token');
-        localStorage.removeItem('financas_pro_jwt_token');
-        localStorage.removeItem('user_data');
-        localStorage.removeItem('user');
-        localStorage.removeItem('financas_pro_user_info');
-        window.location.href = '/login';
+        if (window.API && typeof API.clearSession === 'function') {
+          API.clearSession();
+        } else {
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('token');
+          localStorage.removeItem('financas_pro_jwt_token');
+          localStorage.removeItem('user_data');
+          localStorage.removeItem('user');
+          localStorage.removeItem('financas_pro_user_info');
+        }
+        window.location.href = (window.API && typeof API.resolveUrl === 'function') ? API.resolveUrl('/login') : '/login';
       });
     }
 
     try {
-      const res = await fetch('/api/finances', {
-        headers: {
-          'Authorization': 'Bearer ' + token,
-          'Content-Type': 'application/json'
+      let json;
+      if (window.API && typeof API.getFinances === 'function') {
+        json = await API.getFinances();
+      } else {
+        const endpoint = (window.API && typeof API.resolveUrl === 'function') ? API.resolveUrl('/api/finances') : '/api/finances';
+        const res = await fetch(endpoint, {
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (res.status === 401) {
+          if (window.API && typeof API.clearSession === 'function') {
+            API.clearSession();
+          } else {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('token');
+            localStorage.removeItem('financas_pro_jwt_token');
+            localStorage.removeItem('user_data');
+            localStorage.removeItem('user');
+            localStorage.removeItem('financas_pro_user_info');
+          }
+          window.location.href = (window.API && typeof API.resolveUrl === 'function') ? API.resolveUrl('/login') : '/login';
+          return;
         }
-      });
-      if (res.status === 401) {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('token');
-        localStorage.removeItem('financas_pro_jwt_token');
-        localStorage.removeItem('user_data');
-        localStorage.removeItem('user');
-        localStorage.removeItem('financas_pro_user_info');
-        window.location.href = '/login';
-        return;
+        json = await res.json();
       }
-      const json = await res.json();
+
       if (json && json.success && json.data) {
         const nextState = migrateState(json.data);
         const state = getState();
