@@ -6,6 +6,16 @@
 (function() {
   'use strict';
 
+function normalizeSearchText(str) {
+  return String(str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+
+
   let debtorDlgId = null;
 
     function updateDebtorInstallments() {
@@ -486,14 +496,16 @@ function toggleDebtorStatus(id) {
 
   renderDebtorCharts();
 
-  const query = ($('#debtorsSearchInput').value || '').toLowerCase().trim();
-  const statusFilter = $('#debtorsStatusFilter').value;
+  const searchInput = $('#debtorsSearchInput');
+  const statusFilterEl = $('#debtorsStatusFilter');
+  const query = normalizeSearchText(searchInput?.value || '');
+  const statusFilter = statusFilterEl?.value || 'all';
 
   const debtors = rawDebtors.filter(d => {
     if (statusFilter !== 'all' && d.status !== statusFilter) return false;
     if (query) {
-      const text = `${d.debtorName} ${d.title} ${d.description || ''}`.toLowerCase();
-      if (!text.includes(query)) return false;
+      const searchTarget = normalizeSearchText(`${d.debtorName || ''} ${d.title || ''} ${d.description || ''} ${d.destination || ''}`);
+      if (!searchTarget.includes(query)) return false;
     }
     return true;
   });
@@ -514,7 +526,22 @@ function toggleDebtorStatus(id) {
     });
   });
 
-  renderSection('#listDebtors', '#sumDebtors', rows, debtors.reduce((s, d) => s + Number(d.amount), 0));
+  const listContainer = $('#listDebtors');
+  const sumEl = $('#sumDebtors');
+  const filteredTotal = debtors.reduce((s, d) => s + Number(d.amount), 0);
+  if (sumEl) sumEl.textContent = currency(filteredTotal);
+
+  if (listContainer) {
+    listContainer.innerHTML = '';
+    if (rows.length === 0) {
+      const emptyMsg = query || statusFilter !== 'all'
+        ? 'Nenhum devedor encontrado para esta busca.'
+        : 'Nenhum devedor registrado para este mês.';
+      listContainer.innerHTML = `<div class="empty">${emptyMsg}</div>`;
+    } else {
+      rows.forEach(r => listContainer.appendChild(r));
+    }
+  }
 };
 
 
@@ -624,7 +651,7 @@ function toggleDebtorStatus(id) {
           destSel.value = uniqueDests.includes(currentVal) ? currentVal : 'all';
         }
 
-        const query = ($('#debtorsTotalsSearchInput')?.value || '').toLowerCase().trim();
+        const query = normalizeSearchText($('#debtorsTotalsSearchInput')?.value || '');
         const debtorFilter = $('#debtorsTotalsDebtorFilter')?.value || 'all';
         const destFilter = $('#debtorsTotalsDestFilter')?.value || 'all';
         const statusFilter = $('#debtorsTotalsStatusFilter')?.value || 'all';
@@ -635,8 +662,8 @@ function toggleDebtorStatus(id) {
           if (statusFilter === 'active' && item.isCompleted) return false;
           if (statusFilter === 'completed' && !item.isCompleted) return false;
           if (query) {
-            const text = `${item.debtorName} ${item.title} ${item.destination}`.toLowerCase();
-            if (!text.includes(query)) return false;
+            const searchTarget = normalizeSearchText(`${item.debtorName || ''} ${item.title || ''} ${item.destination || ''}`);
+            if (!searchTarget.includes(query)) return false;
           }
           return true;
         });
@@ -744,10 +771,17 @@ function toggleDebtorStatus(id) {
         });
       });
 
-      $('#debtorsTotalsSearchInput')?.addEventListener('input', renderDebtorsTotalsTab);
-      $('#debtorsTotalsDebtorFilter')?.addEventListener('change', renderDebtorsTotalsTab);
-      $('#debtorsTotalsDestFilter')?.addEventListener('change', renderDebtorsTotalsTab);
-      $('#debtorsTotalsStatusFilter')?.addEventListener('change', renderDebtorsTotalsTab);
+      // Listeners de busca e filtro da visão mensal de devedores
+      $('#debtorsSearchInput')?.addEventListener('input', () => renderDebtorsTab());
+      $('#debtorsSearchInput')?.addEventListener('change', () => renderDebtorsTab());
+      $('#debtorsStatusFilter')?.addEventListener('change', () => renderDebtorsTab());
+
+      // Listeners de busca e filtro da visão de totais de devedores
+      $('#debtorsTotalsSearchInput')?.addEventListener('input', () => renderDebtorsTotalsTab());
+      $('#debtorsTotalsSearchInput')?.addEventListener('change', () => renderDebtorsTotalsTab());
+      $('#debtorsTotalsDebtorFilter')?.addEventListener('change', () => renderDebtorsTotalsTab());
+      $('#debtorsTotalsDestFilter')?.addEventListener('change', () => renderDebtorsTotalsTab());
+      $('#debtorsTotalsStatusFilter')?.addEventListener('change', () => renderDebtorsTotalsTab());
 
       /* =============================================================
          GRÁFICOS DINÂMICOS DE DEVEDORES (PESSOA E DESTINO)

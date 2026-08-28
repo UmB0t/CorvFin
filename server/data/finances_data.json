@@ -1,0 +1,350 @@
+{
+  "user_test_concurrency_1787934289071": {
+    "userId": "user_test_concurrency_1787934289071",
+    "version": 5,
+    "revision": 5,
+    "firstLogin": true,
+    "sidebarCollapsed": false,
+    "simplifiedView": false,
+    "chartViewType": "bar",
+    "destChartViewType": "bar",
+    "debtorPersonChartType": "bar",
+    "debtorDestChartType": "bar",
+    "expensesSubView": "monthly",
+    "debtorsSubView": "monthly",
+    "theme": "light",
+    "year": 2026,
+    "month": 8,
+    "profile": {
+      "name": "Lorenzo Cabral",
+      "baseSalary": 10000
+    },
+    "destinations": [
+      {
+        "name": "XP Investimentos",
+        "color": "#1F7A5C",
+        "icon": "bank"
+      },
+      {
+        "name": "BTG Pactual",
+        "color": "#2563EB",
+        "icon": "bank"
+      },
+      {
+        "name": "Nubank",
+        "color": "#8B5CF6",
+        "icon": "card"
+      },
+      {
+        "name": "Nubank PF",
+        "color": "#8B5CF6",
+        "icon": "card"
+      },
+      {
+        "name": "Nubank PJ",
+        "color": "#8B5CF6",
+        "icon": "card"
+      },
+      {
+        "name": "Neon",
+        "color": "#06B6D4",
+        "icon": "card"
+      },
+      {
+        "name": "Pix",
+        "color": "#10B981",
+        "icon": "dollar"
+      },
+      {
+        "name": "Em dinheiro",
+        "color": "#F59E0B",
+        "icon": "wallet"
+      },
+      {
+        "name": "Gerais",
+        "color": "#6B7280",
+        "icon": "wallet"
+      }
+    ],
+    "categories": [
+      "Moradia",
+      "Lazer",
+      "Alimentação",
+      "Cartão",
+      "Transporte",
+      "Saúde",
+      "Educação",
+      "Gerais",
+      "Investimento",
+      "Assinatura",
+      "Outros"
+    ],
+    "budgets": {},
+    "collapsedSections": {
+      "insights": true,
+      "destChart": true,
+      "categoryChart": true,
+      "debtorPerson": true,
+      "debtorDest": true,
+      "extrasCharts": true,
+      "benefitsCharts": true,
+      "investSimulator": true,
+      "investCharts": true
+    },
+    "benefitsConfig": {
+      "amount": 0,
+      "va": 0,
+      "vr": 0
+    },
+    "benefitTransactions": [],
+    "readNotifications": [],
+    "incomes": {},
+    "fixed": [
+      {
+        "id": "b1",
+        "name": "Condomínio",
+        "amount": 600,
+        "active": true
+      }
+    ],
+    "variable": [],
+    "extras": [],
+    "debtors": [],
+    "assets": [],
+    "aportes": [],
+    "lastModified": "2026-08-28T16:24:49.153Z",
+    "shoppingLists": []
+  },
+  "user_test_concurrency_1787934837244": {
+    "userId": "user_test_concurrency_1787934837244",
+    "version": 5,
+    "revision": 5,
+    "firstLogin": true,
+    "sidebarCollapsed": false,
+    "simplifiedView": false,
+    "chartViewType": "bar",
+    "destChartViewType": "bar",
+    "debtorPersonChartType": "bar",
+    "debtorDestChartType": "bar",
+    "expensesSubView": "monthly",
+    "debtorsSubView": "monthly",
+    "theme": "light",
+    "year": 2026,
+    "month": 8,
+    "profile": {
+      "name": "Lorenzo Cabral",
+      "baseSalary": 10000
+    },
+    "destinations": [
+      {
+        "name": "XP Investimentos",
+        "color": "#1F7A5C",
+        "icon": "bank"
+      },
+      {
+        "name": "BTG Pactual",
+        "color": "#2563EB",
+        "icon": "bank"
+      },
+      {
+        "name": "Nubank",
+        "color": "#8B5CF6",
+        "icon": "card"
+      },
+      {
+        "name": "Nubank PF",
+        "color": "#8B5CF6",
+        "icon": "card"
+      },
+      {
+        "name": "Nubank PJ",
+        "color": "#8B5CF6",
+        "icon": "card"
+      },
+      {
+        "name": "Neon",
+        "color": "#06B6D4",
+        "icon": "card"
+      },
+      {
+        "name": "Pix",
+        "color": "#10B981",
+        "icon": "dollar"
+      },
+      {
+        "name": "Em dinheiro",
+        "color": "#F59E0B",
+        "icon": "wallet"
+      },
+      {
+        "name": "Gerais",
+        "color": "#6B7280",
+        "icon": "wallet"
+      }
+    ],
+    "categories": [
+      "Moradia",
+      "Lazer",
+      "Alimentação",
+      "Cartão",
+      "Transporte",
+      "Saúde",
+      "Educação",
+      "Gerais",
+      "Investimento",
+      "Assinatura",
+      "Outros"
+    ],
+    "budgets": {},
+    "collapsedSections": {
+      "insights": true,
+      "destChart": true,
+      "categoryChart": true,
+      "debtorPerson": true,
+      "debtorDest": true,
+      "extrasCharts": true,
+      "benefitsCharts": true,
+      "investSimulator": true,
+      "investCharts": true
+    },
+    "benefitsConfig": {
+      "amount": 0,
+      "va": 0,
+      "vr": 0
+    },
+    "benefitTransactions": [],
+    "readNotifications": [],
+    "incomes": {},
+    "fixed": [
+      {
+        "id": "b1",
+        "name": "Condomínio",
+        "amount": 600,
+        "active": true
+      }
+    ],
+    "variable": [],
+    "extras": [],
+    "debtors": [],
+    "assets": [],
+    "aportes": [],
+    "lastModified": "2026-08-28T16:33:57.305Z",
+    "shoppingLists": []
+  },
+  "user_test_concurrency_1787935777302": {
+    "userId": "user_test_concurrency_1787935777302",
+    "version": 5,
+    "revision": 5,
+    "firstLogin": true,
+    "sidebarCollapsed": false,
+    "simplifiedView": false,
+    "chartViewType": "bar",
+    "destChartViewType": "bar",
+    "debtorPersonChartType": "bar",
+    "debtorDestChartType": "bar",
+    "expensesSubView": "monthly",
+    "debtorsSubView": "monthly",
+    "theme": "light",
+    "year": 2026,
+    "month": 8,
+    "profile": {
+      "name": "Lorenzo Cabral",
+      "baseSalary": 10000
+    },
+    "destinations": [
+      {
+        "name": "XP Investimentos",
+        "color": "#1F7A5C",
+        "icon": "bank"
+      },
+      {
+        "name": "BTG Pactual",
+        "color": "#2563EB",
+        "icon": "bank"
+      },
+      {
+        "name": "Nubank",
+        "color": "#8B5CF6",
+        "icon": "card"
+      },
+      {
+        "name": "Nubank PF",
+        "color": "#8B5CF6",
+        "icon": "card"
+      },
+      {
+        "name": "Nubank PJ",
+        "color": "#8B5CF6",
+        "icon": "card"
+      },
+      {
+        "name": "Neon",
+        "color": "#06B6D4",
+        "icon": "card"
+      },
+      {
+        "name": "Pix",
+        "color": "#10B981",
+        "icon": "dollar"
+      },
+      {
+        "name": "Em dinheiro",
+        "color": "#F59E0B",
+        "icon": "wallet"
+      },
+      {
+        "name": "Gerais",
+        "color": "#6B7280",
+        "icon": "wallet"
+      }
+    ],
+    "categories": [
+      "Moradia",
+      "Lazer",
+      "Alimentação",
+      "Cartão",
+      "Transporte",
+      "Saúde",
+      "Educação",
+      "Gerais",
+      "Investimento",
+      "Assinatura",
+      "Outros"
+    ],
+    "budgets": {},
+    "collapsedSections": {
+      "insights": true,
+      "destChart": true,
+      "categoryChart": true,
+      "debtorPerson": true,
+      "debtorDest": true,
+      "extrasCharts": true,
+      "benefitsCharts": true,
+      "investSimulator": true,
+      "investCharts": true
+    },
+    "benefitsConfig": {
+      "amount": 0,
+      "va": 0,
+      "vr": 0
+    },
+    "benefitTransactions": [],
+    "readNotifications": [],
+    "incomes": {},
+    "fixed": [
+      {
+        "id": "b1",
+        "name": "Condomínio",
+        "amount": 600,
+        "active": true
+      }
+    ],
+    "variable": [],
+    "extras": [],
+    "debtors": [],
+    "assets": [],
+    "aportes": [],
+    "lastModified": "2026-08-28T16:49:37.359Z",
+    "shoppingLists": []
+  }
+}
