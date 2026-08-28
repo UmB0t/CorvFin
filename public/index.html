@@ -3162,7 +3162,19 @@
         }, 3400);
       }
 
-            function renderTabContent(tabId) {
+                  const ALL_APP_TABS = [
+        'tab-expenses',
+        'tab-extras',
+        'tab-debtors',
+        'tab-investments',
+        'tab-benefits',
+        'tab-shopping',
+        'tab-simulation',
+        'tab-profile',
+        'tab-admin'
+      ];
+
+      function renderTabContent(tabId) {
         const isSimp = !!state.simplifiedView;
         if (window.checkModuleMaintenance && window.checkModuleMaintenance(tabId)) {
           return;
@@ -3267,7 +3279,18 @@
       }
       window.renderTabContent = renderTabContent;
 
-      function render() {
+      function renderAllTabs() {
+        ALL_APP_TABS.forEach(tabId => {
+          try {
+            renderTabContent(tabId);
+          } catch (tabErr) {
+            console.warn('Erro ao renderizar aba ' + tabId + ':', tabErr);
+          }
+        });
+      }
+      window.renderAllTabs = renderAllTabs;
+
+      function render(targetModule = null) {
         applyTheme();
         applySidebarState();
         renderRibbon();
@@ -3286,12 +3309,11 @@
           btnView.setAttribute('aria-label', tip);
         }
 
-        const activeLink = document.querySelector('.sidebar-link.active') || document.querySelector('.bottom-nav-item.active');
-        const activeTab = activeLink ? (typeof activeLink.getAttribute === 'function' ? (activeLink.getAttribute('data-tab') || activeLink.dataset?.tab) : (activeLink.dataset ? activeLink.dataset.tab : 'tab-expenses')) : 'tab-expenses';
-
-        renderTabContent(activeTab || 'tab-expenses');
-        const container = document.getElementById(activeTab || 'tab-expenses');
-        if (container && typeof container.setAttribute === 'function') container.setAttribute('data-rendered', 'true');
+        if (targetModule && ALL_APP_TABS.includes(targetModule)) {
+          renderTabContent(targetModule);
+        } else {
+          renderAllTabs();
+        }
       }
 
       /* ---------- MODALS LOGIC FOR EXPENSES ---------- */

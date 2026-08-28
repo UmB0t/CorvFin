@@ -157,12 +157,12 @@
     return base ? `${base}${relPath}` : relPath;
   }
 
-  function activateTab(tabId, updateUrl = true) {
+    function activateTab(tabId, updateUrl = true) {
     const targetTabId = tabId || DEFAULT_TAB;
 
     // Atualiza links da sidebar, bottom navigation e mobile drawer
     document.querySelectorAll('[data-tab]').forEach(l => {
-      const lTab = l.getAttribute('data-tab') || l.dataset.tab;
+      const lTab = typeof l.getAttribute === 'function' ? (l.getAttribute('data-tab') || l.dataset?.tab) : (l.dataset ? l.dataset.tab : null);
       l.classList.toggle('active', lTab === targetTabId);
     });
 
@@ -179,7 +179,8 @@
       drawerOverlay.classList.remove('open');
     }
 
-    const tabContents = $$('.tab-content');
+    // Alterna visibilidade das abas sem tocar em seus conteúdos internos
+    const tabContents = document.querySelectorAll('.tab-content');
     tabContents.forEach(c => {
       const isTarget = (c.id === targetTabId);
       c.hidden = !isTarget;
@@ -196,15 +197,6 @@
       if (window.location.pathname !== targetPath && window.history && typeof window.history.pushState === 'function') {
         window.history.pushState({ tabId: targetTabId }, '', targetPath);
       }
-    }
-
-    // Lazy Render: se a aba ainda não foi renderizada no ciclo atual, renderiza especificamente ela
-    const targetContainer = document.getElementById(targetTabId);
-    const alreadyRendered = targetContainer && typeof targetContainer.getAttribute === 'function' && targetContainer.getAttribute('data-rendered') === 'true';
-
-    if (!alreadyRendered && typeof window.renderTabContent === 'function') {
-      window.renderTabContent(targetTabId);
-      if (targetContainer && typeof targetContainer.setAttribute === 'function') targetContainer.setAttribute('data-rendered', 'true');
     }
   }
 
@@ -270,7 +262,7 @@
     maintenanceLoadFailed = true;
     updateSidebarMaintenanceBadges();
     const activeLink = document.querySelector('.sidebar-link.active');
-    const activeTab = activeLink ? (activeLink.getAttribute('data-tab') || activeLink.dataset.tab) : 'tab-expenses';
+    const activeTab = activeLink ? (typeof activeLink.getAttribute === 'function' ? (activeLink.getAttribute('data-tab') || activeLink.dataset?.tab) : (activeLink.dataset ? activeLink.dataset.tab : 'tab-expenses')) : 'tab-expenses';
     checkModuleMaintenance(activeTab);
     if (typeof render === 'function') render();
   }
@@ -431,12 +423,14 @@
       if (maintenanceOverlay) {
         maintenanceOverlay.style.display = 'none';
       }
-      Array.from(container.children).forEach(child => {
-        if (child.getAttribute('data-maint-hidden') === 'true') {
-          child.removeAttribute('data-maint-hidden');
-          child.style.display = '';
-        }
-      });
+      if (container && container.children) {
+        Array.from(container.children).forEach(child => {
+          if (typeof child.getAttribute === 'function' && child.getAttribute('data-maint-hidden') === 'true') {
+            child.removeAttribute('data-maint-hidden');
+            child.style.display = '';
+          }
+        });
+      }
       return false; // Liberado para renderizar
     }
   }
