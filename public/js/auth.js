@@ -168,14 +168,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
           showToast(result.message || 'Login efetuado com sucesso!');
           setTimeout(() => {
-            const redirectPath = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/despesas') : '/';
-            console.log('[AUTH NAV]', {
-              redirectPath,
-              resolvedUrl: (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/despesas') : null,
-              basePath: (typeof API !== 'undefined' && API.getBasePath) ? API.getBasePath() : null,
-              currentLocation: window.location.href
-            });
-            console.trace('[AUTH NAV TRACE]');
+            const redirectPath = (window.API && typeof API.resolveUrl === 'function')
+              ? API.resolveUrl('/despesas')
+              : (typeof window.withBasePath === 'function' ? window.withBasePath('/despesas') : '/despesas');
             window.location.href = redirectPath;
           }, 500);
         } else {

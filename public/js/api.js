@@ -1,23 +1,25 @@
 /**
  * Finanças Pro - API Client & Centralized JWT Handler
  */
-const API = (() => {
+(function () {
+  'use strict';
+
   const TOKEN_KEY = 'auth_token';
   const USER_KEY = 'user_data';
 
   function getToken() {
-    return localStorage.getItem('auth_token') || localStorage.getItem('token') || localStorage.getItem('financas_pro_jwt_token');
+    return localStorage.getItem(TOKEN_KEY) || localStorage.getItem('token') || localStorage.getItem('financas_pro_jwt_token');
   }
 
   function setSession(token, user) {
     if (token) {
-      localStorage.setItem('auth_token', token);
+      localStorage.setItem(TOKEN_KEY, token);
       localStorage.setItem('token', token);
       localStorage.setItem('financas_pro_jwt_token', token);
     }
     if (user) {
       const userStr = typeof user === 'string' ? user : JSON.stringify(user);
-      localStorage.setItem('user_data', userStr);
+      localStorage.setItem(USER_KEY, userStr);
       localStorage.setItem('user', userStr);
       localStorage.setItem('financas_pro_user_info', userStr);
     }
@@ -25,7 +27,7 @@ const API = (() => {
 
   function getUser() {
     try {
-      const u = localStorage.getItem('user_data') || localStorage.getItem('user') || localStorage.getItem('financas_pro_user_info');
+      const u = localStorage.getItem(USER_KEY) || localStorage.getItem('user') || localStorage.getItem('financas_pro_user_info');
       return u ? JSON.parse(u) : null;
     } catch (_) {
       return null;
@@ -33,10 +35,10 @@ const API = (() => {
   }
 
   function clearSession() {
-    localStorage.removeItem('auth_token');
+    localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem('token');
     localStorage.removeItem('financas_pro_jwt_token');
-    localStorage.removeItem('user_data');
+    localStorage.removeItem(USER_KEY);
     localStorage.removeItem('user');
     localStorage.removeItem('financas_pro_user_info');
   }
@@ -55,7 +57,7 @@ const API = (() => {
       return meta.content.trim().replace(/\/+$/, '');
     }
     // Auto-detection: checks if pathname starts with a subpath prefix (e.g. /omnifin)
-    const p = window.location.pathname || '';
+    const p = (window.location && window.location.pathname) ? window.location.pathname : '';
     const match = p.match(/^(\/[a-zA-Z0-9_\-]+)(\/|$)/);
     if (match) {
       const firstSeg = match[1].toLowerCase();
@@ -73,28 +75,17 @@ const API = (() => {
 
   function resolveUrl(path) {
     const base = getBasePath();
-    let res;
-    if (!path) {
-      res = base ? `${base}/` : '/';
-    } else if (!path.startsWith('/')) {
-      res = path;
-    } else if (base) {
+    if (!path) return base ? `${base}/` : '/';
+    if (!path.startsWith('/')) {
+      return path;
+    }
+    if (base) {
       if (path === base || path.startsWith(base + '/')) {
-        res = path;
-      } else {
-        res = `${base}${path}`;
+        return path;
       }
-    } else {
-      res = path;
+      return `${base}${path}`;
     }
-
-    if (path === '/despesas' || path === '/api/finances') {
-      console.log('[API.resolveUrl]', { input: path, base, result: res, pathname: window.location.pathname });
-      if (res === '/despesas') {
-        console.trace('[NAV DEBUG resolveUrl returned /despesas without base]');
-      }
-    }
-    return res;
+    return path;
   }
 
   // Base HTTP Request Wrapper with JWT & 401 Interceptor
@@ -117,7 +108,7 @@ const API = (() => {
       // 401 Unauthorized Interceptor
       if (response.status === 401) {
         clearSession();
-        const currentPath = window.location.pathname;
+        const currentPath = (window.location && window.location.pathname) ? window.location.pathname : '';
         if (!currentPath.endsWith('login.html') && !currentPath.endsWith('/login')) {
           window.location.href = resolveUrl('/login');
         }
@@ -132,7 +123,7 @@ const API = (() => {
     }
   }
 
-  return {
+  const API = {
     getBasePath,
     resolveUrl,
     withBasePath: resolveUrl,
@@ -174,12 +165,11 @@ const API = (() => {
     getMaintenanceConfig: () => request('/api/admin/maintenance', { method: 'GET' }),
     saveMaintenanceConfig: (maintenance) => request('/api/admin/maintenance', { method: 'PUT', body: JSON.stringify({ maintenance }) })
   };
-})();
 
-// Global withBasePath helper
-window.withBasePath = function (path) {
-  return typeof API !== 'undefined' && API.resolveUrl ? API.resolveUrl(path) : path;
-};
+  // Garante disponibilidade global irrestrita
+  window.API = API;
+  window.withBasePath = resolveUrl;
+})();
 
 // Global Notification Helper
 function notify(msg, type = 'info') {

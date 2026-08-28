@@ -81,6 +81,9 @@
   }
 
   const ROUTE_MAP = {
+    '/': 'tab-expenses',
+    '': 'tab-expenses',
+    '/index.html': 'tab-expenses',
     '/despesas': 'tab-expenses',
     '/extras': 'tab-extras',
     '/devedores': 'tab-debtors',
@@ -130,65 +133,28 @@
     'tab-admin': 'Gerenciamento de usuários e permissões do sistema'
   };
 
-  // =========================================================================
-  // INSTRUMENTAÇÃO TEMPORÁRIA DE NAVEGAÇÃO & HISTORY API (DIAGNÓSTICO)
-  // =========================================================================
-  if (typeof window.history !== 'undefined' && !window._NAV_DEBUG_INSTRUMENTED) {
-    window._NAV_DEBUG_INSTRUMENTED = true;
-    const origPushState = history.pushState.bind(history);
-    history.pushState = function (...args) {
-      console.trace('[NAV DEBUG pushState]', {
-        state: args[0],
-        title: args[1],
-        url: args[2],
-        currentLocation: window.location.href,
-        pathname: window.location.pathname,
-        basePath: (window.API && typeof API.getBasePath === 'function') ? API.getBasePath() : null
-      });
-      return origPushState(...args);
-    };
-
-    const origReplaceState = history.replaceState.bind(history);
-    history.replaceState = function (...args) {
-      console.trace('[NAV DEBUG replaceState]', {
-        state: args[0],
-        title: args[1],
-        url: args[2],
-        currentLocation: window.location.href,
-        pathname: window.location.pathname,
-        basePath: (window.API && typeof API.getBasePath === 'function') ? API.getBasePath() : null
-      });
-      return origReplaceState(...args);
-    };
-  }
-
   function getTabFromPath(pathname) {
     let cleanPath = (pathname || window.location.pathname || '').replace(/\/+$/, '').toLowerCase();
-    const base = (window.API && typeof API.getBasePath === 'function') ? API.getBasePath().toLowerCase() : '';
+    const base = (window.API && typeof API.getBasePath === 'function')
+      ? API.getBasePath().toLowerCase()
+      : (typeof window.__BASE_PATH__ === 'string' ? window.__BASE_PATH__.toLowerCase() : '');
+
     if (base && cleanPath.startsWith(base)) {
       cleanPath = cleanPath.slice(base.length) || '/';
     }
-    const matchedTab = ROUTE_MAP[cleanPath] || null;
-    console.log('[NAV DEBUG getTabFromPath]', {
-      inputPathname: pathname,
-      currentPathname: window.location.pathname,
-      cleanPath,
-      base,
-      matchedTab
-    });
-    return matchedTab;
+    return ROUTE_MAP[cleanPath] || null;
   }
 
   function getPathFromTab(tabId) {
     const relPath = TAB_TO_ROUTE[tabId] || '/despesas';
-    const targetPath = (window.API && typeof API.resolveUrl === 'function') ? API.resolveUrl(relPath) : relPath;
-    console.log('[NAV DEBUG getPathFromTab]', {
-      tabId,
-      relPath,
-      targetPath,
-      basePath: (window.API && typeof API.getBasePath === 'function') ? API.getBasePath() : null
-    });
-    return targetPath;
+    if (window.API && typeof API.resolveUrl === 'function') {
+      return API.resolveUrl(relPath);
+    }
+    if (typeof window.withBasePath === 'function') {
+      return window.withBasePath(relPath);
+    }
+    const base = typeof window.__BASE_PATH__ === 'string' ? window.__BASE_PATH__.trim().replace(/\/+$/, '') : '';
+    return base ? `${base}${relPath}` : relPath;
   }
 
   function activateTab(tabId, updateUrl = true) {
@@ -227,11 +193,6 @@
 
     if (updateUrl) {
       const targetPath = getPathFromTab(targetTabId);
-      console.log('[NAV DEBUG activateTab updateUrl]', {
-        targetTabId,
-        targetPath,
-        currentPathname: window.location.pathname
-      });
       if (window.location.pathname !== targetPath && window.history && typeof window.history.pushState === 'function') {
         window.history.pushState({ tabId: targetTabId }, '', targetPath);
       }
@@ -241,21 +202,27 @@
   }
 
   function syncRouteFromLocation() {
-    const rawPath = window.location.pathname;
+    const rawPath = (window.location && window.location.pathname) ? window.location.pathname : '';
     let targetTab = getTabFromPath(rawPath);
-    console.log('[NAV DEBUG syncRouteFromLocation]', {
-      rawPath,
-      targetTab,
-      basePath: (window.API && typeof API.getBasePath === 'function') ? API.getBasePath() : null
-    });
 
     if (!targetTab) {
       targetTab = DEFAULT_TAB;
       const isLoginPage = rawPath.endsWith('/login') || rawPath.endsWith('login.html');
       if (!isLoginPage && window.history && typeof window.history.replaceState === 'function') {
-        const fallbackPath = getPathFromTab(DEFAULT_TAB);
-        console.log('[NAV DEBUG syncRouteFromLocation fallback replaceState]', { fallbackPath });
-        window.history.replaceState({ tabId: DEFAULT_TAB }, '', fallbackPath);
+        window.history.replaceState({ tabId: DEFAULT_TAB }, '', getPathFromTab(DEFAULT_TAB));
+      }
+    } else {
+      let cleanPath = rawPath.replace(/\/+$/, '').toLowerCase();
+      const base = (window.API && typeof API.getBasePath === 'function')
+        ? API.getBasePath().toLowerCase()
+        : (typeof window.__BASE_PATH__ === 'string' ? window.__BASE_PATH__.toLowerCase() : '');
+      if (base && cleanPath.startsWith(base)) {
+        cleanPath = cleanPath.slice(base.length) || '/';
+      }
+      if (cleanPath === '/' || cleanPath === '' || cleanPath === '/index.html') {
+        if (window.history && typeof window.history.replaceState === 'function') {
+          window.history.replaceState({ tabId: DEFAULT_TAB }, '', getPathFromTab(DEFAULT_TAB));
+        }
       }
     }
 

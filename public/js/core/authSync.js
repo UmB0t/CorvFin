@@ -7,9 +7,15 @@
   "use strict";
 
   async function initAuthAndSync() {
-    const token = localStorage.getItem('auth_token') || localStorage.getItem('token') || localStorage.getItem('financas_pro_jwt_token');
+    const token = (window.API && typeof API.getToken === 'function')
+      ? API.getToken()
+      : (localStorage.getItem('auth_token') || localStorage.getItem('token') || localStorage.getItem('financas_pro_jwt_token'));
+
     if (!token) {
-      window.location.href = (window.API && typeof API.resolveUrl === 'function') ? API.resolveUrl('/login') : '/login';
+      const loginUrl = (window.API && typeof API.resolveUrl === 'function')
+        ? API.resolveUrl('/login')
+        : (typeof window.withBasePath === 'function' ? window.withBasePath('/login') : '/login');
+      window.location.href = loginUrl;
       return;
     }
 
@@ -26,23 +32,22 @@
           localStorage.removeItem('user');
           localStorage.removeItem('financas_pro_user_info');
         }
-        window.location.href = (window.API && typeof API.resolveUrl === 'function') ? API.resolveUrl('/login') : '/login';
+        const loginUrl = (window.API && typeof API.resolveUrl === 'function')
+          ? API.resolveUrl('/login')
+          : (typeof window.withBasePath === 'function' ? window.withBasePath('/login') : '/login');
+        window.location.href = loginUrl;
       });
     }
 
     try {
-      console.log('[AUTH SYNC INIT]', {
-        pathname: window.location.pathname,
-        basePath: (window.API && typeof API.getBasePath === 'function') ? API.getBasePath() : null,
-        hasToken: !!token
-      });
       let json;
       if (window.API && typeof API.getFinances === 'function') {
         json = await API.getFinances();
-        console.log('[AUTH SYNC API.getFinances RESULT]', json);
       } else {
-        const endpoint = (window.API && typeof API.resolveUrl === 'function') ? API.resolveUrl('/api/finances') : '/api/finances';
-        console.log('[AUTH SYNC FALLBACK FETCH]', { endpoint });
+        const endpoint = (window.API && typeof API.resolveUrl === 'function')
+          ? API.resolveUrl('/api/finances')
+          : (typeof window.withBasePath === 'function' ? window.withBasePath('/api/finances') : '/api/finances');
+
         const res = await fetch(endpoint, {
           headers: {
             'Authorization': 'Bearer ' + token,
@@ -52,15 +57,11 @@
         if (res.status === 401) {
           if (window.API && typeof API.clearSession === 'function') {
             API.clearSession();
-          } else {
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('token');
-            localStorage.removeItem('financas_pro_jwt_token');
-            localStorage.removeItem('user_data');
-            localStorage.removeItem('user');
-            localStorage.removeItem('financas_pro_user_info');
           }
-          window.location.href = (window.API && typeof API.resolveUrl === 'function') ? API.resolveUrl('/login') : '/login';
+          const loginUrl = (window.API && typeof API.resolveUrl === 'function')
+            ? API.resolveUrl('/login')
+            : (typeof window.withBasePath === 'function' ? window.withBasePath('/login') : '/login');
+          window.location.href = loginUrl;
           return;
         }
         json = await res.json();
