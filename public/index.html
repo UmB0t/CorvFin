@@ -3004,7 +3004,7 @@
 
 
 
-            let stateHydrated = false;
+                  let stateHydrated = false;
       window.isStateHydrated = function isStateHydrated() {
         return stateHydrated;
       };
@@ -3028,10 +3028,14 @@
       };
 
       function saveLocalState() {
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        } catch (err) {
-          console.warn('Erro ao salvar cache local:', err);
+        if (typeof window.saveLocalPreferences === 'function') {
+          window.saveLocalPreferences({
+            theme: state.theme,
+            sidebarCollapsed: state.sidebarCollapsed,
+            collapsedSections: state.collapsedSections,
+            chartViewType: state.chartViewType,
+            destChartViewType: state.destChartViewType
+          });
         }
       }
 
@@ -3091,7 +3095,6 @@
             } else {
               state.revision = (state.revision || 0) + 1;
             }
-            saveLocalState();
             return true;
           }
         } catch (err) {

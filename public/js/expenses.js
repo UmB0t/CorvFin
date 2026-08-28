@@ -51,7 +51,7 @@ const ExpensesModule = (() => {
 
   // Persist State Helper
   async function persist() {
-    localStorage.setItem('minhas-financas:v4', JSON.stringify(window.FP_STATE));
+    // Financial data is strictly in-memory and synced via API
     if (typeof API !== 'undefined' && API.saveFinances && API.isAuthenticated()) {
       try {
         await API.saveFinances(window.FP_STATE);

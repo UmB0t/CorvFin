@@ -6,6 +6,23 @@
 (function () {
   "use strict";
 
+  function handleLogout() {
+    if (window.API && typeof API.clearSession === 'function') {
+      API.clearSession();
+    } else {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('token');
+      localStorage.removeItem('financas_pro_jwt_token');
+      localStorage.removeItem('user_data');
+      localStorage.removeItem('user');
+      localStorage.removeItem('financas_pro_user_info');
+    }
+    const loginUrl = (window.API && typeof API.resolveUrl === 'function')
+      ? API.resolveUrl('/login')
+      : (typeof window.withBasePath === 'function' ? window.withBasePath('/login') : '/login');
+    window.location.href = loginUrl;
+  }
+
   async function revalidateStateFromServer() {
     const token = localStorage.getItem('auth_token') || localStorage.getItem('token') || localStorage.getItem('financas_pro_jwt_token');
     if (!token) return false;
@@ -26,13 +43,7 @@
           }
         });
         if (res.status === 401) {
-          if (window.API && typeof API.clearSession === 'function') {
-            API.clearSession();
-          }
-          const loginUrl = (window.API && typeof API.resolveUrl === 'function')
-            ? API.resolveUrl('/login')
-            : (typeof window.withBasePath === 'function' ? window.withBasePath('/login') : '/login');
-          window.location.href = loginUrl;
+          handleLogout();
           return false;
         }
         json = await res.json();
@@ -43,7 +54,6 @@
         const state = getState();
         Object.keys(state).forEach(k => delete state[k]);
         Object.assign(state, nextState);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         if (typeof window.setStateHydrated === 'function') {
           window.setStateHydrated(true);
         }
@@ -59,25 +69,22 @@
   }
 
   async function initAuthAndSync() {
-    const authBtn = $('#authBtn');
-    if (authBtn) {
-      authBtn.addEventListener('click', () => {
-        if (window.API && typeof API.clearSession === 'function') {
-          API.clearSession();
-        } else {
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('token');
-          localStorage.removeItem('financas_pro_jwt_token');
-          localStorage.removeItem('user_data');
-          localStorage.removeItem('user');
-          localStorage.removeItem('financas_pro_user_info');
-        }
-        const loginUrl = (window.API && typeof API.resolveUrl === 'function')
-          ? API.resolveUrl('/login')
-          : (typeof window.withBasePath === 'function' ? window.withBasePath('/login') : '/login');
-        window.location.href = loginUrl;
-      });
-    }
+    // Bind Desktop & Mobile Logout Buttons
+    const logoutBtns = [
+      document.getElementById('btnLogout'),
+      document.getElementById('drawerLogoutBtn'),
+      document.getElementById('authBtn')
+    ];
+
+    logoutBtns.forEach(btn => {
+      if (btn && !btn.dataset.logoutBound) {
+        btn.dataset.logoutBound = 'true';
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          handleLogout();
+        });
+      }
+    });
 
     const syncSuccess = await revalidateStateFromServer();
     if (syncSuccess) {
@@ -87,14 +94,21 @@
     }
   }
 
-  // BFCache & Visibility Revalidation
+  // BFCache & Visibility Revalidation (Mobile & Multi-tab sync)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && typeof revalidateStateFromServer === 'function') {
+      revalidateStateFromServer();
+    }
+  });
+
   window.addEventListener('pageshow', (event) => {
     if (event.persisted && typeof revalidateStateFromServer === 'function') {
       revalidateStateFromServer();
     }
   });
 
-  // API pública do Módulo de Autenticação e Sincronização
+  // APIs públicas do Módulo de Autenticação e Sincronização
+  window.handleLogout = handleLogout;
   window.initAuthAndSync = initAuthAndSync;
   window.revalidateStateFromServer = revalidateStateFromServer;
 

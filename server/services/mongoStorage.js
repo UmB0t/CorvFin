@@ -319,15 +319,15 @@ function getDefaultUserFinances(userId, userName, userSalary = 0) {
     categories: ['Moradia', 'Lazer', 'Alimentação', 'Cartão', 'Transporte', 'Saúde', 'Educação', 'Gerais', 'Investimento', 'Assinatura', 'Outros'],
     budgets: {},
     collapsedSections: {
-      insights: false,
-      destChart: false,
-      categoryChart: false,
-      debtorPerson: false,
-      debtorDest: false,
-      extrasCharts: false,
-      benefitsCharts: false,
-      investSimulator: false,
-      investCharts: false
+      insights: true,
+      destChart: true,
+      categoryChart: true,
+      debtorPerson: true,
+      debtorDest: true,
+      extrasCharts: true,
+      benefitsCharts: true,
+      investSimulator: true,
+      investCharts: true
     },
     benefitsConfig: {
       amount: 0,
