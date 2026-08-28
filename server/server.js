@@ -297,8 +297,23 @@ app.put('/api/finances', authMiddleware, async (req, res) => {
     }
 
     const saved = await saveUserFinances(req.user.id, updatedData);
-    return res.json({ success: true, message: 'Dados salvos com sucesso!', lastModified: saved.lastModified });
+    return res.json({
+      success: true,
+      message: 'Dados salvos com sucesso!',
+      revision: saved.revision,
+      lastModified: saved.lastModified,
+      data: saved
+    });
   } catch (err) {
+    if (err.status === 409 || err.code === 'CONCURRENCY_CONFLICT') {
+      return res.status(409).json({
+        success: false,
+        conflict: true,
+        message: 'Conflito de concorrência: os dados foram atualizados em outro dispositivo.',
+        currentRevision: err.currentRevision,
+        expectedRevision: err.expectedRevision
+      });
+    }
     console.error('Erro ao salvar finanças:', err);
     return res.status(500).json({ success: false, message: 'Erro ao salvar dados financeiros.' });
   }

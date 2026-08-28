@@ -567,7 +567,8 @@ function renderRibbon() {
       const toggleCategoryChart = () => {
         const state = getState();
     state.collapsedSections.categoryChart = !state.collapsedSections.categoryChart;
-        saveState(); render();
+        if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('chart-toggle'); }
+        render();
       };
       const toggleCategoryBtn = $('#toggleCategoryChartBtn');
       if (toggleCategoryBtn) toggleCategoryBtn.addEventListener('click', toggleCategoryChart);
@@ -580,7 +581,7 @@ function renderRibbon() {
           if (type) {
             const state = getState();
             state.chartViewType = type;
-            saveState();
+            if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('chart-toggle'); }
             renderCategoryDistributionChart();
           }
         });
@@ -589,7 +590,8 @@ function renderRibbon() {
       const toggleInsights = () => {
         const state = getState();
     state.collapsedSections.insights = !state.collapsedSections.insights;
-        saveState(); render();
+        if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('chart-toggle'); }
+        render();
       };
       const toggleInsightsBtn = $('#toggleInsightsBtn');
       if (toggleInsightsBtn) toggleInsightsBtn.addEventListener('click', toggleInsights);
@@ -814,7 +816,8 @@ function renderRibbon() {
       const toggleDestChart = () => {
         const state = getState();
     state.collapsedSections.destChart = !state.collapsedSections.destChart;
-        saveState(); render();
+        if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('chart-toggle'); }
+        render();
       };
       const toggleDestBtn = $('#toggleDestChartBtn');
       if (toggleDestBtn) toggleDestBtn.addEventListener('click', toggleDestChart);
@@ -827,7 +830,7 @@ function renderRibbon() {
           if (type) {
             const state = getState();
             state.destChartViewType = type;
-            saveState();
+            if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('chart-toggle'); }
             renderDestinationChart();
           }
         });
@@ -835,9 +838,9 @@ function renderRibbon() {
 
   // Inicializacao dos listeners estaticos do cabecalho e ribbon
   function initDashboardListeners() {
-    $('#prevYear')?.addEventListener('click', () => { const state = getState(); state.year--; saveState(); render(); });
-      $('#nextYear')?.addEventListener('click', () => { const state = getState(); state.year++; saveState(); render(); });
-      $('#todayBtn')?.addEventListener('click', () => { const state = getState(); const t = todayYM(); state.year = t.year; state.month = t.month; saveState(); render(); });
+    $('#prevYear')?.addEventListener('click', () => { const state = getState(); state.year--; if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('chart-toggle'); } render(); });
+      $('#nextYear')?.addEventListener('click', () => { const state = getState(); state.year++; if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('chart-toggle'); } render(); });
+      $('#todayBtn')?.addEventListener('click', () => { const state = getState(); const t = todayYM(); state.year = t.year; state.month = t.month; if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('chart-toggle'); } render(); });
   }
 
   // Bridges publicas autorizadas (consumidas pelo render() central)

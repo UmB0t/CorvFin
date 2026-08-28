@@ -288,6 +288,7 @@ function getDefaultUserFinances(userId, userName, userSalary = 0) {
   return {
     userId,
     version: 5,
+    revision: 0,
     firstLogin: true,
     sidebarCollapsed: false,
     simplifiedView: false,
@@ -407,6 +408,9 @@ async function getUserFinances(userId, userName, userSalary = 0) {
   }
 
   const { _id, ...financesData } = doc;
+  if (financesData.revision === undefined) {
+    financesData.revision = 0;
+  }
   return financesData;
 }
 
@@ -415,20 +419,62 @@ async function getUserFinances(userId, userName, userSalary = 0) {
  */
 async function saveUserFinances(userId, data) {
   const col = await getCollection('finances');
-  const current = await getUserFinances(userId);
+  
+  const currentDoc = await col.findOne({ _id: userId });
+  if (!currentDoc) {
+    const defaults = getDefaultUserFinances(userId);
+    const { _id, userId: _u, expectedRevision: _er, revision: _r, ...cleanData } = data;
+    const newDoc = Object.assign({}, defaults, cleanData, {
+      _id: userId,
+      userId,
+      revision: 1,
+      lastModified: new Date().toISOString()
+    });
+    await col.insertOne(newDoc);
+    const { _id: _, ...result } = newDoc;
+    return result;
+  }
 
-  const updated = Object.assign({}, current, data, {
+  const expectedRevision = Number(data.expectedRevision ?? data.revision ?? 0);
+  const currentRevision = Number(currentDoc.revision || 0);
+
+  // Atomic filter with revision check / optimistic locking
+  const filter = {
+    _id: userId,
+    $or: [
+      { revision: expectedRevision },
+      ...(expectedRevision === 0 ? [{ revision: { $exists: false } }, { revision: null }] : [])
+    ]
+  };
+
+  const { _id, userId: _u, expectedRevision: _er, revision: _r, ...cleanData } = data;
+  const updatePayload = Object.assign({}, cleanData, {
     userId,
     lastModified: new Date().toISOString()
   });
 
-  await col.updateOne(
-    { _id: userId },
-    { $set: { _id: userId, ...updated } },
-    { upsert: true }
+  const res = await col.updateOne(
+    filter,
+    {
+      $set: updatePayload,
+      $inc: { revision: 1 }
+    }
   );
 
-  return updated;
+  if (res.matchedCount === 0) {
+    const fresh = await col.findOne({ _id: userId });
+    const freshRev = fresh ? Number(fresh.revision || 0) : currentRevision;
+    const err = new Error('Conflito de concorrência detectado. Os dados foram alterados por outro dispositivo.');
+    err.code = 'CONCURRENCY_CONFLICT';
+    err.status = 409;
+    err.currentRevision = freshRev;
+    err.expectedRevision = expectedRevision;
+    throw err;
+  }
+
+  const freshDoc = await col.findOne({ _id: userId });
+  const { _id: _, ...result } = freshDoc;
+  return result;
 }
 
 /**

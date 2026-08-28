@@ -97,21 +97,21 @@
       e.stopPropagation();
       const state = getState();
       state.collapsedSections.investSimulator = !state.collapsedSections.investSimulator;
-      saveState();
+      if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('invest-sim-toggle'); }
       renderInvestmentsTab();
     });
 
     $('#toggleInvestSimulatorHeader')?.addEventListener('click', () => {
       const state = getState();
       state.collapsedSections.investSimulator = !state.collapsedSections.investSimulator;
-      saveState();
+      if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('invest-sim-toggle'); }
       renderInvestmentsTab();
     });
 
     $('#toggleInvestChartsBtn')?.addEventListener('click', () => {
       const state = getState();
       state.collapsedSections.investCharts = !state.collapsedSections.investCharts;
-      saveState();
+      if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('invest-sim-toggle'); }
       renderInvestmentsTab();
     });
 

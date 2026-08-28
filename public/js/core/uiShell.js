@@ -26,7 +26,7 @@
   function toggleTheme() {
     const state = getState();
     state.theme = state.theme === 'dark' ? 'light' : 'dark';
-    saveState();
+    if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('theme-toggle'); }
     applyTheme();
   }
 
@@ -440,7 +440,7 @@
       toggleBtn.addEventListener('click', () => {
         const state = getState();
         state.sidebarCollapsed = !state.sidebarCollapsed;
-        saveState();
+        if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('sidebar-toggle'); }
         applySidebarState();
       });
     }

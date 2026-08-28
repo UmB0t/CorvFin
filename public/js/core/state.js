@@ -10,6 +10,7 @@ window.initialState = function initialState() {
   const t = todayYM();
   return {
     version: 5,
+    revision: 0,
     firstLogin: true,
     sidebarCollapsed: false,
     simplifiedView: false,
@@ -95,6 +96,7 @@ window.migrateState = function migrateState(parsed) {
       };
     })
   }));
+  s.revision = typeof parsed.revision === "number" ? parsed.revision : 0;
   s.profile = (parsed.profile && parsed.profile.name && parsed.profile.name !== 'Usuário') ? parsed.profile : s.profile;
   s.destinations = normalizeDestinations(parsed.destinations);
   return s;

@@ -167,6 +167,7 @@ function getDefaultUserFinances(userId, userName, userSalary = 0) {
   return {
     userId,
     version: 5,
+    revision: 0,
     firstLogin: true,
     sidebarCollapsed: false,
     simplifiedView: false,
@@ -235,7 +236,26 @@ function getUserFinances(userId, userName, userSalary = 0) {
 
 function saveUserFinances(userId, data) {
   const finances = getAllFinances();
-  finances[userId] = Object.assign({}, finances[userId] || {}, data, { userId, lastModified: new Date().toISOString() });
+  const current = finances[userId] || getDefaultUserFinances(userId);
+  const currentRev = Number(current.revision || 0);
+  const expectedRev = Number(data.expectedRevision ?? data.revision ?? 0);
+
+  if (finances[userId] && finances[userId].revision !== undefined && expectedRev !== currentRev) {
+    const err = new Error('Conflito de concorrência detectado. Os dados foram alterados por outro dispositivo.');
+    err.code = 'CONCURRENCY_CONFLICT';
+    err.status = 409;
+    err.currentRevision = currentRev;
+    err.expectedRevision = expectedRev;
+    throw err;
+  }
+
+  const newRevision = currentRev + 1;
+  const { _id, userId: _u, expectedRevision: _er, revision: _r, ...cleanData } = data;
+  finances[userId] = Object.assign({}, current, cleanData, {
+    userId,
+    revision: newRevision,
+    lastModified: new Date().toISOString()
+  });
   saveAllFinances(finances);
   return finances[userId];
 }

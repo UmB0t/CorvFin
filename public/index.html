@@ -3004,40 +3004,112 @@
 
 
 
+            let stateHydrated = false;
+      window.isStateHydrated = function isStateHydrated() {
+        return stateHydrated;
+      };
+      window.setStateHydrated = function setStateHydrated(val) {
+        stateHydrated = !!val;
+      };
+
       let state = loadState();
       window.getState = function getState() {
         return state;
       };
+      window.saveLocalState = saveLocalState;
       window.saveState = saveState;
       window.render = render;
       window.notify = notify;
-      // window.getDestMeta exposta por profile.js
+
       window.selectMonth = function selectMonth(m) {
         state.month = m;
-        saveState();
+        saveLocalState();
         render();
       };
 
-      async function saveState() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        if (window.API && typeof API.saveFinances === 'function') {
-          API.saveFinances(state).catch(e => console.warn('Erro ao salvar no servidor:', e));
-        } else {
-          const token = localStorage.getItem('auth_token') || localStorage.getItem('token') || localStorage.getItem('financas_pro_jwt_token');
-          if (token) {
-            try {
-              const endpoint = (window.API && typeof API.resolveUrl === 'function') ? API.resolveUrl('/api/finances') : '/api/finances';
-              fetch(endpoint, {
-                method: 'PUT',
-                headers: {
-                  'Authorization': 'Bearer ' + token,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(state)
-              }).catch(e => console.warn('Erro ao salvar no servidor:', e));
-            } catch (_) {}
-          }
+      function saveLocalState() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (err) {
+          console.warn('Erro ao salvar cache local:', err);
         }
+      }
+
+      async function saveState(reason = 'unspecified') {
+        saveLocalState();
+
+        // HYDRATION GUARD: Impede qualquer persistência remota se o estado ainda não foi hidratado do servidor
+        if (!stateHydrated) {
+          console.warn(`[HYDRATION GUARD] Persistência remota bloqueada antes da hidratação do servidor (reason: ${reason}).`);
+          return false;
+        }
+
+        // Filtro de ações puramente visuais que não devem emitir PUT financeiro
+        const visualOnly = ['theme-toggle', 'sidebar-toggle', 'tab-switch', 'chart-toggle', 'subview-toggle', 'invest-sim-toggle'];
+        if (visualOnly.includes(reason)) {
+          return true;
+        }
+
+        const payload = Object.assign({}, state, {
+          expectedRevision: Number(state.revision || 0)
+        });
+
+        try {
+          let response;
+          if (window.API && typeof API.saveFinances === 'function') {
+            response = await API.saveFinances(payload);
+          } else {
+            const token = localStorage.getItem('auth_token') || localStorage.getItem('token') || localStorage.getItem('financas_pro_jwt_token');
+            if (!token) return false;
+            const endpoint = (window.API && typeof API.resolveUrl === 'function') ? API.resolveUrl('/api/finances') : '/api/finances';
+            const res = await fetch(endpoint, {
+              method: 'PUT',
+              headers: {
+                'Authorization': 'Bearer ' + token,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(payload)
+            });
+            if (res.status === 409) {
+              const conflictData = await res.json();
+              await handleConcurrencyConflict(conflictData);
+              return false;
+            }
+            response = await res.json();
+          }
+
+          if (response && response.conflict) {
+            await handleConcurrencyConflict(response);
+            return false;
+          }
+
+          if (response && response.success) {
+            if (typeof response.revision === 'number') {
+              state.revision = response.revision;
+            } else if (response.data && typeof response.data.revision === 'number') {
+              state.revision = response.data.revision;
+            } else {
+              state.revision = (state.revision || 0) + 1;
+            }
+            saveLocalState();
+            return true;
+          }
+        } catch (err) {
+          if (err.status === 409 || err.conflict || (err.message && err.message.includes('409'))) {
+            await handleConcurrencyConflict(err);
+            return false;
+          }
+          console.warn('Erro ao salvar no servidor:', err);
+        }
+      }
+
+      async function handleConcurrencyConflict(conflictData) {
+        notify('⚠️ Dados atualizados em outro dispositivo. Sincronizando versão mais recente...', 'warning');
+        if (typeof window.revalidateStateFromServer === 'function') {
+          await window.revalidateStateFromServer();
+        }
+      }
+      window.handleConcurrencyConflict = handleConcurrencyConflict;
       }
 
       function notify(msg, type = 'info') {

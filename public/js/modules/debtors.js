@@ -768,8 +768,7 @@ function toggleDebtorStatus(id) {
       if (debMonthlyBtn) {
         debMonthlyBtn.addEventListener('click', () => {
           const state = getState();
-      state.debtorsSubView = 'monthly';
-          saveState(); render();
+      state.debtorsSubView = 'monthly'; if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('subview-toggle'); } render();
         });
       }
 
@@ -777,8 +776,7 @@ function toggleDebtorStatus(id) {
       if (debTotalsBtn) {
         debTotalsBtn.addEventListener('click', () => {
           const state = getState();
-      state.debtorsSubView = 'totals';
-          saveState(); render();
+      state.debtorsSubView = 'totals'; if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('subview-toggle'); } render();
         });
       }
 
