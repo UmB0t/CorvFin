@@ -124,6 +124,7 @@ const API = (() => {
   return {
     getBasePath,
     resolveUrl,
+    withBasePath: resolveUrl,
     getToken,
     setSession,
     getUser,
@@ -163,6 +164,11 @@ const API = (() => {
     saveMaintenanceConfig: (maintenance) => request('/api/admin/maintenance', { method: 'PUT', body: JSON.stringify({ maintenance }) })
   };
 })();
+
+// Global withBasePath helper
+window.withBasePath = function (path) {
+  return typeof API !== 'undefined' && API.resolveUrl ? API.resolveUrl(path) : path;
+};
 
 // Global Notification Helper
 function notify(msg, type = 'info') {
