@@ -1,6 +1,6 @@
 /* ==========================================================================
    MÓDULO DE BACKUP E RESTAURAÇÃO DE DADOS (backup.js)
-   Finanças Pro - Vanilla JS Architecture
+   OmniFin - Vanilla JS Architecture
    ========================================================================== */
 
 (function () {
@@ -48,32 +48,6 @@
       e.target.value = '';
     }
   });
-
-  const resetBtn = $('#resetBtn');
-  if (resetBtn) {
-    resetBtn.addEventListener('click', () => {
-      if (!confirm('ATENÇÃO: Tem certeza de que deseja apagar TODOS os dados do aplicativo? Esta ação é irreversível e resetará o sistema para as configurações iniciais.')) return;
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(OLD_STORAGE_KEY_3);
-      localStorage.removeItem(OLD_STORAGE_KEY_2);
-      try {
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('minhas-financas')) {
-            localStorage.removeItem(key);
-          }
-        });
-      } catch (_) { }
-      const fresh = initialState();
-      const state = getState();
-      Object.keys(state).forEach(k => delete state[k]);
-      Object.assign(state, fresh);
-      saveState();
-      const backupDlg = $('#backupDialog');
-      if (backupDlg && backupDlg.open) backupDlg.close();
-      render();
-      notify('Todos os dados foram apagados com sucesso!');
-    });
-  }
 
   // APIs públicas do Módulo de Backup
   window.openBackup = openBackup;
