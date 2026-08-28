@@ -2960,6 +2960,38 @@
 
   <div id="toast" class="toast" hidden></div>
 
+  <!-- SCRIPT DE INSTRUMENTAÇÃO TEMPORÁRIA (DIAGNÓSTICO) -->
+  <script>
+    (function () {
+      if (typeof window.history !== 'undefined' && !window._GLOBAL_NAV_DEBUG_ATTACHED) {
+        window._GLOBAL_NAV_DEBUG_ATTACHED = true;
+        const _origPush = history.pushState.bind(history);
+        history.pushState = function (...args) {
+          console.trace('[NAV DEBUG pushState]', {
+            state: args[0],
+            title: args[1],
+            url: args[2],
+            currentLocation: window.location.href,
+            pathname: window.location.pathname
+          });
+          return _origPush(...args);
+        };
+
+        const _origReplace = history.replaceState.bind(history);
+        history.replaceState = function (...args) {
+          console.trace('[NAV DEBUG replaceState]', {
+            state: args[0],
+            title: args[1],
+            url: args[2],
+            currentLocation: window.location.href,
+            pathname: window.location.pathname
+          });
+          return _origReplace(...args);
+        };
+      }
+    })();
+  </script>
+
   <script src="config.js"></script>
   <script src="js/api.js"></script>
   <script src="js/admin.js"></script>

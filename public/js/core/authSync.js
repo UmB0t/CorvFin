@@ -31,11 +31,18 @@
     }
 
     try {
+      console.log('[AUTH SYNC INIT]', {
+        pathname: window.location.pathname,
+        basePath: (window.API && typeof API.getBasePath === 'function') ? API.getBasePath() : null,
+        hasToken: !!token
+      });
       let json;
       if (window.API && typeof API.getFinances === 'function') {
         json = await API.getFinances();
+        console.log('[AUTH SYNC API.getFinances RESULT]', json);
       } else {
         const endpoint = (window.API && typeof API.resolveUrl === 'function') ? API.resolveUrl('/api/finances') : '/api/finances';
+        console.log('[AUTH SYNC FALLBACK FETCH]', { endpoint });
         const res = await fetch(endpoint, {
           headers: {
             'Authorization': 'Bearer ' + token,

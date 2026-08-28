@@ -73,17 +73,28 @@ const API = (() => {
 
   function resolveUrl(path) {
     const base = getBasePath();
-    if (!path) return base ? `${base}/` : '/';
-    if (!path.startsWith('/')) {
-      return path;
-    }
-    if (base) {
+    let res;
+    if (!path) {
+      res = base ? `${base}/` : '/';
+    } else if (!path.startsWith('/')) {
+      res = path;
+    } else if (base) {
       if (path === base || path.startsWith(base + '/')) {
-        return path;
+        res = path;
+      } else {
+        res = `${base}${path}`;
       }
-      return `${base}${path}`;
+    } else {
+      res = path;
     }
-    return path;
+
+    if (path === '/despesas' || path === '/api/finances') {
+      console.log('[API.resolveUrl]', { input: path, base, result: res, pathname: window.location.pathname });
+      if (res === '/despesas') {
+        console.trace('[NAV DEBUG resolveUrl returned /despesas without base]');
+      }
+    }
+    return res;
   }
 
   // Base HTTP Request Wrapper with JWT & 401 Interceptor
