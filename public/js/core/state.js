@@ -115,6 +115,7 @@
       assets: [],
       aportes: [],
       shoppingLists: [],
+      shoppingItemSuggestions: [],
       savedSimulations: []
     };
   };
@@ -192,6 +193,36 @@
         };
       })
     }));
+
+    const normItemName = (typeof normalizeShoppingItemName === 'function')
+      ? normalizeShoppingItemName
+      : (str) => String(str || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+
+    s.shoppingItemSuggestions = Array.isArray(parsed.shoppingItemSuggestions)
+      ? parsed.shoppingItemSuggestions
+          .map(item => {
+            if (typeof item === 'string') {
+              const name = item.trim();
+              return {
+                name,
+                normalizedName: normItemName(name),
+                category: 'Extras',
+                unit: 'un',
+                createdAt: new Date().toISOString()
+              };
+            }
+            const name = (item && item.name) ? String(item.name).trim() : '';
+            return {
+              name,
+              normalizedName: (item && item.normalizedName) ? item.normalizedName : normItemName(name),
+              category: (item && item.category) ? item.category : 'Extras',
+              unit: (item && item.unit) ? item.unit : 'un',
+              createdAt: (item && item.createdAt) ? item.createdAt : new Date().toISOString()
+            };
+          })
+          .filter(item => item.name && item.name.length > 0)
+      : [];
+
     s.revision = typeof parsed.revision === 'number' ? parsed.revision : 0;
     const loggedUser = (typeof window !== 'undefined' && window.API && typeof API.getUser === 'function') ? API.getUser() : null;
     const fallbackName = loggedUser?.nome || 'Usuário';

@@ -1190,4 +1190,287 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.strictEqual(elements['#entryValidationAlert'].style.display, 'none', 'Alerta deve ser ocultado quando válido');
     assert.strictEqual(elements['#entryAmount'].getAttribute('aria-invalid'), null, 'aria-invalid deve ser removido');
   });
+
+  test('25. Checkpoint 4: Lista de Compras Inteligente - Catálogo Padrão, Autocomplete, Aprendizado e Retrocompatibilidade', async () => {
+    const vm = require('node:vm');
+    const constantsJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'constants.js'), 'utf-8');
+    const stateJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'state.js'), 'utf-8');
+    const shoppingJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'modules', 'shopping.js'), 'utf-8');
+    const componentsCss = fs.readFileSync(path.join(process.cwd(), 'public', 'css', 'components.css'), 'utf-8');
+
+    // Contexto de execução isolado
+    let savedStateObj = null;
+    let notifications = [];
+
+    const mockElements = {};
+    function getOrCreateMockElement(id) {
+      if (!mockElements[id]) {
+        const classList = new Set();
+        const attrs = {};
+        const listeners = {};
+        mockElements[id] = {
+          id,
+          value: '',
+          innerHTML: '',
+          textContent: '',
+          style: {},
+          classList: {
+            add: (c) => classList.add(c),
+            remove: (c) => classList.delete(c),
+            contains: (c) => classList.has(c)
+          },
+          setAttribute: (k, v) => { attrs[k] = String(v); },
+          getAttribute: (k) => attrs[k] || null,
+          removeAttribute: (k) => { delete attrs[k]; },
+          addEventListener: (event, handler) => {
+            if (!listeners[event]) listeners[event] = [];
+            listeners[event].push(handler);
+          },
+          trigger: (event, eObj = {}) => {
+            (listeners[event] || []).forEach(h => h(eObj));
+          },
+          querySelectorAll: (sel) => [],
+          querySelector: (sel) => null,
+          focus: () => {},
+          scrollIntoView: () => {}
+        };
+      }
+      return mockElements[id];
+    }
+
+    const testState = {
+      version: 5,
+      revision: 1,
+      year: 2026,
+      month: 8,
+      shoppingLists: [
+        {
+          id: 'list_test_1',
+          name: 'Compras da Semana',
+          status: 'open',
+          createdAt: '2026-08-30T10:00:00.000Z',
+          items: [
+            {
+              id: 'item_1',
+              name: 'Arroz',
+              category: 'Carboidrato',
+              quantity: 2,
+              unit: 'kg',
+              price: 15.00,
+              is_checked: true
+            }
+          ]
+        }
+      ],
+      shoppingItemSuggestions: [],
+      variable: [],
+      benefitTransactions: [],
+      destinations: [{ name: 'Nubank' }],
+      categories: [{ name: 'Alimentação', icon: 'utensils' }]
+    };
+
+    const ctx = {
+      window: {
+        addEventListener: () => {}
+      },
+      document: {
+        readyState: 'complete',
+        addEventListener: () => {},
+        getElementById: (id) => getOrCreateMockElement(id),
+        querySelector: (sel) => {
+          const clean = sel.replace('#', '');
+          return getOrCreateMockElement(clean);
+        },
+        querySelectorAll: (sel) => []
+      },
+      $: (sel) => {
+        const clean = sel.replace('#', '');
+        return getOrCreateMockElement(clean);
+      },
+      $$: (sel) => [],
+      getState: () => testState,
+      saveState: () => {
+        savedStateObj = JSON.parse(JSON.stringify(testState));
+        return Promise.resolve(true);
+      },
+      notify: (msg, type) => { notifications.push({ msg, type }); },
+      uid: () => 'uid_' + Math.random().toString(36).substr(2, 9),
+      todayYM: () => ({ year: 2026, month: 8 })
+    };
+    ctx.window = ctx;
+
+    vm.createContext(ctx);
+    vm.runInContext(constantsJs, ctx);
+    vm.runInContext(stateJs, ctx);
+    vm.runInContext(shoppingJs, ctx);
+
+    // ------------------------------------------------------------------------
+    // 1. Catálogo padrão contém itens básicos obrigatórios
+    // ------------------------------------------------------------------------
+    const catalog = ctx.DEFAULT_SHOPPING_CATALOG || ctx.window.DEFAULT_SHOPPING_CATALOG;
+    assert.ok(Array.isArray(catalog), 'DEFAULT_SHOPPING_CATALOG deve ser um array');
+    assert.ok(catalog.length >= 20, 'DEFAULT_SHOPPING_CATALOG deve ter pelo menos 20 itens');
+
+    const requiredItems = [
+      'Arroz', 'Feijão', 'Macarrão', 'Molho de Tomate', 'Açúcar',
+      'Sal', 'Café', 'Leite', 'Pão', 'Ovos',
+      'Frango', 'Carne', 'Queijo', 'Presunto', 'Manteiga',
+      'Óleo', 'Farinha', 'Sabão em Pó', 'Detergente', 'Papel Higiênico'
+    ];
+
+    const catalogItemNames = catalog.map(i => i.name);
+    for (const req of requiredItems) {
+      assert.ok(catalogItemNames.includes(req), `Catálogo deve conter "${req}"`);
+    }
+
+    // ------------------------------------------------------------------------
+    // 2. Autocomplete por prefixo
+    // ------------------------------------------------------------------------
+    const getSuggestions = ctx.getShoppingItemSuggestions || ctx.window.getShoppingItemSuggestions;
+    assert.strictEqual(typeof getSuggestions, 'function', 'getShoppingItemSuggestions deve ser função');
+
+    const prefixResults = getSuggestions('arr', []);
+    assert.ok(prefixResults.length > 0, 'Busca por "arr" deve retornar resultados');
+    assert.strictEqual(prefixResults[0].name, 'Arroz', 'Primeira sugestão de "arr" deve ser "Arroz"');
+
+    const feijResults = getSuggestions('feij', []);
+    assert.ok(feijResults.some(r => r.name === 'Feijão'), 'Busca por "feij" deve conter "Feijão"');
+
+    // ------------------------------------------------------------------------
+    // 3. Case-insensitive
+    // ------------------------------------------------------------------------
+    const upperResults = getSuggestions('ARROZ', []);
+    const mixedResults = getSuggestions('aRrOz', []);
+    assert.ok(upperResults.length > 0 && upperResults[0].name === 'Arroz', 'Busca em maiúsculas "ARROZ" deve encontrar "Arroz"');
+    assert.ok(mixedResults.length > 0 && mixedResults[0].name === 'Arroz', 'Busca mista "aRrOz" deve encontrar "Arroz"');
+
+    // ------------------------------------------------------------------------
+    // 4. Normalização de acentos
+    // ------------------------------------------------------------------------
+    const acucarResults = getSuggestions('acucar', []);
+    const oleoResults = getSuggestions('oleo', []);
+    const paoResults = getSuggestions('pao', []);
+    const sabaoResults = getSuggestions('sabao', []);
+
+    assert.ok(acucarResults.some(r => r.name === 'Açúcar'), 'Busca sem acento "acucar" deve encontrar "Açúcar"');
+    assert.ok(oleoResults.some(r => r.name === 'Óleo'), 'Busca sem acento "oleo" deve encontrar "Óleo"');
+    assert.ok(paoResults.some(r => r.name === 'Pão'), 'Busca sem acento "pao" deve encontrar "Pão"');
+    assert.ok(sabaoResults.some(r => r.name === 'Sabão em Pó'), 'Busca sem acento "sabao" deve encontrar "Sabão em Pó"');
+
+    // ------------------------------------------------------------------------
+    // 5. Aprendizado de item personalizado
+    // ------------------------------------------------------------------------
+    const learnItem = ctx.learnShoppingCustomItem || ctx.window.learnShoppingCustomItem;
+    assert.strictEqual(typeof learnItem, 'function', 'learnShoppingCustomItem deve ser função');
+
+    const learned = learnItem('Granola Zero Açúcar', 'Carboidrato', 'pct');
+    assert.strictEqual(learned, true, 'Item inexistente no catálogo deve ser aprendido');
+    assert.strictEqual(testState.shoppingItemSuggestions.length, 1);
+    assert.strictEqual(testState.shoppingItemSuggestions[0].name, 'Granola Zero Açúcar');
+    assert.strictEqual(testState.shoppingItemSuggestions[0].normalizedName, 'granola zero acucar');
+
+    // ------------------------------------------------------------------------
+    // 6. Item personalizado reaparece nas buscas com prioridade máxima
+    // ------------------------------------------------------------------------
+    const customSearch = getSuggestions('gra', testState.shoppingItemSuggestions);
+    assert.ok(customSearch.length > 0, 'Busca por "gra" deve encontrar itens');
+    assert.strictEqual(customSearch[0].name, 'Granola Zero Açúcar', 'Item personalizado deve ter prioridade máxima');
+    assert.strictEqual(customSearch[0].isCustom, true, 'Item personalizado deve vir marcado com isCustom: true');
+
+    // ------------------------------------------------------------------------
+    // 7. Item padrão não vira duplicata personalizada
+    // ------------------------------------------------------------------------
+    const standardLearned1 = learnItem('Arroz', 'Carboidrato', 'kg');
+    const standardLearned2 = learnItem('  feijão  ', 'Carboidrato', 'kg');
+    const standardLearned3 = learnItem('MOLHO DE TOMATE', 'Complemento', 'un');
+
+    assert.strictEqual(standardLearned1, false, '"Arroz" padrão não deve ser adicionado às sugestões personalizadas');
+    assert.strictEqual(standardLearned2, false, '"feijão" padrão não deve ser adicionado às sugestões personalizadas');
+    assert.strictEqual(standardLearned3, false, '"MOLHO DE TOMATE" não deve ser adicionado às sugestões personalizadas');
+    assert.strictEqual(testState.shoppingItemSuggestions.length, 1, 'Tamanho de shoppingItemSuggestions deve continuar 1');
+
+    // ------------------------------------------------------------------------
+    // 8. Item personalizado não duplica
+    // ------------------------------------------------------------------------
+    const duplicateLearned1 = learnItem('Granola Zero Açúcar', 'Carboidrato', 'pct');
+    const duplicateLearned2 = learnItem('  granola zero acucar  ', 'Carboidrato', 'pct');
+    const duplicateLearned3 = learnItem('GRANOLA ZERO AÇÚCAR', 'Carboidrato', 'pct');
+
+    assert.strictEqual(duplicateLearned1, false, 'Item já cadastrado não deve ser duplicado');
+    assert.strictEqual(duplicateLearned2, false, 'Item normalizado não deve ser duplicado');
+    assert.strictEqual(duplicateLearned3, false, 'Item em maiúsculas não deve ser duplicado');
+    assert.strictEqual(testState.shoppingItemSuggestions.length, 1, 'Sugestões personalizadas não devem duplicar');
+
+    // ------------------------------------------------------------------------
+    // 9. Isolamento entre usuários
+    // ------------------------------------------------------------------------
+    const userASuggestions = [{ name: 'Whey Protein Isolado', normalizedName: 'whey protein isolado' }];
+    const userBSuggestions = [{ name: 'Creatina Monohidratada', normalizedName: 'creatina monohidratada' }];
+
+    const userASearch = getSuggestions('whey', userASuggestions);
+    const userBSearch = getSuggestions('whey', userBSuggestions);
+
+    assert.ok(userASearch.some(r => r.name === 'Whey Protein Isolado'), 'User A deve encontrar suas sugestões');
+    assert.strictEqual(userBSearch.length, 0, 'User B não deve ver sugestões de User A');
+
+    // ------------------------------------------------------------------------
+    // 10. Excluir item da lista não apaga sugestão personalizada
+    // ------------------------------------------------------------------------
+    const shoppingModule = ctx.ShoppingModule || ctx.window.ShoppingModule;
+    // Abre a lista ativa e adiciona item personalizado
+    shoppingModule.openShoppingList('list_test_1');
+    shoppingModule.addShoppingItem('Suco de Uva Integral', 'Complemento', 1, 'L');
+    assert.ok(testState.shoppingItemSuggestions.some(s => s.name === 'Suco de Uva Integral'), 'Suco de Uva deve ter sido aprendido');
+
+    const activeList = testState.shoppingLists[0];
+    const addedItem = activeList.items.find(i => i.name === 'Suco de Uva Integral');
+    assert.ok(addedItem, 'Item deve existir na lista');
+
+    // Remove item da lista
+    activeList.items = activeList.items.filter(i => i.id !== addedItem.id);
+    assert.strictEqual(activeList.items.some(i => i.name === 'Suco de Uva Integral'), false, 'Item removido da lista');
+    assert.ok(testState.shoppingItemSuggestions.some(s => s.name === 'Suco de Uva Integral'), 'Sugestão personalizada deve PERMANECER intacta');
+
+    // ------------------------------------------------------------------------
+    // 11. Retrocompatibilidade com listas antigas
+    // ------------------------------------------------------------------------
+    const migrateStateFn = ctx.migrateState || ctx.window.migrateState;
+    const legacyDocWithoutSuggestions = {
+      version: 4,
+      revision: 2,
+      profile: { name: 'Usuário Antigo', baseSalary: 3000 },
+      shoppingLists: [
+        {
+          id: 'old_list_1',
+          name: 'Feira Antiga',
+          items: [{ name: 'Tomate', quantity: 1, price: 5 }]
+        }
+      ]
+    };
+
+    const migrated = migrateStateFn(legacyDocWithoutSuggestions);
+    assert.ok(Array.isArray(migrated.shoppingItemSuggestions), 'Documento migrado deve ter shoppingItemSuggestions como array');
+    assert.strictEqual(migrated.shoppingItemSuggestions.length, 0, 'Documento sem sugestões recebe array vazio');
+    assert.strictEqual(migrated.shoppingLists.length, 1, 'Lista antiga é preservada');
+    assert.strictEqual(migrated.shoppingLists[0].name, 'Feira Antiga');
+
+    // ------------------------------------------------------------------------
+    // 12. Integração com despesas continua funcionando
+    // ------------------------------------------------------------------------
+    assert.strictEqual(typeof shoppingModule.confirmShoppingCompletion, 'function');
+    assert.strictEqual(typeof shoppingModule.openShoppingCompleteModal, 'function');
+
+    // ------------------------------------------------------------------------
+    // 13. CSS do Autocomplete compatível com Tokens, Stacking Context e Sem Clipping
+    // ------------------------------------------------------------------------
+    assert.ok(componentsCss.includes('.shopping-add-item-card'), 'components.css deve conter .shopping-add-item-card');
+    assert.ok(componentsCss.includes('overflow: visible !important'), 'Card do formulário deve ter overflow: visible !important');
+    assert.ok(componentsCss.includes('.shopping-autocomplete-wrapper'), 'components.css deve conter .shopping-autocomplete-wrapper');
+    assert.ok(componentsCss.includes('.shopping-autocomplete-dropdown'), 'components.css deve conter .shopping-autocomplete-dropdown');
+    assert.ok(componentsCss.includes('.shopping-autocomplete-item'), 'components.css deve conter .shopping-autocomplete-item');
+    assert.ok(componentsCss.includes('var(--surface)'), 'Autocomplete deve usar token var(--surface)');
+    assert.ok(componentsCss.includes('var(--brand-soft)'), 'Autocomplete deve usar token var(--brand-soft)');
+    assert.ok(shoppingJs.includes('shopping-add-item-card'), 'shopping.js deve aplicar shopping-add-item-card no card do formulário');
+    assert.ok(shoppingJs.includes('shoppingItemsGroupedContainer'), 'shopping.js deve conter container agrupado de itens');
+  });
 });

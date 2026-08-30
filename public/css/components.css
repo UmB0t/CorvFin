@@ -829,4 +829,87 @@
       border-radius: 10px;
       margin-top: 2px;
       box-shadow: 0 4px 12px rgba(31, 122, 92, 0.25);
+    }
+
+    /* ==========================================================================
+       SHOPPING AUTOCOMPLETE COMPONENT (OMNIFIN V3)
+       ========================================================================== */
+    .shopping-add-item-card {
+      overflow: visible !important;
+      position: relative;
+      z-index: 30;
+    }
+
+    .shopping-autocomplete-wrapper {
+      position: relative;
+      flex: 2;
+      min-width: 200px;
+      z-index: 40;
+    }
+
+    .shopping-autocomplete-dropdown {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: var(--shadow-lg, 0 14px 34px rgba(0, 0, 0, 0.22));
+      max-height: 240px;
+      overflow-y: auto;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .shopping-autocomplete-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      color: var(--text);
+      transition: background 0.12s ease, color 0.12s ease;
+      user-select: none;
+    }
+
+    .shopping-autocomplete-item:hover,
+    .shopping-autocomplete-item.active {
+      background: var(--brand-soft);
+      color: var(--brand-strong);
+    }
+
+    .shopping-autocomplete-item-name {
+      font-weight: 750;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .shopping-autocomplete-item-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .shopping-autocomplete-badge {
+      font-size: 0.70rem;
+      font-weight: 750;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--surface-2);
+      color: var(--muted);
+    }
+
+    .shopping-autocomplete-badge.custom {
+      background: var(--brand-soft);
+      color: var(--brand);
     }

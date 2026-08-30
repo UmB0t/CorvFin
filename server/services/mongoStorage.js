@@ -342,7 +342,10 @@ function getDefaultUserFinances(userId, userName, userSalary = 0) {
     extras: [],
     debtors: [],
     assets: [],
-    aportes: []
+    aportes: [],
+    shoppingLists: [],
+    shoppingItemSuggestions: [],
+    savedSimulations: []
   };
 }
 

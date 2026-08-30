@@ -153,3 +153,54 @@ window.DEBTOR_COLORS_PALETTE = [
   '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1',
   '#14B8A6', '#A855F7', '#E11D48', '#0284C7', '#16A34A'
 ];
+
+window.normalizeShoppingItemName = function normalizeShoppingItemName(str) {
+  if (!str || typeof str !== 'string') return '';
+  return str
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+};
+
+window.DEFAULT_SHOPPING_CATALOG = [
+  { name: 'Arroz', category: 'Carboidrato', unit: 'kg' },
+  { name: 'Feijão', category: 'Carboidrato', unit: 'kg' },
+  { name: 'Macarrão', category: 'Carboidrato', unit: 'pct' },
+  { name: 'Molho de Tomate', category: 'Complemento', unit: 'un' },
+  { name: 'Açúcar', category: 'Complemento', unit: 'kg' },
+  { name: 'Sal', category: 'Tempero', unit: 'kg' },
+  { name: 'Café', category: 'Complemento', unit: 'pct' },
+  { name: 'Leite', category: 'Complemento', unit: 'L' },
+  { name: 'Pão', category: 'Carboidrato', unit: 'un' },
+  { name: 'Ovos', category: 'Proteína', unit: 'cx' },
+  { name: 'Frango', category: 'Proteína', unit: 'kg' },
+  { name: 'Carne', category: 'Proteína', unit: 'kg' },
+  { name: 'Queijo', category: 'Proteína', unit: 'g' },
+  { name: 'Presunto', category: 'Proteína', unit: 'g' },
+  { name: 'Manteiga', category: 'Complemento', unit: 'un' },
+  { name: 'Óleo', category: 'Complemento', unit: 'un' },
+  { name: 'Farinha', category: 'Carboidrato', unit: 'kg' },
+  { name: 'Sabão em Pó', category: 'Extras', unit: 'cx' },
+  { name: 'Detergente', category: 'Extras', unit: 'un' },
+  { name: 'Papel Higiênico', category: 'Extras', unit: 'pct' },
+  { name: 'Alho', category: 'Tempero', unit: 'kg' },
+  { name: 'Cebola', category: 'Legumes', unit: 'kg' },
+  { name: 'Tomate', category: 'Legumes', unit: 'kg' },
+  { name: 'Batata', category: 'Legumes', unit: 'kg' },
+  { name: 'Cenoura', category: 'Legumes', unit: 'kg' },
+  { name: 'Banana', category: 'Frutas', unit: 'kg' },
+  { name: 'Maçã', category: 'Frutas', unit: 'kg' },
+  { name: 'Peito de Frango', category: 'Proteína', unit: 'kg' },
+  { name: 'Azeite', category: 'Complemento', unit: 'un' },
+  { name: 'Biscoito', category: 'Complemento', unit: 'pct' },
+  { name: 'Iogurte', category: 'Complemento', unit: 'un' },
+  { name: 'Sabonete', category: 'Extras', unit: 'un' },
+  { name: 'Shampoo', category: 'Extras', unit: 'un' },
+  { name: 'Desinfetante', category: 'Extras', unit: 'un' },
+  { name: 'Água Sanitária', category: 'Extras', unit: 'un' },
+  { name: 'Esponja', category: 'Extras', unit: 'pct' },
+  { name: 'Amaciante', category: 'Extras', unit: 'un' },
+  { name: 'Creme Dental', category: 'Extras', unit: 'un' }
+];

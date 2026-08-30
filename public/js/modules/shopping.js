@@ -274,6 +274,160 @@
     renderShoppingTab();
   }
 
+  // --- CATÁLOGO & AUTOCOMPLETE INTELIGENTE ---
+
+  function getShoppingItemSuggestions(query, customSuggestions, limit = 8) {
+    const rawQ = String(query || '').trim();
+    if (!rawQ) return [];
+
+    const normQ = (typeof normalizeShoppingItemName === 'function')
+      ? normalizeShoppingItemName(rawQ)
+      : rawQ.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+
+    if (!normQ) return [];
+
+    const state = (typeof getState === 'function') ? getState() : null;
+    const userCustom = Array.isArray(customSuggestions)
+      ? customSuggestions
+      : (state && Array.isArray(state.shoppingItemSuggestions) ? state.shoppingItemSuggestions : []);
+
+    const catalog = (typeof DEFAULT_SHOPPING_CATALOG !== 'undefined' && Array.isArray(DEFAULT_SHOPPING_CATALOG))
+      ? DEFAULT_SHOPPING_CATALOG
+      : [];
+
+    const normalizeFn = (typeof normalizeShoppingItemName === 'function')
+      ? normalizeShoppingItemName
+      : (s) => String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+
+    // Baldes de ranking:
+    // 1. Sugestões personalizadas por prefixo
+    // 2. Sugestões personalizadas por correspondência parcial
+    // 3. Catálogo padrão por prefixo
+    // 4. Catálogo padrão por correspondência parcial
+    const customPrefix = [];
+    const customPartial = [];
+    const catalogPrefix = [];
+    const catalogPartial = [];
+
+    const seenNormalized = new Set();
+
+    userCustom.forEach(item => {
+      const name = typeof item === 'string' ? item.trim() : String(item?.name || '').trim();
+      if (!name) return;
+      const nName = normalizeFn(name);
+      if (!nName) return;
+
+      if (nName.startsWith(normQ)) {
+        customPrefix.push({
+          name,
+          category: (typeof item === 'object' && item?.category) ? item.category : 'Extras',
+          unit: (typeof item === 'object' && item?.unit) ? item.unit : 'un',
+          isCustom: true,
+          normalizedName: nName
+        });
+      } else if (nName.includes(normQ)) {
+        customPartial.push({
+          name,
+          category: (typeof item === 'object' && item?.category) ? item.category : 'Extras',
+          unit: (typeof item === 'object' && item?.unit) ? item.unit : 'un',
+          isCustom: true,
+          normalizedName: nName
+        });
+      }
+    });
+
+    catalog.forEach(item => {
+      const name = String(item.name || '').trim();
+      if (!name) return;
+      const nName = normalizeFn(name);
+      if (!nName) return;
+
+      if (nName.startsWith(normQ)) {
+        catalogPrefix.push({
+          name,
+          category: item.category || 'Extras',
+          unit: item.unit || 'un',
+          isCustom: false,
+          normalizedName: nName
+        });
+      } else if (nName.includes(normQ)) {
+        catalogPartial.push({
+          name,
+          category: item.category || 'Extras',
+          unit: item.unit || 'un',
+          isCustom: false,
+          normalizedName: nName
+        });
+      }
+    });
+
+    const combined = [];
+    const allBuckets = [customPrefix, customPartial, catalogPrefix, catalogPartial];
+
+    for (const bucket of allBuckets) {
+      for (const item of bucket) {
+        if (!seenNormalized.has(item.normalizedName)) {
+          seenNormalized.add(item.normalizedName);
+          combined.push({
+            name: item.name,
+            category: item.category,
+            unit: item.unit,
+            isCustom: item.isCustom
+          });
+          if (combined.length >= limit) {
+            return combined;
+          }
+        }
+      }
+    }
+
+    return combined;
+  }
+
+  function learnShoppingCustomItem(name, category, unit) {
+    const raw = String(name || '').trim();
+    if (!raw) return false;
+
+    const normalizeFn = (typeof normalizeShoppingItemName === 'function')
+      ? normalizeShoppingItemName
+      : (s) => String(s || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+
+    const normName = normalizeFn(raw);
+    if (!normName) return false;
+
+    // Se já existe no catálogo padrão (case/accent insensitive), não adiciona como personalizada
+    const catalog = (typeof DEFAULT_SHOPPING_CATALOG !== 'undefined' && Array.isArray(DEFAULT_SHOPPING_CATALOG))
+      ? DEFAULT_SHOPPING_CATALOG
+      : [];
+    const inCatalog = catalog.some(c => normalizeFn(c.name) === normName);
+    if (inCatalog) return false;
+
+    const state = (typeof getState === 'function') ? getState() : null;
+    if (!state) return false;
+
+    state.shoppingItemSuggestions = Array.isArray(state.shoppingItemSuggestions)
+      ? state.shoppingItemSuggestions
+      : [];
+
+    // Se já existe nas sugestões do usuário, não duplica
+    const inCustom = state.shoppingItemSuggestions.some(s => {
+      const sName = typeof s === 'string' ? s : (s?.name || '');
+      return normalizeFn(sName) === normName;
+    });
+    if (inCustom) return false;
+
+    // Salva novo item personalizado aprendido
+    state.shoppingItemSuggestions.push({
+      name: raw,
+      normalizedName: normName,
+      category: category || 'Extras',
+      unit: unit || 'un',
+      createdAt: new Date().toISOString()
+    });
+
+    return true;
+  }
+
   // --- CRUD ITENS ---
 
   function addShoppingItem(name, category, qty = 1, unit = 'un') {
@@ -290,6 +444,9 @@
       if (typeof notify === 'function') notify('Informe o nome do item.', 'error');
       return;
     }
+
+    // Aprende automaticamente como item personalizado caso não exista no catálogo
+    learnShoppingCustomItem(trimmed, category || 'Extras', unit || 'un');
 
     list.items = list.items || [];
     const newItem = {
@@ -324,7 +481,9 @@
 
     const newName = prompt('Editar nome do item:', item.name);
     if (newName && newName.trim() && newName.trim() !== item.name) {
-      item.name = newName.trim();
+      const trimmed = newName.trim();
+      learnShoppingCustomItem(trimmed, item.category, item.unit);
+      item.name = trimmed;
       saveState();
       renderShoppingTab();
       if (typeof notify === 'function') notify('Item atualizado!', 'success');
@@ -1284,10 +1443,13 @@
 
       <!-- FORMULÁRIO DE NOVO ITEM NA LISTA (APENAS SE ABERTA) -->
       ${!isCompleted ? `
-        <div class="card section-card full-width" style="padding:16px 20px; margin-bottom:20px; border-radius:14px;">
-          <form id="formAddShoppingItem" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <input type="text" id="inputNewItemName" placeholder="Nome do Item (ex: Arroz, Peito de Frango, Detergente)" required
-              style="flex:2; min-width:200px; padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.92rem;">
+        <div class="card full-width shopping-add-item-card" style="padding:16px 20px; margin-bottom:20px; border-radius:14px; overflow:visible; position:relative; z-index:30;">
+          <form id="formAddShoppingItem" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; position:relative; overflow:visible;">
+            <div class="shopping-autocomplete-wrapper">
+              <input type="text" id="inputNewItemName" placeholder="Nome do Item (ex: Arroz, Peito de Frango, Detergente)" required autocomplete="off"
+                style="width:100%; padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.92rem;">
+              <div id="shoppingItemAutocompleteList" class="shopping-autocomplete-dropdown" role="listbox" style="display:none;"></div>
+            </div>
 
             <select id="selectNewItemCategory"
               style="flex:1; min-width:140px; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.92rem;">
@@ -1319,7 +1481,7 @@
       ` : ''}
 
       <!-- ITENS DA LISTA AGRUPADOS POR CATEGORIA -->
-      <div id="shoppingItemsGroupedContainer" style="display:flex; flex-direction:column; gap:16px;">
+      <div id="shoppingItemsGroupedContainer" style="display:flex; flex-direction:column; gap:16px; position:relative; z-index:1;">
         <!-- Injetado por renderGroupedItems -->
       </div>
     `;
@@ -1340,14 +1502,152 @@
       if (chevron) chevron.style.transform = isDashboardCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
     });
 
-    // Listener do Formulário de Adicionar Item
+    // Listeners do Formulário de Adicionar Item e Autocomplete Inteligente
+    const nameInput = $('#inputNewItemName');
+    const dropdownList = $('#shoppingItemAutocompleteList');
+    const catSelect = $('#selectNewItemCategory');
+    const qtyInput = $('#inputNewItemQty');
+    const unitSelect = $('#selectNewItemUnit');
+    let selectedSuggestionIndex = -1;
+    let activeSuggestions = [];
+
+    function hideAutocomplete() {
+      if (dropdownList) {
+        dropdownList.style.display = 'none';
+        dropdownList.innerHTML = '';
+      }
+      selectedSuggestionIndex = -1;
+      activeSuggestions = [];
+    }
+
+    function selectSuggestion(index) {
+      if (index >= 0 && index < activeSuggestions.length) {
+        const sug = activeSuggestions[index];
+        if (nameInput) {
+          nameInput.value = sug.name;
+          nameInput.focus();
+        }
+        if (catSelect && sug.category) {
+          catSelect.value = sug.category;
+        }
+        if (unitSelect && sug.unit) {
+          unitSelect.value = sug.unit;
+        }
+      }
+      hideAutocomplete();
+    }
+
+    function updateHighlightedSuggestion(newIndex) {
+      if (!dropdownList || activeSuggestions.length === 0) return;
+      selectedSuggestionIndex = newIndex;
+      const items = dropdownList.querySelectorAll('.shopping-autocomplete-item');
+      items.forEach((el, idx) => {
+        const isActive = idx === selectedSuggestionIndex;
+        if (isActive) {
+          el.classList.add('active');
+          el.setAttribute('aria-selected', 'true');
+          el.scrollIntoView({ block: 'nearest' });
+        } else {
+          el.classList.remove('active');
+          el.setAttribute('aria-selected', 'false');
+        }
+      });
+    }
+
+    function renderAutocompleteSuggestions(suggestions) {
+      if (!dropdownList) return;
+      activeSuggestions = suggestions;
+      selectedSuggestionIndex = -1;
+
+      if (!suggestions || suggestions.length === 0) {
+        hideAutocomplete();
+        return;
+      }
+
+      dropdownList.innerHTML = suggestions.map((sug, idx) => `
+        <div class="shopping-autocomplete-item" data-index="${idx}" role="option" aria-selected="false">
+          <div class="shopping-autocomplete-item-name">
+            <span>${escapeHtml(sug.name)}</span>
+            ${sug.isCustom ? `<span class="shopping-autocomplete-badge custom">Personalizado</span>` : ''}
+          </div>
+          <div class="shopping-autocomplete-item-meta">
+            <span class="shopping-autocomplete-badge">${escapeHtml(sug.category)}</span>
+            <span style="font-size:0.75rem; color:var(--muted);">${escapeHtml(sug.unit)}</span>
+          </div>
+        </div>
+      `).join('');
+
+      dropdownList.style.display = 'flex';
+
+      dropdownList.querySelectorAll('.shopping-autocomplete-item').forEach(itemEl => {
+        itemEl.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          const idx = Number(itemEl.getAttribute('data-index'));
+          selectSuggestion(idx);
+        });
+
+        itemEl.addEventListener('mouseenter', () => {
+          const idx = Number(itemEl.getAttribute('data-index'));
+          updateHighlightedSuggestion(idx);
+        });
+      });
+    }
+
+    if (nameInput && dropdownList) {
+      nameInput.addEventListener('input', () => {
+        const val = nameInput.value;
+        if (!val || !val.trim()) {
+          hideAutocomplete();
+          return;
+        }
+        const suggestions = getShoppingItemSuggestions(val);
+        renderAutocompleteSuggestions(suggestions);
+      });
+
+      nameInput.addEventListener('keydown', (e) => {
+        if (dropdownList.style.display !== 'none' && activeSuggestions.length > 0) {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            const nextIdx = selectedSuggestionIndex < activeSuggestions.length - 1 ? selectedSuggestionIndex + 1 : 0;
+            updateHighlightedSuggestion(nextIdx);
+            return;
+          }
+          if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            const prevIdx = selectedSuggestionIndex > 0 ? selectedSuggestionIndex - 1 : activeSuggestions.length - 1;
+            updateHighlightedSuggestion(prevIdx);
+            return;
+          }
+          if (e.key === 'Enter') {
+            if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < activeSuggestions.length) {
+              e.preventDefault();
+              selectSuggestion(selectedSuggestionIndex);
+              return;
+            }
+          }
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            hideAutocomplete();
+            return;
+          }
+          if (e.key === 'Tab') {
+            if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < activeSuggestions.length) {
+              selectSuggestion(selectedSuggestionIndex);
+            } else {
+              hideAutocomplete();
+            }
+            return;
+          }
+        }
+      });
+
+      nameInput.addEventListener('blur', () => {
+        setTimeout(hideAutocomplete, 200);
+      });
+    }
+
     $('#formAddShoppingItem')?.addEventListener('submit', (e) => {
       e.preventDefault();
-      const nameInput = $('#inputNewItemName');
-      const catSelect = $('#selectNewItemCategory');
-      const qtyInput = $('#inputNewItemQty');
-      const unitSelect = $('#selectNewItemUnit');
-
       if (nameInput && nameInput.value) {
         addShoppingItem(
           nameInput.value,
@@ -1357,6 +1657,7 @@
         );
         nameInput.value = '';
         if (qtyInput) qtyInput.value = '1';
+        hideAutocomplete();
       }
     });
 
@@ -1586,9 +1887,13 @@
     updatePriceModalLabel,
     openShoppingCompleteModal,
     closeShoppingCompleteModal,
-    confirmShoppingCompletion
+    confirmShoppingCompletion,
+    getShoppingItemSuggestions,
+    learnShoppingCustomItem
   };
 
   window.renderShoppingTab = renderShoppingTab;
+  window.getShoppingItemSuggestions = getShoppingItemSuggestions;
+  window.learnShoppingCustomItem = learnShoppingCustomItem;
 
 })();
