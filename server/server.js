@@ -427,7 +427,7 @@ app.post('/api/admin/users', authMiddleware, adminOnlyMiddleware, async (req, re
 app.put('/api/admin/users/:userId', authMiddleware, adminOnlyMiddleware, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { nome, email, notificacoes_ativas } = req.body;
+    const { nome, email, notificacoes_ativas, is_admin, novaSenha } = req.body;
 
     const users = await getUsers();
     const userIndex = users.findIndex(u => u.id === userId);
@@ -437,6 +437,23 @@ app.put('/api/admin/users/:userId', authMiddleware, adminOnlyMiddleware, async (
     }
 
     const user = users[userIndex];
+
+    // Proteção contra auto-lockout administrativo
+    if (typeof is_admin === 'boolean') {
+      if (userId === req.user.id && !is_admin) {
+        return res.status(400).json({ success: false, message: 'Você não pode remover seus próprios privilégios de administrador.' });
+      }
+      user.is_admin = is_admin;
+    }
+
+    // Redefinição de senha se fornecida
+    if (novaSenha && String(novaSenha).trim()) {
+      const pwdCheck = validateStrongPassword(novaSenha);
+      if (!pwdCheck.valid) {
+        return res.status(400).json({ success: false, message: pwdCheck.message });
+      }
+      user.senha = await hashPassword(novaSenha);
+    }
 
     if (nome && nome.trim()) user.nome = nome.trim();
     if (email && email.trim()) {
@@ -702,10 +719,14 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
-// Start Server
-app.listen(config.PORT, () => {
-  console.log(`====================================================`);
-  console.log(`  Finanças Pro Server rodando na porta: ${config.PORT}`);
-  console.log(`  Acesse: http://localhost:${config.PORT}`);
-  console.log(`====================================================`);
-});
+// Start Server conditionally
+if (require.main === module) {
+  app.listen(config.PORT, () => {
+    console.log(`====================================================`);
+    console.log(`  Finanças Pro Server rodando na porta: ${config.PORT}`);
+    console.log(`  Acesse: http://localhost:${config.PORT}`);
+    console.log(`====================================================`);
+  });
+}
+
+module.exports = app;

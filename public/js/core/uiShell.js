@@ -117,7 +117,7 @@
     'tab-benefits': 'Benefícios',
     'tab-shopping': 'Lista de Compras',
     'tab-simulation': 'Simulador de Cenários & Novas Despesas',
-    'tab-profile': 'Perfil & Categorias',
+    'tab-profile': 'Perfil',
     'tab-admin': 'Painel Administrativo'
   };
 
@@ -129,7 +129,7 @@
     'tab-benefits': 'Controle de benefícios corporativos e gastos compartilhados',
     'tab-shopping': 'Planejamento e controle de itens de compras',
     'tab-simulation': 'Projete o impacto de novos gastos e parcelamentos sem alterar seus dados reais',
-    'tab-profile': 'Configuração de perfil, salário base, categorias e destinos',
+    'tab-profile': 'Configuração de perfil, salário base, benefícios, categorias e destinos',
     'tab-admin': 'Gerenciamento de usuários e permissões do sistema'
   };
 
@@ -203,6 +203,12 @@
     const subEl = $('.page-sub') || $('#pageSub');
     if (titleEl) titleEl.textContent = titleMap[targetTabId] || (typeof TAB_TITLES !== 'undefined' && TAB_TITLES[targetTabId]) || 'OmniFin';
     if (subEl && subMap[targetTabId]) subEl.textContent = subMap[targetTabId];
+
+    if (targetTabId === 'tab-profile' && typeof window.renderProfile === 'function') {
+      window.renderProfile();
+    } else if (targetTabId === 'tab-simulation' && typeof window.renderSimulationTab === 'function') {
+      window.renderSimulationTab();
+    }
 
     if (updateUrl) {
       const targetPath = getPathFromTab(targetTabId);
@@ -588,8 +594,8 @@
     $$('dialog').forEach(d => {
       d.addEventListener('click', (e) => { if (e.target === d) d.close(); });
       d.addEventListener('close', () => {
-        const t = $('#toast');
-        if (t && t.parentElement === d) {
+        const t = $('#toast-container') || $('#toast');
+        if (t && t.parentElement !== document.body) {
           try { document.body.appendChild(t); } catch (_) { }
         }
       });
@@ -608,6 +614,160 @@
   // Listener exclusivo de abertura do diálogo institucional
   $('#infoBtn')?.addEventListener('click', openInfo);
 
+  // ==========================================================================
+  // SISTEMA GLOBAL DE TOOLTIPS (SINGLETON VIEWPORT-SAFE)
+  // ==========================================================================
+  function initGlobalTooltips() {
+    let tooltipEl = document.getElementById('globalTooltip');
+    if (!tooltipEl) {
+      tooltipEl = document.createElement('div');
+      tooltipEl.id = 'globalTooltip';
+      tooltipEl.className = 'global-tooltip';
+      tooltipEl.setAttribute('role', 'tooltip');
+      tooltipEl.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(tooltipEl);
+    } else if (tooltipEl.parentElement !== document.body) {
+      document.body.appendChild(tooltipEl);
+    }
+
+    let activeTarget = null;
+    let isPointerOverTarget = false;
+    let isPointerOverTooltip = false;
+    let hideTimer = null;
+    const MARGIN = 8;
+    const HIDE_DELAY_MS = 80;
+
+    function updatePosition() {
+      if (!activeTarget || !activeTarget.isConnected) {
+        hideTooltip(true);
+        return;
+      }
+
+      const rect = activeTarget.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) {
+        hideTooltip(true);
+        return;
+      }
+
+      const tipRect = tooltipEl.getBoundingClientRect();
+      const hasSpaceAbove = (rect.top - tipRect.height - MARGIN) >= MARGIN;
+
+      let top = hasSpaceAbove ? (rect.top - tipRect.height - MARGIN) : (rect.bottom + MARGIN);
+      if (top + tipRect.height > window.innerHeight - MARGIN) {
+        top = Math.max(MARGIN, window.innerHeight - tipRect.height - MARGIN);
+      }
+      if (top < MARGIN) top = MARGIN;
+
+      let left = rect.left + (rect.width / 2) - (tipRect.width / 2);
+      left = Math.max(MARGIN, Math.min(left, window.innerWidth - tipRect.width - MARGIN));
+
+      tooltipEl.style.transform = `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`;
+    }
+
+    function showTooltip(target) {
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+
+      const text = target.getAttribute('data-tooltip');
+      if (!text || text.trim() === '') {
+        hideTooltip(true);
+        return;
+      }
+
+      activeTarget = target;
+      isPointerOverTarget = true;
+      tooltipEl.textContent = text.trim();
+      tooltipEl.setAttribute('aria-hidden', 'false');
+      tooltipEl.classList.add('show');
+      updatePosition();
+    }
+
+    function scheduleHide() {
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        if (!isPointerOverTarget && !isPointerOverTooltip) {
+          hideTooltip(false);
+        }
+      }, HIDE_DELAY_MS);
+    }
+
+    function hideTooltip(immediate = false) {
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+      activeTarget = null;
+      isPointerOverTarget = false;
+      isPointerOverTooltip = false;
+      tooltipEl.classList.remove('show');
+      tooltipEl.setAttribute('aria-hidden', 'true');
+    }
+
+    // Delegação global de eventos
+    document.addEventListener('pointerenter', (e) => {
+      const target = e.target.closest && e.target.closest('[data-tooltip]');
+      if (target) showTooltip(target);
+    }, { capture: true, passive: true });
+
+    document.addEventListener('pointerleave', (e) => {
+      const target = e.target.closest && e.target.closest('[data-tooltip]');
+      if (target && target === activeTarget) {
+        isPointerOverTarget = false;
+        scheduleHide();
+      }
+    }, { capture: true, passive: true });
+
+    // Eventos no próprio tooltip para transição de mouse
+    tooltipEl.addEventListener('pointerenter', () => {
+      isPointerOverTooltip = true;
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+    }, { passive: true });
+
+    tooltipEl.addEventListener('pointerleave', () => {
+      isPointerOverTooltip = false;
+      scheduleHide();
+    }, { passive: true });
+
+    document.addEventListener('focusin', (e) => {
+      const target = e.target.closest && e.target.closest('[data-tooltip]');
+      if (target) showTooltip(target);
+    }, { capture: true, passive: true });
+
+    document.addEventListener('focusout', (e) => {
+      const target = e.target.closest && e.target.closest('[data-tooltip]');
+      if (target && target === activeTarget) {
+        isPointerOverTarget = false;
+        scheduleHide();
+      }
+    }, { capture: true, passive: true });
+
+    document.addEventListener('pointerdown', (e) => {
+      if (activeTarget && e.target !== tooltipEl && !tooltipEl.contains(e.target)) {
+        hideTooltip(true);
+      }
+    }, { capture: true, passive: true });
+
+    window.addEventListener('scroll', () => {
+      if (activeTarget && tooltipEl.classList.contains('show')) updatePosition();
+    }, { capture: true, passive: true });
+
+    window.addEventListener('resize', () => {
+      if (activeTarget && tooltipEl.classList.contains('show')) updatePosition();
+    }, { passive: true });
+  }
+
+  // Inicializa o sistema de tooltips imediatamente
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initGlobalTooltips);
+  } else {
+    initGlobalTooltips();
+  }
+
   // APIs públicas do Módulo de UI Shell & Roteador SPA
   window.applyTheme = applyTheme;
   window.toggleTheme = toggleTheme;
@@ -621,6 +781,7 @@
   window.loadSystemMaintenance = loadSystemMaintenance;
   window.updateSidebarMaintenanceBadges = updateSidebarMaintenanceBadges;
   window.isModuleInMaintenance = isModuleInMaintenance;
+  window.initGlobalTooltips = initGlobalTooltips;
 
   window.uiShell = {
     applyTheme,
@@ -634,7 +795,8 @@
     checkModuleMaintenance,
     loadSystemMaintenance,
     updateSidebarMaintenanceBadges,
-    isModuleInMaintenance
+    isModuleInMaintenance,
+    initGlobalTooltips
   };
 
 })();

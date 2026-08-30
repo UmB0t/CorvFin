@@ -281,11 +281,12 @@ function renderRibbon(explicitTabId) {
           }
 
           const barWidth = totalIncome > 0 ? Math.min(100, Math.round(item.pctIncome)) : (totalSpent > 0 ? Math.min(100, Math.round((item.spent / totalSpent) * 100)) : 0);
+          const iconSvg = (typeof getCategoryIconSvg === 'function') ? getCategoryIconSvg(item.cat) : '';
 
           return `
-            <div class="dest-bar-item" style="grid-template-columns: 130px 1fr auto auto; gap: 12px; align-items: center;">
+            <div class="dest-bar-item" style="grid-template-columns: 140px 1fr auto auto; gap: 12px; align-items: center;">
               <div style="display:flex; align-items:center; gap:6px; overflow:hidden;">
-                <span style="width:10px; height:10px; border-radius:50%; background:${item.color}; flex-shrink:0;"></span>
+                <span style="display:inline-flex; color:${item.color}; flex-shrink:0;">${iconSvg}</span>
                 <span class="dest-name" title="${escapeHtml(item.cat)}"><strong>${escapeHtml(item.cat)}</strong></span>
               </div>
               <div class="dest-track" style="height:12px; background:var(--surface-2); border-radius:999px; position:relative; overflow:hidden;">
@@ -535,7 +536,8 @@ function renderRibbon(explicitTabId) {
           catSpent[c] = (catSpent[c] || 0) + Number(e.amount || 0);
         });
 
-        const allCategories = Array.from(new Set([...state.categories, ...Object.keys(catSpent)]));
+        const catNames = (state.categories || []).map(c => (typeof getCategoryName === 'function' ? getCategoryName(c) : (typeof c === 'string' ? c : c.name)));
+        const allCategories = Array.from(new Set([...catNames, ...Object.keys(catSpent)]));
 
         const items = allCategories.map((cat, idx) => {
           const spent = catSpent[cat] || 0;
@@ -659,7 +661,7 @@ function renderRibbon(explicitTabId) {
                   <div class="dest-fill" style="width:${item.pct}%; background:${item.destMeta.color}; border-radius:999px; height:100%; transition:width .3s ease;"></div>
                 </div>
                 <span class="dest-val num" style="font-size:.84rem;"><strong>${currency(item.val)}</strong> <small style="color:var(--muted)">(${item.pct}%)</small></span>
-                <button type="button" class="icon-btn small pay-dest-btn" data-pay-dest="${escapeHtml(item.name)}" title="Quitar Fatura: Marcar todas as despesas de '${escapeHtml(item.name)}' no mês como PAGAS">
+                <button type="button" class="icon-btn small pay-dest-btn" data-pay-dest="${escapeHtml(item.name)}" data-tooltip="Quitar Fatura: Marcar todas as despesas de '${escapeHtml(item.name)}' no mês como PAGAS" aria-label="Quitar Fatura: Marcar todas as despesas de '${escapeHtml(item.name)}' no mês como PAGAS">
                   ${ICONS.check}
                 </button>
               </div>
@@ -701,7 +703,7 @@ function renderRibbon(explicitTabId) {
                   <span style="width:10px; height:10px; border-radius:50%; background:${item.destMeta.color};"></span>
                   <strong>${escapeHtml(item.name)}:</strong>
                   <span class="num">${currency(item.val)} (${item.pct}%)</span>
-                  <button type="button" class="icon-btn small pay-dest-btn" style="width:24px; height:24px; font-size:.75rem; margin-left:4px;" data-pay-dest="${escapeHtml(item.name)}" title="Quitar Fatura: Marcar todas as despesas de '${escapeHtml(item.name)}' como PAGAS">
+                  <button type="button" class="icon-btn small pay-dest-btn" style="width:24px; height:24px; font-size:.75rem; margin-left:4px;" data-pay-dest="${escapeHtml(item.name)}" data-tooltip="Quitar Fatura: Marcar todas as despesas de '${escapeHtml(item.name)}' no mês como PAGAS" aria-label="Quitar Fatura: Marcar todas as despesas de '${escapeHtml(item.name)}' no mês como PAGAS">
                     ${ICONS.check}
                   </button>
                 </div>
@@ -765,7 +767,7 @@ function renderRibbon(explicitTabId) {
                   <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
                     <span class="num" style="font-weight:800;">${currency(item.val)}</span>
                     <span class="badge info" style="font-size:.7rem;">${item.pct}%</span>
-                    <button type="button" class="icon-btn small pay-dest-btn" style="width:26px; height:26px; font-size:.78rem;" data-pay-dest="${escapeHtml(item.name)}" title="Quitar Fatura: Marcar todas as despesas de '${escapeHtml(item.name)}' como PAGAS">
+                    <button type="button" class="icon-btn small pay-dest-btn" style="width:26px; height:26px; font-size:.78rem;" data-pay-dest="${escapeHtml(item.name)}" data-tooltip="Quitar Fatura: Marcar todas as despesas de '${escapeHtml(item.name)}' no mês como PAGAS" aria-label="Quitar Fatura: Marcar todas as despesas de '${escapeHtml(item.name)}' no mês como PAGAS">
                       ${ICONS.check}
                     </button>
                   </div>

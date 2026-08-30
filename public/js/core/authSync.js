@@ -23,12 +23,20 @@
     window.location.href = loginUrl;
   }
 
+  let isRevalidating = false;
+
   async function revalidateStateFromServer() {
+    if (isRevalidating) return false;
+    isRevalidating = true;
+
     const token = (window.API && typeof API.getToken === 'function')
       ? API.getToken()
       : (typeof localStorage !== 'undefined' ? (localStorage.getItem('auth_token') || localStorage.getItem('token') || localStorage.getItem('financas_pro_jwt_token')) : null);
 
-    if (!token) return false;
+    if (!token) {
+      isRevalidating = false;
+      return false;
+    }
 
     try {
       let json;
@@ -61,18 +69,9 @@
         Object.keys(state).forEach(k => delete state[k]);
         Object.assign(state, nextState);
 
-        console.log('[HYDRATION BEFORE]', window.isStateHydrated?.());
-        console.log('[HYDRATION]', {
-          before: window.isStateHydrated?.(),
-          hasSetter: typeof window.setStateHydrated,
-          financesReceived: !!(serverData && (serverData.fixed || serverData.version || serverData.profile))
-        });
-
         if (typeof window.setStateHydrated === 'function') {
           window.setStateHydrated(true);
         }
-
-        console.log('[HYDRATION AFTER]', window.isStateHydrated?.());
 
         try {
           if (typeof render === 'function') {
@@ -85,6 +84,8 @@
       }
     } catch (err) {
       console.warn('Erro ao sincronizar com API:', err);
+    } finally {
+      isRevalidating = false;
     }
     return false;
   }

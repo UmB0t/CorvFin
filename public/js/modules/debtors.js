@@ -246,16 +246,18 @@ function renderDynamicDebtorChart(container, mapData, chartType, isDestination =
           }).join('')}
         </div>
         <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center;">
-          ${items.map(item => `
+          ${items.map(item => {
+            const quitTip = `Quitar: Marcar todas as cobranças de '${escapeHtml(item.name)}' como PAGAS`;
+            return `
             <div style="display:inline-flex; align-items:center; gap:6px; background:var(--surface-2); padding:4px 8px; border-radius:8px; font-size:.74rem; border:1px solid var(--line);">
               <span style="width:8px; height:8px; border-radius:50%; background:${item.color}; flex-shrink:0;"></span>
               <strong>${escapeHtml(item.name)}:</strong>
               <span class="num">${currency(item.val)} (${item.pct}%)</span>
-              <button type="button" class="icon-btn small ${item.btnClass}" style="width:22px; height:22px; font-size:.7rem; margin-left:3px;" data-target-name="${escapeHtml(item.name)}" title="Quitar: Marcar todas as cobranças de '${escapeHtml(item.name)}' como PAGAS">
+              <button type="button" class="icon-btn small ${item.btnClass}" style="width:22px; height:22px; font-size:.7rem; margin-left:3px;" data-target-name="${escapeHtml(item.name)}" data-tooltip="${quitTip}" aria-label="${quitTip}">
                 ${ICONS.check}
               </button>
             </div>
-          `).join('')}
+          `;}).join('')}
         </div>
       </div>
     `;
@@ -299,7 +301,9 @@ function renderDynamicDebtorChart(container, mapData, chartType, isDestination =
           </div>
         </div>
         <div style="flex:1; min-width:200px; display:grid; gap:6px; max-height:220px; overflow-y:auto;">
-          ${items.map(item => `
+          ${items.map(item => {
+            const quitTip = `Quitar: Marcar todas as cobranças de '${escapeHtml(item.name)}' como PAGAS`;
+            return `
             <div style="display:flex; align-items:center; justify-content:space-between; padding:5px 8px; background:var(--surface-2); border-radius:8px; font-size:.76rem; gap:8px; border:1px solid var(--line);">
               <div style="display:flex; align-items:center; gap:6px; overflow:hidden;">
                 <span style="width:8px; height:8px; border-radius:50%; background:${item.color}; flex-shrink:0;"></span>
@@ -309,12 +313,12 @@ function renderDynamicDebtorChart(container, mapData, chartType, isDestination =
               <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
                 <span class="num" style="font-weight:800;">${currency(item.val)}</span>
                 <span class="badge info" style="font-size:.68rem;">${item.pct}%</span>
-                <button type="button" class="icon-btn small ${item.btnClass}" style="width:24px; height:24px; font-size:.72rem;" data-target-name="${escapeHtml(item.name)}" title="Quitar: Marcar todas as cobranças de '${escapeHtml(item.name)}' como PAGAS">
+                <button type="button" class="icon-btn small ${item.btnClass}" style="width:24px; height:24px; font-size:.72rem;" data-target-name="${escapeHtml(item.name)}" data-tooltip="${quitTip}" aria-label="${quitTip}">
                   ${ICONS.check}
                 </button>
               </div>
             </div>
-          `).join('')}
+          `;}).join('')}
         </div>
       </div>
     `;
@@ -322,21 +326,23 @@ function renderDynamicDebtorChart(container, mapData, chartType, isDestination =
     // Horizontal bars
     container.innerHTML = `
       <div class="dest-bars" style="display:grid; gap:8px;">
-        ${items.map(item => `
+        ${items.map(item => {
+          const quitTip = `Quitar: Marcar todas as cobranças de '${escapeHtml(item.name)}' como PAGAS`;
+          return `
           <div class="dest-bar-item" style="grid-template-columns: 120px 1fr auto auto; gap: 10px; align-items: center;">
             <div style="display:flex; align-items:center; gap:6px; overflow:hidden;">
               <span style="width:18px; height:18px; border-radius:5px; background:${item.color}22; color:${item.color}; display:grid; place-items:center; flex-shrink:0;">${item.iconSvg}</span>
-              <span class="dest-name" title="${escapeHtml(item.name)}"><strong>${escapeHtml(item.name)}</strong></span>
+              <span class="dest-name" data-tooltip="${escapeHtml(item.name)}" aria-label="${escapeHtml(item.name)}"><strong>${escapeHtml(item.name)}</strong></span>
             </div>
             <div class="dest-track" style="height:10px; background:var(--surface-2); border-radius:999px; overflow:hidden;">
               <div class="dest-fill" style="width:${item.pct}%; background:${item.color}; border-radius:999px; height:100%; transition:width .3s ease;"></div>
             </div>
             <span class="dest-val num" style="font-size:.8rem;"><strong>${currency(item.val)}</strong> <small style="color:var(--muted)">(${item.pct}%)</small></span>
-            <button type="button" class="icon-btn small ${item.btnClass}" style="width:24px; height:24px; font-size:.75rem;" data-target-name="${escapeHtml(item.name)}" title="Quitar: Marcar todas as cobranças de '${escapeHtml(item.name)}' como PAGAS">
+            <button type="button" class="icon-btn small ${item.btnClass}" style="width:24px; height:24px; font-size:.75rem;" data-target-name="${escapeHtml(item.name)}" data-tooltip="${quitTip}" aria-label="${quitTip}">
               ${ICONS.check}
             </button>
           </div>
-        `).join('')}
+        `;}).join('')}
       </div>
     `;
   }
@@ -542,6 +548,9 @@ function toggleDebtorStatus(id) {
       rows.forEach(r => listContainer.appendChild(r));
     }
   }
+  if (typeof updateMarkAllButtonState === 'function') {
+    updateMarkAllButtonState('#markAllDebtorsPaidBtn', rawDebtors);
+  }
 };
 
 
@@ -743,7 +752,7 @@ function toggleDebtorStatus(id) {
           </td>
           <td><small>${MONTH_ABBR[(item.startMonth || 1) - 1]}/${item.startYear} a ${MONTH_ABBR[(item.endMonth || 1) - 1]}/${item.endYear}</small></td>
           <td>
-            <button type="button" class="icon-btn small edit-debt-btn" data-debt-id="${item.id}" title="Editar Devedor">${ICONS.edit}</button>
+            <button type="button" class="icon-btn small edit-debt-btn" data-debt-id="${item.id}" data-tooltip="Editar Devedor" aria-label="Editar Devedor">${ICONS.edit}</button>
           </td>
         </tr>
       `;

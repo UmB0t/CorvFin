@@ -70,7 +70,10 @@
     }
     if (catSel) {
       const categories = state.categories && state.categories.length ? state.categories : DEFAULT_CATEGORIES;
-      catSel.innerHTML = categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      catSel.innerHTML = categories.map(c => {
+        const name = (typeof getCategoryName === 'function') ? getCategoryName(c) : (typeof c === 'string' ? c : (c.name || 'Gerais'));
+        return `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
+      }).join('');
     }
     if (destSel) {
       const destinations = state.destinations && state.destinations.length ? state.destinations : DEFAULT_DESTINATIONS;
@@ -445,10 +448,10 @@
               </div>
               <div class="entry-right" style="display:flex; align-items:center; gap:8px;">
                 <span class="entry-amount num negative" style="font-weight:800;">${currency(sim.amount)}</span>
-                <button type="button" class="icon-btn small edit-sim-btn" data-id="${sim.id}" title="Editar Simulação">
+                <button type="button" class="icon-btn small edit-sim-btn" data-id="${sim.id}" data-tooltip="Editar Simulação" aria-label="Editar Simulação">
                   <svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                 </button>
-                <button type="button" class="icon-btn small del-sim-btn" data-id="${sim.id}" title="Excluir Simulação" style="color:var(--danger, #EF4444);">
+                <button type="button" class="icon-btn small del-sim-btn" data-id="${sim.id}" data-tooltip="Excluir Simulação" aria-label="Excluir Simulação" style="color:var(--danger, #EF4444);">
                   <svg class="svg-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
               </div>

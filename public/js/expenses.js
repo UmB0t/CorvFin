@@ -414,7 +414,10 @@ const ExpensesModule = (() => {
         <div class="field" style="margin-bottom:12px;">
           <label>Categoria</label>
           <select id="modalExpCategory" style="width:100%; padding:9px; border-radius:8px; background:var(--surface); color:var(--text); border:1px solid var(--line);">
-            ${(window.FP_STATE.categories || []).map(c => `<option value="${escapeHtml(c)}" ${currentItem && currentItem.group === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+            ${(window.FP_STATE.categories || []).map(c => {
+              const name = (typeof getCategoryName === 'function') ? getCategoryName(c) : (typeof c === 'string' ? c : (c.name || 'Gerais'));
+              return `<option value="${escapeHtml(name)}" ${currentItem && currentItem.group === name ? 'selected' : ''}>${escapeHtml(name)}</option>`;
+            }).join('')}
           </select>
         </div>
 

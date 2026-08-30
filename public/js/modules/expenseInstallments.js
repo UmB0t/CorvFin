@@ -515,8 +515,10 @@ function openExpenseTimeline(opts) {
         const catSel = $('#installmentsCategoryFilter');
         if (catSel) {
           const currentVal = catSel.value || 'all';
-          const uniqueCats = [...new Set((state.categories || []).concat(items.map(i => i.group)).filter(Boolean))].sort();
-          catSel.innerHTML = `<option value="all">Todas as Categorias</option>` + uniqueCats.map(cat => `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`).join('');
+          const stateCatNames = (state.categories || []).map(c => (typeof getCategoryName === 'function' ? getCategoryName(c) : (typeof c === 'string' ? c : c.name))).filter(Boolean);
+          const itemCatNames = items.map(i => i.group).filter(Boolean);
+          const uniqueCats = [...new Set([...stateCatNames, ...itemCatNames])].sort();
+          catSel.innerHTML = `<option value="all">Todas as Categorias</option>` + uniqueCats.map(catName => `<option value="${escapeHtml(catName)}">${escapeHtml(catName)}</option>`).join('');
           catSel.value = uniqueCats.includes(currentVal) ? currentVal : 'all';
         }
 
@@ -626,7 +628,7 @@ function openExpenseTimeline(opts) {
           </td>
           <td><small>${MONTH_ABBR[(item.startMonth || 1) - 1]}/${item.startYear} a ${MONTH_ABBR[(item.endMonth || 1) - 1]}/${item.endYear}</small></td>
           <td>
-            <button type="button" class="icon-btn small edit-plan-btn" data-plan-id="${item.id}" data-plan-type="${item.type}" title="Editar Lançamento">${ICONS.edit}</button>
+            <button type="button" class="icon-btn small edit-plan-btn" data-plan-id="${item.id}" data-plan-type="${item.type}" data-tooltip="Editar Lançamento" aria-label="Editar Lançamento">${ICONS.edit}</button>
           </td>
         </tr>
       `;

@@ -753,16 +753,29 @@
     font-size: 0.78rem !important;
   }
 
-  /* 3.14 TOASTS */
-  .toast,
-  #toast {
-    bottom: calc(72px + env(safe-area-inset-bottom)) !important;
-    right: 14px !important;
-    left: 14px !important;
+  /* 3.14 TOASTS MOBILE */
+  #toast-container,
+  .toast-container {
+    top: auto !important;
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+    left: 12px !important;
+    right: 12px !important;
+    transform: none !important;
     width: auto !important;
-    max-width: calc(100vw - 28px) !important;
-    box-sizing: border-box !important;
+    max-width: calc(100vw - 24px) !important;
+    align-items: stretch !important;
+  }
+
+  .toast-item,
+  .toast-message,
+  #toast,
+  .toast {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 14px !important;
+    justify-content: center !important;
     text-align: center !important;
+    box-sizing: border-box !important;
   }
 
   /* 3.15 BENEFÍCIOS MOBILE */

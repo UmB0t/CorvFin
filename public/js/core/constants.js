@@ -18,7 +18,35 @@ window.DEFAULT_DESTINATIONS = [
   { name: 'Binance', color: '#EAB308', icon: 'globe' }
 ];
 
-window.DEFAULT_CATEGORIES = ['Moradia', 'Lazer', 'Alimentação', 'Cartão', 'Transporte', 'Saúde', 'Educação', 'Gerais', 'Outros'];
+window.DEFAULT_CATEGORY_ICONS_MAP = {
+  'Moradia': 'home',
+  'Lazer': 'star',
+  'Alimentação': 'utensils',
+  'Cartão': 'card',
+  'Transporte': 'car',
+  'Saúde': 'health',
+  'Educação': 'book',
+  'Gerais': 'tag',
+  'Outros': 'tag',
+  'Investimento': 'chart',
+  'Investimentos': 'chart',
+  'Assinatura': 'receipt',
+  'Assinaturas': 'receipt',
+  'Trabalho': 'briefcase'
+};
+
+window.DEFAULT_CATEGORIES = [
+  { name: 'Moradia', icon: 'home' },
+  { name: 'Lazer', icon: 'star' },
+  { name: 'Alimentação', icon: 'utensils' },
+  { name: 'Cartão', icon: 'card' },
+  { name: 'Transporte', icon: 'car' },
+  { name: 'Saúde', icon: 'health' },
+  { name: 'Educação', icon: 'book' },
+  { name: 'Gerais', icon: 'tag' },
+  { name: 'Outros', icon: 'tag' }
+];
+
 window.DEFAULT_BUDGETS = { 'Moradia': 2000, 'Lazer': 800, 'Alimentação': 1500, 'Cartão': 3000, 'Gerais': 1000 };
 
 window.TAB_TITLES = {
@@ -28,7 +56,7 @@ window.TAB_TITLES = {
   'tab-benefits': 'Benefícios',
   'tab-investments': 'Investimentos & Patrimônio',
   'tab-simulation': 'Simulação de Cenários & Novas Despesas',
-  'tab-profile': 'Perfil & Destinos',
+  'tab-profile': 'Perfil',
   'tab-admin': 'Configurações / Usuários & Permissões'
 };
 
@@ -46,6 +74,52 @@ window.BENEFIT_TYPES_MAP = {
   educacao: { label: 'Educação', short: 'EDUC', color: 'var(--c-fixed)', bg: 'var(--c-fixed-soft)' },
   cultura: { label: 'Cultura', short: 'CULT', color: 'var(--c-extra)', bg: 'var(--c-extra-soft)' },
   farmacia: { label: 'Farmácia', short: 'FARM', color: '#EC4899', bg: '#FCE7F3' }
+};
+
+window.CATEGORY_SVG_ICONS = {
+  tag: `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`,
+  home: `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+  car: `<svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="7" rx="2"/><path d="M5 11l2-5h10l2 5"/><circle cx="7.5" cy="18.5" r="1.5"/><circle cx="16.5" cy="18.5" r="1.5"/></svg>`,
+  wallet: `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>`,
+  banknote: `<svg class="svg-icon" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>`,
+  health: `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M12 7v6M9 10h6"/></svg>`,
+  utensils: `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M18 2v20M21 15V2a5 5 0 0 0-5 5v8h5zM7 2v20M3 2v6a4 4 0 0 0 4 4 4 4 0 0 0 4-4V2"/></svg>`,
+  shopping: `<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>`,
+  book: `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`,
+  briefcase: `<svg class="svg-icon" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>`,
+  chart: `<svg class="svg-icon" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`,
+  receipt: `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>`,
+  star: `<svg class="svg-icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+  card: `<svg class="svg-icon" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`
+};
+
+window.getCategoryName = function getCategoryName(cat) {
+  if (!cat) return 'Gerais';
+  if (typeof cat === 'string') return cat;
+  if (typeof cat === 'object' && cat !== null && cat.name) return String(cat.name);
+  return 'Gerais';
+};
+
+window.getCategoryMeta = function getCategoryMeta(cat) {
+  const catName = window.getCategoryName(cat);
+  const catIcon = (typeof cat === 'object' && cat !== null && cat.icon) ? cat.icon : null;
+  const cats = (typeof getState === 'function' && getState()?.categories) || window.DEFAULT_CATEGORIES;
+  if (Array.isArray(cats)) {
+    const found = cats.find(c => (typeof c === 'string' ? c === catName : c?.name === catName));
+    if (found) {
+      if (typeof found === 'string') return { name: found, icon: catIcon || window.DEFAULT_CATEGORY_ICONS_MAP[found] || 'tag' };
+      return { name: found.name || catName, icon: catIcon || found.icon || window.DEFAULT_CATEGORY_ICONS_MAP[found.name] || 'tag' };
+    }
+  }
+  return { name: catName, icon: catIcon || window.DEFAULT_CATEGORY_ICONS_MAP[catName] || 'tag' };
+};
+
+window.getCategoryIconSvg = function getCategoryIconSvg(catNameOrIcon) {
+  if (typeof catNameOrIcon === 'string' && window.CATEGORY_SVG_ICONS[catNameOrIcon]) {
+    return window.CATEGORY_SVG_ICONS[catNameOrIcon];
+  }
+  const meta = window.getCategoryMeta(catNameOrIcon);
+  return window.CATEGORY_SVG_ICONS[meta.icon] || window.CATEGORY_SVG_ICONS.tag;
 };
 
 window.DEST_SVG_ICONS = {

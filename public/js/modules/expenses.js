@@ -52,7 +52,10 @@ function openFullscreenTable(presetType) {
         destSelect.innerHTML = `<option value="all">Todos os Destinos</option>` + state.destinations.map(d => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
 
         const catSelect = $('#fsCategoryFilter');
-        catSelect.innerHTML = `<option value="all">Todas as Categorias</option>` + state.categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+        catSelect.innerHTML = `<option value="all">Todas as Categorias</option>` + state.categories.map(c => {
+          const name = (typeof getCategoryName === 'function') ? getCategoryName(c) : (typeof c === 'string' ? c : c.name);
+          return `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
+        }).join('');
 
         renderFullscreenTable();
         dlg.showModal();
@@ -266,8 +269,9 @@ function buildEntryRow({
         if (customLeftBadge) {
           leftIconHtml = customLeftBadge;
         } else if (onClickToggleStatus) {
+          const statusTip = isPaid ? 'Marcado como Pago/Recebido. Clique para alternar' : 'Pendente. Clique para marcar como Pago/Recebido';
           leftIconHtml = `
-            <button type="button" class="status-btn ${isPaid ? 'paid' : 'pending'}" title="${isPaid ? 'Marcado como Pago/Recebido. Clique para alternar' : 'Pendente. Clique para marcar como Pago/Recebido'}">
+            <button type="button" class="status-btn ${isPaid ? 'paid' : 'pending'}" data-tooltip="${statusTip}" aria-label="${statusTip}">
               ${isPaid ? ICONS.check : ICONS.clock}
             </button>`;
         }
@@ -300,18 +304,18 @@ function buildEntryRow({
           : 'Arraste para reordenar este item';
 
         const dragHandleHtml = `
-      <span class="drag-handle" title="${dragHandleTitle}">
+      <span class="drag-handle" data-tooltip="${dragHandleTitle}" aria-label="${dragHandleTitle}">
         <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px;"><circle cx="9" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
       </span>`;
 
         const timelineBtnHtml = (type === 'fixed' || type === 'variable') ? `
-      <button type="button" class="icon-btn small timeline-btn" title="Ver Evolução & Linha do Tempo">${ICONS.timeline || '<svg class="svg-icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>'}</button>` : '';
+      <button type="button" class="icon-btn small timeline-btn" data-tooltip="Ver Evolução & Linha do Tempo" aria-label="Ver Evolução & Linha do Tempo">${ICONS.timeline || '<svg class="svg-icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>'}</button>` : '';
 
         const editBtnHtml = onClickEdit ? `
-      <button type="button" class="icon-btn small edit-btn" title="Editar Lançamento">${ICONS.edit}</button>` : '';
+      <button type="button" class="icon-btn small edit-btn" data-tooltip="Editar Lançamento" aria-label="Editar Lançamento">${ICONS.edit}</button>` : '';
 
         const deleteBtnHtml = onDelete ? `
-      <button type="button" class="icon-btn small delete-btn" title="Excluir Lançamento" style="color:var(--danger);">${ICONS.close}</button>` : '';
+      <button type="button" class="icon-btn small delete-btn" data-tooltip="Excluir Lançamento" aria-label="Excluir Lançamento" style="color:var(--danger);">${ICONS.close}</button>` : '';
 
         const amountClass = type === 'benefit' ? 'negative' : (isPaid ? 'positive' : '');
 
@@ -323,7 +327,14 @@ function buildEntryRow({
         <div class="entry-meta">
           ${destPillHtml}
           ${dueTagHtml}
-          ${tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('')}
+          ${tags.filter(Boolean).map(t => {
+            const isCat = (state.categories || []).some(c => ((typeof getCategoryName === 'function') ? getCategoryName(c) : (typeof c === 'string' ? c : c.name)) === t);
+            if (isCat && typeof getCategoryIconSvg === 'function') {
+              const iconSvg = getCategoryIconSvg(t);
+              return `<span class="tag" style="display:inline-flex; align-items:center; gap:4px;">${iconSvg} ${escapeHtml(t)}</span>`;
+            }
+            return `<span class="tag">${escapeHtml(t)}</span>`;
+          }).join('')}
         </div>
       </div>
       <div class="entry-amount num ${amountClass}">${currency(amount)}</div>
@@ -442,47 +453,95 @@ function toggleExpenseStatus(type, idKey, currentStatus) {
 
 function markAllSectionPaid(type) {
     const state = getState();
-        const y = state.year, m = state.month;
-        const key = ymKey(y, m);
-        let count = 0;
+    const y = state.year, m = state.month;
+    const key = ymKey(y, m);
+    let count = 0;
+    let totalItems = 0;
 
-        if (type === 'fixed') {
-          activeFixedForMonth(y, m).forEach(f => {
-            if (f.status !== 'pago') {
-              const item = state.fixed.find(x => x.id === f.fixedId);
-              if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = true; count++; }
-            }
-          });
-        } else if (type === 'variable') {
-          activeVariableForMonth(y, m).forEach(v => {
-            if (v.status !== 'pago') {
-              const item = state.variable.find(x => x.id === v.id);
-              if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = true; count++; }
-            }
-          });
-        } else if (type === 'extra') {
-          activeExtrasForMonth(y, m).forEach(e => {
-            if (e.status !== 'pago') {
-              const item = state.extras.find(x => x.id === e.id);
-              if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = true; count++; }
-            }
-          });
-        } else if (type === 'debtor') {
-          activeDebtorsForMonth(y, m).forEach(d => {
-            if (d.status !== 'pago') {
-              const item = state.debtors.find(x => x.id === d.id);
-              if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = true; count++; }
-            }
-          });
-        }
+    const normType = String(type || '').toLowerCase();
 
-        if (count > 0) {
-          saveState(); render();
-          notify(`${count} item(ns) marcados como PAGOS!`, 'success');
-        } else {
-          notify(`Todos os itens desta lista já estão marcados como pagos.`, 'info');
+    if (normType === 'fixed' || normType === 'fixas') {
+      const items = activeFixedForMonth(y, m);
+      totalItems = items.length;
+      items.forEach(f => {
+        if (f.status !== 'pago') {
+          const item = state.fixed.find(x => x.id === f.fixedId);
+          if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = true; count++; }
         }
-      }
+      });
+    } else if (normType === 'variable' || normType === 'variaveis') {
+      const items = activeVariableForMonth(y, m);
+      totalItems = items.length;
+      items.forEach(v => {
+        if (v.status !== 'pago') {
+          const item = state.variable.find(x => x.id === v.id);
+          if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = true; count++; }
+        }
+      });
+    } else if (normType === 'extra' || normType === 'extras') {
+      const items = activeExtrasForMonth(y, m);
+      totalItems = items.length;
+      items.forEach(e => {
+        if (e.status !== 'pago') {
+          const item = state.extras.find(x => x.id === e.id);
+          if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = true; count++; }
+        }
+      });
+    } else if (normType === 'debtor' || normType === 'debtors' || normType === 'devedores') {
+      const items = activeDebtorsForMonth(y, m);
+      totalItems = items.length;
+      items.forEach(d => {
+        if (d.status !== 'pago') {
+          const item = state.debtors.find(x => x.id === d.id);
+          if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = true; count++; }
+        }
+      });
+    }
+
+    if (count > 0) {
+      saveState(); render();
+      notify(`${count} item(ns) marcados como PAGOS!`, 'success');
+    } else if (totalItems > 0) {
+      notify(`Todos os itens desta lista já estão quitados.`, 'info');
+    } else {
+      notify(`Não há itens nesta lista para quitar no mês selecionado.`, 'info');
+    }
+  }
+
+function updateMarkAllButtonState(btnId, items) {
+    const btn = $(btnId);
+    if (!btn) return;
+    const list = Array.isArray(items) ? items : [];
+    if (list.length === 0) {
+      btn.disabled = true;
+      btn.classList.remove('all-paid');
+      btn.style.background = '';
+      btn.style.color = '';
+      btn.style.borderColor = '';
+      btn.setAttribute('data-tooltip', 'Nenhum item para quitar');
+      btn.setAttribute('aria-label', 'Nenhum item para quitar');
+      return;
+    }
+    const pendingCount = list.filter(x => x.status !== 'pago').length;
+    if (pendingCount === 0) {
+      btn.disabled = true;
+      btn.classList.add('all-paid');
+      btn.style.background = 'var(--success, #10b981)';
+      btn.style.color = '#ffffff';
+      btn.style.borderColor = 'var(--success, #10b981)';
+      btn.setAttribute('data-tooltip', 'Todos os itens já estão quitados');
+      btn.setAttribute('aria-label', 'Todos os itens já estão quitados');
+    } else {
+      btn.disabled = false;
+      btn.classList.remove('all-paid');
+      btn.style.background = '';
+      btn.style.color = '';
+      btn.style.borderColor = '';
+      btn.setAttribute('data-tooltip', 'Marcar todas como pagas');
+      btn.setAttribute('aria-label', 'Marcar todas como pagas');
+    }
+  }
+  window.updateMarkAllButtonState = updateMarkAllButtonState;
 
 function renderSection(listId, sumId, items, sumValue) {
         const container = $(listId);
@@ -679,7 +738,8 @@ function renderExpensesLists() {
         });
         renderSection('#listFixed', '#sumFixed', fixedRows, fixed.reduce((s, i) => s + Number(i.amount), 0));
 
-        const variable = sortExpensesList(activeVariableForMonth(y, m).filter(filterFn), sortMode);
+        const rawVariable = activeVariableForMonth(y, m);
+        const variable = sortExpensesList(rawVariable.filter(filterFn), sortMode);
         const variableRows = variable.map(v => {
           const totalContract = Number(v.amount) * Number(v.installmentTotal);
           const origVar = state.variable.find(x => x.id === v.id) || v;
@@ -700,6 +760,10 @@ function renderExpensesLists() {
           });
         });
         renderSection('#listVariable', '#sumVariable', variableRows, variable.reduce((s, i) => s + Number(i.amount), 0));
+
+        updateMarkAllButtonState('#markAllFixedPaidBtn', rawFixed);
+        updateMarkAllButtonState('#markAllVarPaidBtn', rawVariable);
+        updateMarkAllButtonState('#simpMarkAllPaidBtn', [...rawFixed, ...rawVariable]);
       }
 
 function showTypeBlocks(type) {
@@ -794,24 +858,33 @@ function openEntryDialog(opts) {
           $('#varStartMonth').value = curMonth;
           $('#varStartYear').value = curYear;
           if ($('#varInstallmentsCount')) $('#varInstallmentsCount').value = 1;
+          const firstCatName = state.categories.length > 0 ? ((typeof getCategoryName === 'function') ? getCategoryName(state.categories[0]) : (typeof state.categories[0] === 'string' ? state.categories[0] : state.categories[0].name)) : 'Gerais';
           $('#entryDueDay').value = curDay;
           $('#entryDestination').value = state.destinations[0]?.name || 'Nubank';
           $('#entryStatus').value = 'pendente';
-          if (state.categories.length > 0) $('#entryGroup').value = state.categories[0];
+          if (state.categories.length > 0) $('#entryGroup').value = firstCatName;
 
           updateVarInstallments();
         } else if (type === 'fixed') {
+          const firstCatName = state.categories.length > 0 ? ((typeof getCategoryName === 'function') ? getCategoryName(state.categories[0]) : (typeof state.categories[0] === 'string' ? state.categories[0] : state.categories[0].name)) : 'Gerais';
           const fixed = state.fixed.find(f => f.id === fixedId || f.id === id);
           if (!fixed) return;
           const active = activeFixedForMonth(state.year, state.month).find(a => a.fixedId === fixed.id)
             || [...fixed.versions].sort((a, b) => mk(a.year, a.month) - mk(b.year, b.month))[0];
 
-          entryDlgState = { mode: 'edit', type: 'fixed', id: null, fixedId: fixed.id };
+          entryDlgState = {
+            mode: 'edit',
+            type: 'fixed',
+            id: null,
+            fixedId: fixed.id,
+            effMonth: active.effMonth || active.month || (active.versions && active.versions[0]?.month),
+            effYear: active.effYear || active.year || (active.versions && active.versions[0]?.year)
+          };
           $('#entryDialogTitle').textContent = 'Editar Despesa Fixa';
           setEntryDialogType('fixed');
 
           $('#entryName').value = fixed.name;
-          $('#entryGroup').value = fixed.group || state.categories[0] || 'Gerais';
+          $('#entryGroup').value = fixed.group || firstCatName;
           $('#entryNote').value = fixed.note || '';
           $('#entryAmount').value = active.amount;
           $('#entryDueDay').value = fixed.dueDay || '';
@@ -820,10 +893,11 @@ function openEntryDialog(opts) {
           const key = ymKey(state.year, state.month);
           const isPaid = fixed.paidHistory ? fixed.paidHistory[key] === true : (active.status === 'pago');
           $('#entryStatus').value = isPaid ? 'pago' : 'pendente';
-          $('#fixedEffMonth').value = active.effMonth || state.month;
-          $('#fixedEffYear').value = active.effYear || state.year;
+          $('#fixedEffMonth').value = active.effMonth || active.month || state.month;
+          $('#fixedEffYear').value = active.effYear || active.year || state.year;
           if (fixActions) fixActions.hidden = false;
         } else if (type === 'variable') {
+          const firstCatName = state.categories.length > 0 ? ((typeof getCategoryName === 'function') ? getCategoryName(state.categories[0]) : (typeof state.categories[0] === 'string' ? state.categories[0] : state.categories[0].name)) : 'Gerais';
           const v = state.variable.find(x => x.id === id || x.id === fixedId);
           if (!v) return;
 
@@ -832,7 +906,7 @@ function openEntryDialog(opts) {
           setEntryDialogType('variable');
 
           $('#entryName').value = v.name;
-          $('#entryGroup').value = v.group || state.categories[0] || 'Gerais';
+          $('#entryGroup').value = v.group || firstCatName;
           $('#entryNote').value = v.note || '';
           $('#entryAmount').value = v.amount;
           $('#entryDueDay').value = v.dueDay || '';
@@ -918,27 +992,6 @@ function openEntryDialog(opts) {
       });
     });
 
-    $('#entryGroup')?.addEventListener('change', (e) => {
-      if (e.target.value === '__new__') {
-        const newCat = prompt('Digite o nome da nova Categoria:');
-        if (newCat) {
-          const trimmed = newCat.trim();
-          if (trimmed) {
-            const state = getState();
-            if (!state.categories) state.categories = [];
-            if (!state.categories.some(c => c.name.toLowerCase() === trimmed.toLowerCase())) {
-              state.categories.push({ name: trimmed, color: '#10b981', icon: 'tag' });
-              saveState();
-              if (window.renderCategorySelectors) window.renderCategorySelectors();
-            }
-            e.target.value = trimmed;
-          }
-        } else {
-          e.target.value = (getState().categories[0] || {}).name || 'Gerais';
-        }
-      }
-    });
-
     $$('.preset-due-btn, .due-pill')?.forEach(btn => {
       btn.addEventListener('click', () => {
         const day = btn.getAttribute('data-day');
@@ -954,7 +1007,6 @@ function openEntryDialog(opts) {
       const type = entryDlgState.type || 'fixed';
       const name = $('#entryName').value.trim();
       let group = $('#entryGroup').value.trim() || 'Gerais';
-      if (group === '__new__') group = 'Gerais';
       const note = $('#entryNote').value.trim();
       const amount = Number($('#entryAmount').value);
       const dueDay = Number($('#entryDueDay').value) || null;
@@ -980,12 +1032,35 @@ function openEntryDialog(opts) {
           fixed.dueDay = dueDay;
           fixed.note = note;
           fixed.versions = fixed.versions || [];
-          const existing = fixed.versions.find(v => v.year === effYear && v.month === effMonth);
-          if (existing) {
-            existing.amount = amount;
-          } else {
-            fixed.versions.push({ year: effYear, month: effMonth, amount, startYear: effYear, startMonth: effMonth });
+
+          // Localiza a versão que estava sendo editada para atualizar a data/valor
+          const origMonth = entryDlgState.effMonth;
+          const origYear = entryDlgState.effYear;
+          let targetVersion = null;
+
+          if (origYear != null && origMonth != null) {
+            targetVersion = fixed.versions.find(v => (v.year || v.startYear) === origYear && (v.month || v.startMonth) === origMonth);
           }
+          if (!targetVersion && fixed.versions.length === 1) {
+            targetVersion = fixed.versions[0];
+          }
+
+          if (targetVersion) {
+            targetVersion.year = effYear;
+            targetVersion.month = effMonth;
+            targetVersion.startYear = effYear;
+            targetVersion.startMonth = effMonth;
+            targetVersion.amount = amount;
+          } else {
+            const existing = fixed.versions.find(v => (v.year || v.startYear) === effYear && (v.month || v.startMonth) === effMonth);
+            if (existing) {
+              existing.amount = amount;
+            } else {
+              fixed.versions.push({ year: effYear, month: effMonth, amount, startYear: effYear, startMonth: effMonth });
+            }
+          }
+
+          fixed.versions.sort((a, b) => mk(a.year || a.startYear, a.month || a.startMonth) - mk(b.year || b.startYear, b.month || b.startMonth));
         } else {
           const newId = uid();
           state.fixed.push({

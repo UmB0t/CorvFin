@@ -21,7 +21,10 @@
       notifs.push({ id: 'overdue', type: 'danger', title: 'Contas Vencidas no Mês', desc: `Você possui ${overdueCount} conta(s) em atraso neste mês.` });
     }
 
-    const unbudgetedCount = state.categories.filter(c => !state.budgets[c] || state.budgets[c] <= 0).length;
+    const unbudgetedCount = (state.categories || []).filter(c => {
+      const name = (typeof getCategoryName === 'function') ? getCategoryName(c) : (typeof c === 'string' ? c : (c.name || 'Gerais'));
+      return !state.budgets[name] || state.budgets[name] <= 0;
+    }).length;
     if (unbudgetedCount > 0) {
       notifs.push({ id: 'unbudgeted', type: 'warning', title: 'Categorias sem Teto', desc: `${unbudgetedCount} categoria(s) não possuem limite mensal configurado.` });
     }

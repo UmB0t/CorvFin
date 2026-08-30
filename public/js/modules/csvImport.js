@@ -206,8 +206,12 @@ let parsedCsvItems = [];
             if (item.destination && !state.destinations.some(d => d.name === item.destination)) {
               state.destinations.push({ name: item.destination, color: '#1F7A5C', icon: item.type === 'investment' ? 'bank' : 'card' });
             }
-            if (item.group && !state.categories.includes(item.group) && item.type !== 'benefit' && item.type !== 'investment') {
-              state.categories.push(item.group);
+            if (item.group && item.type !== 'benefit' && item.type !== 'investment') {
+              const hasGroup = (state.categories || []).some(c => ((typeof getCategoryName === 'function') ? getCategoryName(c) : (typeof c === 'string' ? c : c.name)) === item.group);
+              if (!hasGroup) {
+                const icon = (typeof DEFAULT_CATEGORY_ICONS_MAP !== 'undefined' && DEFAULT_CATEGORY_ICONS_MAP[item.group]) ? DEFAULT_CATEGORY_ICONS_MAP[item.group] : 'tag';
+                state.categories.push({ name: item.group, icon });
+              }
             }
 
             if (item.type === 'fixed') {

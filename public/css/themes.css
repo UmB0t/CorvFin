@@ -1,76 +1,320 @@
+/* ==========================================================================
+   THEMES SYSTEM — OMNIFIN V3
+   Dark Mode: Refinamento Visual Grafite / Matte Charcoal / Neutral Black
+   Light Mode: Preservado 100% via variables.css
+   ========================================================================== */
 
-    html[data-theme="dark"] {
-      color-scheme: dark;
-      --bg: #0B132B;
-      --surface: #1C2541;
-      --surface-2: #2A365C;
-      --surface-3: #3A4A7C;
-      --text: #EDF2F7;
-      --muted: #94A3B8;
-      --line: #2D3748;
-      --shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
-      --shadow-lg: 0 20px 45px rgba(0, 0, 0, 0.6);
+/* --------------------------------------------------------------------------
+   1. TOKENS DO DARK MODE (GRAFITE / NEUTRAL CHARCOAL)
+   -------------------------------------------------------------------------- */
+html[data-theme="dark"],
+[data-theme="dark"] {
+  color-scheme: dark;
 
-      --brand: #4E9F3D;
-      --brand-strong: #1E5128;
-      --brand-soft: #1C3322;
-      --danger: #F87171;
-      --danger-soft: #391919;
-      --warning: #FBBF24;
-      --warning-soft: #382A10;
-      --success: #4ADE80;
-      --success-soft: #143822;
-      --info: #60A5FA;
-      --info-soft: #172A46;
+  /* Superfícies Estruturais Neutras */
+  --bg: #111315;
+  --surface: #1D2023;
+  --surface-2: #23272A;
+  --surface-3: #292D30;
+  --surface-sidebar: #171A1C;
 
-      --c-fixed: #818CF8;
-      --c-fixed-soft: #232752;
-      --c-variable: #FBBF24;
-      --c-variable-soft: #382A10;
-      --c-invest: #4ADE80;
-      --c-invest-soft: #1C3322;
-      --c-extra: #34D399;
-      --c-extra-soft: #133A2C;
-      --c-debt: #F87171;
-      --c-debt-soft: #3D1C1C;
-    }
+  /* Tipografia Neutra */
+  --text: #F1F3F2;
+  --text-secondary: #AAB2AE;
+  --muted: #7F8984;
 
-    html[data-theme="dark"] .sidebar-link.active {
-      color: #ffffff !important;
-    }
+  /* Linhas e Bordas */
+  --line: #343A3E;
+  --line-subtle: #2A2F32;
 
-    [data-theme="dark"] .pill-toolbar {
-      background: rgba(255, 255, 255, 0.06);
-      border-color: rgba(255, 255, 255, 0.12);
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
-    }
+  /* Sombras Neutras */
+  --shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 20px 45px rgba(0, 0, 0, 0.65);
 
-    [data-theme="dark"] .toolbar-divider {
-      background: rgba(255, 255, 255, 0.15);
-    }
+  /* Accent e Cores da Marca OmniFin */
+  --brand: #1F7A5C;
+  --brand-strong: #145C45;
+  --brand-soft: rgba(31, 122, 92, 0.22);
 
-    /* Dark Mode Tooltips */
-    [data-theme="dark"] [data-tooltip]::after {
-      background: rgba(28, 43, 35, 0.95);
-      color: #f0fdf4;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-    }
+  /* Cores Semânticas de Estado */
+  --danger: #EF4444;
+  --danger-soft: rgba(239, 68, 68, 0.18);
+  --warning: #F59E0B;
+  --warning-soft: rgba(245, 158, 11, 0.18);
+  --success: #10B981;
+  --success-soft: rgba(16, 185, 129, 0.18);
+  --info: #3B82F6;
+  --info-soft: rgba(59, 130, 246, 0.18);
 
-    [data-theme="dark"] [data-tooltip]::before {
-      border-top-color: rgba(28, 43, 35, 0.95);
-    }
+  /* Cores Semânticas para Categorias / Gráficos / Lançamentos */
+  --c-fixed: #818CF8;
+  --c-fixed-soft: rgba(129, 140, 248, 0.2);
+  --c-variable: #F59E0B;
+  --c-variable-soft: rgba(245, 158, 11, 0.2);
+  --c-invest: #10B981;
+  --c-invest-soft: rgba(16, 185, 129, 0.22);
+  --c-extra: #34D399;
+  --c-extra-soft: rgba(52, 211, 153, 0.2);
+  --c-debt: #EF4444;
+  --c-debt-soft: rgba(239, 68, 68, 0.2);
+}
 
-    [data-theme="dark"] .top-actions-bar [data-tooltip]::before {
-      border-bottom-color: rgba(28, 43, 35, 0.95);
-    }
+/* --------------------------------------------------------------------------
+   2. HIERARQUIA ESTRUTURAL — SIDEBAR & HEADER
+   -------------------------------------------------------------------------- */
+[data-theme="dark"] .sidebar {
+  background: var(--surface-sidebar, #171A1C) !important;
+  border-right-color: var(--line) !important;
+}
 
-    [data-theme="dark"] .notification-badge {
-      border-color: var(--surface, #1a2821);
-    }
+[data-theme="dark"] .sidebar-header,
+[data-theme="dark"] .sidebar-footer-nav {
+  border-color: var(--line) !important;
+}
 
-    html[data-theme="dark"] .chart-type-btn.active {
-      background: var(--surface-3) !important;
-      color: #ffffff !important;
-      border-color: var(--line) !important;
-    }
+[data-theme="dark"] .sidebar-link {
+  color: var(--text-secondary, #AAB2AE) !important;
+}
+
+[data-theme="dark"] .sidebar-link:hover {
+  background: var(--surface-2) !important;
+  color: var(--text) !important;
+}
+
+[data-theme="dark"] .sidebar-link.active {
+  background: var(--brand) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(31, 122, 92, 0.4) !important;
+}
+
+[data-theme="dark"] .brand-logo {
+  background: var(--brand) !important;
+  color: #ffffff !important;
+}
+
+/* --------------------------------------------------------------------------
+   3. BARRA SUPERIOR E TOOLBAR
+   -------------------------------------------------------------------------- */
+[data-theme="dark"] .pill-toolbar {
+  background: var(--surface-sidebar, #171A1C) !important;
+  border-color: var(--line) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+}
+
+[data-theme="dark"] .toolbar-btn {
+  color: var(--text-secondary, #AAB2AE) !important;
+}
+
+[data-theme="dark"] .toolbar-btn:hover {
+  background: var(--surface-2) !important;
+  color: var(--text) !important;
+}
+
+[data-theme="dark"] .toolbar-btn.active {
+  background: var(--surface-3) !important;
+  color: var(--brand) !important;
+}
+
+[data-theme="dark"] .toolbar-divider {
+  background: var(--line) !important;
+}
+
+/* --------------------------------------------------------------------------
+   4. CARDS, SEÇÕES E TABELAS
+   -------------------------------------------------------------------------- */
+[data-theme="dark"] .card,
+[data-theme="dark"] .section-card,
+[data-theme="dark"] .asset-card,
+[data-theme="dark"] .welcome-tour-card,
+[data-theme="dark"] .release-card {
+  background: var(--surface) !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .section-head {
+  background: var(--surface-sidebar, #171A1C) !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .entry-row {
+  background: var(--surface) !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .entry-row:hover {
+  background: var(--surface-2) !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .filter-bar {
+  background: var(--surface) !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .empty {
+  border-color: var(--line) !important;
+  color: var(--muted) !important;
+}
+
+/* --------------------------------------------------------------------------
+   5. FORMULÁRIOS, INPUTS E SELECTS
+   -------------------------------------------------------------------------- */
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea,
+[data-theme="dark"] .field input,
+[data-theme="dark"] .field select,
+[data-theme="dark"] .field textarea,
+[data-theme="dark"] .filter-bar input,
+[data-theme="dark"] .filter-bar select {
+  background: var(--surface-2) !important;
+  border-color: var(--line) !important;
+  color: var(--text) !important;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: var(--muted) !important;
+}
+
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus,
+[data-theme="dark"] textarea:focus,
+[data-theme="dark"] .field input:focus,
+[data-theme="dark"] .field select:focus,
+[data-theme="dark"] .field textarea:focus {
+  border-color: var(--brand) !important;
+  outline: 2px solid rgba(31, 122, 92, 0.4) !important;
+}
+
+[data-theme="dark"] .hint {
+  background: var(--surface-2) !important;
+  border-color: var(--line) !important;
+  color: var(--muted) !important;
+}
+
+/* --------------------------------------------------------------------------
+   6. BOTÕES
+   -------------------------------------------------------------------------- */
+[data-theme="dark"] .btn,
+[data-theme="dark"] .icon-btn {
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+[data-theme="dark"] .btn:hover,
+[data-theme="dark"] .icon-btn:hover {
+  background: var(--surface-3);
+  border-color: var(--line);
+}
+
+[data-theme="dark"] .btn.primary {
+  background: var(--brand) !important;
+  border-color: var(--brand) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .btn.primary:hover {
+  background: var(--brand-strong) !important;
+  border-color: var(--brand-strong) !important;
+}
+
+[data-theme="dark"] .btn.soft {
+  background: var(--brand-soft) !important;
+  color: #34D399 !important;
+  border-color: transparent !important;
+}
+
+[data-theme="dark"] .btn.danger {
+  background: var(--danger-soft) !important;
+  color: var(--danger) !important;
+}
+
+[data-theme="dark"] .btn.warning {
+  background: var(--warning-soft) !important;
+  color: var(--warning) !important;
+}
+
+/* --------------------------------------------------------------------------
+   7. MODAIS & DIALOGS
+   -------------------------------------------------------------------------- */
+[data-theme="dark"] dialog {
+  background: var(--surface) !important;
+  border-color: var(--line) !important;
+  color: var(--text) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+[data-theme="dark"] dialog::backdrop {
+  background: rgba(0, 0, 0, 0.75) !important;
+}
+
+[data-theme="dark"] .dialog-head {
+  background: var(--surface-sidebar, #171A1C) !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .dialog-foot {
+  background: var(--surface-sidebar, #171A1C) !important;
+  border-color: var(--line) !important;
+}
+
+/* --------------------------------------------------------------------------
+   8. COMPONENTES MÓVEIS (DRAWER E BOTTOM BAR)
+   -------------------------------------------------------------------------- */
+[data-theme="dark"] .bottom-nav-bar {
+  background: var(--surface-sidebar, #171A1C) !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .bottom-nav-item {
+  color: var(--text-secondary, #AAB2AE) !important;
+}
+
+[data-theme="dark"] .bottom-nav-item.active {
+  color: var(--brand) !important;
+}
+
+[data-theme="dark"] .mobile-drawer-sheet {
+  background: var(--surface) !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="dark"] .mobile-drawer-card {
+  background: var(--surface-2) !important;
+  border-color: var(--line) !important;
+  color: var(--text) !important;
+}
+
+[data-theme="dark"] .mobile-drawer-action-item {
+  background: var(--surface-2) !important;
+  border-color: var(--line) !important;
+  color: var(--text) !important;
+}
+
+/* --------------------------------------------------------------------------
+   9. TOOLTIPS E BADGES
+   -------------------------------------------------------------------------- */
+[data-theme="dark"] #globalTooltip,
+[data-theme="dark"] .global-tooltip {
+  background: rgba(23, 26, 28, 0.96) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55) !important;
+}
+
+[data-theme="dark"] .notification-badge {
+  border-color: var(--surface-sidebar, #171A1C) !important;
+}
+
+[data-theme="dark"] .notification-badge.unread-dot {
+  background: var(--brand) !important;
+  border-color: var(--surface-sidebar, #171A1C) !important;
+}
+
+[data-theme="dark"] .chart-type-btn.active {
+  background: var(--surface-3) !important;
+  color: #ffffff !important;
+  border-color: var(--line) !important;
+}

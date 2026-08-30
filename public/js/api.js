@@ -171,40 +171,71 @@
   window.withBasePath = resolveUrl;
 })();
 
-// Global Notification Helper
-function notify(msg, type = 'info') {
-  let toast = document.getElementById('toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'toast';
-    toast.className = 'toast';
-    document.body.appendChild(toast);
+// Global Notification & Toast System (Unified OmniFin V3 Architecture)
+(function() {
+  function getOrCreateToastContainer() {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'toast-container';
+      container.className = 'toast-container';
+      document.body.appendChild(container);
+    } else if (container.parentElement !== document.body) {
+      document.body.appendChild(container);
+    }
+    return container;
   }
 
-  toast.textContent = msg;
-  toast.className = `toast ${type === 'error' ? 'error' : type === 'success' ? 'success' : ''}`;
-  toast.style.display = 'block';
+  function _escape(str) {
+    if (typeof window.escapeHtml === 'function') return window.escapeHtml(str);
+    return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+  }
 
-  clearTimeout(notify._timer);
-  notify._timer = setTimeout(() => {
-    toast.style.display = 'none';
-  }, 3500);
+  function createToast(msg, type = 'info') {
+    const container = getOrCreateToastContainer();
+    const toast = document.createElement('div');
+    const typeClass = (type === 'error' || type === 'danger') ? 'error' : (type === 'success' ? 'success' : (type === 'warning' ? 'warning' : 'info'));
+    toast.className = `toast-item toast-${typeClass}`;
+
+    let iconSvg = '';
+    if (typeClass === 'success') {
+      iconSvg = '<svg class="svg-icon" viewBox="0 0 24 24" style="width:17px; height:17px; stroke:currentColor; stroke-width:2.5; flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>';
+    } else if (typeClass === 'error') {
+      iconSvg = '<svg class="svg-icon" viewBox="0 0 24 24" style="width:17px; height:17px; stroke:currentColor; stroke-width:2.5; flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+    } else if (typeClass === 'warning') {
+      iconSvg = '<svg class="svg-icon" viewBox="0 0 24 24" style="width:17px; height:17px; stroke:currentColor; stroke-width:2.5; flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+    } else {
+      iconSvg = '<svg class="svg-icon" viewBox="0 0 24 24" style="width:17px; height:17px; stroke:currentColor; stroke-width:2.5; flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+    }
+
+    toast.innerHTML = `<span class="toast-icon">${iconSvg}</span><span class="toast-text">${_escape(msg)}</span>`;
+    container.appendChild(toast);
+
+    requestAnimationFrame(() => {
+      toast.classList.add('show');
+    });
+
+    const removeToast = () => {
+      toast.classList.remove('show');
+      toast.classList.add('hide');
+      setTimeout(() => {
+        if (toast.parentElement) toast.parentElement.removeChild(toast);
+      }, 280);
+    };
+
+    const timer = setTimeout(removeToast, 3500);
+    toast.addEventListener('click', () => {
+      clearTimeout(timer);
+      removeToast();
+    });
+
+    return toast;
+  }
+
+  window.notify = createToast;
+  window.showToast = createToast;
+})();
+
+function notify(msg, type = 'info') {
+  return window.notify(msg, type);
 }
-
-// Global Toast Notifications
-window.showToast = function(message, type = 'success') {
-  const container = document.getElementById('toast-container');
-  if (!container) return;
-
-  const toast = document.createElement('div');
-  toast.className = `toast-message toast-${type}`;
-  toast.textContent = message;
-
-  container.appendChild(toast);
-
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transition = 'opacity 0.3s ease';
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
-};

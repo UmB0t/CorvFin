@@ -251,6 +251,9 @@ function toggleExtraStatus(id) {
   }));
 
   renderSection('#listExtra', '#sumExtra', rows, extras.reduce((s, e) => s + Number(e.amount), 0));
+  if (typeof updateMarkAllButtonState === 'function') {
+    updateMarkAllButtonState('#markAllExtrasPaidBtn', rawExtras);
+  }
 };
 
     function initExtrasListeners() {

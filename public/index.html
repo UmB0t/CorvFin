@@ -115,13 +115,13 @@
       </nav>
 
       <div class="sidebar-footer-nav">
-        <button class="sidebar-link" data-tab="tab-profile" data-tooltip="Perfil & Destinos">
+        <button class="sidebar-link" data-tab="tab-profile" data-tooltip="Perfil">
           <svg class="svg-icon" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="3" />
             <path
               d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
           </svg>
-          <span class="link-text">Perfil & Destinos</span>
+          <span class="link-text">Perfil</span>
         </button>
 
         <button class="sidebar-link" data-tab="tab-admin" id="sidebarAdminLink" data-tooltip="Configurações / Usuários" style="display:none;">
@@ -152,8 +152,14 @@
             </svg>
             <span class="notification-badge" id="notifBadge" hidden>0</span>
           </button>
+          <button class="toolbar-btn" id="releaseNotesBtn" data-tooltip="Central de Atualizações & Novidades" aria-label="Central de Atualizações & Novidades">
+            <svg class="svg-icon" viewBox="0 0 24 24">
+              <path d="M12 2l2.4 7.2h7.6l-6.1 4.5 2.3 7.3-6.2-4.6-6.2 4.6 2.3-7.3-6.1-4.5h7.6z"/>
+            </svg>
+            <span class="notification-badge unread-dot" id="releaseNotesBadge" hidden></span>
+          </button>
           <div class="toolbar-divider"></div>
-                    <button class="toolbar-btn" id="infoBtn" data-tooltip="Guia e Instruções do Sistema" aria-label="Guia e Instruções do Sistema">
+          <button class="toolbar-btn" id="infoBtn" data-tooltip="Guia e Instruções do Sistema" aria-label="Guia e Instruções do Sistema">
             <svg class="svg-icon" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="16" x2="12" y2="12" />
@@ -1276,11 +1282,19 @@
       <main id="tab-simulation" class="tab-content" hidden>
         <!-- CABEÇALHO & BARRA DE AÇÕES DO SANDBOX -->
         <div id="simHeaderBar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; flex-wrap:wrap; gap:10px;">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <span class="tag" style="background:var(--brand-soft); color:var(--brand); font-weight:800; padding:6px 12px; border-radius:999px;">
-              🔒 Ambiente Sandbox Isolado
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span class="tag" style="background:var(--brand-soft); color:var(--brand); font-weight:800; padding:6px 14px; border-radius:999px; font-size:0.85rem; border:1px solid color-mix(in srgb, var(--brand) 25%, transparent);">
+              Simulações não alteram seus dados reais
             </span>
-            <span style="font-size:0.84rem; color:var(--muted);">Simulações não alteram seus dados reais</span>
+            <div style="display:flex; align-items:center; gap:4px; background:var(--surface-2); padding:3px 8px; border-radius:999px; border:1px solid var(--line);">
+              <button type="button" class="icon-btn small" id="simPrevYearBtn" data-tooltip="Ano Anterior" aria-label="Ano Anterior" style="width:26px; height:26px;">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px;"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+              <span id="simSelectedYearDisplay" style="font-size:0.85rem; font-weight:800; min-width:44px; text-align:center; color:var(--text);">2026</span>
+              <button type="button" class="icon-btn small" id="simNextYearBtn" data-tooltip="Próximo Ano" aria-label="Próximo Ano" style="width:26px; height:26px;">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px;"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            </div>
           </div>
 
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
@@ -1290,7 +1304,15 @@
                 <polyline points="23 20 23 14 17 14" />
                 <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
               </svg>
-              Resetar Simulação
+              Resetar
+            </button>
+            <button type="button" class="btn soft" id="simSaveBtn" style="border-radius:999px;">
+              <svg class="svg-icon" viewBox="0 0 24 24">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                <polyline points="17 21 17 13 7 13 7 21"/>
+                <polyline points="7 3 7 8 15 8"/>
+              </svg>
+              Salvar Simulação
             </button>
             <button type="button" class="btn primary" id="simAddBtn" style="border-radius:999px;">
               <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
@@ -1362,7 +1384,7 @@
             <div style="padding: 10px 14px 0;">
               <p class="hint" style="margin:0 0 8px;">Lançamentos vigentes cadastrados na base oficial (somente leitura).</p>
             </div>
-            <div class="entries-list" id="simRealList" style="padding:10px 14px 16px;"></div>
+            <div class="entries-list" id="simRealList" style="padding:10px 14px 16px; max-height:480px; overflow-y:auto;"></div>
           </div>
 
           <!-- Coluna Direita: Despesas Simuladas Inseridas -->
@@ -1383,9 +1405,26 @@
             <div style="padding: 10px 14px 0;">
               <p class="hint" style="margin:0 0 8px;">Gastos adicionais testados neste sandbox.</p>
             </div>
-            <div class="entries-list" id="simInjectedList" style="padding:10px 14px 16px;"></div>
+            <div class="entries-list" id="simInjectedList" style="padding:10px 14px 16px; max-height:480px; overflow-y:auto;"></div>
           </div>
         </div>
+
+        <!-- SEÇÃO: SIMULAÇÕES SALVAS (CENÁRIOS SALVOS) -->
+        <section class="card section-card full-width" id="savedSimulationsSectionCard" style="margin-top: 20px;">
+          <div class="section-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <div class="section-title">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand);">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+              </svg>
+              Simulações Salvas
+            </div>
+            <span class="badge" id="savedSimulationsCountBadge" style="background:var(--surface-2); color:var(--text); font-weight:700;">0 cenários</span>
+          </div>
+          <div style="padding: 10px 14px 0;">
+            <p class="hint" style="margin:0 0 8px;">Reabra simulações anteriores para consultar cenários salvos. Reabrir um cenário não altera seus dados reais.</p>
+          </div>
+          <div id="savedSimulationsList" style="padding:10px 14px 16px; display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px;"></div>
+        </section>
       </main>
 
       <!-- TAB 5: PERFIL, CATEGORIAS & DESTINOS -->
@@ -1475,18 +1514,18 @@
               <div style="display:flex; flex-direction:column; gap:4px; margin-top:2px;">
                 <label style="font-size:.74rem; color:var(--muted); font-weight:750;">Paleta de Cores Padrão (1-Clique)</label>
                 <div id="destColorPalette" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                  <button type="button" class="color-swatch-btn" data-color="#820AD1" style="background:#820AD1;" title="Roxo Nubank"></button>
-                  <button type="button" class="color-swatch-btn" data-color="#FF7A00" style="background:#FF7A00;" title="Laranja Inter"></button>
-                  <button type="button" class="color-swatch-btn" data-color="#1F7A5C" style="background:#1F7A5C;" title="Verde Floresta"></button>
-                  <button type="button" class="color-swatch-btn" data-color="#10B981" style="background:#10B981;" title="Verde Esmeralda"></button>
-                  <button type="button" class="color-swatch-btn" data-color="#2563EB" style="background:#2563EB;" title="Azul Cobalto"></button>
-                  <button type="button" class="color-swatch-btn" data-color="#06B6D4" style="background:#06B6D4;" title="Azul Ciano"></button>
-                  <button type="button" class="color-swatch-btn" data-color="#F59E0B" style="background:#F59E0B;" title="Amarelo Ouro"></button>
-                  <button type="button" class="color-swatch-btn" data-color="#EF4444" style="background:#EF4444;" title="Vermelho Coral"></button>
-                  <button type="button" class="color-swatch-btn" data-color="#DC2626" style="background:#DC2626;" title="Vermelho Crimson"></button>
-                  <button type="button" class="color-swatch-btn" data-color="#EC4899" style="background:#EC4899;" title="Rosa Pink"></button>
-                  <button type="button" class="color-swatch-btn" data-color="#8B5CF6" style="background:#8B5CF6;" title="Roxo Violeta"></button>
-                  <button type="button" class="color-swatch-btn" data-color="#6366F1" style="background:#6366F1;" title="Azul Índigo"></button>
+                  <button type="button" class="color-swatch-btn" data-color="#820AD1" style="background:#820AD1;" data-tooltip="Roxo Nubank" aria-label="Roxo Nubank"></button>
+                  <button type="button" class="color-swatch-btn" data-color="#FF7A00" style="background:#FF7A00;" data-tooltip="Laranja Inter" aria-label="Laranja Inter"></button>
+                  <button type="button" class="color-swatch-btn" data-color="#1F7A5C" style="background:#1F7A5C;" data-tooltip="Verde Floresta" aria-label="Verde Floresta"></button>
+                  <button type="button" class="color-swatch-btn" data-color="#10B981" style="background:#10B981;" data-tooltip="Verde Esmeralda" aria-label="Verde Esmeralda"></button>
+                  <button type="button" class="color-swatch-btn" data-color="#2563EB" style="background:#2563EB;" data-tooltip="Azul Cobalto" aria-label="Azul Cobalto"></button>
+                  <button type="button" class="color-swatch-btn" data-color="#06B6D4" style="background:#06B6D4;" data-tooltip="Azul Ciano" aria-label="Azul Ciano"></button>
+                  <button type="button" class="color-swatch-btn" data-color="#F59E0B" style="background:#F59E0B;" data-tooltip="Amarelo Ouro" aria-label="Amarelo Ouro"></button>
+                  <button type="button" class="color-swatch-btn" data-color="#EF4444" style="background:#EF4444;" data-tooltip="Vermelho Coral" aria-label="Vermelho Coral"></button>
+                  <button type="button" class="color-swatch-btn" data-color="#DC2626" style="background:#DC2626;" data-tooltip="Vermelho Crimson" aria-label="Vermelho Crimson"></button>
+                  <button type="button" class="color-swatch-btn" data-color="#EC4899" style="background:#EC4899;" data-tooltip="Rosa Pink" aria-label="Rosa Pink"></button>
+                  <button type="button" class="color-swatch-btn" data-color="#8B5CF6" style="background:#8B5CF6;" data-tooltip="Roxo Violeta" aria-label="Roxo Violeta"></button>
+                  <button type="button" class="color-swatch-btn" data-color="#6366F1" style="background:#6366F1;" data-tooltip="Azul Índigo" aria-label="Azul Índigo"></button>
                 </div>
               </div>
 
@@ -1510,9 +1549,26 @@
                 uma.</p>
 
               <input type="hidden" id="editingCategoryOriginalName">
-              <div id="profileCatFormGrid" style="display: flex; gap: 8px; flex-wrap:wrap;">
+              <div id="profileCatFormGrid" style="display: flex; gap: 8px; flex-wrap:wrap; align-items:center;">
                 <input id="newCategoryInput" placeholder="Ex: Alimentação / Lazer"
                   style="flex: 2; min-width:180px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 11px;">
+                <select id="newCategoryIcon"
+                  style="flex: 1; min-width:140px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 11px; background:var(--surface); color:var(--text); font-weight:700;">
+                  <option value="tag">Etiqueta / Tag</option>
+                  <option value="home">Casa / Moradia</option>
+                  <option value="car">Carro / Transporte</option>
+                  <option value="wallet">Carteira</option>
+                  <option value="banknote">Dinheiro / Cédula</option>
+                  <option value="health">Saúde / Médico</option>
+                  <option value="utensils">Alimentação / Restaurante</option>
+                  <option value="shopping">Compras / Carrinho</option>
+                  <option value="book">Livro / Educação</option>
+                  <option value="briefcase">Trabalho / Negócios</option>
+                  <option value="chart">Gráfico / Investimento</option>
+                  <option value="receipt">Recibo / Assinatura</option>
+                  <option value="star">Estrela / Lazer</option>
+                  <option value="card">Cartão</option>
+                </select>
                 <input id="newCategoryBudgetInput" type="number" step="50" min="0"
                   placeholder="Teto Mensal R$ (opcional)"
                   style="flex: 1; min-width:140px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 11px;">
@@ -1857,7 +1913,8 @@
       <!-- Welcome Header Banner -->
       <div class="hint" style="background:var(--brand-soft); color:var(--brand-strong); border:1px solid color-mix(in srgb, var(--brand) 30%, transparent); padding:14px 16px; border-radius:14px;">
         <h4 style="margin:0 0 4px; font-size:.95rem; font-weight:800; display:flex; align-items:center; gap:8px;">
-          <span>✨ Gestão Financeira Pessoal de Alta Performance</span>
+          <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:18px; height:18px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span>Gestão Financeira Pessoal de Alta Performance</span>
         </h4>
         <p style="margin:0; font-size:.83rem; line-height:1.45;">
           O <strong>OmniFin</strong> é uma plataforma moderna para controle de orçamento, despesas fixas e parceladas, gestão de recebíveis de terceiros, benefícios corporativos com saldo autônomo, investimentos com simulador de juros compostos e backup permanente em arquivo local.
@@ -1958,7 +2015,7 @@
           </div>
           <ul style="margin:0; padding-left:18px; font-size:.82rem; color:var(--muted); line-height:1.5; display:grid; gap:4px;">
             <li><strong>Saldo Autônomo:</strong> Gerencie cartões de Vale Alimentação (VA) e Vale Refeição (VR) de forma 100% isolada da sua conta corrente bancária.</li>
-            <li><strong>Crédito Mensal Base:</strong> Configure o valor mensal do benefício na aba <em>"Perfil & Destinos"</em>.</li>
+            <li><strong>Crédito Mensal Base:</strong> Configure o valor mensal do benefício na aba <em>"Perfil"</em>.</li>
             <li><strong>Métricas de Consumo:</strong> Acompanhe o saldo restante em tempo real, percentual consumido com alertas de estouro e filtros por estabelecimento.</li>
           </ul>
         </div>
@@ -2005,17 +2062,21 @@
           Dicas e Atalhos Rápidos de Produtividade
         </h4>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:10px; font-size:.8rem; color:var(--text);">
-          <div style="background:var(--surface); padding:8px 12px; border-radius:10px; border:1px solid var(--line);">
-            <strong>🗓️ Vencimento Rápido:</strong> Clique nos botões <code>5</code>, <code>10</code>, <code>15</code>, <code>20</code>, <code>25</code> nos formulários para preencher o dia com 1 clique.
+          <div style="background:var(--surface); padding:8px 12px; border-radius:10px; border:1px solid var(--line); display:flex; align-items:center; gap:6px;">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="width:15px; height:15px; stroke:var(--brand); flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span><strong>Vencimento Rápido:</strong> Botões <code>5</code>, <code>10</code>, <code>15</code>, <code>20</code>, <code>25</code> para preencher o dia com 1 clique.</span>
           </div>
-          <div style="background:var(--surface); padding:8px 12px; border-radius:10px; border:1px solid var(--line);">
-            <strong>⚡ Quitação Rápida:</strong> Clique diretamente no ícone circular de status do card para alternar entre Pendente e Pago.
+          <div style="background:var(--surface); padding:8px 12px; border-radius:10px; border:1px solid var(--line); display:flex; align-items:center; gap:6px;">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="width:15px; height:15px; stroke:var(--success, #10b981); flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>
+            <span><strong>Quitação Rápida:</strong> Clique no ícone circular de status do card para alternar entre Pendente e Pago.</span>
           </div>
-          <div style="background:var(--surface); padding:8px 12px; border-radius:10px; border:1px solid var(--line);">
-            <strong>🏷️ Destinos & Tetos:</strong> No Perfil, clique nas tags com ícone de lápis para editar cores, ícones e tetos de gastos de cada categoria.
+          <div style="background:var(--surface); padding:8px 12px; border-radius:10px; border:1px solid var(--line); display:flex; align-items:center; gap:6px;">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="width:15px; height:15px; stroke:var(--info, #3b82f6); flex-shrink:0;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            <span><strong>Destinos & Tetos:</strong> No Perfil, clique nas tags para editar cores, ícones e limites de gastos.</span>
           </div>
-          <div style="background:var(--surface); padding:8px 12px; border-radius:10px; border:1px solid var(--line);">
-            <strong>🌓 Tema Dark/Light:</strong> Clique no ícone de lua/sol no topo para alternar entre o modo escuro e claro a qualquer momento.
+          <div style="background:var(--surface); padding:8px 12px; border-radius:10px; border:1px solid var(--line); display:flex; align-items:center; gap:6px;">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="width:15px; height:15px; stroke:var(--warning, #f59e0b); flex-shrink:0;"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+            <span><strong>Tema Dark/Light:</strong> Alterne entre modo claro e escuro a qualquer momento no topo.</span>
           </div>
         </div>
       </div>
@@ -2957,6 +3018,44 @@
     </form>
   </dialog>
 
+  <!-- DIALOG: SALVAR SIMULAÇÃO / CENÁRIO -->
+  <dialog id="saveSimulationDialog" style="max-width: 500px; width: 95%;">
+    <div class="dialog-head">
+      <div>
+        <h3 style="margin:0; font-size:1.05rem; font-weight:800; display:flex; align-items:center; gap:8px;">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand);">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+            <polyline points="17 21 17 13 7 13 7 21"/>
+            <polyline points="7 3 7 8 15 8"/>
+          </svg>
+          Salvar Simulação
+        </h3>
+        <p style="margin:2px 0 0; color:var(--muted); font-size:.82rem; font-weight:600;">Grave este cenário hipotético para consultar ou reabrir mais tarde.</p>
+      </div>
+      <button type="button" class="icon-btn small" data-close="saveSimulationDialog">
+        <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="saveSimForm">
+      <div class="dialog-body" style="padding: 18px 20px; display: grid; gap: 14px;">
+        <div class="field">
+          <label>Título do Cenário *</label>
+          <input type="text" id="saveSimTitle" placeholder="Ex: Viagem 2027, Compra do Carro, Cenário com aumento" required autofocus>
+        </div>
+        <div class="field">
+          <label>Descrição (Opcional)</label>
+          <textarea id="saveSimDesc" rows="2" placeholder="Observações e premissas deste cenário"></textarea>
+        </div>
+        <div class="hint" id="saveSimSummaryHint" style="background:var(--surface-2); padding:10px 14px; border-radius:10px; font-size:0.82rem; line-height:1.4;">
+          O snapshot salvará o ano da simulação, toggles de renda e todos os gastos simulados atuais sem afetar sua base real.
+        </div>
+      </div>
+      <div class="dialog-foot">
+        <button type="button" class="btn soft" data-close="saveSimulationDialog" style="margin-left:auto;">Cancelar</button>
+        <button type="submit" class="btn primary" style="font-weight:800;">Salvar Cenário</button>
+      </div>
+    </form>
+  </dialog>
   
   <!-- MODAL DE CONCLUSÃO DE LISTA DE COMPRAS COM LANÇAMENTO FINANCEIRO -->
   <dialog id="shoppingCompleteDialog" style="max-width: 620px; width: 95%; max-height: 90vh; border-radius: 16px;">
@@ -3138,7 +3237,37 @@
     </form>
   </dialog>
 
-  <div id="toast" class="toast" hidden></div>
+  <!-- MODAL: CENTRAL DE RELEASE NOTES / ATUALIZAÇÕES -->
+  <dialog id="releaseNotesDialog" style="max-width: 680px; width: 95%; border-radius:18px; padding:0; border:1px solid var(--line); box-shadow:0 10px 40px rgba(0,0,0,0.25); background:var(--surface);">
+    <div class="dialog-head" style="padding:16px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; background:var(--surface);">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:36px; height:36px; border-radius:10px; background:var(--brand-soft); color:var(--brand); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="width:20px; height:20px; stroke:var(--brand);">
+            <path d="M12 2l2.4 7.2h7.6l-6.1 4.5 2.3 7.3-6.2-4.6-6.2 4.6 2.3-7.3-6.1-4.5h7.6z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 style="margin:0; font-size:1.12rem; font-weight:850; color:var(--text);">Atualizações do OmniFin</h3>
+          <p style="margin:2px 0 0; color:var(--muted); font-size:.80rem; font-weight:600;">Histórico de versões, novas funcionalidades e melhorias contínuas.</p>
+        </div>
+      </div>
+      <button type="button" class="icon-btn small" id="closeReleaseNotesBtn" data-close="releaseNotesDialog" aria-label="Fechar Central de Atualizações">
+        <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="dialog-body" style="padding:18px 20px; max-height:calc(85vh - 130px); overflow-y:auto;">
+      <div id="releaseNotesList"></div>
+    </div>
+
+    <div class="dialog-foot" style="padding:12px 20px; border-top:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; background:var(--surface-2);">
+      <span style="font-size:0.78rem; color:var(--muted); font-weight:700;">OmniFin V3 • Sempre Atualizado</span>
+      <button type="button" class="btn soft" data-close="releaseNotesDialog" style="border-radius:10px; font-weight:750;">Fechar</button>
+    </div>
+  </dialog>
 
   <script src="config.js"></script>
   <script src="js/api.js"></script>
@@ -3152,6 +3281,7 @@
   <script src="js/core/uiShell.js"></script>
   <script src="js/core/dragDrop.js"></script>
   <script src="js/core/authSync.js"></script>
+  <script src="js/core/releaseNotes.js"></script>
   <script src="js/modules/benefits.js"></script>
     <script src="js/modules/shopping.js"></script>
   <script src="js/modules/extras.js"></script>
@@ -3200,7 +3330,6 @@
       window.saveLocalState = saveLocalState;
       window.saveState = saveState;
       window.render = render;
-      window.notify = notify;
 
       window.selectMonth = function selectMonth(m) {
         state.month = m;
@@ -3220,6 +3349,10 @@
         }
       }
 
+      let saveQueue = Promise.resolve();
+      let isRevalidatingConflict = false;
+      let lastConflictToastTime = 0;
+
       async function saveState(reason = 'unspecified') {
         saveLocalState();
 
@@ -3230,10 +3363,20 @@
         }
 
         // Filtro de ações puramente visuais que não devem emitir PUT financeiro
-        const visualOnly = ['theme-toggle', 'sidebar-toggle', 'tab-switch', 'chart-toggle', 'subview-toggle', 'invest-sim-toggle'];
+        const visualOnly = ['theme-toggle', 'sidebar-toggle', 'tab-switch', 'chart-toggle', 'subview-toggle', 'invest-sim-toggle', 'filter-change', 'month-select'];
         if (visualOnly.includes(reason)) {
           return true;
         }
+
+        // Serializa chamadas assíncronas ao servidor para garantir que apenas 1 PUT esteja em voo por vez
+        // e que state.revision esteja sempre atualizado antes de enviar o próximo payload.
+        const saveTask = saveQueue.then(() => _executeSaveRemote(reason));
+        saveQueue = saveTask.catch(() => {});
+        return saveTask;
+      }
+
+      async function _executeSaveRemote(reason) {
+        if (!stateHydrated) return false;
 
         const payload = Object.assign({}, state, {
           expectedRevision: Number(state.revision || 0)
@@ -3263,7 +3406,7 @@
             response = await res.json();
           }
 
-          if (response && response.conflict) {
+          if (response && (response.conflict || response.code === 'CONCURRENCY_CONFLICT')) {
             await handleConcurrencyConflict(response);
             return false;
           }
@@ -3285,62 +3428,36 @@
           }
           console.warn('Erro ao salvar no servidor:', err);
         }
+        return false;
       }
 
       async function handleConcurrencyConflict(conflictData) {
-        notify('⚠️ Dados atualizados em outro dispositivo. Sincronizando versão mais recente...', 'warning');
-        if (typeof window.revalidateStateFromServer === 'function') {
-          await window.revalidateStateFromServer();
+        const now = Date.now();
+        // Supressão de flood de avisos idênticos em sequência (< 3s)
+        if (now - lastConflictToastTime > 3000) {
+          lastConflictToastTime = now;
+          notify('⚠️ Dados atualizados em outro dispositivo. Sincronizando versão mais recente...', 'warning');
+        }
+
+        if (isRevalidatingConflict) {
+          return;
+        }
+
+        isRevalidatingConflict = true;
+        try {
+          if (typeof window.revalidateStateFromServer === 'function') {
+            await window.revalidateStateFromServer();
+          }
+        } finally {
+          isRevalidatingConflict = false;
         }
       }
       window.handleConcurrencyConflict = handleConcurrencyConflict;
 
       function notify(msg, type = 'info') {
-        const el = $('#toast');
-        if (!el) return;
-
-        // Top Layer fix: move toast inside active open modal if present so it renders in the top layer
-        const openDialog = document.querySelector('dialog[open]');
-        try {
-          if (openDialog && el.parentElement !== openDialog) {
-            openDialog.appendChild(el);
-          } else if (!openDialog && el.parentElement !== document.body) {
-            document.body.appendChild(el);
-          }
-        } catch (_) { }
-
-        let iconSvg = '';
-        if (type === 'error') {
-          iconSvg = '<svg class="svg-icon" viewBox="0 0 24 24" style="width:18px;height:18px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2.5;"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-        } else if (type === 'warning') {
-          iconSvg = '<svg class="svg-icon" viewBox="0 0 24 24" style="width:18px;height:18px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2.5;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
-        } else if (type === 'success') {
-          iconSvg = '<svg class="svg-icon" viewBox="0 0 24 24" style="width:18px;height:18px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2.5;"><polyline points="20 6 9 17 4 12"/></svg>';
-        } else {
-          iconSvg = '<svg class="svg-icon" viewBox="0 0 24 24" style="width:18px;height:18px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:2.5;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+        if (typeof window.notify === 'function' && window.notify !== notify) {
+          return window.notify(msg, type);
         }
-
-        el.className = `toast ${type}`;
-        el.innerHTML = `${iconSvg}<span>${escapeHtml(msg)}</span>`;
-        el.hidden = false;
-
-        requestAnimationFrame(() => {
-          el.classList.add('show');
-        });
-
-        clearTimeout(notify._t);
-        clearTimeout(notify._hideT);
-        notify._t = setTimeout(() => {
-          el.classList.remove('show');
-          notify._hideT = setTimeout(() => {
-            if (!el.classList.contains('show')) {
-              el.hidden = true;
-              if (el.parentElement && el.parentElement !== document.body) {
-                try { document.body.appendChild(el); } catch (_) { }
-              }
-            }
-          }, 260);
-        }, 3400);
       }
 
                   const ALL_APP_TABS = [
@@ -3452,6 +3569,8 @@
           if (typeof renderShoppingTab === 'function') renderShoppingTab();
         } else if (tabId === 'tab-simulation') {
           if (typeof renderSimulationTab === 'function') renderSimulationTab();
+        } else if (tabId === 'tab-profile') {
+          if (typeof renderProfile === 'function') renderProfile();
         } else if (tabId === 'tab-admin') {
           if (window.AdminModule && window.AdminModule.render) {
             window.AdminModule.render();
@@ -3479,7 +3598,9 @@
         updateDestinationSelects();
         updateCategorySelects();
         updateCategoryTagsList();
+        if (typeof renderProfile === 'function') renderProfile();
         updateNotificationBell();
+        if (typeof updateReleaseNotesBadge === 'function') updateReleaseNotesBadge();
 
         const isSimp = !!state.simplifiedView;
         const btnView = $('#viewModeToggleBtn');
@@ -3540,6 +3661,9 @@
         }
         if (window.initExpenseInstallmentsModule) {
           try { window.initExpenseInstallmentsModule(); } catch (e) { console.error('initExpenseInstallmentsModule error:', e); }
+        }
+        if (window.initReleaseNotesModule) {
+          try { window.initReleaseNotesModule(); } catch (e) { console.error('initReleaseNotesModule error:', e); }
         }
         try { initGlobalDropZones(); } catch (e) { console.error('initGlobalDropZones error:', e); }
         try { render(); } catch (e) { console.error('render error:', e); }
@@ -3674,6 +3798,14 @@
         <button type="button" class="mobile-drawer-action-item" id="drawerThemeBtn">
           <svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
           <span>Alternar Modo Noturno / Claro</span>
+        </button>
+
+        <button type="button" class="mobile-drawer-action-item" id="drawerReleaseNotesBtn">
+          <svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 2l2.4 7.2h7.6l-6.1 4.5 2.3 7.3-6.2-4.6-6.2 4.6 2.3-7.3-6.1-4.5h7.6z"/></svg>
+          <span style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+            <span>Atualizações / Novidades</span>
+            <span class="notification-badge unread-dot" id="drawerReleaseNotesBadge" hidden style="margin-left:auto;"></span>
+          </span>
         </button>
 
         <button type="button" class="mobile-drawer-action-item" id="drawerReportBtn">

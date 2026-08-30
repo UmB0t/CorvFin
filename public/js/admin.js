@@ -380,11 +380,11 @@ const AdminModule = (() => {
               </div>
             </td>
             <td style="padding:14px 16px; text-align:right; white-space:nowrap;">
-              <button type="button" class="btn soft small" data-edit-user="${u.id}" style="margin-right:4px; display:inline-flex; align-items:center; gap:4px;" title="Editar Usuário">
+              <button type="button" class="btn soft small" data-edit-user="${u.id}" style="margin-right:4px; display:inline-flex; align-items:center; gap:4px;" data-tooltip="Editar Usuário" aria-label="Editar Usuário">
                 <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                 Editar
               </button>
-              <button type="button" class="btn danger small" data-del-user="${u.id}" ${isSelf ? 'disabled style="opacity:0.3;"' : ''} title="${isSelf ? 'Você não pode excluir sua própria conta' : 'Excluir Usuário'}" style="display:inline-flex; align-items:center; justify-content:center;">
+              <button type="button" class="btn danger small" data-del-user="${u.id}" ${isSelf ? 'disabled style="opacity:0.3;"' : ''} data-tooltip="${isSelf ? 'Você não pode excluir sua própria conta' : 'Excluir Usuário'}" aria-label="${isSelf ? 'Você não pode excluir sua própria conta' : 'Excluir Usuário'}" style="display:inline-flex; align-items:center; justify-content:center;">
                 <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px; stroke-width:2.2;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
               </button>
             </td>

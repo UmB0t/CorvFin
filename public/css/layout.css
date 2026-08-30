@@ -257,7 +257,6 @@
       stroke-width: 2;
     }
 
-    /* Tooltips na top bar e header aparecem abaixo */
     .top-actions-bar {
       position: relative;
       z-index: 20;
@@ -268,84 +267,6 @@
       position: relative;
       z-index: 20;
       overflow: visible;
-    }
-
-    .top-actions-bar [data-tooltip]::after {
-      bottom: auto;
-      top: calc(100% + 8px);
-      transform: translateX(-50%) translateY(-4px);
-    }
-
-    .top-actions-bar [data-tooltip]::before {
-      bottom: auto;
-      top: calc(100% + 2px);
-      border-top-color: transparent;
-      border-bottom-color: rgba(18, 30, 23, 0.95);
-      transform: translateX(-50%) translateY(-4px);
-    }
-
-    .top-actions-bar [data-tooltip]:hover::after,
-    .top-actions-bar [data-tooltip]:hover::before {
-      transform: translateX(-50%) translateY(2px);
-    }
-
-    /* Ajuste para botões próximos à borda direita */
-    #btnLogout[data-tooltip]::after,
-    #backupBtn[data-tooltip]::after,
-    #csvBtn[data-tooltip]::after,
-    [data-tooltip-align="right"]::after {
-      left: auto !important;
-      right: 0 !important;
-      transform: translateY(-4px) !important;
-    }
-
-    #btnLogout[data-tooltip]::before,
-    #backupBtn[data-tooltip]::before,
-    #csvBtn[data-tooltip]::before,
-    [data-tooltip-align="right"]::before {
-      left: auto !important;
-      right: 12px !important;
-      transform: translateY(-4px) !important;
-    }
-
-    #btnLogout[data-tooltip]:hover::after,
-    #backupBtn[data-tooltip]:hover::after,
-    #csvBtn[data-tooltip]:hover::after,
-    [data-tooltip-align="right"]:hover::after {
-      transform: translateY(2px) !important;
-    }
-
-    #btnLogout[data-tooltip]:hover::before,
-    #backupBtn[data-tooltip]:hover::before,
-    #csvBtn[data-tooltip]:hover::before,
-    [data-tooltip-align="right"]:hover::before {
-      transform: translateY(2px) !important;
-    }
-
-    /* Tooltips para Sidebar Colapsada (abrem para a direita) */
-    .sidebar.collapsed [data-tooltip]::after {
-      bottom: auto !important;
-      left: calc(100% + 12px) !important;
-      top: 50% !important;
-      transform: translateY(-50%) translateX(-4px) !important;
-      right: auto !important;
-    }
-
-    .sidebar.collapsed [data-tooltip]::before {
-      bottom: auto !important;
-      left: calc(100% + 2px) !important;
-      top: 50% !important;
-      border-top-color: transparent !important;
-      border-bottom-color: transparent !important;
-      border-right-color: rgba(18, 30, 23, 0.95) !important;
-      border-left-color: transparent !important;
-      transform: translateY(-50%) translateX(-4px) !important;
-      right: auto !important;
-    }
-
-    .sidebar.collapsed [data-tooltip]:hover::after,
-    .sidebar.collapsed [data-tooltip]:hover::before {
-      transform: translateY(-50%) translateX(2px) !important;
     }
 
 

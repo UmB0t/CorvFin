@@ -411,6 +411,13 @@ async function getUserFinances(userId, userName, userSalary = 0) {
   if (financesData.revision === undefined) {
     financesData.revision = 0;
   }
+  if (userName && userName !== 'Usuário') {
+    if (!financesData.profile) {
+      financesData.profile = { name: userName, baseSalary: Number(userSalary) || 0 };
+    } else if (!financesData.profile.name || financesData.profile.name === 'Usuário') {
+      financesData.profile.name = userName;
+    }
+  }
   return financesData;
 }
 

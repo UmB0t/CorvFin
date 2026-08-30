@@ -14,6 +14,21 @@
     });
   };
 
+  window.normalizeCategories = function normalizeCategories(cats) {
+    if (!Array.isArray(cats) || cats.length === 0) {
+      return (typeof DEFAULT_CATEGORIES !== 'undefined') ? DEFAULT_CATEGORIES.map(c => ({ name: c.name || c, icon: c.icon || 'tag' })) : [];
+    }
+    const defaultIconsMap = (typeof DEFAULT_CATEGORY_ICONS_MAP !== 'undefined') ? DEFAULT_CATEGORY_ICONS_MAP : {};
+    return cats.map(c => {
+      if (typeof c === 'string') {
+        return { name: c, icon: defaultIconsMap[c] || 'tag' };
+      }
+      const name = c.name || 'Gerais';
+      const icon = c.icon || defaultIconsMap[name] || 'tag';
+      return { name, icon };
+    });
+  };
+
   window.initialState = function initialState() {
     const t = todayYM();
     const localPrefs = (typeof window.loadLocalPreferences === 'function') ? window.loadLocalPreferences() : {};
@@ -33,8 +48,8 @@
       year: t.year || new Date().getFullYear(),
       month: t.month || (new Date().getMonth() + 1),
       profile: { name: 'Usuário', baseSalary: 0 },
-      destinations: [...DEFAULT_DESTINATIONS],
-      categories: [...DEFAULT_CATEGORIES],
+      destinations: normalizeDestinations(DEFAULT_DESTINATIONS),
+      categories: normalizeCategories(DEFAULT_CATEGORIES),
       budgets: {},
       collapsedSections: Object.assign({
         insights: true,
@@ -48,6 +63,7 @@
         investCharts: true
       }, localPrefs.collapsedSections || {}),
       readNotifications: [],
+      readReleases: [],
       incomes: {},
       fixed: [],
       variable: [],
@@ -58,26 +74,30 @@
       debtors: [],
       assets: [],
       aportes: [],
-      shoppingLists: []
+      shoppingLists: [],
+      savedSimulations: []
     };
   };
 
   window.migrateState = function migrateState(parsed) {
+    if (!parsed || typeof parsed !== 'object') return initialState();
     const s = initialState();
     const localPrefs = (typeof window.loadLocalPreferences === 'function') ? window.loadLocalPreferences() : {};
-    s.sidebarCollapsed = localPrefs.sidebarCollapsed !== undefined ? localPrefs.sidebarCollapsed : false;
-    s.simplifiedView = parsed.simplifiedView || false;
+
+    s.version = 5;
+    s.firstLogin = false;
+    s.theme = localPrefs.theme || localStorage.getItem('fp_theme') || parsed.theme || 'light';
+    s.sidebarCollapsed = localPrefs.sidebarCollapsed !== undefined ? localPrefs.sidebarCollapsed : (parsed.sidebarCollapsed || false);
+    s.simplifiedView = !!parsed.simplifiedView;
     s.chartViewType = localPrefs.chartViewType || parsed.chartViewType || 'bar';
     s.destChartViewType = localPrefs.destChartViewType || parsed.destChartViewType || 'bar';
     s.debtorPersonChartType = localPrefs.debtorPersonChartType || parsed.debtorPersonChartType || 'bar';
     s.debtorDestChartType = localPrefs.debtorDestChartType || parsed.debtorDestChartType || 'bar';
     s.expensesSubView = parsed.expensesSubView || 'monthly';
     s.debtorsSubView = parsed.debtorsSubView || 'monthly';
-    s.theme = localPrefs.theme || localStorage.getItem('fp_theme') || parsed.theme || 'light';
-    s.year = parsed.year || s.year;
-    s.month = parsed.month || s.month;
-    s.incomes = parsed.incomes || {};
-    s.categories = parsed.categories && parsed.categories.length ? parsed.categories : [...DEFAULT_CATEGORIES];
+    s.year = Number(parsed.year) || s.year;
+    s.month = Number(parsed.month) || s.month;
+    s.categories = normalizeCategories(parsed.categories);
     s.budgets = Object.assign({}, DEFAULT_BUDGETS, parsed.budgets || {});
 
     // Dashboards default to COLLAPSED (true) unless explicitly configured in local preferences
@@ -133,8 +153,19 @@
       })
     }));
     s.revision = typeof parsed.revision === 'number' ? parsed.revision : 0;
-    s.profile = (parsed.profile && parsed.profile.name && parsed.profile.name !== 'Usuário') ? parsed.profile : (parsed.profile || s.profile);
+    const loggedUser = (typeof window !== 'undefined' && window.API && typeof API.getUser === 'function') ? API.getUser() : null;
+    const fallbackName = loggedUser?.nome || 'Usuário';
+    if (parsed.profile) {
+      s.profile = {
+        name: (parsed.profile.name && parsed.profile.name !== 'Usuário') ? parsed.profile.name : fallbackName,
+        baseSalary: parsed.profile.baseSalary != null ? Number(parsed.profile.baseSalary) : 0
+      };
+    } else {
+      s.profile = { name: fallbackName, baseSalary: 0 };
+    }
     s.destinations = normalizeDestinations(parsed.destinations);
+    s.savedSimulations = Array.isArray(parsed.savedSimulations) ? parsed.savedSimulations : [];
+    s.readReleases = Array.isArray(parsed.readReleases) ? parsed.readReleases : [];
     return s;
   };
 

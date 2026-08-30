@@ -920,11 +920,14 @@ dialog::backdrop {
 /* TOAST NOTIFICATIONS */
 #toast-container {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  top: auto;
+  bottom: 28px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
   z-index: 99999;
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   gap: 10px;
   pointer-events: none;
 }

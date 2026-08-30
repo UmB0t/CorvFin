@@ -565,9 +565,10 @@
     const splitDestSelect = $('#shoppingCompleteSplitDestination');
 
     const appCategories = (state.categories && state.categories.length > 0) ? state.categories : CATEGORIES;
-    const defaultCat = metrics.topCategory || (appCategories.includes('Alimentação') ? 'Alimentação' : appCategories[0] || 'Extras');
+    const catNames = appCategories.map(c => (typeof getCategoryName === 'function' ? getCategoryName(c) : (typeof c === 'string' ? c : (c.name || 'Gerais'))));
+    const defaultCat = metrics.topCategory || (catNames.includes('Alimentação') ? 'Alimentação' : catNames[0] || 'Extras');
 
-    const categoriesHtml = appCategories.map(c => {
+    const categoriesHtml = catNames.map(c => {
       const sel = c === defaultCat ? 'selected' : '';
       return `<option value="${escapeHtml(c)}" ${sel}>${escapeHtml(c)}</option>`;
     }).join('');
@@ -1021,11 +1022,11 @@
               </button>
               <div style="display:flex; gap:6px;">
                 ${!isCompleted ? `
-                  <button type="button" class="icon-btn small" data-edit-list-name="${l.id}" title="Renomear Lista">
+                  <button type="button" class="icon-btn small" data-edit-list-name="${l.id}" data-tooltip="Renomear Lista" aria-label="Renomear Lista">
                     <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                   </button>
                 ` : ''}
-                <button type="button" class="icon-btn small" data-del-list="${l.id}" title="Excluir Lista" style="color:var(--danger);">
+                <button type="button" class="icon-btn small" data-del-list="${l.id}" data-tooltip="Excluir Lista" aria-label="Excluir Lista" style="color:var(--danger);">
                   <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                 </button>
               </div>
@@ -1152,7 +1153,7 @@
               <h2 style="margin:0; font-size:1.35rem; font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px;">
                 ${escapeHtml(list.name)}
                 ${!isCompleted ? `
-                  <button type="button" class="icon-btn small" id="btnEditCurrentListName" title="Renomear Lista" style="display:inline-flex;">
+                  <button type="button" class="icon-btn small" id="btnEditCurrentListName" data-tooltip="Renomear Lista" aria-label="Renomear Lista" style="display:inline-flex;">
                     <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                   </button>
                 ` : ''}
@@ -1436,7 +1437,7 @@
                       ${isChecked ? '✓' : ''}
                     </button>
                     <div style="min-width:0;">
-                      <div style="font-weight:750; font-size:0.92rem; color:var(--text); ${isChecked ? 'text-decoration:line-through; color:var(--muted);' : ''} ${!isCompleted ? 'cursor:pointer;' : ''}" ${!isCompleted ? `data-edit-item="${item.id}" title="Clique para renomear"` : ''}>
+                      <div style="font-weight:750; font-size:0.92rem; color:var(--text); ${isChecked ? 'text-decoration:line-through; color:var(--muted);' : ''} ${!isCompleted ? 'cursor:pointer;' : ''}" ${!isCompleted ? `data-edit-item="${item.id}" data-tooltip="Clique para renomear" aria-label="Clique para renomear"` : ''}>
                         ${escapeHtml(item.name)}
                       </div>
                       <div style="font-size:0.8rem; margin-top:2px;">
@@ -1455,7 +1456,7 @@
                         <span class="badge" style="background:rgba(31, 122, 92, 0.15); color:var(--brand); font-weight:800; font-size:0.78rem; padding:4px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
                           ✓ Comprado
                         </span>
-                        <button type="button" class="btn soft small" data-uncheck-item="${item.id}" title="Desfazer e voltar para pendente" style="border-radius:6px; font-size:0.72rem; padding:3px 6px;">
+                        <button type="button" class="btn soft small" data-uncheck-item="${item.id}" data-tooltip="Desfazer e voltar para pendente" aria-label="Desfazer e voltar para pendente" style="border-radius:6px; font-size:0.72rem; padding:3px 6px;">
                           Desfazer
                         </button>
                       `
@@ -1471,7 +1472,7 @@
                       `
                     )}
                     ${!isCompleted ? `
-                      <button type="button" class="icon-btn small" data-del-item="${item.id}" title="Excluir Item" style="color:var(--danger);">
+                      <button type="button" class="icon-btn small" data-del-item="${item.id}" data-tooltip="Excluir Item" aria-label="Excluir Item" style="color:var(--danger);">
                         <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                       </button>
                     ` : ''}

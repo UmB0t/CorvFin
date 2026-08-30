@@ -304,7 +304,7 @@ function renderInvestmentsTab() {
           card.innerHTML = `
         <div class="asset-head">
           <div style="display:flex; align-items:center; gap:8px;">
-            <span class="drag-handle" title="Arraste para reordenar este investimento">
+            <span class="drag-handle" data-tooltip="Arraste para reordenar este investimento" aria-label="Arraste para reordenar este investimento">
               <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px;"><circle cx="9" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
             </span>
             <div>
@@ -316,7 +316,7 @@ function renderInvestmentsTab() {
             </div>
           </div>
           <div class="entry-actions">
-            <button type="button" class="icon-btn small edit-asset-btn" title="Editar Investimento">${ICONS.edit}</button>
+            <button type="button" class="icon-btn small edit-asset-btn" data-tooltip="Editar Investimento" aria-label="Editar Investimento">${ICONS.edit}</button>
           </div>
         </div>
         <div>
