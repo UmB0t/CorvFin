@@ -336,6 +336,7 @@ app.get('/api/admin/users', authMiddleware, adminOnlyMiddleware, async (req, res
         is_admin: !!safe.is_admin,
         notificacoes_ativas: !!safe.notificacoes_ativas,
         permissions: permissions[u.id] || {
+          dashboard: true,
           despesas: true,
           extras: true,
           devedores: true,
@@ -609,6 +610,7 @@ const saveDefaultPermissionsHandler = async (req, res) => {
     }
 
     const permsToSave = {
+      dashboard: permissions.dashboard !== false,
       despesas: permissions.despesas !== false,
       extras: permissions.extras !== false,
       devedores: permissions.devedores !== false,
@@ -666,7 +668,7 @@ app.put('/api/admin/maintenance', authMiddleware, adminOnlyMiddleware, async (re
       });
     }
 
-    const ALLOWED_MODULES = ['despesas', 'extras', 'devedores', 'investimentos', 'beneficios', 'compras', 'simulacao'];
+    const ALLOWED_MODULES = ['dashboard', 'despesas', 'extras', 'devedores', 'investimentos', 'beneficios', 'compras', 'simulacao'];
     const submittedKeys = Object.keys(rawMaintenance);
 
     // Validação de chaves desconhecidas

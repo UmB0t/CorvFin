@@ -179,7 +179,7 @@ function auditAndPlan() {
 
   // 5. Maintenance
   const maintenanceRaw = readJSONFile(config.MAINTENANCE_FILE) || {};
-  const ALLOWED_MODULES = ['despesas', 'extras', 'devedores', 'investimentos', 'beneficios', 'compras', 'simulacao'];
+  const ALLOWED_MODULES = ['dashboard', 'despesas', 'extras', 'devedores', 'investimentos', 'beneficios', 'compras', 'simulacao'];
   const validMaintenance = { _id: 'system_maintenance' };
 
   ALLOWED_MODULES.forEach(mod => {

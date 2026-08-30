@@ -106,9 +106,10 @@
   }
 
   const ROUTE_MAP = {
-    '/': 'tab-expenses',
-    '': 'tab-expenses',
-    '/index.html': 'tab-expenses',
+    '/': 'tab-dashboard',
+    '': 'tab-dashboard',
+    '/index.html': 'tab-dashboard',
+    '/dashboard': 'tab-dashboard',
     '/despesas': 'tab-expenses',
     '/extras': 'tab-extras',
     '/devedores': 'tab-debtors',
@@ -121,6 +122,7 @@
   };
 
   const TAB_TO_ROUTE = {
+    'tab-dashboard': '/dashboard',
     'tab-expenses': '/despesas',
     'tab-extras': '/extras',
     'tab-debtors': '/devedores',
@@ -132,9 +134,10 @@
     'tab-admin': '/admin'
   };
 
-  const DEFAULT_TAB = 'tab-expenses';
+  const DEFAULT_TAB = 'tab-dashboard';
 
   const titleMap = {
+    'tab-dashboard': 'Dashboard',
     'tab-expenses': 'Despesas',
     'tab-extras': 'Rendas Extras',
     'tab-debtors': 'Devedores & Cobranças',
@@ -147,6 +150,7 @@
   };
 
   const subMap = {
+    'tab-dashboard': 'Visão consolidada da sua vida financeira',
     'tab-expenses': 'Gestão financeira pessoal com devedores e rendas extras',
     'tab-extras': 'Gerenciamento de fontes adicionais de receita e trabalhos pontuais',
     'tab-debtors': 'Controle de valores a receber, parcelas e cobranças de terceiros',
@@ -171,7 +175,7 @@
   }
 
   function getPathFromTab(tabId) {
-    const relPath = TAB_TO_ROUTE[tabId] || '/despesas';
+    const relPath = TAB_TO_ROUTE[tabId] || '/dashboard';
     if (window.API && typeof API.resolveUrl === 'function') {
       return API.resolveUrl(relPath);
     }
@@ -182,8 +186,89 @@
     return base ? `${base}${relPath}` : relPath;
   }
 
-    function activateTab(tabId, updateUrl = true) {
-    const targetTabId = tabId || DEFAULT_TAB;
+  const TAB_PERMISSION_MAP = {
+    'tab-dashboard': 'dashboard',
+    'tab-expenses': 'despesas',
+    'tab-extras': 'extras',
+    'tab-debtors': 'devedores',
+    'tab-investments': 'investimentos',
+    'tab-benefits': 'beneficios',
+    'tab-shopping': 'compras',
+    'tab-simulation': 'simulacao',
+    'tab-profile': null,
+    'tab-admin': 'configuracoes'
+  };
+
+  const TAB_ORDER = [
+    'tab-dashboard',
+    'tab-expenses',
+    'tab-extras',
+    'tab-debtors',
+    'tab-investments',
+    'tab-benefits',
+    'tab-shopping',
+    'tab-simulation',
+    'tab-profile'
+  ];
+
+  function hasTabPermission(tabId, user) {
+    const u = user || (window.API && typeof API.getUser === 'function' ? API.getUser() : null) || JSON.parse(localStorage.getItem('user_data') || localStorage.getItem('user') || '{}');
+    if (!u || !u.id) return true;
+    if (u.is_admin) return true;
+
+    const permKey = TAB_PERMISSION_MAP[tabId];
+    if (!permKey) return true;
+    if (permKey === 'configuracoes') return !!u.is_admin;
+
+    const perms = u.permissions || {};
+    // Retrocompatibilidade: se a chave for undefined, permite acesso
+    if (perms[permKey] === undefined) {
+      return true;
+    }
+    return perms[permKey] === true;
+  }
+
+  function getFirstAllowedTab(user) {
+    const u = user || (window.API && typeof API.getUser === 'function' ? API.getUser() : null) || JSON.parse(localStorage.getItem('user_data') || localStorage.getItem('user') || '{}');
+    for (const tabId of TAB_ORDER) {
+      if (hasTabPermission(tabId, u)) {
+        if (!isModuleInMaintenance(tabId)) {
+          return tabId;
+        }
+      }
+    }
+    return 'tab-profile';
+  }
+
+  function getFirstAllowedRoute(user) {
+    const tabId = getFirstAllowedTab(user);
+    return TAB_TO_ROUTE[tabId] || '/dashboard';
+  }
+
+  window.getFirstAllowedRouteForUser = getFirstAllowedRoute;
+  window.hasTabPermission = hasTabPermission;
+  window.getFirstAllowedTab = getFirstAllowedTab;
+
+  function applyPermissions() {
+    const user = (window.API && typeof API.getUser === 'function') ? API.getUser() : null;
+    document.querySelectorAll('.sidebar-link[data-tab], .bottom-nav-item[data-tab], .mobile-drawer-card[data-tab]').forEach(el => {
+      const tabId = el.getAttribute('data-tab');
+      if (tabId === 'tab-admin' || el.id === 'sidebarAdminLink' || el.id === 'mobileDrawerAdminLink') {
+        el.style.display = (user && user.is_admin) ? 'flex' : 'none';
+      } else if (tabId) {
+        const allowed = hasTabPermission(tabId, user);
+        el.style.display = allowed ? '' : 'none';
+      }
+    });
+  }
+  window.applyPermissions = applyPermissions;
+
+  function activateTab(tabId, updateUrl = true) {
+    let targetTabId = tabId || DEFAULT_TAB;
+
+    if (!hasTabPermission(targetTabId)) {
+      targetTabId = getFirstAllowedTab();
+    }
 
     // Atualiza links da sidebar, bottom navigation e mobile drawer
     document.querySelectorAll('[data-tab]').forEach(l => {
@@ -213,7 +298,7 @@
     });
 
     // Controle explícito da barra de meses (Ribbon) por módulo/aba
-    const TABS_WITH_MONTH_RIBBON = ['tab-expenses', 'tab-extras', 'tab-debtors', 'tab-benefits'];
+    const TABS_WITH_MONTH_RIBBON = ['tab-dashboard', 'tab-expenses', 'tab-extras', 'tab-debtors', 'tab-benefits'];
     const showRibbon = TABS_WITH_MONTH_RIBBON.includes(targetTabId);
     const ribbonSection = document.getElementById('ribbonSection') || (typeof $ === 'function' ? $('#ribbonSection') : null);
     if (ribbonSection) {
@@ -229,7 +314,9 @@
     if (titleEl) titleEl.textContent = titleMap[targetTabId] || (typeof TAB_TITLES !== 'undefined' && TAB_TITLES[targetTabId]) || 'OmniFin';
     if (subEl && subMap[targetTabId]) subEl.textContent = subMap[targetTabId];
 
-    if (targetTabId === 'tab-profile' && typeof window.renderProfile === 'function') {
+    if (targetTabId === 'tab-dashboard' && typeof window.renderConsolidatedDashboardTab === 'function') {
+      window.renderConsolidatedDashboardTab();
+    } else if (targetTabId === 'tab-profile' && typeof window.renderProfile === 'function') {
       window.renderProfile();
     } else if (targetTabId === 'tab-simulation' && typeof window.renderSimulationTab === 'function') {
       window.renderSimulationTab();
@@ -248,30 +335,39 @@
     let targetTab = getTabFromPath(rawPath);
 
     if (!targetTab) {
-      targetTab = DEFAULT_TAB;
+      targetTab = getFirstAllowedTab();
       const isLoginPage = rawPath.endsWith('/login') || rawPath.endsWith('login.html');
       if (!isLoginPage && window.history && typeof window.history.replaceState === 'function') {
-        window.history.replaceState({ tabId: DEFAULT_TAB }, '', getPathFromTab(DEFAULT_TAB));
+        window.history.replaceState({ tabId: targetTab }, '', getPathFromTab(targetTab));
       }
     } else {
-      let cleanPath = rawPath.replace(/\/+$/, '').toLowerCase();
-      const base = (window.API && typeof API.getBasePath === 'function')
-        ? API.getBasePath().toLowerCase()
-        : (typeof window.__BASE_PATH__ === 'string' ? window.__BASE_PATH__.toLowerCase() : '');
-      if (base && cleanPath.startsWith(base)) {
-        cleanPath = cleanPath.slice(base.length) || '/';
-      }
-      if (cleanPath === '/' || cleanPath === '' || cleanPath === '/index.html') {
+      if (!hasTabPermission(targetTab)) {
+        targetTab = getFirstAllowedTab();
         if (window.history && typeof window.history.replaceState === 'function') {
-          window.history.replaceState({ tabId: DEFAULT_TAB }, '', getPathFromTab(DEFAULT_TAB));
+          window.history.replaceState({ tabId: targetTab }, '', getPathFromTab(targetTab));
+        }
+      } else {
+        let cleanPath = rawPath.replace(/\/+$/, '').toLowerCase();
+        const base = (window.API && typeof API.getBasePath === 'function')
+          ? API.getBasePath().toLowerCase()
+          : (typeof window.__BASE_PATH__ === 'string' ? window.__BASE_PATH__.toLowerCase() : '');
+        if (base && cleanPath.startsWith(base)) {
+          cleanPath = cleanPath.slice(base.length) || '/';
+        }
+        if (cleanPath === '/' || cleanPath === '' || cleanPath === '/index.html') {
+          if (window.history && typeof window.history.replaceState === 'function') {
+            window.history.replaceState({ tabId: targetTab }, '', getPathFromTab(targetTab));
+          }
         }
       }
     }
 
+    applyPermissions();
     activateTab(targetTab, false);
   }
 
   const MAINTENANCE_MODULE_MAP = {
+    'tab-dashboard': 'dashboard',
     'tab-expenses': 'despesas',
     'tab-extras': 'extras',
     'tab-debtors': 'devedores',
@@ -293,7 +389,7 @@
           maintenanceLoadFailed = false;
           updateSidebarMaintenanceBadges();
           const activeLink = document.querySelector('.sidebar-link.active');
-          const activeTab = activeLink ? (activeLink.getAttribute?.('data-tab') || (activeLink.dataset && activeLink.dataset.tab)) : 'tab-expenses';
+          const activeTab = activeLink ? (activeLink.getAttribute?.('data-tab') || (activeLink.dataset && activeLink.dataset.tab)) : 'tab-dashboard';
           checkModuleMaintenance(activeTab);
           if (typeof render === 'function') render();
           return;
@@ -305,7 +401,7 @@
     maintenanceLoadFailed = true;
     updateSidebarMaintenanceBadges();
     const activeLink = document.querySelector('.sidebar-link.active');
-    const activeTab = activeLink ? (typeof activeLink.getAttribute === 'function' ? (activeLink.getAttribute('data-tab') || activeLink.dataset?.tab) : (activeLink.dataset ? activeLink.dataset.tab : 'tab-expenses')) : 'tab-expenses';
+    const activeTab = activeLink ? (typeof activeLink.getAttribute === 'function' ? (activeLink.getAttribute('data-tab') || activeLink.dataset?.tab) : (activeLink.dataset ? activeLink.dataset.tab : 'tab-dashboard')) : 'tab-dashboard';
     checkModuleMaintenance(activeTab);
     if (typeof render === 'function') render();
   }
@@ -489,40 +585,7 @@
       });
     }
 
-    const user = JSON.parse(localStorage.getItem('user_data') || localStorage.getItem('user') || '{}');
-    const isAdmin = !!user.is_admin;
-
-    // Visibilidade Admin na Sidebar e no Drawer Mobile
-    const sidebarAdminLink = $('#sidebarAdminLink');
-    if (sidebarAdminLink) {
-      sidebarAdminLink.style.display = isAdmin ? 'flex' : 'none';
-    }
-    const mobileDrawerAdminLink = $('#mobileDrawerAdminLink');
-    if (mobileDrawerAdminLink) {
-      mobileDrawerAdminLink.style.display = isAdmin ? 'flex' : 'none';
-    }
-
-    // RBAC: Oculta links se o usuário não tiver permissão
-    if (!isAdmin && user.permissions) {
-      const PERM_MAP = {
-        'tab-expenses': 'despesas',
-        'tab-extras': 'extras',
-        'tab-debtors': 'devedores',
-        'tab-investments': 'investimentos',
-        'tab-benefits': 'beneficios',
-        'tab-shopping': 'compras',
-        'tab-simulation': 'simulacao',
-        'tab-profile': 'perfil',
-        'tab-admin': 'admin'
-      };
-      Object.entries(PERM_MAP).forEach(([tabId, permKey]) => {
-        if (user.permissions[permKey] === false) {
-          document.querySelectorAll(`[data-tab="${tabId}"]`).forEach(el => {
-            el.style.display = 'none';
-          });
-        }
-      });
-    }
+    applyPermissions();
 
     // Listeners de navegação para Sidebar, Bottom Nav e Mobile Drawer
     document.querySelectorAll('[data-tab]').forEach(link => {

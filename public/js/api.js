@@ -62,7 +62,7 @@
     if (match) {
       const firstSeg = match[1].toLowerCase();
       const knownRootRoutes = [
-        '/despesas', '/extras', '/devedores', '/investimentos',
+        '/dashboard', '/despesas', '/extras', '/devedores', '/investimentos',
         '/beneficios', '/compras', '/simulacao', '/perfil',
         '/admin', '/login', '/api', '/css', '/js', '/views'
       ];

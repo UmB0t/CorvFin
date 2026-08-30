@@ -4,6 +4,13 @@
 const AppRouter = (() => {
   // Tab configuration metadata
   const TABS_CONFIG = {
+    'tab-dashboard': {
+      id: 'tab-dashboard',
+      viewId: 'tab-dashboard',
+      permission: 'dashboard',
+      title: 'Dashboard',
+      subtitle: 'Visão consolidada da sua vida financeira'
+    },
     'tab-expenses': {
       id: 'tab-expenses',
       viewId: 'view-expenses',
@@ -69,7 +76,7 @@ const AppRouter = (() => {
     }
   };
 
-  let currentTab = 'tab-expenses';
+  let currentTab = 'tab-dashboard';
 
   // Check if current user has permission for a specific module
   function hasPermission(permissionKey) {
@@ -301,7 +308,7 @@ const AppRouter = (() => {
     });
 
     // Default Navigation: Pick first authorized tab
-    const firstAuthTab = Object.keys(TABS_CONFIG).find(tabId => hasPermission(TABS_CONFIG[tabId].permission)) || 'tab-expenses';
+    const firstAuthTab = Object.keys(TABS_CONFIG).find(tabId => hasPermission(TABS_CONFIG[tabId].permission)) || 'tab-dashboard';
     navigate(firstAuthTab);
   }
 

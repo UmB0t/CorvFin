@@ -9,6 +9,7 @@ const assert = require('node:assert');
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const config = require('../server/config/config');
 const app = require('../server/server');
 const { getDB, connectDB } = require('../server/config/db');
@@ -671,11 +672,20 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf-8');
     const cssComponents = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'components.css'), 'utf-8');
 
+    assert.ok(relNotesJs.includes('version: "3.3.0"'), 'releaseNotes.js deve conter a release v3.3.0');
+    assert.ok(relNotesJs.includes('version: "3.2.0"'), 'releaseNotes.js deve conter a release v3.2.0');
     assert.ok(relNotesJs.includes('version: "3.1.0"'), 'releaseNotes.js deve conter a release v3.1.0');
     assert.ok(relNotesJs.includes('version: "3.0.0"'), 'releaseNotes.js deve manter releases anteriores acessíveis');
     assert.ok(relNotesJs.includes('news:'), 'releaseNotes.js deve estruturar novidades');
     assert.ok(relNotesJs.includes('improvements:'), 'releaseNotes.js deve estruturar melhorias');
     assert.ok(relNotesJs.includes('fixes:'), 'releaseNotes.js deve estruturar correções');
+
+    // Validação da ordem das releases
+    const idx33 = relNotesJs.indexOf('version: "3.3.0"');
+    const idx32 = relNotesJs.indexOf('version: "3.2.0"');
+    const idx31 = relNotesJs.indexOf('version: "3.1.0"');
+    const idx30 = relNotesJs.indexOf('version: "3.0.0"');
+    assert.ok(idx33 < idx32 && idx32 < idx31 && idx31 < idx30, 'Releases devem estar ordenadas: v3.3 -> v3.2 -> v3.1 -> v3.0');
 
     // Validação de UI no HTML e CSS
     assert.ok(indexHtml.includes('id="releaseNotesBtn"'), 'index.html deve conter o botão de release notes na barra superior');
@@ -1472,5 +1482,641 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.ok(componentsCss.includes('var(--brand-soft)'), 'Autocomplete deve usar token var(--brand-soft)');
     assert.ok(shoppingJs.includes('shopping-add-item-card'), 'shopping.js deve aplicar shopping-add-item-card no card do formulário');
     assert.ok(shoppingJs.includes('shoppingItemsGroupedContainer'), 'shopping.js deve conter container agrupado de itens');
+  });
+
+  test('26. Checkpoint 5: Dashboard Consolidado - Dataset, Agregações Categoria/Destino, Matriz Cruzada e Filtros', async () => {
+    const vm = require('node:vm');
+    const constantsJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'constants.js'), 'utf-8');
+    const stateJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'state.js'), 'utf-8');
+    const financeQueriesJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'financeQueries.js'), 'utf-8');
+    const consolidatedJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'modules', 'consolidatedDashboard.js'), 'utf-8');
+    const componentsCss = fs.readFileSync(path.join(process.cwd(), 'public', 'css', 'components.css'), 'utf-8');
+
+    let saveStateCallCount = 0;
+
+    const mockElements = {};
+    function getMock(id) {
+      if (!mockElements[id]) {
+        const classList = new Set();
+        const attrs = {};
+        const listeners = {};
+        mockElements[id] = {
+          id,
+          value: '',
+          innerHTML: '',
+          textContent: '',
+          style: {},
+          classList: {
+            add: (c) => classList.add(c),
+            remove: (c) => classList.delete(c),
+            contains: (c) => classList.has(c)
+          },
+          setAttribute: (k, v) => { attrs[k] = String(v); },
+          getAttribute: (k) => attrs[k] || null,
+          removeAttribute: (k) => { delete attrs[k]; },
+          addEventListener: (event, handler) => {
+            if (!listeners[event]) listeners[event] = [];
+            listeners[event].push(handler);
+          },
+          querySelectorAll: () => [],
+          querySelector: () => null
+        };
+      }
+      return mockElements[id];
+    }
+
+    const testState = {
+      version: 5,
+      revision: 3,
+      year: 2026,
+      month: 8,
+      profile: { name: 'Dev User', baseSalary: 5000 },
+      destinations: [
+        { name: 'Nubank', color: '#820AD1', icon: 'card' },
+        { name: 'Neon', color: '#00E5FF', icon: 'card' },
+        { name: 'Pix', color: '#32BCAD', icon: 'dollar' },
+        { name: 'Dinheiro', color: '#10B981', icon: 'wallet' }
+      ],
+      categories: [
+        { name: 'Moradia', icon: 'home' },
+        { name: 'Alimentação', icon: 'utensils' },
+        { name: 'Transporte', icon: 'car' }
+      ],
+      incomes: {},
+      fixed: [
+        {
+          id: 'f_aluguel',
+          name: 'Aluguel',
+          group: 'Moradia',
+          destination: 'Nubank',
+          amount: 1200,
+          dueDay: 10,
+          versions: [
+            { id: 'v1', year: 2026, month: 1, amount: 1200 }
+          ],
+          paidHistory: { '2026-8': true }
+        },
+        {
+          id: 'f_antiga_encerrada',
+          name: 'Academia Antiga',
+          group: 'Saúde',
+          destination: 'Nubank',
+          amount: 100,
+          endedFrom: { year: 2026, month: 7 },
+          versions: [{ id: 'v_old', year: 2026, month: 1, amount: 100 }]
+        }
+      ],
+      variable: [
+        {
+          id: 'v_mercado',
+          name: 'Supermercado Mensal',
+          group: 'Alimentação',
+          destination: 'Nubank',
+          amount: 600,
+          startYear: 2026,
+          startMonth: 8,
+          endYear: 2026,
+          endMonth: 8,
+          paidHistory: { '2026-8': true }
+        },
+        {
+          id: 'v_parcelado_tv',
+          name: 'Smart TV',
+          group: 'Moradia',
+          destination: 'Neon',
+          amount: 300,
+          startYear: 2026,
+          startMonth: 1,
+          endYear: 2026,
+          endMonth: 10,
+          paidHistory: { '2026-8': false }
+        },
+        {
+          id: 'v_outro_mes_julho',
+          name: 'Compra Passada Julho',
+          group: 'Transporte',
+          destination: 'Pix',
+          amount: 150,
+          startYear: 2026,
+          startMonth: 7,
+          endYear: 2026,
+          endMonth: 7
+        },
+        {
+          id: 'v_pix_combustivel',
+          name: 'Combustível Posto',
+          group: 'Transporte',
+          destination: 'Pix',
+          amount: 200,
+          startYear: 2026,
+          startMonth: 8,
+          endYear: 2026,
+          endMonth: 8,
+          paidHistory: { '2026-8': true }
+        },
+        {
+          id: 'v_sem_categoria_destino',
+          name: 'Gasto Diverso',
+          group: '',
+          destination: '',
+          amount: 50,
+          startYear: 2026,
+          startMonth: 8,
+          endYear: 2026,
+          endMonth: 8
+        }
+      ],
+      debtors: [
+        {
+          id: 'd_amigo',
+          debtorName: 'Carlos',
+          title: 'Empréstimo Celular',
+          amount: 250,
+          destination: 'Pix',
+          startYear: 2026,
+          startMonth: 6,
+          endYear: 2026,
+          endMonth: 10,
+          status: 'pendente',
+          paidHistory: { '2026-8': false }
+        }
+      ]
+    };
+
+    const ctx = {
+      window: {},
+      document: {
+        readyState: 'complete',
+        addEventListener: () => {},
+        getElementById: (id) => getMock(id),
+        querySelector: (sel) => getMock(sel.replace('#', '')),
+        querySelectorAll: () => []
+      },
+      $: (sel) => getMock(sel.replace('#', '')),
+      $$: () => [],
+      getState: () => testState,
+      saveState: () => {
+        saveStateCallCount++;
+        return Promise.resolve(true);
+      },
+      notify: () => {},
+      mk: (y, m) => (y * 12 + m),
+      ymKey: (y, m) => `${y}-${m}`,
+      MONTH_NAMES: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
+      MONTH_ABBR: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    };
+    ctx.window = ctx;
+
+    vm.createContext(ctx);
+    vm.runInContext(constantsJs, ctx);
+    vm.runInContext(stateJs, ctx);
+    vm.runInContext(financeQueriesJs, ctx);
+    vm.runInContext(consolidatedJs, ctx);
+
+    const buildDataset = ctx.buildConsolidatedDataset || ctx.window.buildConsolidatedDataset;
+    const filterDataset = ctx.filterConsolidatedDataset || ctx.window.filterConsolidatedDataset;
+    const aggByCat = ctx.aggregateByCategory || ctx.window.aggregateByCategory;
+    const aggByDest = ctx.aggregateByDestination || ctx.window.aggregateByDestination;
+    const buildMatrix = ctx.buildCategoryDestinationMatrix || ctx.window.buildCategoryDestinationMatrix;
+
+    try {
+      // 1. Dataset da competência inclui despesas e cobranças válidas
+      const datasetAug = buildDataset(testState, 2026, 8);
+      assert.ok(Array.isArray(datasetAug), 'Dataset deve ser um array');
+      assert.strictEqual(datasetAug.length, 6, 'Deve conter 6 lançamentos na competência de Agosto/2026');
+
+      // 2. Despesa de outro mês não entra
+      const hasJulyItem = datasetAug.some(i => i.description === 'Compra Passada Julho');
+      assert.strictEqual(hasJulyItem, false, 'Despesa encerrada em Julho não pode entrar em Agosto');
+
+      // 3. Despesa fixa vigente entra e encerrada não entra
+      const aluguel = datasetAug.find(i => i.description === 'Aluguel');
+      assert.ok(aluguel, 'Aluguel ativo deve entrar no dataset');
+      assert.strictEqual(aluguel.amount, 1200, 'Aluguel com valor correto');
+      assert.strictEqual(aluguel.status, 'pago', 'Aluguel com status pago');
+
+      const academiaEncerrada = datasetAug.find(i => i.description === 'Academia Antiga');
+      assert.strictEqual(academiaEncerrada, undefined, 'Fixa encerrada não entra no mês');
+
+      // 4. Parcelamento entra com parcelas calculadas
+      const tv = datasetAug.find(i => i.description === 'Smart TV');
+      assert.ok(tv, 'Parcelamento Smart TV deve estar presente');
+      assert.strictEqual(tv.amount, 300);
+      assert.strictEqual(tv.installmentIndex, 8, 'Em Agosto/2026, parcela deve ser 8');
+      assert.strictEqual(tv.installmentTotal, 10, 'Total de parcelas deve ser 10');
+      assert.strictEqual(tv.status, 'pendente', 'TV ainda pendente');
+
+      // 5. Pix/Dinheiro não duplicam e possuem valores íntegros
+      const comb = datasetAug.find(i => i.description === 'Combustível Posto');
+      assert.ok(comb, 'Combustível Pix deve estar presente');
+      assert.strictEqual(comb.destination, 'Pix');
+      assert.strictEqual(comb.amount, 200);
+
+      // 6. Categoria agrega valores corretamente
+      const totalRef = datasetAug.reduce((s, i) => s + i.amount, 0); // 1200 + 600 + 300 + 200 + 50 + 250 = 2600
+      assert.strictEqual(totalRef, 2600, 'Total da competência deve ser R$ 2.600,00');
+
+      const catAgg = aggByCat(datasetAug, totalRef);
+      assert.ok(catAgg.length >= 3, 'Deve conter categorias agregadas');
+      const moradiaCat = catAgg.find(c => c.name === 'Moradia');
+      assert.ok(moradiaCat, 'Moradia deve existir');
+      assert.strictEqual(moradiaCat.total, 1500, 'Moradia deve somar 1200 + 300 = 1500');
+      assert.strictEqual(moradiaCat.count, 2, 'Moradia deve ter 2 lançamentos');
+
+      // 7. Destino agrega valores corretamente
+      const destAgg = aggByDest(datasetAug, totalRef);
+      const nubankDest = destAgg.find(d => d.name === 'Nubank');
+      assert.ok(nubankDest, 'Nubank deve existir');
+      assert.strictEqual(nubankDest.total, 1850, 'Nubank deve somar 1200 (Aluguel) + 600 (Mercado) + 50 (fallback) = 1850');
+      assert.strictEqual(nubankDest.count, 3, 'Nubank deve ter 3 lançamentos');
+
+      // 8. Matriz Categoria × Destino agrega células e totais corretamente
+      const matrixRes = buildMatrix(datasetAug);
+      assert.strictEqual(matrixRes.grandTotal, 2600, 'Grand Total da Matriz deve ser 2600');
+      assert.strictEqual(matrixRes.matrix['Moradia']['Nubank'], 1200, 'Moradia x Nubank = 1200');
+      assert.strictEqual(matrixRes.matrix['Moradia']['Neon'], 300, 'Moradia x Neon = 300');
+      assert.strictEqual(matrixRes.matrix['Alimentação']['Nubank'], 600, 'Alimentação x Nubank = 600');
+      assert.strictEqual(matrixRes.matrix['Transporte']['Pix'], 200, 'Transporte x Pix = 200');
+
+      // 9. Status Pago/Pendente e filtros locais
+      const paidOnly = filterDataset(datasetAug, { status: 'pago' });
+      assert.strictEqual(paidOnly.length, 3, 'Devem existir 3 itens pagos (Aluguel, Mercado, Combustível)');
+      const pendingOnly = filterDataset(datasetAug, { status: 'pendente' });
+      assert.strictEqual(pendingOnly.length, 3, 'Devem existir 3 itens pendentes (TV, Fallback, Devedor)');
+
+      // 10. Filtros não chamam saveState()
+      assert.strictEqual(saveStateCallCount, 0, 'Filtros locais não podem invocar saveState()');
+
+      // 11. Registros sem categoria/destino usam fallback seguro
+      const fallbackItem = datasetAug.find(i => i.description === 'Gasto Diverso');
+      assert.ok(fallbackItem, 'Item com fallback deve existir');
+      assert.strictEqual(fallbackItem.category, 'Gerais', 'Categoria vazia deve ser fallback Gerais');
+      assert.strictEqual(fallbackItem.destination, 'Nubank', 'Destino vazio deve ser fallback Nubank');
+
+      // 12. Estado vazio não gera NaN ou erro de divisão por zero
+      const emptyDataset = [];
+      const emptyCat = aggByCat(emptyDataset, 0);
+      const emptyDest = aggByDest(emptyDataset, 0);
+      const emptyMatrix = buildMatrix(emptyDataset);
+      assert.strictEqual(emptyCat.length, 0);
+      assert.strictEqual(emptyDest.length, 0);
+      assert.strictEqual(emptyMatrix.grandTotal, 0);
+
+      // 13. Usuários distintos permanecem isolados
+      const userBState = {
+        ...testState,
+        fixed: [{ id: 'f_b', name: 'Internet B', group: 'Serviços', destination: 'Pix', amount: 150, versions: [{ id: 'vb1', year: 2026, month: 1, amount: 150 }] }],
+        variable: [],
+        debtors: []
+      };
+      const datasetB = buildDataset(userBState, 2026, 8);
+      assert.strictEqual(datasetB.length, 1);
+      assert.strictEqual(datasetB[0].description, 'Internet B');
+
+      // 14. Revision/CAS permanece intacto (somente leitura)
+      assert.strictEqual(testState.revision, 3, 'Revision não deve ser alterada pelo Dashboard Consolidado');
+
+      // 15. CSS de componentes do Dashboard Consolidado
+      assert.ok(componentsCss.includes('.consolidated-matrix-card'), 'CSS deve conter .consolidated-matrix-card');
+      assert.ok(componentsCss.includes('.consolidated-matrix-table'), 'CSS deve conter .consolidated-matrix-table');
+      assert.ok(componentsCss.includes('.consolidated-drilldown-item'), 'CSS deve conter .consolidated-drilldown-item');
+    } catch (err) {
+      console.error('TEST 26 ERROR DETAIL:', err);
+      throw err;
+    }
+  });
+
+  test('27. Checkpoint 5.1 — Dashboard como módulo principal e landing page', async () => {
+    const vm = require('node:vm');
+    const indexHtml = fs.readFileSync(path.join(process.cwd(), 'public', 'index.html'), 'utf-8');
+    const uiShellJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'uiShell.js'), 'utf-8');
+    const authJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'auth.js'), 'utf-8');
+    const apiJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'api.js'), 'utf-8');
+    const constantsJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'constants.js'), 'utf-8');
+    const consolidatedJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'modules', 'consolidatedDashboard.js'), 'utf-8');
+
+    // 1. Existe entrada Dashboard na navegação principal (Sidebar e Mobile Bottom Nav)
+    assert.ok(indexHtml.includes('data-tab="tab-dashboard"'), 'index.html deve conter links com data-tab="tab-dashboard"');
+    assert.ok(indexHtml.includes('<span class="link-text">Dashboard</span>'), 'Sidebar deve exibir o texto "Dashboard"');
+
+    // 2. Dashboard aparece imediatamente antes de Despesas na sidebar
+    const dashSidebarIdx = indexHtml.indexOf('<button class="sidebar-link active" data-tab="tab-dashboard"');
+    const expSidebarIdx = indexHtml.indexOf('<button class="sidebar-link" data-tab="tab-expenses"');
+    assert.ok(dashSidebarIdx !== -1, 'Sidebar deve conter botão tab-dashboard');
+    assert.ok(expSidebarIdx !== -1, 'Sidebar deve conter botão tab-expenses');
+    assert.ok(dashSidebarIdx < expSidebarIdx, 'Dashboard deve vir imediatamente antes de Despesas na sidebar');
+
+    // 3. Suporte a /dashboard no roteamento de uiShell.js
+    assert.ok(uiShellJs.includes("'/dashboard': 'tab-dashboard'"), "ROUTE_MAP deve conter rota '/dashboard'");
+    assert.ok(uiShellJs.includes("'/': 'tab-dashboard'"), "ROUTE_MAP raiz deve apontar para 'tab-dashboard'");
+    assert.ok(uiShellJs.includes("'tab-dashboard': '/dashboard'"), "TAB_TO_ROUTE deve mapear 'tab-dashboard' para '/dashboard'");
+
+    // 4. Dashboard possui container principal próprio e independente de tab-expenses
+    assert.ok(indexHtml.includes('<main id="tab-dashboard" class="tab-content">'), 'Deve existir container principal tab-dashboard');
+    assert.ok(indexHtml.includes('id="dashboardViewWrap"'), 'Deve existir div com id dashboardViewWrap');
+    assert.strictEqual(indexHtml.split('id="dashboardViewWrap"').length, 2, 'dashboardViewWrap não pode estar duplicado no DOM');
+
+    // 5. Dashboard Consolidado não aparece mais como subaba de Despesas
+    assert.strictEqual(indexHtml.includes('id="expensesConsolidatedTabBtn"'), false, 'expensesConsolidatedTabBtn deve ter sido removido');
+    assert.strictEqual(indexHtml.includes('id="expensesConsolidatedViewWrap"'), false, 'expensesConsolidatedViewWrap deve ter sido removido de tab-expenses');
+
+    // 6. Despesas mantém somente suas duas subvisões
+    assert.ok(indexHtml.includes('id="expensesMonthlyTabBtn"'), 'Despesas deve manter subaba Despesas do Mês');
+    assert.ok(indexHtml.includes('id="expensesInstallmentsTabBtn"'), 'Despesas deve manter subaba Parcelamentos');
+
+    // 7. consolidatedDashboard.js continua carregado no index.html
+    assert.ok(indexHtml.includes('src="js/modules/consolidatedDashboard.js"'), 'index.html deve carregar consolidatedDashboard.js');
+
+    // 8. renderConsolidatedDashboardTab() continua disponível e é invocada na ativação da aba
+    assert.ok(consolidatedJs.includes('function renderConsolidatedDashboardTab'), 'consolidatedDashboard.js deve conter renderConsolidatedDashboardTab');
+    assert.ok(uiShellJs.includes('renderConsolidatedDashboardTab'), 'uiShell.js deve invocar renderConsolidatedDashboardTab na ativação');
+
+    // 9. Redirect pós-login e pós-cadastro aponta para /dashboard ou rota dinâmica permitida
+    assert.ok(authJs.includes("getFirstAllowedRouteForUser") || authJs.includes("resolveUrl('/dashboard')"), 'auth.js deve redirecionar pós-login para /dashboard');
+
+    // 10. Acesso à raiz autenticada resolve para Dashboard
+    assert.ok(uiShellJs.includes("const DEFAULT_TAB = 'tab-dashboard'"), "DEFAULT_TAB em uiShell.js deve ser 'tab-dashboard'");
+
+    // 11. Known root routes em api.js inclui /dashboard
+    assert.ok(apiJs.includes("'/dashboard'"), "api.js deve incluir '/dashboard' em knownRootRoutes");
+
+    // 12. TAB_TITLES em constants.js inclui Dashboard
+    assert.ok(constantsJs.includes("'tab-dashboard': 'Dashboard'"), "constants.js deve registrar 'tab-dashboard' em TAB_TITLES");
+
+    // 13. Ribbon de competência inclui tab-dashboard
+    assert.ok(uiShellJs.includes("'tab-dashboard', 'tab-expenses'"), "TABS_WITH_MONTH_RIBBON deve incluir 'tab-dashboard'");
+
+    // 14. Execução de rota simulada via VM
+    const mockElements = {};
+    function getMock(id) {
+      if (!mockElements[id]) {
+        const classList = new Set();
+        const attrs = {};
+        mockElements[id] = {
+          id,
+          value: '',
+          innerHTML: '',
+          textContent: '',
+          style: {},
+          classList: {
+            add: (c) => classList.add(c),
+            remove: (c) => classList.delete(c),
+            contains: (c) => classList.has(c),
+            toggle: (c, v) => v ? classList.add(c) : classList.delete(c)
+          },
+          setAttribute: (k, v) => { attrs[k] = String(v); },
+          getAttribute: (k) => attrs[k] || null,
+          removeAttribute: (k) => { delete attrs[k]; },
+          querySelectorAll: () => [],
+          querySelector: () => null
+        };
+      }
+      return mockElements[id];
+    }
+
+    const testState = {
+      version: 5,
+      revision: 3,
+      year: 2026,
+      month: 8,
+      profile: { name: 'Admin User' },
+      fixed: [],
+      variable: [],
+      debtors: []
+    };
+
+    const ctx = {
+      window: {},
+      document: {
+        readyState: 'complete',
+        addEventListener: () => {},
+        getElementById: (id) => getMock(id),
+        querySelector: (sel) => getMock(sel.replace('#', '')),
+        querySelectorAll: () => []
+      },
+      $: (sel) => getMock(sel.replace('#', '')),
+      $$: () => [],
+      getState: () => testState,
+      saveState: () => Promise.resolve(true),
+      notify: () => {},
+      mk: (y, m) => (y * 12 + m),
+      ymKey: (y, m) => `${y}-${m}`,
+      MONTH_NAMES: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
+      MONTH_ABBR: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    };
+    ctx.window = ctx;
+
+    vm.createContext(ctx);
+    vm.runInContext(constantsJs, ctx);
+    vm.runInContext(consolidatedJs, ctx);
+
+    assert.strictEqual(typeof ctx.renderConsolidatedDashboardTab, 'function');
+    assert.strictEqual(typeof ctx.buildConsolidatedDataset, 'function');
+  });
+
+  test('28. CHECKPOINT 5.2 — RBAC / Gestão de Módulos (Inclusão do Dashboard + Refinamento da UX de Permissões)', async () => {
+    const mongoStorageJs = fs.readFileSync(path.join(__dirname, '..', 'server', 'services', 'mongoStorage.js'), 'utf8');
+    const jsonStorageJs = fs.readFileSync(path.join(__dirname, '..', 'server', 'services', 'jsonStorage.js'), 'utf8');
+    const serverJs = fs.readFileSync(path.join(__dirname, '..', 'server', 'server.js'), 'utf8');
+    const adminJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'admin.js'), 'utf8');
+    const uiShellJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'uiShell.js'), 'utf8');
+    const routerJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'router.js'), 'utf8');
+    const authJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'auth.js'), 'utf8');
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+    const componentsCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'components.css'), 'utf8');
+
+    // 1. Dashboard em DEFAULT_MAINTENANCE_CONFIG em mongoStorage.js e jsonStorage.js
+    assert.ok(mongoStorageJs.includes("dashboard: { maintenance: false, name: 'Dashboard' }"), "mongoStorage.js deve incluir dashboard em DEFAULT_MAINTENANCE_CONFIG");
+    assert.ok(jsonStorageJs.includes("dashboard: { maintenance: false, name: 'Dashboard' }"), "jsonStorage.js deve incluir dashboard em DEFAULT_MAINTENANCE_CONFIG");
+
+    // 2. Dashboard em DEFAULT_PERMISSIONS_FALLBACK e getDefaultPermissions nos drivers
+    assert.ok(mongoStorageJs.includes("dashboard: true"), "mongoStorage.js deve incluir dashboard em DEFAULT_PERMISSIONS_FALLBACK");
+    assert.ok(jsonStorageJs.includes("dashboard: true"), "jsonStorage.js deve incluir dashboard em getDefaultPermissions");
+
+    // 3. getUserPermissions e setUserPermissions com suporte a dashboard
+    assert.ok(mongoStorageJs.includes("dashboard: true") && mongoStorageJs.includes("getUserPermissions"), "mongoStorage.js getUserPermissions deve suportar dashboard");
+    assert.ok(jsonStorageJs.includes("dashboard: true") && jsonStorageJs.includes("getUserPermissions"), "jsonStorage.js getUserPermissions deve suportar dashboard");
+
+    // 4. saveDefaultPermissions sanitiza dashboard
+    assert.ok(mongoStorageJs.includes("dashboard: permissions.dashboard !== false"), "mongoStorage.js saveDefaultPermissions deve persistir dashboard");
+    assert.ok(serverJs.includes("dashboard: permissions.dashboard !== false"), "server.js saveDefaultPermissionsHandler deve persistir dashboard");
+
+    // 5. ALLOWED_MODULES em server.js inclui dashboard
+    assert.ok(serverJs.includes("'dashboard'") && serverJs.includes("ALLOWED_MODULES"), "server.js deve incluir 'dashboard' em ALLOWED_MODULES");
+
+    // 6. GET /api/admin/users retorna dashboard nas permissões padrão de fallback
+    assert.ok(serverJs.includes("dashboard: true") && serverJs.includes("/api/admin/users"), "server.js GET /api/admin/users deve conter dashboard");
+
+    // 7. index.html contém checkbox de permissões padrão para dashboard
+    assert.ok(indexHtml.includes('id="default-perm-dashboard"') && indexHtml.includes('data-default-module="dashboard"'), "index.html deve conter input default-perm-dashboard");
+
+    // 8. admin.js contém ALL_MODULES_CONFIG com os 8 módulos (dashboard, despesas, extras, devedores, investimentos, beneficios, compras, simulacao)
+    assert.ok(adminJs.includes("ALL_MODULES_CONFIG"), "admin.js deve definir ALL_MODULES_CONFIG");
+    const requiredModules = ['dashboard', 'despesas', 'extras', 'devedores', 'investimentos', 'beneficios', 'compras', 'simulacao'];
+    requiredModules.forEach(mod => {
+      assert.ok(adminJs.includes(`key: '${mod}'`), `ALL_MODULES_CONFIG deve conter módulo '${mod}'`);
+    });
+
+    // 9. Tabela de usuários em admin.js substitui checkboxes inline por resumo e botão 'Gerenciar'
+    assert.ok(adminJs.includes('data-manage-modules'), "Tabela de usuários em admin.js deve conter botão data-manage-modules");
+    assert.ok(adminJs.includes('Admin — Acesso Total'), "Tabela de usuários em admin.js deve exibir 'Admin — Acesso Total' para administradores");
+
+    // 10. admin.js implementa openManageModulesModal com diálogo, cancelamento sem persistência e salvamento único
+    assert.ok(adminJs.includes('function openManageModulesModal'), "admin.js deve implementar openManageModulesModal");
+    assert.ok(adminJs.includes('adminManageModulesDialog'), "admin.js deve criar/utilizar dialog adminManageModulesDialog");
+    assert.ok(adminJs.includes('btnSaveManageModules') && adminJs.includes('updatePermissions'), "Modal de gerenciar módulos deve salvar via API.updatePermissions");
+
+    // 11. admin.js openCreateUserModal inclui Dashboard no cadastro de novos usuários
+    assert.ok(adminJs.includes('adminCreatePerm_dashboard'), "admin.js openCreateUserModal deve conter checkbox para dashboard");
+
+    // 12. uiShell.js MAINTENANCE_MODULE_MAP inclui tab-dashboard mapeado para dashboard
+    assert.ok(uiShellJs.includes("'tab-dashboard': 'dashboard'"), "uiShell.js MAINTENANCE_MODULE_MAP deve mapear 'tab-dashboard' para 'dashboard'");
+
+    // 13. uiShell.js implementa helpers hasTabPermission, getFirstAllowedTab e getFirstAllowedRouteForUser
+    assert.ok(uiShellJs.includes('function hasTabPermission'), "uiShell.js deve exportar/implementar hasTabPermission");
+    assert.ok(uiShellJs.includes('function getFirstAllowedTab'), "uiShell.js deve exportar/implementar getFirstAllowedTab");
+    assert.ok(uiShellJs.includes('getFirstAllowedRouteForUser'), "uiShell.js deve exportar getFirstAllowedRouteForUser");
+
+    // 14. router.js define permission 'dashboard' para tab-dashboard
+    assert.ok(routerJs.includes("'tab-dashboard'") && routerJs.includes("permission: 'dashboard'"), "router.js deve configurar permission 'dashboard' para 'tab-dashboard'");
+
+    // 15. auth.js utiliza helper dinâmico para fallback inteligente de rota após login e cadastro
+    assert.ok(authJs.includes('getFirstAllowedRouteForUser'), "auth.js deve invocar getFirstAllowedRouteForUser");
+
+    // 16. components.css inclui estilos para module-perm-card
+    assert.ok(componentsCss.includes('.module-perm-card'), "components.css deve conter estilos para .module-perm-card");
+
+    // 17. Simulação VM para validação de retrocompatibilidade de permissões
+    const mockElements = {};
+    function getMock(id) {
+      if (!mockElements[id]) {
+        const classList = new Set();
+        const attrs = {};
+        mockElements[id] = {
+          id,
+          value: '',
+          innerHTML: '',
+          textContent: '',
+          style: {},
+          classList: {
+            add: (c) => classList.add(c),
+            remove: (c) => classList.delete(c),
+            contains: (c) => classList.has(c),
+            toggle: (c, v) => v ? classList.add(c) : classList.delete(c)
+          },
+          setAttribute: (k, v) => { attrs[k] = String(v); },
+          getAttribute: (k) => attrs[k] || null,
+          removeAttribute: (k) => { delete attrs[k]; },
+          querySelectorAll: () => [],
+          querySelector: () => null,
+          addEventListener: () => {}
+        };
+      }
+      return mockElements[id];
+    }
+
+    const testUserLegacy = { id: 'u_legacy', nome: 'Usuário Antigo', login: 'antigo', is_admin: false, permissions: { despesas: true } };
+    const testUserBlockedDashboard = { id: 'u_blocked', nome: 'Usuário Sem Dashboard', login: 'semdash', is_admin: false, permissions: { dashboard: false, despesas: true } };
+    const testUserAdmin = { id: 'u_admin', nome: 'Administrador', login: 'admin', is_admin: true };
+
+    const ctx = {
+      window: {
+        addEventListener: () => {},
+        removeEventListener: () => {}
+      },
+      document: {
+        readyState: 'complete',
+        addEventListener: () => {},
+        getElementById: (id) => getMock(id),
+        querySelector: (sel) => getMock(sel.replace('#', '')),
+        querySelectorAll: () => []
+      },
+      $: (sel) => getMock(sel.replace('#', '')),
+      $$: () => [],
+      localStorage: {
+        getItem: () => null,
+        setItem: () => {}
+      },
+      getState: () => ({ theme: 'dark' }),
+      saveState: () => Promise.resolve(true),
+      API: {
+        getUser: () => testUserLegacy
+      }
+    };
+    ctx.window = Object.assign(ctx.window, ctx);
+    vm.createContext(ctx);
+    vm.runInContext(uiShellJs, ctx);
+
+    // Usuário legado sem chave dashboard: deve ter acesso ao Dashboard por retrocompatibilidade (dashboard !== false)
+    assert.strictEqual(ctx.window.hasTabPermission('tab-dashboard', testUserLegacy), true, "Usuário legado sem chave 'dashboard' deve ter permissão true por retrocompatibilidade");
+    assert.strictEqual(ctx.window.getFirstAllowedTab(testUserLegacy), 'tab-dashboard', "Primeira aba para usuário legado deve ser tab-dashboard");
+
+    // Usuário com dashboard: false: fallback inteligente deve direcionar para tab-expenses (Despesas)
+    assert.strictEqual(ctx.window.hasTabPermission('tab-dashboard', testUserBlockedDashboard), false, "Usuário com dashboard: false deve ter permissão negada");
+    assert.strictEqual(ctx.window.getFirstAllowedTab(testUserBlockedDashboard), 'tab-expenses', "Primeira aba permitida para usuário sem dashboard deve ser tab-expenses");
+    assert.strictEqual(ctx.window.getFirstAllowedRouteForUser(testUserBlockedDashboard), '/despesas', "Primeira rota permitida deve ser /despesas");
+
+    // Administrador: acesso irrestrito
+    assert.strictEqual(ctx.window.hasTabPermission('tab-dashboard', testUserAdmin), true, "Administrador deve ter acesso ao Dashboard");
+    assert.strictEqual(ctx.window.hasTabPermission('tab-admin', testUserAdmin), true, "Administrador deve ter acesso a tab-admin");
+
+    // 18. Checkpoint 5.2.1: renderMaintenanceGrid inclui Dashboard na seção visual e cria toggle dedicado
+    assert.ok(adminJs.includes('function renderMaintenanceGrid'), "admin.js deve implementar renderMaintenanceGrid");
+    assert.ok(adminJs.includes('maint-toggle-${key}') || adminJs.includes('data-maintenance-module'), "admin.js deve criar toggles de manutenção com data-maintenance-module");
+    assert.ok(adminJs.includes('ALL_MODULES_CONFIG.map'), "renderMaintenanceGrid deve iterar sobre ALL_MODULES_CONFIG garantindo Dashboard como primeiro módulo");
+
+    // 19. Checkpoint 5.2.2: Normalização de manutenção e fallback estrito para dashboard: false
+    assert.ok(adminJs.includes('function normalizeMaintenanceConfig'), "admin.js deve implementar normalizeMaintenanceConfig");
+
+    // Teste VM de normalização de manutenção
+    const adminCtx = {
+      window: {
+        addEventListener: () => {},
+        removeEventListener: () => {}
+      },
+      document: {
+        readyState: 'complete',
+        addEventListener: () => {},
+        getElementById: (id) => getMock(id),
+        querySelector: (sel) => getMock(sel.replace('#', '')),
+        querySelectorAll: () => []
+      },
+      $: (sel) => getMock(sel.replace('#', '')),
+      $$: () => [],
+      localStorage: {
+        getItem: () => null,
+        setItem: () => {}
+      },
+      getState: () => ({ theme: 'dark' }),
+      saveState: () => Promise.resolve(true),
+      API: {
+        getUser: () => testUserAdmin
+      }
+    };
+    adminCtx.window = Object.assign(adminCtx.window, adminCtx);
+    vm.createContext(adminCtx);
+    vm.runInContext(adminJs, adminCtx);
+
+    // Documento legado sem chave dashboard
+    const legacyMaintenanceRaw = {
+      despesas: { name: 'Despesas', maintenance: false },
+      extras: { name: 'Rendas Extras', maintenance: true }
+    };
+    const normalizedLegacy = adminCtx.normalizeMaintenanceConfig ? adminCtx.normalizeMaintenanceConfig(legacyMaintenanceRaw) : null;
+    if (normalizedLegacy) {
+      assert.strictEqual(normalizedLegacy.dashboard.maintenance, false, "Dashboard sem chave persistida DEVE normalizar para maintenance: false (Operacional)");
+      assert.strictEqual(normalizedLegacy.despesas.maintenance, false, "Despesas deve preservar maintenance: false");
+      assert.strictEqual(normalizedLegacy.extras.maintenance, true, "Extras deve preservar maintenance: true");
+    }
+
+    // Configuração com dashboard explicitamente em manutenção
+    const maintenanceActiveRaw = {
+      dashboard: { name: 'Dashboard', maintenance: true },
+      despesas: { name: 'Despesas', maintenance: false }
+    };
+    const normalizedActive = adminCtx.normalizeMaintenanceConfig ? adminCtx.normalizeMaintenanceConfig(maintenanceActiveRaw) : null;
+    if (normalizedActive) {
+      assert.strictEqual(normalizedActive.dashboard.maintenance, true, "Dashboard com maintenance: true deve normalizar para true (Em Manutenção)");
+    }
   });
 });

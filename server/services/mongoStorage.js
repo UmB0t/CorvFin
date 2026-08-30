@@ -2,6 +2,7 @@ const { getDB, connectDB } = require('../config/db');
 
 // Maintenance Default Configuration Constants
 const DEFAULT_MAINTENANCE_CONFIG = {
+  dashboard: { maintenance: false, name: 'Dashboard' },
   despesas: { maintenance: false, name: 'Despesas' },
   extras: { maintenance: false, name: 'Rendas Extras' },
   devedores: { maintenance: false, name: 'Devedores' },
@@ -12,6 +13,7 @@ const DEFAULT_MAINTENANCE_CONFIG = {
 };
 
 const DEFAULT_PERMISSIONS_FALLBACK = {
+  dashboard: true,
   despesas: true,
   extras: true,
   devedores: true,
@@ -136,6 +138,7 @@ async function getUserPermissions(userId) {
 
   const basePermissions = Object.assign(
     {
+      dashboard: true,
       despesas: true,
       extras: true,
       devedores: true,
@@ -165,6 +168,7 @@ async function setUserPermissions(userId, userPerms) {
 
   const merged = Object.assign(
     {
+      dashboard: true,
       despesas: true,
       extras: true,
       devedores: true,
@@ -210,6 +214,7 @@ async function getDefaultPermissions() {
 async function saveDefaultPermissions(permissions) {
   const col = await getCollection('default_permissions');
   const sanitized = {
+    dashboard: permissions.dashboard !== false,
     despesas: permissions.despesas !== false,
     extras: permissions.extras !== false,
     devedores: permissions.devedores !== false,
@@ -241,9 +246,17 @@ async function getMaintenanceConfig() {
   const result = {};
 
   Object.keys(DEFAULT_MAINTENANCE_CONFIG).forEach(key => {
+    let isMaint = false;
+    if (saved && saved[key]) {
+      if (typeof saved[key].maintenance === 'boolean') {
+        isMaint = saved[key].maintenance === true;
+      } else if (typeof saved[key] === 'boolean') {
+        isMaint = saved[key] === true;
+      }
+    }
     result[key] = {
-      name: DEFAULT_MAINTENANCE_CONFIG[key].name,
-      maintenance: saved && saved[key] && typeof saved[key].maintenance === 'boolean' ? saved[key].maintenance : false
+      name: (saved && saved[key] && saved[key].name) || DEFAULT_MAINTENANCE_CONFIG[key].name,
+      maintenance: isMaint
     };
   });
   return result;

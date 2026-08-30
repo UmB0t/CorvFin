@@ -47,7 +47,17 @@
       </div>
 
       <nav class="sidebar-nav">
-        <button class="sidebar-link active" data-tab="tab-expenses" data-tooltip="Despesas">
+        <button class="sidebar-link active" data-tab="tab-dashboard" data-tooltip="Dashboard">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span class="link-text">Dashboard</span>
+        </button>
+
+        <button class="sidebar-link" data-tab="tab-expenses" data-tooltip="Despesas">
           <svg class="svg-icon" viewBox="0 0 24 24">
             <line x1="18" y1="20" x2="18" y2="10" />
             <line x1="12" y1="20" x2="12" y2="4" />
@@ -141,8 +151,8 @@
 
       <header class="top-actions-bar">
         <div>
-          <h1 class="page-title" id="pageTitle">Despesas</h1>
-          <p class="page-sub">Gestão financeira pessoal com devedores e rendas extras</p>
+          <h1 class="page-title" id="pageTitle">Dashboard</h1>
+          <p class="page-sub">Visão consolidada da sua vida financeira</p>
         </div>
         <div class="top-right-actions pill-toolbar" role="toolbar" aria-label="Barra de Ferramentas do Sistema">
           <button class="toolbar-btn" id="notifBellBtn" data-tooltip="Central de Alertas e Notificações" aria-label="Central de Alertas e Notificações">
@@ -252,8 +262,15 @@
         <div class="ribbon" id="ribbon"></div>
       </section>
 
+      <!-- TAB 0: DASHBOARD PRINCIPAL -->
+      <main id="tab-dashboard" class="tab-content">
+        <div id="dashboardViewWrap">
+          <!-- Injetado dinamicamente por consolidatedDashboard.js -->
+        </div>
+      </main>
+
       <!-- TAB 1: DESPESAS -->
-      <main id="tab-expenses" class="tab-content">
+      <main id="tab-expenses" class="tab-content" hidden>
         <div id="expensesHeaderBar"
           style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; flex-wrap:wrap; gap:10px;">
           <div id="expensesSubTabsWrap"
@@ -1649,6 +1666,10 @@
           </div>
 
           <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; background:var(--surface-2); padding:16px; border-radius:12px; border:1px solid var(--line);">
+            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; font-weight:700; color:var(--text);">
+              <input type="checkbox" id="default-perm-dashboard" data-default-module="dashboard" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+              <span>Dashboard</span>
+            </label>
             <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; font-weight:700; color:var(--text);">
               <input type="checkbox" id="default-perm-despesas" data-default-module="despesas" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
               <span>Despesas</span>
@@ -3377,6 +3398,7 @@
   <script src="js/modules/profile.js"></script>
   <script src="js/modules/dashboard.js"></script>
   <script src="js/modules/expenseInstallments.js"></script>
+  <script src="js/modules/consolidatedDashboard.js"></script>
   <script src="js/modules/expenses.js"></script>
   <script src="js/modules/welcomeTour.js"></script>
   <script src="js/modules/backup.js"></script>
@@ -3544,7 +3566,8 @@
         }
       }
 
-                  const ALL_APP_TABS = [
+      const ALL_APP_TABS = [
+        'tab-dashboard',
         'tab-expenses',
         'tab-extras',
         'tab-debtors',
@@ -3562,7 +3585,11 @@
           return;
         }
 
-        if (tabId === 'tab-expenses') {
+        if (tabId === 'tab-dashboard') {
+          if (typeof renderConsolidatedDashboardTab === 'function') {
+            renderConsolidatedDashboardTab();
+          }
+        } else if (tabId === 'tab-expenses') {
           const isInstallmentsSub = state.expensesSubView === 'installments' && !isSimp;
           const expensesSubTabsWrap = $('#expensesSubTabsWrap');
           if (expensesSubTabsWrap) expensesSubTabsWrap.hidden = isSimp;
@@ -3771,7 +3798,17 @@
   </script>
     <!-- BOTTOM NAVIGATION BAR (MOBILE) -->
   <nav class="bottom-nav-bar" id="mobileBottomNav" aria-label="Navegação Principal Mobile">
-    <button type="button" class="bottom-nav-item active" data-tab="tab-expenses">
+    <button type="button" class="bottom-nav-item active" data-tab="tab-dashboard">
+      <svg class="svg-icon" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="7" height="7"></rect>
+        <rect x="14" y="3" width="7" height="7"></rect>
+        <rect x="14" y="14" width="7" height="7"></rect>
+        <rect x="3" y="14" width="7" height="7"></rect>
+      </svg>
+      <span>Dashboard</span>
+    </button>
+
+    <button type="button" class="bottom-nav-item" data-tab="tab-expenses">
       <svg class="svg-icon" viewBox="0 0 24 24">
         <line x1="18" y1="20" x2="18" y2="10" />
         <line x1="12" y1="20" x2="12" y2="4" />

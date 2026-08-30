@@ -912,4 +912,133 @@
     .shopping-autocomplete-badge.custom {
       background: var(--brand-soft);
       color: var(--brand);
+    }
+
+    /* ==========================================================================
+       DASHBOARD CONSOLIDADO COMPONENT (OMNIFIN V3)
+       ========================================================================== */
+    .consolidated-matrix-card {
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      margin-bottom: 22px;
+    }
+
+    .consolidated-matrix-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .consolidated-matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.86rem;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .consolidated-matrix-table th,
+    .consolidated-matrix-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+    }
+
+    .consolidated-matrix-table th:last-child,
+    .consolidated-matrix-table td:last-child {
+      border-right: none;
+    }
+
+    .consolidated-matrix-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .consolidated-matrix-table th {
+      background: var(--surface-2);
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .consolidated-matrix-table th.cat-col {
+      text-align: left;
+      min-width: 170px;
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: var(--surface-2);
+    }
+
+    .consolidated-matrix-table td.cat-col {
+      text-align: left;
+      font-weight: 750;
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      background: var(--surface);
+    }
+
+    .consolidated-matrix-table th.total-col,
+    .consolidated-matrix-table td.total-col {
+      font-weight: 800;
+      background: color-mix(in srgb, var(--surface-2) 60%, var(--surface));
+    }
+
+    .consolidated-matrix-table tr.total-row td {
+      font-weight: 850;
+      background: var(--surface-2);
+      border-top: 2px solid var(--line);
+    }
+
+    .consolidated-matrix-table td.cell-highlight {
+      background: color-mix(in srgb, var(--brand-soft) 45%, var(--surface));
+      color: var(--brand-strong);
+      font-weight: 750;
+    }
+
+    .consolidated-matrix-table tr:hover td {
+      background-color: var(--surface-2);
+    }
+
+    .consolidated-matrix-table tr:hover td.cell-highlight {
+      background-color: color-mix(in srgb, var(--brand-soft) 70%, var(--surface));
+    }
+
+    /* Accordion Drill-down Items */
+    .consolidated-drilldown-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: var(--surface-2);
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      font-size: 0.82rem;
+      gap: 10px;
+      transition: all 0.15s ease;
+    }
+
+    .consolidated-drilldown-item:hover {
+      border-color: var(--brand-soft);
+    }
+
+    /* ==========================================================================
+       MODAL DE GERENCIAMENTO DE MÓDULOS (RBAC)
+       ========================================================================== */
+    .module-perm-card {
+      transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .module-perm-card:hover {
+      border-color: var(--brand-soft);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .module-perm-card .maint-slider {
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
     }

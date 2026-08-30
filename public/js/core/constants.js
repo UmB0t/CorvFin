@@ -50,11 +50,13 @@ window.DEFAULT_CATEGORIES = [
 window.DEFAULT_BUDGETS = { 'Moradia': 2000, 'Lazer': 800, 'Alimentação': 1500, 'Cartão': 3000, 'Gerais': 1000 };
 
 window.TAB_TITLES = {
+  'tab-dashboard': 'Dashboard',
   'tab-expenses': 'Despesas',
   'tab-extras': 'Rendas Extras',
   'tab-debtors': 'Devedores',
   'tab-benefits': 'Benefícios',
   'tab-investments': 'Investimentos & Patrimônio',
+  'tab-shopping': 'Lista de Compras',
   'tab-simulation': 'Simulação de Cenários & Novas Despesas',
   'tab-profile': 'Perfil',
   'tab-admin': 'Configurações / Usuários & Permissões'
@@ -130,7 +132,7 @@ window.DEST_SVG_ICONS = {
   shopping: `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
   phone: `<svg class="svg-icon" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`,
   file: `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
-  globe: `<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`
+  globe: `<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"/></svg>`
 };
 
 window.ICONS = {

@@ -9,10 +9,76 @@
   // Catálogo Central Estático de Releases do OmniFin
   const RELEASES_CATALOG = [
     {
-      version: "3.1.0",
+      version: "3.3.0",
       date: "30/08/2026",
       tag: "Mais Recente",
       isLatest: true,
+      title: "Dashboard Consolidado e nova gestão de permissões",
+      summary: "Visão financeira consolidada com métricas por categoria e destino, nova página inicial /dashboard e gestão simplificada de permissões dos usuários.",
+      news: [
+        "Novo módulo Dashboard com visão consolidada das informações financeiras do usuário.",
+        "Dashboard agora possui URL própria: /dashboard e passa a ser a página inicial após o login.",
+        "Indicadores de Total Consolidado, Despesas, Valores a Receber, Pago/Recebido e Pendente.",
+        "Consolidação financeira detalhada por Categoria e por Destino / Cartão.",
+        "Filtros específicos para exploração dos dados consolidados.",
+        "Dashboard integrado ao sistema de permissões (RBAC) e de manutenção dos módulos."
+      ],
+      improvements: [
+        "Dashboard removido da área interna de Despesas e transformado em módulo independente.",
+        "Dashboard posicionado acima de Despesas na navegação lateral.",
+        "Gestão de permissões dos usuários reorganizada para evitar excesso de controles diretamente na tabela.",
+        "Usuários comuns passam a possuir uma ação dedicada 'Gerenciar' para configuração dos módulos liberados.",
+        "Administradores continuam identificados com acesso total.",
+        "Configuração de Permissões Padrão e Manutenção dos Módulos atualizadas para contemplar Dashboard.",
+        "Padronização da lista canônica de módulos entre interface administrativa e aplicação."
+      ],
+      fixes: [
+        "Correção da ausência do Dashboard na grade de Manutenção dos Módulos.",
+        "Compatibilidade com configurações antigas de manutenção que ainda não possuíam a chave 'dashboard'.",
+        "Correções de integração do Dashboard com roteamento, autenticação e permissões.",
+        "Correção da validação administrativa para aceitar Dashboard como módulo válido."
+      ]
+    },
+    {
+      version: "3.2.0",
+      date: "30/08/2026",
+      tag: "",
+      isLatest: false,
+      title: "Lista de Compras Inteligente e melhorias nos lançamentos",
+      summary: "Nova Lista de Compras Inteligente com catálogo padrão e autocomplete com aprendizado, novo wizard de despesas em etapas e suporte completo a Pix e Dinheiro.",
+      news: [
+        "Nova Lista de Compras Inteligente.",
+        "Catálogo padrão de produtos para agilizar o cadastro de itens.",
+        "Autocomplete durante a digitação dos produtos.",
+        "Aprendizado de novos itens personalizados adicionados pelo usuário.",
+        "Organização dos itens da lista por categorias.",
+        "Suporte à quantidade e unidade dos produtos.",
+        "Melhorias no fluxo de criação e gerenciamento das listas.",
+        "Novo fluxo de cadastro de despesas em etapas.",
+        "Métodos de pagamento À Vista, Parcelado e Fixa (Mensal).",
+        "Destinos Pix e Dinheiro com fluxo simplificado e quitação automática.",
+        "Vencimento padrão configurável por destino de pagamento."
+      ],
+      improvements: [
+        "Herança automática do vencimento cadastrado no destino.",
+        "Fluxo simplificado para despesas pagas via Pix ou Dinheiro.",
+        "Melhor organização e resumo das informações durante o cadastro de despesas.",
+        "Autocomplete da Lista de Compras com suporte a teclado e mouse.",
+        "Dropdown de sugestões protegido contra cortes e sobreposição de outros cards.",
+        "Melhor compatibilidade com despesas antigas já cadastradas."
+      ],
+      fixes: [
+        "Correção do carregamento inicial que podia exibir temporariamente dados fictícios antes da sincronização.",
+        "Correção dos seletores de mês e ano de competência no cadastro de despesas.",
+        "Correção do posicionamento das mensagens de validação dentro do Wizard de despesas.",
+        "Correção visual do dropdown de autocomplete da Lista de Compras."
+      ]
+    },
+    {
+      version: "3.1.0",
+      date: "30/08/2026",
+      tag: "",
+      isLatest: false,
       title: "Perfil, Simulações e melhorias de experiência",
       summary: "Nova central de personalização de categorias, simulações salvas para projeções financeiras isoladas e refinamentos visuais no design system.",
       news: [

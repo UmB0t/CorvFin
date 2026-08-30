@@ -55,6 +55,7 @@ function savePermissions(permissions) {
 function getDefaultPermissions() {
   const filePath = config.DEFAULT_PERMISSIONS_FILE || path.join(config.DATA_DIR, 'default_permissions.json');
   return safeReadJSON(filePath, {
+    dashboard: true,
     despesas: true,
     extras: true,
     devedores: true,
@@ -72,6 +73,7 @@ function saveDefaultPermissions(permissions) {
 
 // Maintenance Storage Helpers
 const DEFAULT_MAINTENANCE_CONFIG = {
+  dashboard: { maintenance: false, name: 'Dashboard' },
   despesas: { maintenance: false, name: 'Despesas' },
   extras: { maintenance: false, name: 'Rendas Extras' },
   devedores: { maintenance: false, name: 'Devedores' },
@@ -86,9 +88,17 @@ function getMaintenanceConfig() {
   const saved = safeReadJSON(filePath, DEFAULT_MAINTENANCE_CONFIG);
   const result = {};
   Object.keys(DEFAULT_MAINTENANCE_CONFIG).forEach(key => {
+    let isMaint = false;
+    if (saved && saved[key]) {
+      if (typeof saved[key].maintenance === 'boolean') {
+        isMaint = saved[key].maintenance === true;
+      } else if (typeof saved[key] === 'boolean') {
+        isMaint = saved[key] === true;
+      }
+    }
     result[key] = {
-      name: DEFAULT_MAINTENANCE_CONFIG[key].name,
-      maintenance: saved && saved[key] && typeof saved[key].maintenance === 'boolean' ? saved[key].maintenance : false
+      name: (saved && saved[key] && saved[key].name) || DEFAULT_MAINTENANCE_CONFIG[key].name,
+      maintenance: isMaint
     };
   });
   return result;
@@ -119,6 +129,7 @@ function getUserPermissions(userId) {
   const defaultPerms = getDefaultPermissions();
   return permissions[userId] || Object.assign(
     {
+      dashboard: true,
       despesas: true,
       extras: true,
       devedores: true,
@@ -137,6 +148,7 @@ function setUserPermissions(userId, userPerms) {
   const defaultPerms = getDefaultPermissions();
   permissions[userId] = Object.assign(
     {
+      dashboard: true,
       despesas: true,
       extras: true,
       devedores: true,

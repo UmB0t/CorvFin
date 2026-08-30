@@ -168,9 +168,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
           showToast(result.message || 'Login efetuado com sucesso!');
           setTimeout(() => {
+            const user = result.user;
+            const allowedRel = (window.getFirstAllowedRouteForUser && typeof window.getFirstAllowedRouteForUser === 'function')
+              ? window.getFirstAllowedRouteForUser(user)
+              : (user && user.permissions && user.permissions.dashboard === false ? '/despesas' : '/dashboard');
             const redirectPath = (window.API && typeof API.resolveUrl === 'function')
-              ? API.resolveUrl('/despesas')
-              : (typeof window.withBasePath === 'function' ? window.withBasePath('/despesas') : '/despesas');
+              ? API.resolveUrl(allowedRel)
+              : (typeof window.withBasePath === 'function' ? window.withBasePath(allowedRel) : allowedRel);
             window.location.href = redirectPath;
           }, 500);
         } else {
@@ -253,7 +257,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
           showToast(result.message || 'Cadastro realizado com sucesso!');
           setTimeout(() => {
-            const redirectPath = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/despesas') : '/';
+            const user = result.user;
+            const allowedRel = (window.getFirstAllowedRouteForUser && typeof window.getFirstAllowedRouteForUser === 'function')
+              ? window.getFirstAllowedRouteForUser(user)
+              : (user && user.permissions && user.permissions.dashboard === false ? '/despesas' : '/dashboard');
+            const redirectPath = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl(allowedRel) : allowedRel;
             window.location.href = redirectPath;
           }, 600);
         } else {
