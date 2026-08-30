@@ -766,168 +766,524 @@ function renderExpensesLists() {
         updateMarkAllButtonState('#simpMarkAllPaidBtn', [...rawFixed, ...rawVariable]);
       }
 
-function showTypeBlocks(type) {
-        const ff = $('#fieldsFixed');
-        const fv = $('#fieldsVariable');
-        if (ff) ff.hidden = type !== 'fixed';
-        if (fv) fv.hidden = type !== 'variable';
-      }
+  function getEntryNote() {
+    return ($('#entryNoteStep1')?.value || $('#entryNote')?.value || '').trim();
+  }
 
-function setEntryDialogType(type) {
-        entryDlgState.type = type;
-        $$('#typeSelector button, .entry-type-tab').forEach(b => {
-          const isActive = b.dataset.type === type;
-          b.style.background = isActive ? 'var(--surface)' : 'transparent';
-          b.style.color = isActive ? 'var(--text)' : 'var(--muted)';
-        });
-        if (entryDlgState.mode === 'new') {
-          const titleEl = $('#entryDialogTitle');
-          if (titleEl) titleEl.textContent = type === 'fixed' ? 'Nova Despesa Fixa' : 'Nova Despesa Variável';
+  function setEntryNote(val) {
+    const v = val || '';
+    if ($('#entryNoteStep1')) $('#entryNoteStep1').value = v;
+    if ($('#entryNote')) $('#entryNote').value = v;
+  }
+
+  function clearEntryValidation() {
+    const alert = $('#entryValidationAlert');
+    if (alert) {
+      alert.style.display = 'none';
+      alert.textContent = '';
+    }
+    const dialog = $('#entryDialog');
+    let fields = [];
+    if (dialog && typeof dialog.querySelectorAll === 'function') {
+      try {
+        fields = Array.from(dialog.querySelectorAll('input, select, textarea'));
+      } catch (e) {
+        fields = [];
+      }
+    }
+    if (!fields.length && typeof $$ === 'function') {
+      try {
+        fields = $$('#entryDialog input, #entryDialog select, #entryDialog textarea, input, select, textarea');
+      } catch (e) {
+        fields = [];
+      }
+    }
+    fields.forEach(el => {
+      if (el && typeof el.removeAttribute === 'function') {
+        el.removeAttribute('aria-invalid');
+      }
+      if (el && el.classList && typeof el.classList.remove === 'function') {
+        el.classList.remove('is-invalid');
+        el.classList.remove('input-error');
+      }
+    });
+  }
+
+  function setEntryFieldError(fieldEl, message) {
+    clearEntryValidation();
+    if (fieldEl) {
+      fieldEl.setAttribute('aria-invalid', 'true');
+      fieldEl.classList.add('is-invalid', 'input-error');
+      try { fieldEl.focus(); } catch (e) {}
+    }
+    const alert = $('#entryValidationAlert');
+    if (alert) {
+      alert.textContent = message;
+      alert.style.display = 'block';
+    }
+  }
+
+  function validateEntryStep1() {
+    const nameInput = $('#entryName');
+    const name = nameInput?.value.trim();
+    if (!name) {
+      setEntryFieldError(nameInput, 'Informe a descrição do lançamento.');
+      return false;
+    }
+
+    const groupInput = $('#entryGroup');
+    const group = groupInput?.value.trim();
+    if (!group) {
+      setEntryFieldError(groupInput, 'Selecione a categoria do lançamento.');
+      return false;
+    }
+
+    const amountInput = $('#entryAmount');
+    const amountVal = amountInput?.value.trim();
+    const amount = Number(amountVal);
+    if (!amountVal || isNaN(amount) || amount <= 0) {
+      setEntryFieldError(amountInput, 'Informe um valor maior que zero.');
+      return false;
+    }
+
+    const destInput = $('#entryDestination');
+    const dest = destInput?.value.trim();
+    if (!dest) {
+      setEntryFieldError(destInput, 'Selecione a forma de pagamento / destino.');
+      return false;
+    }
+
+    clearEntryValidation();
+    return true;
+  }
+
+  function validateEntryStep2() {
+    const expType = entryDlgState.type || 'cash';
+    if (expType === 'cash') {
+      const monthInput = $('#cashEffMonth');
+      if (!monthInput?.value) {
+        setEntryFieldError(monthInput, 'Selecione o mês de competência.');
+        return false;
+      }
+      const yearInput = $('#cashEffYear');
+      if (!yearInput?.value) {
+        setEntryFieldError(yearInput, 'Selecione o ano de competência.');
+        return false;
+      }
+    } else if (expType === 'installment') {
+      const startMonthInput = $('#varStartMonth');
+      if (!startMonthInput?.value) {
+        setEntryFieldError(startMonthInput, 'Selecione o mês inicial do parcelamento.');
+        return false;
+      }
+      const startYearInput = $('#varStartYear');
+      if (!startYearInput?.value) {
+        setEntryFieldError(startYearInput, 'Selecione o ano inicial do parcelamento.');
+        return false;
+      }
+      const countInput = $('#varInstallmentsCount');
+      const count = parseInt(countInput?.value, 10);
+      if (!count || count < 1) {
+        setEntryFieldError(countInput, 'Informe um número de parcelas válido.');
+        return false;
+      }
+    } else if (expType === 'fixed') {
+      const monthInput = $('#fixedEffMonth');
+      if (!monthInput?.value) {
+        setEntryFieldError(monthInput, 'Selecione o mês inicial de vigência.');
+        return false;
+      }
+      const yearInput = $('#fixedEffYear');
+      if (!yearInput?.value) {
+        setEntryFieldError(yearInput, 'Selecione o ano inicial de vigência.');
+        return false;
+      }
+    }
+
+    clearEntryValidation();
+    return true;
+  }
+
+  function setWizardStep(stepNumber) {
+    clearEntryValidation();
+    entryDlgState.step = stepNumber;
+
+    const destName = $('#entryDestination')?.value || '';
+    const isPixOrCash = (destName.toLowerCase() === 'pix' || destName.toLowerCase() === 'dinheiro');
+
+    // Visual indicators
+    [1, 2, 3].forEach(s => {
+      const ind = $(`#stepIndicator${s}`);
+      if (!ind) return;
+      const dot = ind.querySelector('.wizard-dot');
+      if (s < stepNumber) {
+        ind.style.color = 'var(--brand)';
+        if (dot) {
+          dot.style.background = 'var(--brand)';
+          dot.style.color = '#fff';
+          dot.textContent = '✓';
         }
-        showTypeBlocks(type);
-        if (type === 'variable') {
-          updateVarInstallments();
+      } else if (s === stepNumber) {
+        ind.style.color = 'var(--brand)';
+        if (dot) {
+          dot.style.background = 'var(--brand)';
+          dot.style.color = '#fff';
+          dot.textContent = String(s);
+        }
+      } else {
+        ind.style.color = 'var(--muted)';
+        if (dot) {
+          dot.style.background = 'var(--surface)';
+          dot.style.border = '1px solid var(--line)';
+          dot.style.color = 'var(--muted)';
+          dot.textContent = String(s);
         }
       }
+    });
 
-function updateVarInstallments() {
+    // Panels visibility
+    if ($('#entryStep1')) $('#entryStep1').style.display = (stepNumber === 1 ? 'grid' : 'none');
+    if ($('#entryStep2')) $('#entryStep2').style.display = (stepNumber === 2 ? 'grid' : 'none');
+    if ($('#entryStep3')) $('#entryStep3').style.display = (stepNumber === 3 ? 'grid' : 'none');
+
+    // Buttons visibility
+    const cancel1 = $('#btnCancelStep1');
+    const next1 = $('#btnNextStep1');
+    const back2 = $('#btnBackStep2');
+    const next2 = $('#btnNextStep2');
+    const back3 = $('#btnBackStep3');
+    const submitBtn = $('#entrySubmitBtn');
+
+    if (cancel1) cancel1.style.display = (stepNumber === 1 ? 'inline-flex' : 'none');
+
+    if (stepNumber === 1) {
+      if (isPixOrCash) {
+        if (next1) next1.style.display = 'none';
+        if (submitBtn) {
+          submitBtn.style.display = 'inline-flex';
+          submitBtn.textContent = '✓ Salvar Lançamento';
+        }
+      } else {
+        if (next1) next1.style.display = 'inline-flex';
+        if (submitBtn) submitBtn.style.display = 'none';
+      }
+      if (back2) back2.style.display = 'none';
+      if (next2) next2.style.display = 'none';
+      if (back3) back3.style.display = 'none';
+    } else if (stepNumber === 2) {
+      if (next1) next1.style.display = 'none';
+      if (back2) back2.style.display = 'inline-flex';
+      if (next2) next2.style.display = 'inline-flex';
+      if (back3) back3.style.display = 'none';
+      if (submitBtn) submitBtn.style.display = 'none';
+    } else if (stepNumber === 3) {
+      if (next1) next1.style.display = 'none';
+      if (back2) back2.style.display = 'none';
+      if (next2) next2.style.display = 'none';
+      if (back3) back3.style.display = 'inline-flex';
+      if (submitBtn) {
+        submitBtn.style.display = 'inline-flex';
+        submitBtn.textContent = '✓ Salvar Lançamento';
+      }
+    }
+  }
+
+  function setEntryExpenseType(expType) {
+    entryDlgState.type = expType;
+    if ($('#entryType')) $('#entryType').value = expType;
+    if ($('#entryPaymentType')) $('#entryPaymentType').value = expType;
+
+    $$('.entry-type-btn').forEach(btn => {
+      const active = btn.dataset.expType === expType;
+      btn.style.background = active ? 'var(--surface)' : 'transparent';
+      btn.style.color = active ? 'var(--text)' : 'var(--muted)';
+      btn.style.boxShadow = active ? '0 2px 6px rgba(0,0,0,0.1)' : 'none';
+    });
+
+    if ($('#panelTypeCash')) $('#panelTypeCash').style.display = (expType === 'cash' ? 'grid' : 'none');
+    if ($('#panelTypeInstallment')) $('#panelTypeInstallment').style.display = (expType === 'installment' ? 'grid' : 'none');
+    if ($('#panelTypeFixed')) $('#panelTypeFixed').style.display = (expType === 'fixed' ? 'grid' : 'none');
+
+    if (expType === 'installment') {
+      updateVarInstallments();
+    }
+  }
+
+  function syncDestinationRules() {
     const state = getState();
-        const sm = Number($('#varStartMonth')?.value) || state.month || 1;
-        const sy = Number($('#varStartYear')?.value) || state.year || 2026;
-        const count = Math.max(1, parseInt($('#varInstallmentsCount')?.value, 10) || 1);
-        const amount = Number($('#entryAmount')?.value) || 0;
+    const destName = $('#entryDestination')?.value;
+    const dest = (state.destinations || []).find(d => d.name === destName);
+    const isPixOrCash = dest && (dest.name.toLowerCase() === 'pix' || dest.name.toLowerCase() === 'dinheiro');
 
-        const endMonthIdx = (sm - 1) + (count - 1);
-        const ey = sy + Math.floor(endMonthIdx / 12);
-        const em = (endMonthIdx % 12) + 1;
+    const destHint = $('#entryDestHint');
+    const dueWrap = $('#dueDayWrap');
+    const inheritedHint = $('#inheritedDueHint');
+    const noteStep1Wrap = $('#entryNoteStep1Wrap');
+    const stepInd1 = $('#stepIndicator1');
+    const stepInd2 = $('#stepIndicator2');
+    const stepInd3 = $('#stepIndicator3');
+    const stepLines = $$('.wizard-line');
+    const btnNext1 = $('#btnNextStep1');
+    const submitBtn = $('#entrySubmitBtn');
 
-        if ($('#varEndMonth')) $('#varEndMonth').value = em;
-        if ($('#varEndYear')) $('#varEndYear').value = ey;
+    // Keep notes synced between fields
+    setEntryNote(getEntryNote());
 
-        const badge = $('#varInstallmentsBadge');
-        if (!badge) return;
+    if (isPixOrCash) {
+      if (destHint) destHint.textContent = '⚡ Forma de pagamento à vista com quitação automática.';
+      if (dueWrap) dueWrap.style.display = 'none';
+      if ($('#entryDueDay')) $('#entryDueDay').value = '';
+      if (inheritedHint) inheritedHint.style.display = 'none';
+      setEntryExpenseType('cash');
 
-        const totalAmount = amount * count;
-        if (count === 1) {
-          badge.classList.remove('invalid', 'error');
-          badge.innerHTML = `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> <span>Vigência: <strong>Parcela única</strong> em ${MONTH_ABBR[sm - 1]}/${sy} • Total: ${currency(amount)}</span>`;
-        } else {
-          badge.classList.remove('invalid', 'error');
-          badge.innerHTML = `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> <span>Vigência calculada: <strong>${MONTH_ABBR[sm - 1]}/${sy} a ${MONTH_ABBR[em - 1]}/${ey}</strong> (${count}x de ${currency(amount)} • Total: ${currency(totalAmount)})</span>`;
+      // Show note in Step 1 for shortcut flow
+      if (noteStep1Wrap) noteStep1Wrap.style.display = 'grid';
+
+      // Adapt stepper to Direct Flow
+      if (stepInd1) {
+        const span = stepInd1.querySelector('span:not(.wizard-dot)');
+        if (span) span.textContent = 'Identificação & Finalização';
+      }
+      if (stepInd2) stepInd2.style.display = 'none';
+      if (stepInd3) stepInd3.style.display = 'none';
+      stepLines.forEach(l => l.style.display = 'none');
+
+      // If on step 1, show Save button directly
+      if (entryDlgState.step === 1) {
+        if (btnNext1) btnNext1.style.display = 'none';
+        if (submitBtn) {
+          submitBtn.style.display = 'inline-flex';
+          submitBtn.textContent = '✓ Salvar Lançamento';
         }
       }
+    } else {
+      if (noteStep1Wrap) noteStep1Wrap.style.display = 'none';
+      if (dueWrap) dueWrap.style.display = 'grid';
 
-function openEntryDialog(opts) {
+      // Restore 3-step wizard stepper
+      if (stepInd1) {
+        const span = stepInd1.querySelector('span:not(.wizard-dot)');
+        if (span) span.textContent = 'Identificação';
+      }
+      if (stepInd2) stepInd2.style.display = 'flex';
+      if (stepInd3) stepInd3.style.display = 'flex';
+      stepLines.forEach(l => l.style.display = 'block');
+
+      if (entryDlgState.step === 1) {
+        if (btnNext1) btnNext1.style.display = 'inline-flex';
+        if (submitBtn) submitBtn.style.display = 'none';
+      }
+
+      if (dest && dest.dueDay) {
+        if (destHint) destHint.textContent = `📅 Vencimento padrão deste destino: dia ${dest.dueDay}`;
+        if ($('#entryDueDay') && ($('#entryDueDay').value === '' || entryDlgState.mode === 'new')) {
+          $('#entryDueDay').value = dest.dueDay;
+        }
+        if (inheritedHint) {
+          inheritedHint.textContent = `✓ Vencimento: dia ${dest.dueDay} (herdado de ${dest.name})`;
+          inheritedHint.style.display = 'block';
+        }
+      } else {
+        if (destHint) destHint.textContent = '';
+        if (inheritedHint) inheritedHint.style.display = 'none';
+      }
+    }
+  }
+
+  function updateStep3Summary() {
+    const state = getState();
+    const name = $('#entryName')?.value.trim() || 'Sem nome';
+    const amount = Number($('#entryAmount')?.value) || 0;
+    const cat = $('#entryGroup')?.value || 'Gerais';
+    const destName = $('#entryDestination')?.value || 'Nubank';
+    const expType = entryDlgState.type || 'cash';
+    const isPixOrCash = (destName.toLowerCase() === 'pix' || destName.toLowerCase() === 'dinheiro');
+
+    if ($('#summaryName')) $('#summaryName').textContent = name;
+    if ($('#summaryAmount')) $('#summaryAmount').textContent = currency(amount);
+    if ($('#summaryCategory')) $('#summaryCategory').textContent = cat;
+    if ($('#summaryDestination')) $('#summaryDestination').textContent = destName;
+
+    if ($('#summaryType') && $('#summaryPeriod')) {
+      if (expType === 'cash') {
+        const cm = Number($('#cashEffMonth')?.value) || state.month;
+        const cy = Number($('#cashEffYear')?.value) || state.year;
+        $('#summaryType').textContent = 'À Vista';
+        $('#summaryPeriod').textContent = `${MONTH_ABBR[cm - 1]}/${cy}`;
+      } else if (expType === 'installment') {
+        const count = Math.max(1, parseInt($('#varInstallmentsCount')?.value, 10) || 1);
+        const sm = Number($('#varStartMonth')?.value) || state.month;
+        const sy = Number($('#varStartYear')?.value) || state.year;
+        const em = Number($('#varEndMonth')?.value) || sm;
+        const ey = Number($('#varEndYear')?.value) || sy;
+        $('#summaryType').textContent = `Parcelado (${count}x)`;
+        $('#summaryPeriod').textContent = `${MONTH_ABBR[sm - 1]}/${sy} a ${MONTH_ABBR[em - 1]}/${ey}`;
+      } else {
+        const fm = Number($('#fixedEffMonth')?.value) || state.month;
+        const fy = Number($('#fixedEffYear')?.value) || state.year;
+        $('#summaryType').textContent = 'Fixa (Mensal)';
+        $('#summaryPeriod').textContent = `Desde ${MONTH_ABBR[fm - 1]}/${fy}`;
+      }
+    }
+
+    if (isPixOrCash) {
+      if ($('#entryStatus')) $('#entryStatus').value = 'pago';
+      if ($('#pixCashStatusHint')) $('#pixCashStatusHint').style.display = 'block';
+    } else {
+      if ($('#pixCashStatusHint')) $('#pixCashStatusHint').style.display = 'none';
+    }
+  }
+
+  function updateVarInstallments() {
+    const state = getState();
+    const sm = Number($('#varStartMonth')?.value) || state.month || 1;
+    const sy = Number($('#varStartYear')?.value) || state.year || 2026;
+    const count = Math.max(1, parseInt($('#varInstallmentsCount')?.value, 10) || 1);
+    const amount = Number($('#entryAmount')?.value) || 0;
+
+    const endMonthIdx = (sm - 1) + (count - 1);
+    const ey = sy + Math.floor(endMonthIdx / 12);
+    const em = (endMonthIdx % 12) + 1;
+
+    if ($('#varEndMonth')) $('#varEndMonth').value = em;
+    if ($('#varEndYear')) $('#varEndYear').value = ey;
+
+    const badge = $('#varInstallmentsBadge');
+    if (!badge) return;
+
+    const totalAmount = amount * count;
+    if (count === 1) {
+      badge.classList.remove('invalid', 'error');
+      badge.innerHTML = `<span>Parcela única em ${MONTH_ABBR[sm - 1]}/${sy} • Total: ${currency(amount)}</span>`;
+    } else {
+      badge.classList.remove('invalid', 'error');
+      badge.innerHTML = `<span>Vigência calculada: <strong>${MONTH_ABBR[sm - 1]}/${sy} a ${MONTH_ABBR[em - 1]}/${ey}</strong> (${count}x de ${currency(amount)} • Total: ${currency(totalAmount)})</span>`;
+    }
+  }
+
+  function openEntryDialog(opts) {
     const state = getState();
     const entryDlg = $('#entryDialog');
-        opts = opts || {};
-        let mode = 'new', type = 'fixed', id = null, fixedId = null;
-        if (typeof opts === 'object' && opts !== null) {
-          mode = opts.mode || 'new';
-          type = opts.type || 'fixed';
-          id = opts.id || null;
-          fixedId = opts.fixedId || null;
-        } else {
-          mode = opts || 'new';
-          type = arguments[1] || 'fixed';
-          id = arguments[2] || null;
-          fixedId = arguments[3] || null;
-        }
+    opts = opts || {};
+    let mode = 'new', type = 'cash', id = null, fixedId = null;
+    if (typeof opts === 'object' && opts !== null) {
+      mode = opts.mode || 'new';
+      type = opts.type || 'cash';
+      id = opts.id || null;
+      fixedId = opts.fixedId || null;
+    }
 
-        $('#entryForm').reset();
-        fillMonthSelects();
-        updateCategorySelects();
+    $('#entryForm').reset();
+    setEntryNote('');
+    fillMonthSelects();
+    updateCategorySelects();
+    updateDestinationSelects();
 
-        const delBtn = $('#deleteEntryBtn');
-        const fixActions = $('#fixedActions');
-        if (delBtn) delBtn.hidden = true;
-        if (fixActions) fixActions.hidden = true;
+    const delBtn = $('#deleteEntryBtn');
+    const fixActions = $('#fixedActions');
+    if (delBtn) delBtn.hidden = true;
+    if (fixActions) fixActions.hidden = true;
 
-        if (mode === 'new') {
-          entryDlgState = { mode: 'new', type, id: null, fixedId: null };
-          $('#entryDialogTitle').textContent = type === 'fixed' ? 'Nova Despesa Fixa' : 'Nova Despesa Variável';
-          setEntryDialogType(type);
+    const now = new Date();
+    const curMonth = state.month || (now.getMonth() + 1);
+    const curYear = state.year || now.getFullYear();
 
-          const now = new Date();
-          const curDay = now.getDate();
-          const curMonth = state.month || (now.getMonth() + 1);
-          const curYear = state.year || now.getFullYear();
+    if ($('#fixedEffMonth')) $('#fixedEffMonth').value = curMonth;
+    if ($('#fixedEffYear')) $('#fixedEffYear').value = curYear;
+    if ($('#cashEffMonth')) $('#cashEffMonth').value = curMonth;
+    if ($('#cashEffYear')) $('#cashEffYear').value = curYear;
+    if ($('#varStartMonth')) $('#varStartMonth').value = curMonth;
+    if ($('#varStartYear')) $('#varStartYear').value = curYear;
+    if ($('#varInstallmentsCount')) $('#varInstallmentsCount').value = 2;
 
-          $('#fixedEffMonth').value = curMonth;
-          $('#fixedEffYear').value = curYear;
-          $('#varStartMonth').value = curMonth;
-          $('#varStartYear').value = curYear;
-          if ($('#varInstallmentsCount')) $('#varInstallmentsCount').value = 1;
-          const firstCatName = state.categories.length > 0 ? ((typeof getCategoryName === 'function') ? getCategoryName(state.categories[0]) : (typeof state.categories[0] === 'string' ? state.categories[0] : state.categories[0].name)) : 'Gerais';
-          $('#entryDueDay').value = curDay;
-          $('#entryDestination').value = state.destinations[0]?.name || 'Nubank';
-          $('#entryStatus').value = 'pendente';
-          if (state.categories.length > 0) $('#entryGroup').value = firstCatName;
+    const firstCatName = state.categories.length > 0
+      ? ((typeof getCategoryName === 'function') ? getCategoryName(state.categories[0]) : (typeof state.categories[0] === 'string' ? state.categories[0] : state.categories[0].name))
+      : 'Gerais';
+    if ($('#entryGroup')) $('#entryGroup').value = firstCatName;
 
-          updateVarInstallments();
-        } else if (type === 'fixed') {
-          const firstCatName = state.categories.length > 0 ? ((typeof getCategoryName === 'function') ? getCategoryName(state.categories[0]) : (typeof state.categories[0] === 'string' ? state.categories[0] : state.categories[0].name)) : 'Gerais';
-          const fixed = state.fixed.find(f => f.id === fixedId || f.id === id);
-          if (!fixed) return;
-          const active = activeFixedForMonth(state.year, state.month).find(a => a.fixedId === fixed.id)
-            || [...fixed.versions].sort((a, b) => mk(a.year, a.month) - mk(b.year, b.month))[0];
+    if (mode === 'new') {
+      entryDlgState = { mode: 'new', step: 1, type: (type === 'fixed' ? 'fixed' : 'cash'), id: null, fixedId: null };
+      $('#entryDialogTitle').textContent = 'Nova Despesa';
 
-          entryDlgState = {
-            mode: 'edit',
-            type: 'fixed',
-            id: null,
-            fixedId: fixed.id,
-            effMonth: active.effMonth || active.month || (active.versions && active.versions[0]?.month),
-            effYear: active.effYear || active.year || (active.versions && active.versions[0]?.year)
-          };
-          $('#entryDialogTitle').textContent = 'Editar Despesa Fixa';
-          setEntryDialogType('fixed');
+      const defaultDest = state.destinations[0]?.name || 'Pix';
+      $('#entryDestination').value = defaultDest;
+      syncDestinationRules();
+      setEntryExpenseType(entryDlgState.type);
+      setWizardStep(1);
+    } else if (type === 'fixed') {
+      const fixed = state.fixed.find(f => f.id === fixedId || f.id === id);
+      if (!fixed) return;
+      const active = activeFixedForMonth(state.year, state.month).find(a => a.fixedId === fixed.id)
+        || [...fixed.versions].sort((a, b) => mk(a.year, a.month) - mk(b.year, b.month))[0];
 
-          $('#entryName').value = fixed.name;
-          $('#entryGroup').value = fixed.group || firstCatName;
-          $('#entryNote').value = fixed.note || '';
-          $('#entryAmount').value = active.amount;
-          $('#entryDueDay').value = fixed.dueDay || '';
-          $('#entryDestination').value = fixed.destination || 'Nubank';
+      entryDlgState = {
+        mode: 'edit',
+        step: 1,
+        type: 'fixed',
+        id: null,
+        fixedId: fixed.id,
+        effMonth: active.effMonth || active.month || (active.versions && active.versions[0]?.month),
+        effYear: active.effYear || active.year || (active.versions && active.versions[0]?.year)
+      };
+      $('#entryDialogTitle').textContent = 'Editar Despesa Fixa';
 
-          const key = ymKey(state.year, state.month);
-          const isPaid = fixed.paidHistory ? fixed.paidHistory[key] === true : (active.status === 'pago');
-          $('#entryStatus').value = isPaid ? 'pago' : 'pendente';
-          $('#fixedEffMonth').value = active.effMonth || active.month || state.month;
-          $('#fixedEffYear').value = active.effYear || active.year || state.year;
-          if (fixActions) fixActions.hidden = false;
-        } else if (type === 'variable') {
-          const firstCatName = state.categories.length > 0 ? ((typeof getCategoryName === 'function') ? getCategoryName(state.categories[0]) : (typeof state.categories[0] === 'string' ? state.categories[0] : state.categories[0].name)) : 'Gerais';
-          const v = state.variable.find(x => x.id === id || x.id === fixedId);
-          if (!v) return;
+      $('#entryName').value = fixed.name;
+      $('#entryGroup').value = fixed.group || firstCatName;
+      setEntryNote(fixed.note || '');
+      $('#entryAmount').value = active.amount;
+      $('#entryDestination').value = fixed.destination || 'Nubank';
+      $('#entryDueDay').value = fixed.dueDay || '';
 
-          entryDlgState = { mode: 'edit', type: 'variable', id: v.id, fixedId: null };
-          $('#entryDialogTitle').textContent = 'Editar Despesa Variável';
-          setEntryDialogType('variable');
+      const key = ymKey(state.year, state.month);
+      const isPaid = fixed.paidHistory ? fixed.paidHistory[key] === true : (active.status === 'pago');
+      $('#entryStatus').value = isPaid ? 'pago' : 'pendente';
+      $('#fixedEffMonth').value = active.effMonth || active.month || state.month;
+      $('#fixedEffYear').value = active.effYear || active.year || state.year;
+      if (fixActions) fixActions.hidden = false;
 
-          $('#entryName').value = v.name;
-          $('#entryGroup').value = v.group || firstCatName;
-          $('#entryNote').value = v.note || '';
-          $('#entryAmount').value = v.amount;
-          $('#entryDueDay').value = v.dueDay || '';
-          $('#entryDestination').value = v.destination || 'Nubank';
+      syncDestinationRules();
+      setEntryExpenseType('fixed');
+      setWizardStep(1);
+    } else {
+      const v = state.variable.find(x => x.id === id || x.id === fixedId);
+      if (!v) return;
 
-          const key = ymKey(state.year, state.month);
-          const isPaid = v.paidHistory ? v.paidHistory[key] === true : (v.status === 'pago');
-          $('#entryStatus').value = isPaid ? 'pago' : 'pendente';
-          $('#varStartMonth').value = v.startMonth;
-          $('#varStartYear').value = v.startYear;
-          $('#varEndMonth').value = v.endMonth;
-          $('#varEndYear').value = v.endYear;
+      const isInstallment = (v.installments > 1 || (mk(v.endYear, v.endMonth) > mk(v.startYear, v.startMonth)));
+      const isPixOrCash = (v.destination && (v.destination.toLowerCase() === 'pix' || v.destination.toLowerCase() === 'dinheiro'));
+      const expType = isPixOrCash ? 'cash' : (isInstallment ? 'installment' : 'cash');
 
-          const count = mk(v.endYear, v.endMonth) - mk(v.startYear, v.startMonth) + 1;
-          if ($('#varInstallmentsCount')) $('#varInstallmentsCount').value = Math.max(1, count);
-          if (delBtn) delBtn.hidden = false;
-          updateVarInstallments();
-        }
+      entryDlgState = { mode: 'edit', step: 1, type: expType, id: v.id, fixedId: null };
+      $('#entryDialogTitle').textContent = isPixOrCash ? 'Editar Despesa (À Vista)' : (isInstallment ? 'Editar Despesa Parcelada' : 'Editar Despesa À Vista');
 
-        if (entryDlg) entryDlg.showModal();
-      }
+      $('#entryName').value = v.name;
+      $('#entryGroup').value = v.group || firstCatName;
+      setEntryNote(v.note || '');
+      $('#entryAmount').value = v.amount;
+      $('#entryDestination').value = v.destination || 'Nubank';
+      $('#entryDueDay').value = v.dueDay || '';
+
+      const key = ymKey(v.startYear || state.year, v.startMonth || state.month);
+      const isPaid = v.paidHistory ? v.paidHistory[key] === true : (v.status === 'pago');
+      $('#entryStatus').value = isPaid ? 'pago' : 'pendente';
+      $('#cashEffMonth').value = v.startMonth || state.month;
+      $('#cashEffYear').value = v.startYear || state.year;
+      $('#varStartMonth').value = v.startMonth || state.month;
+      $('#varStartYear').value = v.startYear || state.year;
+      $('#varEndMonth').value = v.endMonth || state.month;
+      $('#varEndYear').value = v.endYear || state.year;
+
+      const count = Math.max(1, v.installments || (mk(v.endYear, v.endMonth) - mk(v.startYear, v.startMonth) + 1));
+      if ($('#varInstallmentsCount')) $('#varInstallmentsCount').value = count;
+      if (delBtn) delBtn.hidden = false;
+
+      syncDestinationRules();
+      setEntryExpenseType(expType);
+      setWizardStep(1);
+    }
+
+    clearEntryValidation();
+    if (entryDlg) entryDlg.showModal();
+  }
 
   function initExpensesListeners() {
     $('#openFixedFsBtn')?.addEventListener('click', () => openFullscreenTable('fixed'));
@@ -962,16 +1318,62 @@ function openEntryDialog(opts) {
     $('#expensesDestFilter')?.addEventListener('change', renderExpensesLists);
     if ($('#expensesSortFilter')) $('#expensesSortFilter').addEventListener('change', renderExpensesLists);
 
-    $('#expensesAddBtn')?.addEventListener('click', () => openEntryDialog({ mode: 'new', type: 'fixed' }));
+    $('#expensesAddBtn')?.addEventListener('click', () => openEntryDialog({ mode: 'new', type: 'cash' }));
     $('#addFixedBtn')?.addEventListener('click', () => openEntryDialog({ mode: 'new', type: 'fixed' }));
-    $('#addVariableBtn')?.addEventListener('click', () => openEntryDialog({ mode: 'new', type: 'variable' }));
+    $('#addVariableBtn')?.addEventListener('click', () => openEntryDialog({ mode: 'new', type: 'installment' }));
 
-    $$('#typeSelector button, .entry-type-tab')?.forEach(b => {
-      b.addEventListener('click', () => {
-        const t = b.dataset.type;
-        if (t) setEntryDialogType(t);
+    // WIZARD NAVIGATION LISTENERS
+    $('#entryDestination')?.addEventListener('change', syncDestinationRules);
+
+    // Note inputs live synchronization
+    $('#entryNoteStep1')?.addEventListener('input', (e) => {
+      if ($('#entryNote')) $('#entryNote').value = e.target.value;
+    });
+    $('#entryNote')?.addEventListener('input', (e) => {
+      if ($('#entryNoteStep1')) $('#entryNoteStep1').value = e.target.value;
+    });
+
+    // Auto-clear validation error states when user interacts with dialog fields
+    const entryDlgEl = $('#entryDialog');
+    if (entryDlgEl) {
+      const handleFieldCorrection = (e) => {
+        const target = e.target;
+        if (target && (target.getAttribute('aria-invalid') === 'true' || target.classList.contains('is-invalid'))) {
+          target.removeAttribute('aria-invalid');
+          target.classList.remove('is-invalid', 'input-error');
+          const hasOtherErrors = entryDlgEl.querySelector('[aria-invalid="true"]');
+          if (!hasOtherErrors) {
+            const alert = $('#entryValidationAlert');
+            if (alert) alert.style.display = 'none';
+          }
+        }
+      };
+      entryDlgEl.addEventListener('input', handleFieldCorrection);
+      entryDlgEl.addEventListener('change', handleFieldCorrection);
+    }
+
+    $$('.entry-type-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const t = btn.dataset.expType;
+        if (t) setEntryExpenseType(t);
       });
     });
+
+    $('#btnNextStep1')?.addEventListener('click', () => {
+      if (!validateEntryStep1()) return;
+      syncDestinationRules();
+      setWizardStep(2);
+    });
+
+    $('#btnBackStep2')?.addEventListener('click', () => setWizardStep(1));
+
+    $('#btnNextStep2')?.addEventListener('click', () => {
+      if (!validateEntryStep2()) return;
+      updateStep3Summary();
+      setWizardStep(3);
+    });
+
+    $('#btnBackStep3')?.addEventListener('click', () => setWizardStep(2));
 
     ['#varStartMonth', '#varStartYear', '#varInstallmentsCount', '#entryAmount'].forEach(id => {
       const el = $(id);
@@ -1004,18 +1406,24 @@ function openEntryDialog(opts) {
       e.preventDefault();
       const state = getState();
       const entryDlg = $('#entryDialog');
-      const type = entryDlgState.type || 'fixed';
       const name = $('#entryName').value.trim();
       let group = $('#entryGroup').value.trim() || 'Gerais';
-      const note = $('#entryNote').value.trim();
+      const note = getEntryNote();
       const amount = Number($('#entryAmount').value);
-      const dueDay = Number($('#entryDueDay').value) || null;
       const destination = $('#entryDestination').value || 'Nubank';
-      const status = $('#entryStatus').value || 'pendente';
+      const isPixOrCash = (destination.toLowerCase() === 'pix' || destination.toLowerCase() === 'dinheiro');
+      const type = isPixOrCash ? 'cash' : (entryDlgState.type || 'cash');
+      const dueDay = isPixOrCash ? null : (Number($('#entryDueDay').value) || null);
+      const status = isPixOrCash ? 'pago' : ($('#entryStatus').value || 'pendente');
       const key = ymKey(state.year, state.month);
 
-      if (!name || amount <= 0) {
-        notify('Preencha um nome e valor válidos para a despesa.', 'error');
+      if (!validateEntryStep1()) {
+        setWizardStep(1);
+        return;
+      }
+
+      if (!isPixOrCash && !validateEntryStep2()) {
+        setWizardStep(2);
         return;
       }
 
@@ -1031,6 +1439,7 @@ function openEntryDialog(opts) {
           fixed.destination = destination;
           fixed.dueDay = dueDay;
           fixed.note = note;
+          fixed.paymentType = 'fixed';
           fixed.versions = fixed.versions || [];
 
           // Localiza a versão que estava sendo editada para atualizar a data/valor
@@ -1070,6 +1479,7 @@ function openEntryDialog(opts) {
             destination,
             dueDay,
             note,
+            paymentType: 'fixed',
             versions: [{ year: effYear, month: effMonth, amount, startYear: effYear, startMonth: effMonth }],
             paidHistory: {}
           });
@@ -1082,14 +1492,41 @@ function openEntryDialog(opts) {
         }
       } else {
         state.variable = state.variable || [];
-        const sMonth = Number($('#varStartMonth').value) || state.month;
-        const sYear = Number($('#varStartYear').value) || state.year;
-        const count = Math.max(1, parseInt($('#varInstallmentsCount')?.value, 10) || 1);
-        const endMonthIdx = (sMonth - 1) + (count - 1);
-        const eYear = sYear + Math.floor(endMonthIdx / 12);
-        const eMonth = (endMonthIdx % 12) + 1;
+        let sMonth, sYear, count, eMonth, eYear, pType;
 
         let v = entryDlgState.id ? state.variable.find(x => x.id === entryDlgState.id) : null;
+
+        if (isPixOrCash) {
+          // Shortcut flow: Creation uses active navigation month; Edit preserves original months
+          if (v) {
+            sMonth = v.startMonth || state.month;
+            sYear = v.startYear || state.year;
+            eMonth = v.endMonth || sMonth;
+            eYear = v.endYear || sYear;
+          } else {
+            sMonth = state.month;
+            sYear = state.year;
+            eMonth = state.month;
+            eYear = state.year;
+          }
+          count = 1;
+          pType = 'cash';
+        } else if (type === 'cash') {
+          sMonth = Number($('#cashEffMonth')?.value) || state.month;
+          sYear = Number($('#cashEffYear')?.value) || state.year;
+          count = 1;
+          eMonth = sMonth;
+          eYear = sYear;
+          pType = 'cash';
+        } else {
+          sMonth = Number($('#varStartMonth')?.value) || state.month;
+          sYear = Number($('#varStartYear')?.value) || state.year;
+          count = Math.max(1, parseInt($('#varInstallmentsCount')?.value, 10) || 1);
+          const endMonthIdx = (sMonth - 1) + (count - 1);
+          eYear = sYear + Math.floor(endMonthIdx / 12);
+          eMonth = (endMonthIdx % 12) + 1;
+          pType = 'installment';
+        }
 
         if (v) {
           v.name = name;
@@ -1103,6 +1540,7 @@ function openEntryDialog(opts) {
           v.endMonth = eMonth;
           v.endYear = eYear;
           v.installments = count;
+          v.paymentType = pType;
         } else {
           const newId = uid();
           state.variable.push({
@@ -1118,6 +1556,7 @@ function openEntryDialog(opts) {
             endMonth: eMonth,
             endYear: eYear,
             installments: count,
+            paymentType: pType,
             paidHistory: {}
           });
           v = state.variable.find(x => x.id === newId);
@@ -1125,7 +1564,8 @@ function openEntryDialog(opts) {
 
         if (v) {
           v.paidHistory = v.paidHistory || {};
-          v.paidHistory[key] = (status === 'pago');
+          const expenseKey = ymKey(sYear, sMonth);
+          v.paidHistory[expenseKey] = (status === 'pago');
         }
       }
 
@@ -1139,7 +1579,7 @@ function openEntryDialog(opts) {
       const state = getState();
       const entryDlg = $('#entryDialog');
       if (!confirm('Excluir este lançamento?')) return;
-      if (entryDlgState.type === 'variable') state.variable = state.variable.filter(v => v.id !== entryDlgState.id);
+      if (entryDlgState.type !== 'fixed') state.variable = state.variable.filter(v => v.id !== entryDlgState.id);
       saveState();
       if (entryDlg) entryDlg.close();
       render();
@@ -1204,6 +1644,10 @@ function openEntryDialog(opts) {
   window.moveExpenseToEndOfList = moveExpenseToEndOfList;
   window.buildEntryRow = buildEntryRow;
   window.renderSection = renderSection;
+  window.validateEntryStep1 = validateEntryStep1;
+  window.validateEntryStep2 = validateEntryStep2;
+  window.clearEntryValidation = clearEntryValidation;
+  window.setEntryFieldError = setEntryFieldError;
 
   // Inicializacao sincrona dos listeners de despesas
   try {

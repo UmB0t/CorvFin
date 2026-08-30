@@ -7,11 +7,49 @@
   "use strict";
 
   window.normalizeDestinations = function normalizeDestinations(dests) {
-    if (!Array.isArray(dests)) return [...DEFAULT_DESTINATIONS];
-    return dests.map(d => {
-      if (typeof d === 'string') return { name: d, color: '#1F7A5C', icon: 'card' };
-      return { name: d.name || 'Destino', color: d.color || '#1F7A5C', icon: d.icon || 'card' };
+    if (!Array.isArray(dests) || dests.length === 0) {
+      return (typeof DEFAULT_DESTINATIONS !== 'undefined') ? [...DEFAULT_DESTINATIONS] : [
+        { name: 'Pix', color: '#10B981', icon: 'dollar', dueDay: null },
+        { name: 'Dinheiro', color: '#F59E0B', icon: 'wallet', dueDay: null }
+      ];
+    }
+    const list = dests.map(d => {
+      if (typeof d === 'string') {
+        let name = d.trim();
+        if (name.toLowerCase() === 'em dinheiro') name = 'Dinheiro';
+        return {
+          name,
+          color: (name === 'Pix' ? '#10B981' : (name === 'Dinheiro' ? '#F59E0B' : '#1F7A5C')),
+          icon: (name === 'Pix' ? 'dollar' : (name === 'Dinheiro' ? 'wallet' : 'card')),
+          dueDay: null
+        };
+      }
+      let name = (d.name || 'Destino').trim();
+      if (name.toLowerCase() === 'em dinheiro') name = 'Dinheiro';
+      const isNative = (name.toLowerCase() === 'pix' || name.toLowerCase() === 'dinheiro');
+      const dueDay = (!isNative && d.dueDay != null && !isNaN(Number(d.dueDay)) && Number(d.dueDay) >= 1 && Number(d.dueDay) <= 31)
+        ? Number(d.dueDay)
+        : null;
+      return {
+        name,
+        color: d.color || (name === 'Pix' ? '#10B981' : (name === 'Dinheiro' ? '#F59E0B' : '#1F7A5C')),
+        icon: d.icon || (name === 'Pix' ? 'dollar' : (name === 'Dinheiro' ? 'wallet' : 'card')),
+        dueDay
+      };
     });
+
+    // Ensure native Pix and Dinheiro always exist
+    const hasPix = list.some(d => d.name.toLowerCase() === 'pix');
+    if (!hasPix) {
+      list.unshift({ name: 'Pix', color: '#10B981', icon: 'dollar', dueDay: null });
+    }
+    const hasCash = list.some(d => d.name.toLowerCase() === 'dinheiro' || d.name.toLowerCase() === 'em dinheiro');
+    if (!hasCash) {
+      const pixIdx = list.findIndex(d => d.name.toLowerCase() === 'pix');
+      list.splice(pixIdx + 1, 0, { name: 'Dinheiro', color: '#F59E0B', icon: 'wallet', dueDay: null });
+    }
+
+    return list;
   };
 
   window.normalizeCategories = function normalizeCategories(cats) {
@@ -32,6 +70,8 @@
   window.initialState = function initialState() {
     const t = todayYM();
     const localPrefs = (typeof window.loadLocalPreferences === 'function') ? window.loadLocalPreferences() : {};
+    const loggedUser = (typeof window !== 'undefined' && window.API && typeof API.getUser === 'function') ? API.getUser() : null;
+    const fallbackName = loggedUser?.nome || '';
     return {
       version: 5,
       revision: 0,
@@ -44,10 +84,10 @@
       debtorDestChartType: localPrefs.debtorDestChartType || 'bar',
       expensesSubView: 'monthly',
       debtorsSubView: 'monthly',
-      theme: localPrefs.theme || localStorage.getItem('fp_theme') || 'light',
+      theme: localPrefs.theme || (typeof localStorage !== 'undefined' ? localStorage.getItem('fp_theme') : null) || 'light',
       year: t.year || new Date().getFullYear(),
       month: t.month || (new Date().getMonth() + 1),
-      profile: { name: 'Usuário', baseSalary: 0 },
+      profile: { name: fallbackName, baseSalary: null },
       destinations: normalizeDestinations(DEFAULT_DESTINATIONS),
       categories: normalizeCategories(DEFAULT_CATEGORIES),
       budgets: {},
@@ -86,7 +126,7 @@
 
     s.version = 5;
     s.firstLogin = false;
-    s.theme = localPrefs.theme || localStorage.getItem('fp_theme') || parsed.theme || 'light';
+    s.theme = localPrefs.theme || (typeof localStorage !== 'undefined' ? localStorage.getItem('fp_theme') : null) || parsed.theme || 'light';
     s.sidebarCollapsed = localPrefs.sidebarCollapsed !== undefined ? localPrefs.sidebarCollapsed : (parsed.sidebarCollapsed || false);
     s.simplifiedView = !!parsed.simplifiedView;
     s.chartViewType = localPrefs.chartViewType || parsed.chartViewType || 'bar';

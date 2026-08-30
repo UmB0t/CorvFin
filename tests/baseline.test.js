@@ -726,4 +726,468 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     const adminReadList = Array.isArray(adminDoc.readReleases) ? adminDoc.readReleases : [];
     assert.strictEqual(adminReadList.includes('3.1.0'), false, 'Outro usuário deve manter estado de leitura independente');
   });
+
+  test('21. Gestão de Despesas e Pagamentos: Métodos À Vista/Parcelado/Fixa, herança de vencimento, nativos Pix e Dinheiro', async () => {
+    const vm = require('node:vm');
+    const constantsCode = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'constants.js'), 'utf-8');
+    const stateCode = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'state.js'), 'utf-8');
+    const ctx = { window: {} };
+    ctx.window = ctx;
+    ctx.DEFAULT_CATEGORIES = [];
+    vm.createContext(ctx);
+    vm.runInContext(constantsCode, ctx);
+    vm.runInContext(stateCode, ctx);
+
+    // 1. Validar normalização de destinos: Pix e Dinheiro nativos sempre presentes e protegidos com dueDay: null
+    const normalizeDestinations = ctx.normalizeDestinations;
+    assert.strictEqual(typeof normalizeDestinations, 'function', 'normalizeDestinations deve ser uma função global');
+
+    // Lista vazia deve conter Pix e Dinheiro
+    const emptyNormalized = normalizeDestinations([]);
+    assert.ok(emptyNormalized.some(d => d.name === 'Pix' && d.dueDay === null), 'Pix deve estar presente com dueDay null');
+    assert.ok(emptyNormalized.some(d => d.name === 'Dinheiro' && d.dueDay === null), 'Dinheiro deve estar presente com dueDay null');
+
+    // Lista com destinos legados em string ou 'Em dinheiro' deve normalizar 'Dinheiro'
+    const legacyList = ['Nubank', 'Em dinheiro', 'Cartão XP'];
+    const normalizedLegacy = normalizeDestinations(legacyList);
+    const dinheiroDest = normalizedLegacy.find(d => d.name === 'Dinheiro');
+    assert.ok(dinheiroDest, 'Deve converter "Em dinheiro" para "Dinheiro"');
+    assert.strictEqual(dinheiroDest.dueDay, null, 'Dinheiro não deve ter dueDay');
+    assert.ok(normalizedLegacy.some(d => d.name === 'Pix'), 'Pix deve ser inserido automaticamente se ausente');
+
+    // Destino com vencimento configurado
+    const customList = [
+      { name: 'Pix', color: '#10B981', icon: 'dollar', dueDay: null },
+      { name: 'Dinheiro', color: '#F59E0B', icon: 'wallet', dueDay: null },
+      { name: 'Nubank PJ', color: '#8B5CF6', icon: 'card', dueDay: 15 }
+    ];
+    const normalizedCustom = normalizeDestinations(customList);
+    const nubankPj = normalizedCustom.find(d => d.name === 'Nubank PJ');
+    assert.strictEqual(nubankPj.dueDay, 15, 'dueDay 15 deve ser preservado');
+
+    // 2. Persistência de despesa via Pix (À Vista com dueDay null e status pago automático)
+    const getRes1 = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Authorization': `Bearer ${testUserToken}` }
+    });
+    const userDoc1 = await getRes1.json();
+    const rev1 = Number(userDoc1.revision || 0);
+
+    const pixExpense = {
+      id: 'pix-test-1',
+      name: 'Supermercado Mensal Pix',
+      amount: 350.00,
+      group: 'Alimentação',
+      destination: 'Pix',
+      dueDay: null,
+      note: 'Compra do mês',
+      startMonth: 8,
+      startYear: 2026,
+      endMonth: 8,
+      endYear: 2026,
+      installments: 1,
+      paymentType: 'cash',
+      paidHistory: { '2026-8': true }
+    };
+
+    const installmentExpense = {
+      id: 'inst-test-1',
+      name: 'Notebook Novo Parcelado',
+      amount: 500.00,
+      group: 'Tecnologia',
+      destination: 'Nubank PJ',
+      dueDay: 15,
+      note: 'Compra em 6 parcelas',
+      startMonth: 8,
+      startYear: 2026,
+      endMonth: 1,
+      endYear: 2027,
+      installments: 6,
+      paymentType: 'installment',
+      paidHistory: {}
+    };
+
+    const fixedExpense = {
+      id: 'fixed-test-1',
+      name: 'Plano de Saúde',
+      group: 'Saúde',
+      destination: 'Nubank PJ',
+      dueDay: 15,
+      note: 'Mensalidade recorrente',
+      paymentType: 'fixed',
+      versions: [{ year: 2026, month: 8, amount: 420.00, startYear: 2026, startMonth: 8 }],
+      paidHistory: {}
+    };
+
+    const updatePayload = Object.assign({}, userDoc1, {
+      expectedRevision: rev1,
+      destinations: normalizedCustom,
+      variable: [pixExpense, installmentExpense],
+      fixed: [fixedExpense]
+    });
+
+    const putRes = await fetch(`${baseUrl}/api/finances`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${testUserToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updatePayload)
+    });
+    assert.strictEqual(putRes.status, 200, 'Salvar novas despesas deve retornar 200 OK');
+
+    // 3. Leitura subsequente para validar integridade de dados e tipos de pagamento
+    const getRes2 = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Authorization': `Bearer ${testUserToken}` }
+    });
+    const userDoc2 = await getRes2.json();
+
+    const savedPix = userDoc2.variable.find(v => v.id === 'pix-test-1');
+    assert.ok(savedPix, 'Despesa Pix deve existir');
+    assert.strictEqual(savedPix.paymentType, 'cash', 'Tipo deve ser cash (à vista)');
+    assert.strictEqual(savedPix.dueDay, null, 'dueDay do Pix deve ser null');
+    assert.strictEqual(savedPix.paidHistory['2026-8'], true, 'Despesa Pix deve estar quitada no histórico');
+
+    const savedInst = userDoc2.variable.find(v => v.id === 'inst-test-1');
+    assert.ok(savedInst, 'Despesa Parcelada deve existir');
+    assert.strictEqual(savedInst.paymentType, 'installment', 'Tipo deve ser installment');
+    assert.strictEqual(savedInst.installments, 6, 'Deve ter 6 parcelas');
+    assert.strictEqual(savedInst.dueDay, 15, 'dueDay herdado do destino deve ser 15');
+
+    const savedFixed = userDoc2.fixed.find(f => f.id === 'fixed-test-1');
+    assert.ok(savedFixed, 'Despesa Fixa deve existir');
+    assert.strictEqual(savedFixed.paymentType, 'fixed', 'Tipo deve ser fixed');
+    assert.strictEqual(savedFixed.dueDay, 15, 'dueDay herdado do destino deve ser 15');
+    assert.strictEqual(savedFixed.versions[0].amount, 420.00, 'Valor da versão deve ser preservado');
+  });
+
+  test('22. Checkpoint 3.1: Hidratação sem flash de dados falsos e Fluxo Curto de Pix / Dinheiro', async () => {
+    const vm = require('node:vm');
+    const utilsCode = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'utils.js'), 'utf-8');
+    const constantsCode = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'constants.js'), 'utf-8');
+    const stateCode = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'state.js'), 'utf-8');
+    const ctx = { window: {} };
+    ctx.window = ctx;
+    ctx.DEFAULT_CATEGORIES = [];
+    vm.createContext(ctx);
+    vm.runInContext(utilsCode, ctx);
+    vm.runInContext(constantsCode, ctx);
+    vm.runInContext(stateCode, ctx);
+
+    // 1. Validar que initialState não expõe dados financeiros falsos (salário nulo antes de hidratar)
+    const initS = ctx.initialState();
+    assert.strictEqual(initS.profile.baseSalary, null, 'Salário base deve ser null antes da hidratação para evitar flash de R$ 0,00');
+
+    // 2. Criação com Pix e Dinheiro: Salva como cash, pago, dueDay null e usa competência atual (ex: Agosto/2026)
+    const getRes1 = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Authorization': `Bearer ${testUserToken}` }
+    });
+    const userDoc1 = await getRes1.json();
+    const rev1 = Number(userDoc1.revision || 0);
+
+    const nowNavMonth = 8;
+    const nowNavYear = 2026;
+
+    // Despesa criada via Pix no mês atual
+    const newPixExpense = {
+      id: 'pix-shortcut-1',
+      name: 'Uber Corrida',
+      amount: 28.50,
+      group: 'Transporte',
+      destination: 'Pix',
+      dueDay: null,
+      note: 'Corrida trabalho',
+      startMonth: nowNavMonth,
+      startYear: nowNavYear,
+      endMonth: nowNavMonth,
+      endYear: nowNavYear,
+      installments: 1,
+      paymentType: 'cash',
+      paidHistory: { [`${nowNavYear}-${nowNavMonth}`]: true }
+    };
+
+    // Despesa criada via Dinheiro no mês atual
+    const newCashExpense = {
+      id: 'dinheiro-shortcut-1',
+      name: 'Padaria Lanche',
+      amount: 15.00,
+      group: 'Alimentação',
+      destination: 'Dinheiro',
+      dueDay: null,
+      note: 'Café da manhã',
+      startMonth: nowNavMonth,
+      startYear: nowNavYear,
+      endMonth: nowNavMonth,
+      endYear: nowNavYear,
+      installments: 1,
+      paymentType: 'cash',
+      paidHistory: { [`${nowNavYear}-${nowNavMonth}`]: true }
+    };
+
+    // Despesa anterior criada em mês passado (ex: Junho/2026) sendo editada
+    const editedOldPixExpense = {
+      id: 'pix-old-edit-1',
+      name: 'Farmácia Remédio (Editada)',
+      amount: 60.00,
+      group: 'Saúde',
+      destination: 'Pix',
+      dueDay: null,
+      note: 'Nota fiscal anexada',
+      startMonth: 6, // Mês original Junho/2026 preservado na edição
+      startYear: 2026,
+      endMonth: 6,
+      endYear: 2026,
+      installments: 1,
+      paymentType: 'cash',
+      paidHistory: { '2026-6': true }
+    };
+
+    const updatePayload = Object.assign({}, userDoc1, {
+      expectedRevision: rev1,
+      variable: [newPixExpense, newCashExpense, editedOldPixExpense]
+    });
+
+    const putRes = await fetch(`${baseUrl}/api/finances`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${testUserToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updatePayload)
+    });
+    assert.strictEqual(putRes.status, 200, 'Salvar despesas do fluxo curto deve retornar 200 OK');
+
+    // 3. Leitura subsequente para validar integridade
+    const getRes2 = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Authorization': `Bearer ${testUserToken}` }
+    });
+    const userDoc2 = await getRes2.json();
+
+    const savedNewPix = userDoc2.variable.find(v => v.id === 'pix-shortcut-1');
+    assert.ok(savedNewPix, 'Nova despesa Pix deve existir');
+    assert.strictEqual(savedNewPix.paymentType, 'cash', 'Deve ser cash');
+    assert.strictEqual(savedNewPix.startMonth, 8, 'Criação deve usar competência ativa (8)');
+    assert.strictEqual(savedNewPix.startYear, 2026, 'Criação deve usar ano ativo (2026)');
+    assert.strictEqual(savedNewPix.dueDay, null, 'dueDay deve ser null');
+    assert.strictEqual(savedNewPix.paidHistory['2026-8'], true, 'Pix deve estar pago');
+    assert.strictEqual(savedNewPix.note, 'Corrida trabalho', 'Observação deve ser preservada');
+
+    const savedNewCash = userDoc2.variable.find(v => v.id === 'dinheiro-shortcut-1');
+    assert.ok(savedNewCash, 'Nova despesa Dinheiro deve existir');
+    assert.strictEqual(savedNewCash.paymentType, 'cash', 'Deve ser cash');
+    assert.strictEqual(savedNewCash.dueDay, null, 'dueDay deve ser null');
+    assert.strictEqual(savedNewCash.paidHistory['2026-8'], true, 'Dinheiro deve estar pago');
+
+    const savedOldPix = userDoc2.variable.find(v => v.id === 'pix-old-edit-1');
+    assert.ok(savedOldPix, 'Despesa Pix antiga editada deve existir');
+    assert.strictEqual(savedOldPix.startMonth, 6, 'Edição de Pix deve preservar competência original (Junho)');
+    assert.strictEqual(savedOldPix.startYear, 2026, 'Edição de Pix deve preservar ano original (2026)');
+    assert.strictEqual(savedOldPix.note, 'Nota fiscal anexada', 'Observação editada deve ser preservada');
+  });
+
+  test('23. Checkpoint 3.2: Contrato e integridade dos selects de competência (Mês/Ano) em Nova Despesa e Edição', async () => {
+    const vm = require('node:vm');
+    const constantsCode = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'constants.js'), 'utf-8');
+    const utilsCode = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'utils.js'), 'utf-8');
+    const uiShellCode = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'uiShell.js'), 'utf-8');
+
+    // DOM mock minimalista para os selects
+    const elements = {};
+    function mockElement(id) {
+      return {
+        id,
+        value: '',
+        innerHTML: '',
+        options: []
+      };
+    }
+
+    const selectIds = [
+      '#cashEffMonth', '#cashEffYear',
+      '#varStartMonth', '#varStartYear', '#varEndMonth', '#varEndYear',
+      '#fixedEffMonth', '#fixedEffYear',
+      '#extraStartMonth', '#extraStartYear', '#extraEndMonth', '#extraEndYear',
+      '#debtorStartMonth', '#debtorStartYear', '#debtorEndMonth', '#debtorEndYear',
+      '#aporteMonth', '#benefitMonth', '#aporteYear', '#benefitYear'
+    ];
+
+    selectIds.forEach(id => {
+      elements[id] = mockElement(id.replace('#', ''));
+    });
+
+    const ctx = {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      document: {
+        readyState: 'complete',
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        getElementById: (id) => elements['#' + id] || null,
+        querySelector: (sel) => elements[sel] || null,
+        querySelectorAll: (sel) => elements[sel] ? [elements[sel]] : [],
+        createElement: (tag) => ({
+          id: '',
+          style: {},
+          classList: { add: () => {}, remove: () => {}, contains: () => false },
+          setAttribute: () => {},
+          appendChild: () => {},
+          addEventListener: () => {},
+          removeEventListener: () => {}
+        }),
+        body: {
+          appendChild: () => {}
+        }
+      },
+      $: (selector) => elements[selector] || null,
+      $$: (selector) => elements[selector] ? [elements[selector]] : [],
+      getState: () => ({ year: 2026, month: 8 })
+    };
+    ctx.window = ctx;
+
+    vm.createContext(ctx);
+    vm.runInContext(constantsCode, ctx);
+    vm.runInContext(utilsCode, ctx);
+    vm.runInContext(uiShellCode, ctx);
+
+    assert.strictEqual(typeof ctx.fillMonthSelects, 'function', 'fillMonthSelects deve ser uma função global');
+
+    // Executa preenchimento de selects
+    ctx.fillMonthSelects();
+
+    // 1. Validar select de Mês À Vista (#cashEffMonth)
+    const cashMonth = elements['#cashEffMonth'];
+    assert.ok(cashMonth.innerHTML.includes('<option value="1">Janeiro</option>'), '#cashEffMonth deve conter Janeiro');
+    assert.ok(cashMonth.innerHTML.includes('<option value="8">Agosto</option>'), '#cashEffMonth deve conter Agosto');
+    assert.ok(cashMonth.innerHTML.includes('<option value="12">Dezembro</option>'), '#cashEffMonth deve conter Dezembro');
+    const cashMonthOptions = cashMonth.innerHTML.match(/<option/g) || [];
+    assert.strictEqual(cashMonthOptions.length, 12, '#cashEffMonth deve conter exatamente 12 opções');
+
+    // 2. Validar select de Ano À Vista (#cashEffYear)
+    const cashYear = elements['#cashEffYear'];
+    assert.ok(cashYear.innerHTML.includes('<option value="2026">2026</option>'), '#cashEffYear deve conter ano atual (2026)');
+    assert.ok(cashYear.innerHTML.includes('<option value="2022">2022</option>'), '#cashEffYear deve conter anos anteriores');
+    assert.ok(cashYear.innerHTML.includes('<option value="2036">2036</option>'), '#cashEffYear deve conter anos futuros');
+
+    // 3. Validar select de Mês/Ano Parcelado (#varStartMonth, #varStartYear)
+    const varMonth = elements['#varStartMonth'];
+    const varYear = elements['#varStartYear'];
+    assert.strictEqual((varMonth.innerHTML.match(/<option/g) || []).length, 12, '#varStartMonth deve conter 12 opções');
+    assert.ok(varYear.innerHTML.includes('<option value="2026">2026</option>'), '#varStartYear deve conter ano atual');
+
+    // 4. Validar select de Mês/Ano Fixa (#fixedEffMonth, #fixedEffYear)
+    const fixMonth = elements['#fixedEffMonth'];
+    const fixYear = elements['#fixedEffYear'];
+    assert.strictEqual((fixMonth.innerHTML.match(/<option/g) || []).length, 12, '#fixedEffMonth deve conter 12 opções');
+    assert.ok(fixYear.innerHTML.includes('<option value="2026">2026</option>'), '#fixedEffYear deve conter ano atual');
+
+    // 5. Validar que nova execução/alternância preserva opções sem esvaziar
+    ctx.fillMonthSelects();
+    assert.strictEqual((elements['#cashEffMonth'].innerHTML.match(/<option/g) || []).length, 12, 'Re-execução não deve esvaziar #cashEffMonth');
+    assert.strictEqual((elements['#varStartMonth'].innerHTML.match(/<option/g) || []).length, 12, 'Re-execução não deve esvaziar #varStartMonth');
+  });
+
+  test('24. Checkpoint 3.3: Feedback contextual de validação do Wizard dentro do modal (sem toast global oculto)', async () => {
+    const html = fs.readFileSync(path.join(process.cwd(), 'public', 'index.html'), 'utf-8');
+    const dialogsCss = fs.readFileSync(path.join(process.cwd(), 'public', 'css', 'dialogs.css'), 'utf-8');
+    const expensesJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'modules', 'expenses.js'), 'utf-8');
+
+    // 1. Validar presença do elemento de alerta inline dentro do #entryDialog no index.html
+    assert.ok(html.includes('id="entryValidationAlert"'), 'index.html deve conter o container #entryValidationAlert');
+    assert.ok(html.includes('role="alert"'), '#entryValidationAlert deve ter acessibilidade role="alert"');
+
+    // 2. Validar estilos de erro contextual no dialogs.css
+    assert.ok(dialogsCss.includes('[aria-invalid="true"]'), 'dialogs.css deve estilizar campos com [aria-invalid="true"]');
+    assert.ok(dialogsCss.includes('var(--danger)'), 'dialogs.css deve usar tokens de design system (--danger)');
+
+    // 3. Validar que expenses.js define funções de validação interna
+    assert.ok(expensesJs.includes('function validateEntryStep1()'), 'expenses.js deve conter validateEntryStep1');
+    assert.ok(expensesJs.includes('function validateEntryStep2()'), 'expenses.js deve conter validateEntryStep2');
+    assert.ok(expensesJs.includes('function setEntryFieldError('), 'expenses.js deve conter setEntryFieldError');
+    assert.ok(expensesJs.includes('function clearEntryValidation()'), 'expenses.js deve conter clearEntryValidation');
+
+    // 4. Teste funcional das regras de validação em VM
+    const vm = require('node:vm');
+    const elements = {};
+    function mockElement(id, initialVal = '') {
+      const attrs = {};
+      const classList = new Set();
+      return {
+        id,
+        value: initialVal,
+        textContent: '',
+        style: {},
+        setAttribute: (k, v) => { attrs[k] = String(v); },
+        getAttribute: (k) => attrs[k] || null,
+        removeAttribute: (k) => { delete attrs[k]; },
+        classList: {
+          add: (c) => classList.add(c),
+          remove: (c) => classList.delete(c),
+          contains: (c) => classList.has(c)
+        },
+        focus: () => {},
+        querySelectorAll: () => []
+      };
+    }
+
+    elements['#entryValidationAlert'] = mockElement('entryValidationAlert');
+    elements['#entryName'] = mockElement('entryName', '');
+    elements['#entryGroup'] = mockElement('entryGroup', 'Alimentação');
+    elements['#entryAmount'] = mockElement('entryAmount', '0');
+    elements['#entryDestination'] = mockElement('entryDestination', 'Nubank');
+    elements['#entryDialog'] = mockElement('entryDialog');
+    elements['#entryDialog'].querySelectorAll = () => [elements['#entryName'], elements['#entryGroup'], elements['#entryAmount'], elements['#entryDestination'], elements['#cashEffMonth'], elements['#cashEffYear']];
+    elements['#cashEffMonth'] = mockElement('cashEffMonth', '8');
+    elements['#cashEffYear'] = mockElement('cashEffYear', '2026');
+
+    let toastCalled = false;
+    const ctx = {
+      window: { addEventListener: () => {} },
+      document: {
+        readyState: 'complete',
+        addEventListener: () => {},
+        getElementById: (id) => elements['#' + id] || null,
+        querySelector: (sel) => elements[sel] || null,
+        querySelectorAll: () => Object.values(elements)
+      },
+      $: (selector) => elements[selector] || null,
+      $$: (selector) => Object.values(elements),
+      getState: () => ({ year: 2026, month: 8, destinations: [{ name: 'Nubank' }], categories: ['Alimentação'] }),
+      notify: () => { toastCalled = true; },
+      entryDlgState: { mode: 'new', step: 1, type: 'cash' },
+      ymKey: (y, m) => `${y}-${m}`,
+      saveState: () => {},
+      render: () => {},
+      fillMonthSelects: () => {},
+      updateCategorySelects: () => {},
+      updateDestinationSelects: () => {},
+      MONTH_ABBR: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    };
+    ctx.window = ctx;
+
+    vm.createContext(ctx);
+    vm.runInContext(expensesJs, ctx);
+
+    // Validação com nome vazio deve falhar, aplicar aria-invalid e alert inline sem disparar toast global
+    const validateStep1 = ctx.window.validateEntryStep1 || ctx.validateEntryStep1;
+    assert.strictEqual(typeof validateStep1, 'function', 'validateEntryStep1 deve ser uma função exportada');
+    const step1ValidEmptyName = validateStep1();
+    assert.strictEqual(step1ValidEmptyName, false, 'Descrição vazia deve falhar validação');
+    assert.strictEqual(elements['#entryName'].getAttribute('aria-invalid'), 'true', '#entryName deve receber aria-invalid="true"');
+    assert.strictEqual(elements['#entryValidationAlert'].style.display, 'block', '#entryValidationAlert deve estar visível');
+    assert.strictEqual(toastCalled, false, 'Não deve chamar notify (toast global) para validação de campos do wizard');
+
+    // Ao preencher nome e deixar valor zero, deve falhar no valor
+    elements['#entryName'].value = 'Aluguel';
+    elements['#entryAmount'].value = '0';
+    const step1ValidZeroAmount = validateStep1();
+    assert.strictEqual(step1ValidZeroAmount, false, 'Valor zero deve falhar validação');
+    assert.strictEqual(elements['#entryAmount'].getAttribute('aria-invalid'), 'true', '#entryAmount deve receber aria-invalid="true"');
+    assert.ok(elements['#entryValidationAlert'].textContent.includes('maior que zero'), 'Alerta deve conter instrução de valor maior que zero');
+
+    // Ao preencher valor válido, validação deve passar e limpar erros
+    elements['#entryAmount'].value = '1500.00';
+    const step1Success = validateStep1();
+    assert.strictEqual(step1Success, true, 'Dados válidos devem passar na validação');
+    assert.strictEqual(elements['#entryValidationAlert'].style.display, 'none', 'Alerta deve ser ocultado quando válido');
+    assert.strictEqual(elements['#entryAmount'].getAttribute('aria-invalid'), null, 'aria-invalid deve ser removido');
+  });
 });

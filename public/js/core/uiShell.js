@@ -53,9 +53,23 @@
   }
 
   function fillMonthSelects() {
-    const state = getState();
-    const optionsHtml = MONTH_NAMES.map((name, i) => `<option value="${i + 1}">${name}</option>`).join('');
-    ['#fixedEffMonth', '#varStartMonth', '#varEndMonth', '#extraStartMonth', '#extraEndMonth', '#debtorStartMonth', '#debtorEndMonth', '#aporteMonth', '#benefitMonth', '#convertVarStartMonth', '#convertVarEndMonth'].forEach(id => {
+    const state = (typeof getState === 'function' ? getState() : (window.getState ? window.getState() : {})) || {};
+    const monthList = (typeof MONTH_NAMES !== 'undefined' && Array.isArray(MONTH_NAMES) && MONTH_NAMES.length === 12)
+      ? MONTH_NAMES
+      : (window.MONTH_NAMES && Array.isArray(window.MONTH_NAMES) && window.MONTH_NAMES.length === 12 ? window.MONTH_NAMES : ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']);
+    const optionsHtml = monthList.map((name, i) => `<option value="${i + 1}">${name}</option>`).join('');
+
+    const monthSelectors = [
+      '#cashEffMonth', '#varStartMonth', '#varEndMonth',
+      '#fixedEffMonth', '#entryMonth',
+      '#extraStartMonth', '#extraEndMonth',
+      '#debtorStartMonth', '#debtorEndMonth',
+      '#aporteMonth', '#benefitMonth',
+      '#convertVarStartMonth', '#convertVarEndMonth',
+      '#simFormStartMonth', '#simStartMonth', '#simEndMonth'
+    ];
+
+    monthSelectors.forEach(id => {
       const el = $(id);
       if (el) {
         const cur = el.value;
@@ -70,7 +84,18 @@
       years.push(y);
     }
     const yearOpts = years.map(y => `<option value="${y}">${y}</option>`).join('');
-    ['#fixedEffYear', '#varStartYear', '#varEndYear', '#extraStartYear', '#extraEndYear', '#debtorStartYear', '#debtorEndYear', '#aporteYear', '#benefitYear', '#convertVarStartYear', '#convertVarEndYear'].forEach(id => {
+
+    const yearSelectors = [
+      '#cashEffYear', '#varStartYear', '#varEndYear',
+      '#fixedEffYear', '#entryYear',
+      '#extraStartYear', '#extraEndYear',
+      '#debtorStartYear', '#debtorEndYear',
+      '#aporteYear', '#benefitYear',
+      '#convertVarStartYear', '#convertVarEndYear',
+      '#simFormStartYear', '#simStartYear', '#simEndYear'
+    ];
+
+    yearSelectors.forEach(id => {
       const el = $(id);
       if (el) {
         const cur = el.value;

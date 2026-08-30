@@ -6,16 +6,16 @@ window.MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho'
 window.MONTH_ABBR = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 window.DEFAULT_DESTINATIONS = [
-  { name: 'XP Investimentos', color: '#1F7A5C', icon: 'bank' },
-  { name: 'BTG Pactual', color: '#2563EB', icon: 'bank' },
-  { name: 'Nubank', color: '#8B5CF6', icon: 'card' },
-  { name: 'Neon', color: '#06B6D4', icon: 'card' },
-  { name: 'Pix', color: '#10B981', icon: 'dollar' },
-  { name: 'Em dinheiro', color: '#F59E0B', icon: 'wallet' },
-  { name: 'Terceiro', color: '#6B7280', icon: 'globe' },
-  { name: 'Itaú', color: '#F97316', icon: 'card' },
-  { name: 'Bradesco', color: '#EF4444', icon: 'card' },
-  { name: 'Binance', color: '#EAB308', icon: 'globe' }
+  { name: 'Pix', color: '#10B981', icon: 'dollar', dueDay: null },
+  { name: 'Dinheiro', color: '#F59E0B', icon: 'wallet', dueDay: null },
+  { name: 'Nubank', color: '#8B5CF6', icon: 'card', dueDay: 10 },
+  { name: 'XP Investimentos', color: '#1F7A5C', icon: 'bank', dueDay: null },
+  { name: 'BTG Pactual', color: '#2563EB', icon: 'bank', dueDay: null },
+  { name: 'Neon', color: '#06B6D4', icon: 'card', dueDay: 15 },
+  { name: 'Itaú', color: '#F97316', icon: 'card', dueDay: 20 },
+  { name: 'Bradesco', color: '#EF4444', icon: 'card', dueDay: 5 },
+  { name: 'Terceiro', color: '#6B7280', icon: 'globe', dueDay: null },
+  { name: 'Binance', color: '#EAB308', icon: 'globe', dueDay: null }
 ];
 
 window.DEFAULT_CATEGORY_ICONS_MAP = {

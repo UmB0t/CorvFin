@@ -1484,13 +1484,17 @@
                 ícone para identificação visual.</p>
 
               <input type="hidden" id="editingDestOriginalName">
-              <div id="profileDestFormGrid" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; align-items:end;">
+              <div id="profileDestFormGrid" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 8px; align-items:end;">
                 <div class="field">
                   <label>Nome do Destino</label>
                   <input id="newDestInput" placeholder="Ex: Nubank PJ">
                 </div>
                 <div class="field">
-                  <label>Cor Personalizada</label>
+                  <label>Vencimento (Dia)</label>
+                  <input type="number" id="newDestDueDay" min="1" max="31" placeholder="Opcional (1-31)">
+                </div>
+                <div class="field">
+                  <label>Cor</label>
                   <input type="color" id="newDestColor" value="#1F7A5C"
                     style="height:40px; cursor:pointer; padding:2px; width:100%;">
                 </div>
@@ -2335,154 +2339,234 @@
     </div>
   </dialog>
 
-  <!-- DIALOG: ENTRY FORM (Expenses: Fixed & Variable) -->
-  <dialog id="entryDialog">
+  <!-- DIALOG: ENTRY FORM (Expenses: 3-Step Progressive Wizard) -->
+  <dialog id="entryDialog" style="max-width: 620px; width: 95%;">
     <form id="entryForm">
-      <div class="dialog-head">
-        <h3 id="entryDialogTitle">Novo Lançamento</h3>
-        <button type="button" class="icon-btn small" data-close="entryDialog">
-          <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
+      <div class="dialog-head" style="flex-direction:column; align-items:stretch; gap:12px; padding:16px 20px 12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 id="entryDialogTitle" style="margin:0; font-size:1.12rem; font-weight:850; color:var(--text);">Novo Lançamento</h3>
+          <button type="button" class="icon-btn small" data-close="entryDialog" aria-label="Fechar">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- PROGRESSÃO EM 3 ETAPAS (WIZARD INDICATOR) -->
+        <div class="wizard-steps-bar" id="entryStepsBar" style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--surface-2); border-radius:12px; border:1px solid var(--line);">
+          <div class="wizard-step-item active" id="stepIndicator1" style="display:flex; align-items:center; gap:6px; font-size:0.78rem; font-weight:800; color:var(--brand);">
+            <span class="wizard-dot" style="width:22px; height:22px; border-radius:50%; background:var(--brand); color:#fff; display:grid; place-items:center; font-size:0.75rem;">1</span>
+            <span>Identificação</span>
+          </div>
+          <div class="wizard-line" style="flex:1; height:2px; background:var(--line); margin:0 8px;"></div>
+          <div class="wizard-step-item" id="stepIndicator2" style="display:flex; align-items:center; gap:6px; font-size:0.78rem; font-weight:750; color:var(--muted);">
+            <span class="wizard-dot" style="width:22px; height:22px; border-radius:50%; background:var(--surface); border:1px solid var(--line); color:var(--muted); display:grid; place-items:center; font-size:0.75rem;">2</span>
+            <span>Pagamento</span>
+          </div>
+          <div class="wizard-line" style="flex:1; height:2px; background:var(--line); margin:0 8px;"></div>
+          <div class="wizard-step-item" id="stepIndicator3" style="display:flex; align-items:center; gap:6px; font-size:0.78rem; font-weight:750; color:var(--muted);">
+            <span class="wizard-dot" style="width:22px; height:22px; border-radius:50%; background:var(--surface); border:1px solid var(--line); color:var(--muted); display:grid; place-items:center; font-size:0.75rem;">3</span>
+            <span>Finalização</span>
+          </div>
+        </div>
       </div>
-      <div class="dialog-body">
+
+      <div class="dialog-body" style="padding:16px 20px; max-height:calc(85vh - 170px); overflow-y:auto;">
         <input type="hidden" id="entryId">
         <input type="hidden" id="entryFixedId">
-        <input type="hidden" id="entryType">
+        <input type="hidden" id="entryType" value="fixed">
+        <input type="hidden" id="entryPaymentType" value="cash">
 
-        <div class="field" id="typeSelectorWrap">
-          <label>Tipo de Lançamento</label>
-          <div id="typeSelector"
-            style="display:flex; gap:4px; padding:4px; border-radius:12px; background:var(--surface-2);">
-            <button type="button" data-type="fixed"
-              style="flex:1; padding:8px 6px; font-size:.8rem; font-weight:750; border-radius:999px; border:none; cursor:pointer;">Despesa
-              Fixa</button>
-            <button type="button" data-type="variable"
-              style="flex:1; padding:8px 6px; font-size:.8rem; font-weight:750; border-radius:999px; border:none; cursor:pointer;">Despesa
-              Variável</button>
+        <!-- ALERTA DE VALIDAÇÃO INLINE DO WIZARD -->
+        <div id="entryValidationAlert" class="wizard-validation-alert" style="display:none; padding:10px 14px; margin-bottom:14px; border-radius:10px; background:var(--danger-soft); border:1px solid var(--danger); color:var(--danger); font-size:0.82rem; font-weight:750; line-height:1.4;" role="alert"></div>
+
+        <!-- ==================== ETAPA 1: IDENTIFICAÇÃO ==================== -->
+        <div class="wizard-step-panel" id="entryStep1" style="display:grid; gap:14px;">
+          <div class="field">
+            <label>Descrição do Lançamento *</label>
+            <input id="entryName" required placeholder="Ex: Cartão Nubank, Aluguel, Supermercado" autofocus>
+          </div>
+
+          <div class="field-grid">
+            <div class="field">
+              <label>Categoria / Tag *</label>
+              <select id="entryGroup" required></select>
+            </div>
+            <div class="field">
+              <label id="amountLabel">Valor (R$) *</label>
+              <input id="entryAmount" type="number" step="0.01" min="0.01" required placeholder="0,00" class="num">
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Destino / Forma de Pagamento *</label>
+            <select id="entryDestination" required></select>
+            <small id="entryDestHint" style="font-size:0.78rem; color:var(--muted); font-weight:600; margin-top:2px;"></small>
+          </div>
+
+          <div class="field" id="entryNoteStep1Wrap" style="display:none;">
+            <label>Observações / Anotações</label>
+            <textarea id="entryNoteStep1" rows="2" placeholder="Opcional (ex: detalhes da compra, notas, etc.)"></textarea>
           </div>
         </div>
 
-        <div class="field-grid">
-          <div class="field"><label>Descrição</label><input id="entryName" required placeholder="Ex: Cartão Nubank">
+        <!-- ==================== ETAPA 2: PAGAMENTO & COMPETÊNCIA ==================== -->
+        <div class="wizard-step-panel" id="entryStep2" style="display:none; gap:14px;">
+          <div class="field" id="typeSelectorWrap">
+            <label>Tipo de Despesa & Pagamento</label>
+            <div id="typeSelector" style="display:flex; gap:6px; padding:4px; border-radius:12px; background:var(--surface-2);">
+              <button type="button" class="btn small entry-type-btn" data-exp-type="cash" style="flex:1; padding:8px 6px; font-size:.82rem; font-weight:800; border-radius:999px; border:none; cursor:pointer;">
+                À Vista
+              </button>
+              <button type="button" class="btn small entry-type-btn" data-exp-type="installment" style="flex:1; padding:8px 6px; font-size:.82rem; font-weight:800; border-radius:999px; border:none; cursor:pointer;">
+                Parcelado
+              </button>
+              <button type="button" class="btn small entry-type-btn" data-exp-type="fixed" style="flex:1; padding:8px 6px; font-size:.82rem; font-weight:800; border-radius:999px; border:none; cursor:pointer;">
+                Fixa (Mensal)
+              </button>
+            </div>
           </div>
-          <div class="field">
-            <label>Categoria / Tag</label>
-            <select id="entryGroup" required></select>
-          </div>
-        </div>
 
-        <div class="field-grid">
-          <div class="field">
-            <label id="amountLabel">Valor da Parcela / Mensal (R$)</label>
-            <input id="entryAmount" type="number" step="0.01" min="0.01" required placeholder="0,00">
+          <!-- PAINEL CONDICIONAL A: À VISTA -->
+          <div id="panelTypeCash" style="display:grid; gap:12px; background:var(--surface-2); padding:14px; border-radius:12px; border:1px solid var(--line);">
+            <div class="field-grid" style="grid-template-columns: 1.5fr 1fr; gap: 8px;">
+              <div class="field">
+                <label style="font-size:.72rem; color:var(--muted);">Mês de Competência</label>
+                <select id="cashEffMonth"></select>
+              </div>
+              <div class="field">
+                <label style="font-size:.72rem; color:var(--muted);">Ano</label>
+                <select id="cashEffYear"></select>
+              </div>
+            </div>
+            <p class="hint" style="margin:0; font-size:.78rem;">Lançamento pontual com quitação no mês selecionado.</p>
           </div>
-          <div class="field">
-            <label>Dia do Vencimento (Mês)</label>
+
+          <!-- PAINEL CONDICIONAL B: PARCELADO -->
+          <div id="panelTypeInstallment" style="display:none; gap:12px; background:var(--surface-2); padding:14px; border-radius:12px; border:1px solid var(--line);">
+            <div class="field-grid" style="grid-template-columns: 1.5fr 1fr; gap: 8px;">
+              <div class="field">
+                <label style="font-size:.72rem; color:var(--muted);">Mês Inicial (1ª Parcela)</label>
+                <select id="varStartMonth"></select>
+              </div>
+              <div class="field">
+                <label style="font-size:.72rem; color:var(--muted);">Ano Inicial</label>
+                <select id="varStartYear"></select>
+              </div>
+            </div>
+
+            <div class="field-grid" style="grid-template-columns: 1fr 1fr; gap: 8px; align-items:end; margin-top:4px;">
+              <div class="field">
+                <label style="font-size:.72rem; color:var(--muted);">Número de Parcelas</label>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <input type="number" id="varInstallmentsCount" min="1" max="360" value="2" style="font-weight:800; font-size:1rem; text-align:center;">
+                  <span style="font-weight:800; color:var(--muted); font-size:1.05rem;">x</span>
+                </div>
+              </div>
+              <div class="quick-installments" style="display:flex; gap:3px; flex-wrap:wrap; margin-bottom:4px;">
+                <button type="button" class="btn small soft inst-pill" data-inst="2" style="padding:4px 7px; font-size:.72rem;">2x</button>
+                <button type="button" class="btn small soft inst-pill" data-inst="3" style="padding:4px 7px; font-size:.72rem;">3x</button>
+                <button type="button" class="btn small soft inst-pill" data-inst="6" style="padding:4px 7px; font-size:.72rem;">6x</button>
+                <button type="button" class="btn small soft inst-pill" data-inst="10" style="padding:4px 7px; font-size:.72rem;">10x</button>
+                <button type="button" class="btn small soft inst-pill" data-inst="12" style="padding:4px 7px; font-size:.72rem;">12x</button>
+                <button type="button" class="btn small soft inst-pill" data-inst="24" style="padding:4px 7px; font-size:.72rem;">24x</button>
+              </div>
+            </div>
+            <input type="hidden" id="varEndMonth">
+            <input type="hidden" id="varEndYear">
+
+            <div class="calc-badge" id="varInstallmentsBadge" style="width:100%; justify-content:center; padding:8px 12px; font-size:.82rem;">
+              Parcelas: 2x
+            </div>
+          </div>
+
+          <!-- PAINEL CONDICIONAL C: FIXA -->
+          <div id="panelTypeFixed" style="display:none; gap:12px; background:var(--surface-2); padding:14px; border-radius:12px; border:1px solid var(--line);">
+            <div class="field-grid" style="grid-template-columns: 1.5fr 1fr; gap: 8px;">
+              <div class="field">
+                <label style="font-size:.72rem; color:var(--muted);">Mês Inicial de Vigência</label>
+                <select id="fixedEffMonth"></select>
+              </div>
+              <div class="field">
+                <label style="font-size:.72rem; color:var(--muted);">Ano Inicial</label>
+                <select id="fixedEffYear"></select>
+              </div>
+            </div>
+            <p class="hint" style="margin:0; font-size:.78rem;">Despesa recorrente mensal a partir da competência definida.</p>
+          </div>
+
+          <!-- VENCIMENTO INTELIGENTE / HERDADO DO DESTINO -->
+          <div class="field" id="dueDayWrap">
+            <label>Dia do Vencimento</label>
             <div style="display:flex; gap:6px; align-items:center;">
               <input id="entryDueDay" type="number" min="1" max="31" placeholder="Dia (1 a 31)" style="flex:1;">
               <div class="quick-days" style="display:flex; gap:3px;">
-                <button type="button" class="btn small soft due-pill" data-day="5"
-                  style="padding:4px 7px; font-size:.72rem;">5</button>
-                <button type="button" class="btn small soft due-pill" data-day="10"
-                  style="padding:4px 7px; font-size:.72rem;">10</button>
-                <button type="button" class="btn small soft due-pill" data-day="15"
-                  style="padding:4px 7px; font-size:.72rem;">15</button>
-                <button type="button" class="btn small soft due-pill" data-day="20"
-                  style="padding:4px 7px; font-size:.72rem;">20</button>
-                <button type="button" class="btn small soft due-pill" data-day="25"
-                  style="padding:4px 7px; font-size:.72rem;">25</button>
+                <button type="button" class="btn small soft due-pill" data-day="5" style="padding:4px 7px; font-size:.72rem;">5</button>
+                <button type="button" class="btn small soft due-pill" data-day="10" style="padding:4px 7px; font-size:.72rem;">10</button>
+                <button type="button" class="btn small soft due-pill" data-day="15" style="padding:4px 7px; font-size:.72rem;">15</button>
+                <button type="button" class="btn small soft due-pill" data-day="20" style="padding:4px 7px; font-size:.72rem;">20</button>
+                <button type="button" class="btn small soft due-pill" data-day="25" style="padding:4px 7px; font-size:.72rem;">25</button>
               </div>
             </div>
+            <small id="inheritedDueHint" style="font-size:0.76rem; color:var(--brand); font-weight:750; margin-top:2px; display:none;"></small>
           </div>
         </div>
 
-        <div class="field">
-          <label>Destino da Cobrança</label>
-          <select id="entryDestination"></select>
-        </div>
-
-        <div class="field" id="fieldsFixed" hidden>
-          <label>Vigente a partir de (Mês / Ano)</label>
-          <div class="field-grid" style="grid-template-columns: 1.5fr 1fr; gap: 8px;">
-            <div class="field">
-              <label style="font-size:.72rem; color:var(--muted);">Mês Inicial</label>
-              <select id="fixedEffMonth"></select>
+        <!-- ==================== ETAPA 3: FINALIZAÇÃO ==================== -->
+        <div class="wizard-step-panel" id="entryStep3" style="display:none; gap:14px;">
+          <!-- CARD DE RESUMO DO LANÇAMENTO -->
+          <div id="entrySummaryCard" style="background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:14px; display:grid; gap:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span id="summaryName" style="font-weight:850; font-size:1.05rem; color:var(--text);">Nome</span>
+              <span id="summaryAmount" class="num" style="font-weight:850; font-size:1.1rem; color:var(--brand);">R$ 0,00</span>
             </div>
-            <div class="field">
-              <label style="font-size:.72rem; color:var(--muted);">Ano Inicial</label>
-              <select id="fixedEffYear"></select>
-            </div>
-          </div>
-          <p class="hint" style="margin-top:6px;">A alteração vale a partir do mês escolhido em diante. O histórico
-            anterior é preservado.</p>
-        </div>
-
-        <div class="field" id="fieldsVariable" hidden>
-          <div class="field-grid" style="grid-template-columns: 1.5fr 1fr; gap: 8px;">
-            <div class="field">
-              <label style="font-size:.72rem; color:var(--muted);">Mês Inicial (1ª Parcela)</label>
-              <select id="varStartMonth"></select>
-            </div>
-            <div class="field">
-              <label style="font-size:.72rem; color:var(--muted);">Ano Inicial</label>
-              <select id="varStartYear"></select>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; font-size:0.8rem;">
+              <span class="badge" id="summaryCategory" style="background:var(--surface); border:1px solid var(--line); font-weight:750;">Categoria</span>
+              <span class="badge" id="summaryDestination" style="background:var(--surface); border:1px solid var(--line); font-weight:750;">Destino</span>
+              <span class="badge info" id="summaryType">À Vista</span>
+              <span class="badge" id="summaryPeriod" style="background:var(--surface); border:1px solid var(--line); font-weight:750;">Mês/Ano</span>
             </div>
           </div>
 
-          <div class="field-grid" style="grid-template-columns: 1fr 1fr; gap: 8px; align-items:end; margin-top:8px;">
-            <div class="field">
-              <label style="font-size:.72rem; color:var(--muted);">Número de Parcelas</label>
-              <div style="display:flex; align-items:center; gap:6px;">
-                <input type="number" id="varInstallmentsCount" min="1" max="360" value="1" style="font-weight:800; font-size:1rem; text-align:center;">
-                <span style="font-weight:800; color:var(--muted); font-size:1.05rem;">x</span>
-              </div>
-            </div>
-            <div class="quick-installments" style="display:flex; gap:3px; flex-wrap:wrap; margin-bottom:4px;">
-              <button type="button" class="btn small soft inst-pill" data-inst="1" style="padding:4px 7px; font-size:.72rem;">1x</button>
-              <button type="button" class="btn small soft inst-pill" data-inst="2" style="padding:4px 7px; font-size:.72rem;">2x</button>
-              <button type="button" class="btn small soft inst-pill" data-inst="3" style="padding:4px 7px; font-size:.72rem;">3x</button>
-              <button type="button" class="btn small soft inst-pill" data-inst="6" style="padding:4px 7px; font-size:.72rem;">6x</button>
-              <button type="button" class="btn small soft inst-pill" data-inst="10" style="padding:4px 7px; font-size:.72rem;">10x</button>
-              <button type="button" class="btn small soft inst-pill" data-inst="12" style="padding:4px 7px; font-size:.72rem;">12x</button>
-              <button type="button" class="btn small soft inst-pill" data-inst="24" style="padding:4px 7px; font-size:.72rem;">24x</button>
-            </div>
+          <div class="field" id="entryStatusWrap">
+            <label>Status do Pagamento</label>
+            <select id="entryStatus">
+              <option value="pendente">Pendente de Pagamento</option>
+              <option value="pago">Pago</option>
+            </select>
+            <small id="pixCashStatusHint" style="font-size:0.78rem; color:var(--success); font-weight:750; margin-top:2px; display:none;">
+              ✓ Lançamentos via Pix e Dinheiro são considerados pagos automaticamente.
+            </small>
           </div>
-          <input type="hidden" id="varEndMonth">
-          <input type="hidden" id="varEndYear">
 
-          <div class="calc-badge" id="varInstallmentsBadge" style="margin-top:10px; width:100%; justify-content:center; padding:10px 14px; font-size:.84rem;">
-            <svg class="svg-icon" viewBox="0 0 24 24">
-              <path
-                d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-              <line x1="12" y1="22.08" x2="12" y2="12" />
-            </svg>
-            Parcelas: 1x
+          <div class="field">
+            <label>Observações / Anotações</label>
+            <textarea id="entryNote" rows="2" placeholder="Opcional (ex: detalhes da compra, notas, etc.)"></textarea>
           </div>
         </div>
-
-        <div class="field">
-          <label>Status no Mês Atual</label>
-          <select id="entryStatus">
-            <option value="pendente">Pendente de Pagamento</option>
-            <option value="pago">Pago</option>
-          </select>
-        </div>
-
-        <div class="field"><label>Observações</label><textarea id="entryNote" rows="2"
-            placeholder="Opcional"></textarea></div>
       </div>
-      <div class="dialog-foot">
+
+      <div class="dialog-foot" style="display:flex; justify-content:space-between; align-items:center; padding:14px 20px;">
         <div id="fixedActions" hidden>
           <button type="button" class="btn danger small" id="endFixedBtn">Encerrar a partir daqui</button>
           <button type="button" class="btn danger small" id="deleteFixedBtn">Excluir Tudo</button>
         </div>
-        <div style="display:flex; gap:8px; margin-left:auto;">
-          <button type="button" class="btn danger small" id="deleteEntryBtn" hidden>Excluir</button>
-          <button type="submit" class="btn primary">Salvar Lançamento</button>
+        <button type="button" class="btn danger small" id="deleteEntryBtn" hidden>Excluir</button>
+
+        <!-- AÇÕES DINÂMICAS DO WIZARD -->
+        <div id="wizardActions" style="display:flex; gap:8px; margin-left:auto;">
+          <!-- Botões do Step 1 -->
+          <button type="button" class="btn soft" id="btnCancelStep1" data-close="entryDialog">Cancelar</button>
+          <button type="button" class="btn primary" id="btnNextStep1">Continuar &rarr;</button>
+
+          <!-- Botões do Step 2 -->
+          <button type="button" class="btn soft" id="btnBackStep2" style="display:none;">&larr; Voltar</button>
+          <button type="button" class="btn primary" id="btnNextStep2" style="display:none;">Continuar &rarr;</button>
+
+          <!-- Botões do Step 3 -->
+          <button type="button" class="btn soft" id="btnBackStep3" style="display:none;">&larr; Voltar</button>
+          <button type="submit" class="btn primary" id="entrySubmitBtn" style="display:none;">✓ Salvar Lançamento</button>
         </div>
       </div>
     </form>
@@ -3593,6 +3677,13 @@
       function render(targetModule = null) {
         applyTheme();
         applySidebarState();
+
+        // HYDRATION GUARD: Se o estado ainda não foi hidratado do servidor, não renderiza dados financeiros e de perfil falsos
+        if (!stateHydrated) {
+          fillMonthSelects();
+          return;
+        }
+
         renderRibbon();
         fillMonthSelects();
         updateDestinationSelects();

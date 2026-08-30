@@ -30,13 +30,19 @@ function renderRibbon(explicitTabId) {
       return;
     }
 
+    if (typeof window.isStateHydrated === 'function' && !window.isStateHydrated()) {
+      return;
+    }
+
     ribbonSection.hidden = false;
     ribbonSection.style.display = '';
 
-        $('#yearLabel').textContent = state.year;
-        $('#userAvatar').textContent = (state.profile.name || 'U').charAt(0).toUpperCase();
-        $('#userNameLabel').textContent = state.profile.name || 'Usuário';
-        $('#userSalaryLabel').textContent = `Salário: ${currency(state.profile.baseSalary)}`;
+    const loggedUser = (typeof window !== 'undefined' && window.API && typeof API.getUser === 'function') ? API.getUser() : null;
+    const displayName = state.profile?.name || loggedUser?.nome || '';
+    $('#yearLabel').textContent = state.year;
+    $('#userAvatar').textContent = displayName ? displayName.charAt(0).toUpperCase() : 'U';
+    $('#userNameLabel').textContent = displayName || 'Usuário';
+    $('#userSalaryLabel').textContent = state.profile?.baseSalary != null ? `Salário: ${currency(state.profile.baseSalary)}` : '';
 
         const legendContainer = $('#ribbonLegend');
         const monthsData = [];

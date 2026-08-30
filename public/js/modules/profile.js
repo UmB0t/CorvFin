@@ -80,16 +80,20 @@
       tagsContainer.innerHTML = state.destinations.map(d => {
         const iconSvg = DEST_SVG_ICONS[d.icon] || DEST_SVG_ICONS.card;
         const usage = countUsage('dest', d.name);
-        const delTip = usage > 0 ? `Em uso por ${usage} lançamento(s)` : 'Remover Destino';
+        const isNative = (d.name.toLowerCase() === 'pix' || d.name.toLowerCase() === 'dinheiro');
+        const dueText = d.dueDay ? `<small style="font-weight:800; opacity:0.85;">(Venc. dia ${d.dueDay})</small>` : (isNative ? `<small style="font-weight:800; opacity:0.75;">(À Vista)</small>` : '');
+        const delTip = isNative ? 'Destino nativo protegido' : (usage > 0 ? `Em uso por ${usage} lançamento(s)` : 'Remover Destino');
         return `
           <span class="tag dest" style="border-radius:999px; padding:5px 12px; font-size:.78rem; font-weight:750; display:inline-flex; align-items:center; gap:6px; background:${d.color}22; color:${d.color}; border:1px solid ${d.color}55;">
-            ${iconSvg} <strong>${escapeHtml(d.name)}</strong>
+            ${iconSvg} <strong>${escapeHtml(d.name)}</strong> ${dueText}
             <button type="button" data-edit-dest="${escapeHtml(d.name)}" data-tooltip="Editar Destino" aria-label="Editar Destino" style="background:transparent; border:none; color:inherit; cursor:pointer; font-weight:800; padding:0 2px; display:inline-flex; align-items:center; opacity:0.75;">
               ${ICONS.edit}
             </button>
-            <button type="button" data-del-dest="${escapeHtml(d.name)}" data-tooltip="${delTip}" aria-label="${delTip}" style="background:transparent; border:none; color:inherit; cursor:pointer; font-weight:800; padding:0 2px; display:inline-flex; align-items:center; opacity:0.75;">
-              ${ICONS.close}
-            </button>
+            ${!isNative ? `
+              <button type="button" data-del-dest="${escapeHtml(d.name)}" data-tooltip="${delTip}" aria-label="${delTip}" style="background:transparent; border:none; color:inherit; cursor:pointer; font-weight:800; padding:0 2px; display:inline-flex; align-items:center; opacity:0.75;">
+                ${ICONS.close}
+              </button>
+            ` : ''}
           </span>
         `;
       }).join('');
@@ -100,6 +104,7 @@
           const dest = state.destinations.find(x => x.name === name);
           if (!dest) return;
           $('#newDestInput').value = dest.name;
+          if ($('#newDestDueDay')) $('#newDestDueDay').value = dest.dueDay || '';
           $('#newDestColor').value = dest.color || '#1F7A5C';
           $('#newDestIcon').value = dest.icon || 'card';
           $('#editingDestOriginalName').value = dest.name;
@@ -112,6 +117,10 @@
         b.addEventListener('click', () => {
           const name = b.getAttribute('data-del-dest');
           if (!name) return;
+          if (name.toLowerCase() === 'pix' || name.toLowerCase() === 'dinheiro' || name.toLowerCase() === 'em dinheiro') {
+            notify('Destinos nativos (Pix e Dinheiro) são protegidos e não podem ser removidos.', 'warning');
+            return;
+          }
           const usage = countUsage('dest', name);
           if (usage > 0) {
             notify(`Não é possível excluir "${name}": este destino está em uso por ${usage} lançamento(s).`, 'warning');
@@ -206,6 +215,7 @@
   }
 
   function renderProfile() {
+    if (typeof window.isStateHydrated === 'function' && !window.isStateHydrated()) return;
     const state = getState();
     if (!state) return;
     const profName = $('#profName');
@@ -216,7 +226,7 @@
       profName.value = state.profile?.name || '';
     }
     if (profSalary && document.activeElement !== profSalary) {
-      profSalary.value = state.profile?.baseSalary != null ? state.profile.baseSalary : 0;
+      profSalary.value = state.profile?.baseSalary != null ? state.profile.baseSalary : '';
     }
     if (profBen && document.activeElement !== profBen) {
       profBen.value = state.benefitsConfig?.amount != null
@@ -252,15 +262,19 @@
     $('#addDestBtn')?.addEventListener('click', () => {
       const state = getState();
       const val = $('#newDestInput').value.trim();
+      const dueDayInput = $('#newDestDueDay')?.value;
+      const dueDayNum = Number(dueDayInput);
+      const isNative = (val.toLowerCase() === 'pix' || val.toLowerCase() === 'dinheiro');
+      const dueDay = (!isNative && dueDayInput !== '' && dueDayNum >= 1 && dueDayNum <= 31) ? dueDayNum : null;
       const color = $('#newDestColor').value || '#1F7A5C';
-      const icon = $('#newDestIcon').value || 'card';
+      const icon = $('#newDestIcon').value || (val.toLowerCase() === 'pix' ? 'dollar' : (val.toLowerCase() === 'dinheiro' ? 'wallet' : 'card'));
       const origName = $('#editingDestOriginalName').value;
 
       if (!val) { notify('Informe o nome do destino.', 'error'); return; }
 
       if (origName) {
         const idx = state.destinations.findIndex(d => d.name === origName);
-        if (idx >= 0) state.destinations[idx] = { name: val, color, icon };
+        if (idx >= 0) state.destinations[idx] = { name: val, color, icon, dueDay };
         if (origName !== val) {
           state.fixed.forEach(f => { if (f.destination === origName) f.destination = val; });
           state.variable.forEach(v => { if (v.destination === origName) v.destination = val; });
@@ -272,12 +286,13 @@
         notify(`Destino "${val}" atualizado com sucesso!`, 'success');
       } else {
         const existingIdx = state.destinations.findIndex(d => d.name === val);
-        if (existingIdx >= 0) { state.destinations[existingIdx] = { name: val, color, icon }; }
-        else { state.destinations.push({ name: val, color, icon }); }
+        if (existingIdx >= 0) { state.destinations[existingIdx] = { name: val, color, icon, dueDay }; }
+        else { state.destinations.push({ name: val, color, icon, dueDay }); }
         notify(`Destino "${val}" adicionado com sucesso!`, 'success');
       }
 
       $('#newDestInput').value = '';
+      if ($('#newDestDueDay')) $('#newDestDueDay').value = '';
       saveState(); updateDestinationSelects(); render();
     });
 
