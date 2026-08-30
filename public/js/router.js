@@ -244,44 +244,10 @@ const AppRouter = (() => {
 
     // Welcome Tour Popover
     function checkWelcomeTour() {
-      const tourCompleted = localStorage.getItem('tour_manual_completed');
-      const popover = document.getElementById('welcome-tour-popover') || document.getElementById('onboardingPopover');
-      if (!popover) return;
-
-      if (tourCompleted === 'true') {
-        popover.hidden = true;
-        popover.setAttribute('aria-hidden', 'true');
-        popover.classList.add('hidden');
-        popover.classList.remove('open');
-        popover.style.setProperty('display', 'none', 'important');
-      } else {
-        popover.hidden = false;
-        popover.removeAttribute('aria-hidden');
-        popover.classList.remove('hidden');
-        popover.classList.add('open');
-        popover.style.removeProperty('display');
-        popover.style.setProperty('display', 'flex', 'important');
+      if (typeof window.checkWelcomeTour === 'function') {
+        window.checkWelcomeTour();
       }
     }
-
-    function dismissWelcomeTour() {
-      try {
-        localStorage.setItem('tour_manual_completed', 'true');
-      } catch (_) {}
-      const popover = document.getElementById('welcome-tour-popover') || document.getElementById('onboardingPopover');
-      if (popover) {
-        popover.hidden = true;
-        popover.setAttribute('aria-hidden', 'true');
-        popover.classList.add('hidden');
-        popover.classList.remove('open');
-        popover.style.setProperty('display', 'none', 'important');
-      }
-    }
-
-    const btnDismiss = document.getElementById('btnDismissOnboarding');
-    if (btnDismiss) btnDismiss.addEventListener('click', dismissWelcomeTour);
-    const infoBtn = document.getElementById('infoBtn');
-    if (infoBtn) infoBtn.addEventListener('click', dismissWelcomeTour);
 
     checkWelcomeTour();
   }

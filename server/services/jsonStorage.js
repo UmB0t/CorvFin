@@ -174,13 +174,16 @@ function saveAllFinances(finances) {
   return safeWriteJSON(config.FINANCES_FILE, finances);
 }
 
-function getDefaultUserFinances(userId, userName, userSalary = 0) {
+function getDefaultUserFinances(userId, userName, userSalary = 0, isNewUser = false) {
   const now = new Date();
   return {
     userId,
     version: 5,
     revision: 0,
     firstLogin: true,
+    onboarding: {
+      welcomeSeen: !isNewUser
+    },
     sidebarCollapsed: false,
     simplifiedView: false,
     chartViewType: 'bar',
@@ -240,10 +243,10 @@ function getDefaultUserFinances(userId, userName, userSalary = 0) {
   };
 }
 
-function getUserFinances(userId, userName, userSalary = 0) {
+function getUserFinances(userId, userName, userSalary = 0, isNewUser = false) {
   const finances = getAllFinances();
   if (!finances[userId]) {
-    finances[userId] = getDefaultUserFinances(userId, userName, userSalary);
+    finances[userId] = getDefaultUserFinances(userId, userName, userSalary, isNewUser);
     saveAllFinances(finances);
   }
   return finances[userId];

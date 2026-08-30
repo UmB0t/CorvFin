@@ -35,16 +35,33 @@ window.DEFAULT_CATEGORY_ICONS_MAP = {
   'Trabalho': 'briefcase'
 };
 
+window.DEFAULT_CATEGORY_COLORS_MAP = {
+  'Moradia': '#1F7A5C',
+  'Lazer': '#EC4899',
+  'Alimentação': '#FF7A00',
+  'Cartão': '#8B5CF6',
+  'Transporte': '#2563EB',
+  'Saúde': '#EF4444',
+  'Educação': '#06B6D4',
+  'Gerais': '#6B7280',
+  'Outros': '#6B7280',
+  'Investimento': '#10B981',
+  'Investimentos': '#10B981',
+  'Assinatura': '#820AD1',
+  'Assinaturas': '#820AD1',
+  'Trabalho': '#F59E0B'
+};
+
 window.DEFAULT_CATEGORIES = [
-  { name: 'Moradia', icon: 'home' },
-  { name: 'Lazer', icon: 'star' },
-  { name: 'Alimentação', icon: 'utensils' },
-  { name: 'Cartão', icon: 'card' },
-  { name: 'Transporte', icon: 'car' },
-  { name: 'Saúde', icon: 'health' },
-  { name: 'Educação', icon: 'book' },
-  { name: 'Gerais', icon: 'tag' },
-  { name: 'Outros', icon: 'tag' }
+  { name: 'Moradia', icon: 'home', color: '#1F7A5C' },
+  { name: 'Lazer', icon: 'star', color: '#EC4899' },
+  { name: 'Alimentação', icon: 'utensils', color: '#FF7A00' },
+  { name: 'Cartão', icon: 'card', color: '#8B5CF6' },
+  { name: 'Transporte', icon: 'car', color: '#2563EB' },
+  { name: 'Saúde', icon: 'health', color: '#EF4444' },
+  { name: 'Educação', icon: 'book', color: '#06B6D4' },
+  { name: 'Gerais', icon: 'tag', color: '#6B7280' },
+  { name: 'Outros', icon: 'tag', color: '#6B7280' }
 ];
 
 window.DEFAULT_BUDGETS = { 'Moradia': 2000, 'Lazer': 800, 'Alimentação': 1500, 'Cartão': 3000, 'Gerais': 1000 };
@@ -92,7 +109,12 @@ window.CATEGORY_SVG_ICONS = {
   chart: `<svg class="svg-icon" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`,
   receipt: `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>`,
   star: `<svg class="svg-icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
-  card: `<svg class="svg-icon" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`
+  card: `<svg class="svg-icon" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`,
+  building: `<svg class="svg-icon" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/></svg>`,
+  coins: `<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18M7 6h1v4M16.7 13.7A3 3 0 0 0 14 11h-1"/></svg>`,
+  shield: `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+  plane: `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>`,
+  globe: `<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`
 };
 
 window.getCategoryName = function getCategoryName(cat) {
@@ -105,15 +127,45 @@ window.getCategoryName = function getCategoryName(cat) {
 window.getCategoryMeta = function getCategoryMeta(cat) {
   const catName = window.getCategoryName(cat);
   const catIcon = (typeof cat === 'object' && cat !== null && cat.icon) ? cat.icon : null;
+  const catColor = (typeof cat === 'object' && cat !== null && cat.color) ? cat.color : null;
   const cats = (typeof getState === 'function' && getState()?.categories) || window.DEFAULT_CATEGORIES;
+  const defaultColorsMap = window.DEFAULT_CATEGORY_COLORS_MAP || {};
+  const defaultIconsMap = window.DEFAULT_CATEGORY_ICONS_MAP || {};
+
   if (Array.isArray(cats)) {
-    const found = cats.find(c => (typeof c === 'string' ? c === catName : c?.name === catName));
-    if (found) {
-      if (typeof found === 'string') return { name: found, icon: catIcon || window.DEFAULT_CATEGORY_ICONS_MAP[found] || 'tag' };
-      return { name: found.name || catName, icon: catIcon || found.icon || window.DEFAULT_CATEGORY_ICONS_MAP[found.name] || 'tag' };
+    const idx = cats.findIndex(c => (typeof c === 'string' ? c === catName : c?.name === catName));
+    if (idx >= 0) {
+      const found = cats[idx];
+      const fallbackColor = defaultColorsMap[catName] || window.CATEGORY_COLORS[idx % window.CATEGORY_COLORS.length] || '#1F7A5C';
+      if (typeof found === 'string') {
+        return {
+          name: found,
+          icon: catIcon || defaultIconsMap[found] || 'tag',
+          color: catColor || fallbackColor
+        };
+      }
+      return {
+        name: found.name || catName,
+        icon: catIcon || found.icon || defaultIconsMap[found.name] || 'tag',
+        color: catColor || found.color || fallbackColor
+      };
     }
   }
-  return { name: catName, icon: catIcon || window.DEFAULT_CATEGORY_ICONS_MAP[catName] || 'tag' };
+
+  const fallbackColor = defaultColorsMap[catName] || '#1F7A5C';
+  return {
+    name: catName,
+    icon: catIcon || defaultIconsMap[catName] || 'tag',
+    color: catColor || fallbackColor
+  };
+};
+
+window.getCategoryColor = function getCategoryColor(catNameOrObj) {
+  if (typeof catNameOrObj === 'object' && catNameOrObj !== null && catNameOrObj.color) {
+    return catNameOrObj.color;
+  }
+  const meta = window.getCategoryMeta(catNameOrObj);
+  return meta.color || '#1F7A5C';
 };
 
 window.getCategoryIconSvg = function getCategoryIconSvg(catNameOrIcon) {
@@ -132,7 +184,83 @@ window.DEST_SVG_ICONS = {
   shopping: `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
   phone: `<svg class="svg-icon" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>`,
   file: `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
-  globe: `<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"/></svg>`
+  globe: `<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`
+};
+
+window.INVESTMENT_SVG_ICONS = {
+  banknote: window.CATEGORY_SVG_ICONS.banknote,
+  chart: window.CATEGORY_SVG_ICONS.chart,
+  building: window.CATEGORY_SVG_ICONS.building,
+  coins: window.CATEGORY_SVG_ICONS.coins,
+  shield: window.CATEGORY_SVG_ICONS.shield,
+  car: window.CATEGORY_SVG_ICONS.car,
+  plane: window.CATEGORY_SVG_ICONS.plane,
+  home: window.CATEGORY_SVG_ICONS.home,
+  globe: window.CATEGORY_SVG_ICONS.globe
+};
+
+window.INVESTMENT_CATEGORY_META = {
+  'Renda Fixa': { icon: 'banknote', label: 'Renda Fixa' },
+  'Ações': { icon: 'chart', label: 'Ações' },
+  'FIIs': { icon: 'building', label: 'FIIs' },
+  'Fundos Imobiliários (FIIs)': { icon: 'building', label: 'FIIs' },
+  'FIIs (Imobiliário)': { icon: 'building', label: 'FIIs' },
+  'Cripto': { icon: 'coins', label: 'Cripto' },
+  'Criptomoedas': { icon: 'coins', label: 'Criptomoedas' },
+  'Reserva de Emergência': { icon: 'shield', label: 'Reserva de Emergência' },
+  'Fundos': { icon: 'chart', label: 'Fundos' },
+  'Veículo': { icon: 'car', label: 'Veículo' },
+  'Viagem': { icon: 'plane', label: 'Viagem' },
+  'Residência': { icon: 'home', label: 'Residência' },
+  'Outros': { icon: 'globe', label: 'Outros' }
+};
+
+window.getInvestmentCategoryMeta = function getInvestmentCategoryMeta(catName) {
+  if (!catName || typeof catName !== 'string') {
+    return { icon: 'globe', label: 'Outros' };
+  }
+  const trimmed = catName.trim();
+  if (window.INVESTMENT_CATEGORY_META[trimmed]) {
+    return window.INVESTMENT_CATEGORY_META[trimmed];
+  }
+  const lower = trimmed.toLowerCase();
+  if (lower.includes('fixa') || lower.includes('tesouro') || lower.includes('cdb') || lower.includes('lci') || lower.includes('lca')) {
+    return window.INVESTMENT_CATEGORY_META['Renda Fixa'];
+  }
+  if (lower.includes('ação') || lower.includes('acao') || lower.includes('ações') || lower.includes('acoes') || lower.includes('stock')) {
+    return window.INVESTMENT_CATEGORY_META['Ações'];
+  }
+  if (lower.includes('fii') || lower.includes('imobili')) {
+    return window.INVESTMENT_CATEGORY_META['FIIs'];
+  }
+  if (lower.includes('cripto') || lower.includes('bitcoin') || lower.includes('crypto')) {
+    return window.INVESTMENT_CATEGORY_META['Cripto'];
+  }
+  if (lower.includes('reserva') || lower.includes('emergenc')) {
+    return window.INVESTMENT_CATEGORY_META['Reserva de Emergência'];
+  }
+  if (lower.includes('veiculo') || lower.includes('veículo') || lower.includes('carro') || lower.includes('moto')) {
+    return window.INVESTMENT_CATEGORY_META['Veículo'];
+  }
+  if (lower.includes('viagem') || lower.includes('viagens') || lower.includes('ferias') || lower.includes('férias')) {
+    return window.INVESTMENT_CATEGORY_META['Viagem'];
+  }
+  if (lower.includes('residencia') || lower.includes('residência') || lower.includes('imovel') || lower.includes('imóvel') || lower.includes('casa') || lower.includes('apto')) {
+    return window.INVESTMENT_CATEGORY_META['Residência'];
+  }
+  return { icon: 'globe', label: trimmed };
+};
+
+window.getInvestmentIconSvg = function getInvestmentIconSvg(catNameOrIcon) {
+  if (typeof catNameOrIcon === 'string' && window.INVESTMENT_SVG_ICONS && window.INVESTMENT_SVG_ICONS[catNameOrIcon]) {
+    return window.INVESTMENT_SVG_ICONS[catNameOrIcon];
+  }
+  const meta = window.getInvestmentCategoryMeta(catNameOrIcon);
+  const iconKey = meta && meta.icon ? meta.icon : 'globe';
+  return (window.INVESTMENT_SVG_ICONS && window.INVESTMENT_SVG_ICONS[iconKey]) ||
+         (window.CATEGORY_SVG_ICONS && window.CATEGORY_SVG_ICONS[iconKey]) ||
+         (window.DEST_SVG_ICONS && window.DEST_SVG_ICONS[iconKey]) ||
+         (window.DEST_SVG_ICONS && window.DEST_SVG_ICONS.globe) || '';
 };
 
 window.ICONS = {

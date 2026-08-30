@@ -203,8 +203,9 @@ function runSimulation() {
         `;
       };
 
-window.renderSimpleBarChart = function renderSimpleBarChart(containerSel, mapData, color) {
+window.renderSimpleBarChart = function renderSimpleBarChart(containerSel, mapData, color, isCategory = false) {
         const container = $(containerSel);
+        if (!container) return;
         const items = Object.entries(mapData).sort((a, b) => b[1] - a[1]);
         if (items.length === 0) {
           container.innerHTML = `<div class="empty">Sem dados registrados.</div>`;
@@ -213,9 +214,18 @@ window.renderSimpleBarChart = function renderSimpleBarChart(containerSel, mapDat
         const maxVal = items[0][1] || 1;
         container.innerHTML = items.map(([name, val]) => {
           const pct = Math.round((val / maxVal) * 100);
+          let iconSvg = '';
+          if (isCategory) {
+            iconSvg = (typeof getInvestmentIconSvg === 'function') ? getInvestmentIconSvg(name) : '';
+          } else {
+            const destMeta = (typeof getDestMeta === 'function') ? getDestMeta(name) : { icon: 'bank' };
+            iconSvg = (typeof DEST_SVG_ICONS !== 'undefined' && DEST_SVG_ICONS[destMeta.icon]) ? DEST_SVG_ICONS[destMeta.icon] : (DEST_SVG_ICONS?.card || '');
+          }
           return `
         <div class="dest-bar-item">
-          <span class="dest-name" title="${name}"><strong>${name}</strong></span>
+          <span class="dest-name" title="${escapeHtml(name)}" style="display:inline-flex; align-items:center; gap:6px;">
+            ${iconSvg} <strong>${escapeHtml(name)}</strong>
+          </span>
           <div class="dest-track">
             <div class="dest-fill" style="width:${pct}%; background:${color};"></div>
           </div>
@@ -281,8 +291,8 @@ function renderInvestmentsTab() {
           destMap[d] = (destMap[d] || 0) + Number(a.currentAmount || 0);
         });
 
-        renderSimpleBarChart('#investCategoryBars', catMap, 'var(--brand)');
-        renderSimpleBarChart('#investDestBars', destMap, 'var(--c-fixed)');
+        renderSimpleBarChart('#investCategoryBars', catMap, 'var(--brand)', true);
+        renderSimpleBarChart('#investDestBars', destMap, 'var(--c-fixed)', false);
 
         const container = $('#assetGridList');
         container.innerHTML = '';
@@ -297,6 +307,17 @@ function renderInvestmentsTab() {
           const goal = Number(asset.goalAmount || 0);
           const pct = goal > 0 ? Math.min(100, Math.round((current / goal) * 100)) : 0;
 
+          const catIconSvg = (typeof getInvestmentIconSvg === 'function')
+            ? getInvestmentIconSvg(asset.category)
+            : (window.DEST_SVG_ICONS?.globe || '');
+
+          const destMeta = (typeof getDestMeta === 'function')
+            ? getDestMeta(asset.destination)
+            : { name: asset.destination || 'XP Investimentos', icon: 'bank', color: '#1F7A5C' };
+          const destIconSvg = (typeof DEST_SVG_ICONS !== 'undefined' && DEST_SVG_ICONS[destMeta.icon])
+            ? DEST_SVG_ICONS[destMeta.icon]
+            : (DEST_SVG_ICONS?.card || ICONS.bank);
+
           const card = document.createElement('div');
           card.className = 'asset-card';
           card.setAttribute('draggable', 'true');
@@ -310,8 +331,8 @@ function renderInvestmentsTab() {
             <div>
               <h4 class="asset-name" style="margin:0;">${escapeHtml(asset.name)}</h4>
               <div style="display:flex; gap:6px; margin-top:4px; flex-wrap:wrap;">
-                <span class="tag">${escapeHtml(asset.category || 'Investimento')}</span>
-                <span class="tag dest">${ICONS.bank} ${escapeHtml(asset.destination || 'XP')}</span>
+                <span class="tag" style="display:inline-flex; align-items:center; gap:5px; font-weight:750;">${catIconSvg} <span>${escapeHtml(asset.category || 'Investimento')}</span></span>
+                <span class="tag dest" style="display:inline-flex; align-items:center; gap:5px; font-weight:750;">${destIconSvg} <span>${escapeHtml(asset.destination || 'XP')}</span></span>
               </div>
             </div>
           </div>

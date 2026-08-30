@@ -9,10 +9,46 @@
   // Catálogo Central Estático de Releases do OmniFin
   const RELEASES_CATALOG = [
     {
-      version: "3.3.0",
+      version: "3.4.0",
       date: "30/08/2026",
       tag: "Mais Recente",
       isLatest: true,
+      title: "Personalização, onboarding e melhorias em Investimentos",
+      summary: "Novas opções de personalização visual, ícones semânticos em Investimentos, Guia do Sistema ampliado e uma experiência de boas-vindas para novos usuários.",
+      news: [
+        "Categorias de gastos agora possuem cores personalizáveis.",
+        "Nova paleta rápida de cores para categorias.",
+        "Suporte a qualquer cor personalizada através do seletor de cor.",
+        "Novos ícones semânticos na área de Investimentos.",
+        "Novas representações visuais para categorias como Renda Fixa, Ações, FIIs, Cripto, Reserva de Emergência, Veículo, Viagem, Residência e Outros.",
+        "Guia do Sistema expandido com documentação da Lista de Compras Inteligente.",
+        "Guia do Sistema expandido com documentação completa da Simulação e seus cenários sandbox.",
+        "Novo modal de boas-vindas para novos usuários.",
+        "Acesso direto ao Guia do Sistema através do onboarding inicial."
+      ],
+      improvements: [
+        "Cores personalizadas das categorias agora são refletidas no Perfil, Dashboard, Dashboard Consolidado e Simulação.",
+        "Categorias antigas continuam recebendo cores padrão automaticamente quando não possuem personalização própria.",
+        "Melhor consistência visual entre categorias, gráficos, chips e indicadores.",
+        "Onboarding agora é persistido individualmente por usuário.",
+        "Novos usuários recebem orientação inicial apenas no primeiro acesso.",
+        "Usuários existentes continuam utilizando o sistema normalmente sem interrupção pelo novo onboarding.",
+        "Guia do Sistema reorganizado para contemplar os recursos mais recentes da plataforma.",
+        "Ícones de Investimentos passaram a seguir o mesmo padrão outline do restante do OmniFin."
+      ],
+      fixes: [
+        "Correção do ícone \"Outros\", que apresentava deformação visual no desenho do globo.",
+        "Correção da abertura do onboarding após a hidratação dos dados do usuário.",
+        "Correção do onboarding para usuários criados através do painel administrativo.",
+        "Correção da persistência do estado de conclusão do onboarding após F5, logout e novo login.",
+        "Ajustes de compatibilidade para categorias antigas que ainda não possuem campo de cor."
+      ]
+    },
+    {
+      version: "3.3.0",
+      date: "30/08/2026",
+      tag: "",
+      isLatest: false,
       title: "Dashboard Consolidado e nova gestão de permissões",
       summary: "Visão financeira consolidada com métricas por categoria e destino, nova página inicial /dashboard e gestão simplificada de permissões dos usuários.",
       news: [

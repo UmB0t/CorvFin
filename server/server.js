@@ -122,8 +122,8 @@ app.post('/api/auth/register', async (req, res) => {
 
     const permissions = await setUserPermissions(newUser.id, finalPerms);
 
-    // Inicializa template de finanças
-    await getUserFinances(newUser.id, newUser.nome, 0);
+    // Inicializa template de finanças para novo usuário (com onboarding.welcomeSeen = false)
+    await getUserFinances(newUser.id, newUser.nome, 0, true);
 
     const token = generateToken(newUser);
 
@@ -408,7 +408,8 @@ app.post('/api/admin/users', authMiddleware, adminOnlyMiddleware, async (req, re
     });
 
     const userPerms = await setUserPermissions(newUser.id, finalPerms);
-    await getUserFinances(newUser.id, newUser.nome, 0);
+    // Inicializa template de finanças para novo usuário criado via admin (onboarding.welcomeSeen = false)
+    await getUserFinances(newUser.id, newUser.nome, 0, true);
 
     return res.status(201).json({
       success: true,

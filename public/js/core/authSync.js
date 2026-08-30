@@ -80,6 +80,23 @@
         } catch (renderErr) {
           console.error('Erro ao renderizar interface após hidratação:', renderErr);
         }
+
+        try {
+          if (typeof window.checkWelcomeTour === 'function') {
+            window.checkWelcomeTour();
+          }
+        } catch (tourErr) {
+          console.error('Erro ao checar onboarding pós-hidratação:', tourErr);
+        }
+
+        setTimeout(() => {
+          try {
+            if (typeof window.checkWelcomeTour === 'function') {
+              window.checkWelcomeTour();
+            }
+          } catch (_) {}
+        }, 50);
+
         return true;
       }
     } catch (err) {

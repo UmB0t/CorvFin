@@ -672,6 +672,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf-8');
     const cssComponents = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'components.css'), 'utf-8');
 
+    assert.ok(relNotesJs.includes('version: "3.4.0"'), 'releaseNotes.js deve conter a release v3.4.0');
     assert.ok(relNotesJs.includes('version: "3.3.0"'), 'releaseNotes.js deve conter a release v3.3.0');
     assert.ok(relNotesJs.includes('version: "3.2.0"'), 'releaseNotes.js deve conter a release v3.2.0');
     assert.ok(relNotesJs.includes('version: "3.1.0"'), 'releaseNotes.js deve conter a release v3.1.0');
@@ -681,11 +682,12 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.ok(relNotesJs.includes('fixes:'), 'releaseNotes.js deve estruturar correções');
 
     // Validação da ordem das releases
+    const idx34 = relNotesJs.indexOf('version: "3.4.0"');
     const idx33 = relNotesJs.indexOf('version: "3.3.0"');
     const idx32 = relNotesJs.indexOf('version: "3.2.0"');
     const idx31 = relNotesJs.indexOf('version: "3.1.0"');
     const idx30 = relNotesJs.indexOf('version: "3.0.0"');
-    assert.ok(idx33 < idx32 && idx32 < idx31 && idx31 < idx30, 'Releases devem estar ordenadas: v3.3 -> v3.2 -> v3.1 -> v3.0');
+    assert.ok(idx34 < idx33 && idx33 < idx32 && idx32 < idx31 && idx31 < idx30, 'Releases devem estar ordenadas: v3.4 -> v3.3 -> v3.2 -> v3.1 -> v3.0');
 
     // Validação de UI no HTML e CSS
     assert.ok(indexHtml.includes('id="releaseNotesBtn"'), 'index.html deve conter o botão de release notes na barra superior');
@@ -702,12 +704,12 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     const userDoc1 = await getRes1.json();
     const currentRev = Number(userDoc1.revision || 0);
     const readListInitial = Array.isArray(userDoc1.readReleases) ? userDoc1.readReleases : [];
-    assert.strictEqual(readListInitial.includes('3.1.0'), false, 'Usuário novo/sem leitura não deve ter a release 3.1.0 como lida');
+    assert.strictEqual(readListInitial.includes('3.4.0'), false, 'Usuário novo/sem leitura não deve ter a release 3.4.0 como lida');
 
-    // 3. Usuário abre e marca a release 3.1.0 como lida
+    // 3. Usuário abre e marca a release 3.4.0 como lida
     const updatePayload = Object.assign({}, userDoc1, {
       expectedRevision: currentRev,
-      readReleases: ['3.1.0']
+      readReleases: ['3.4.0']
     });
 
     const putRes = await fetch(`${baseUrl}/api/finances`, {
@@ -720,13 +722,13 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     });
     assert.strictEqual(putRes.status, 200, 'Salvar readReleases deve retornar 200 OK');
 
-    // 4. Refresh / Leitura subsequente confirma que release 3.1.0 permanece lida
+    // 4. Refresh / Leitura subsequente confirma que release 3.4.0 permanece lida
     const getRes2 = await fetch(`${baseUrl}/api/finances`, {
       headers: { 'Authorization': `Bearer ${testUserToken}` }
     });
     const userDoc2 = await getRes2.json();
     assert.ok(Array.isArray(userDoc2.readReleases), 'readReleases deve ser um array');
-    assert.strictEqual(userDoc2.readReleases.includes('3.1.0'), true, 'readReleases deve persistir 3.1.0');
+    assert.strictEqual(userDoc2.readReleases.includes('3.4.0'), true, 'readReleases deve persistir 3.4.0');
 
     // 5. Isolamento: Outro usuário (ex: admin) não foi impactado e tem seu próprio estado independente
     const getAdminRes = await fetch(`${baseUrl}/api/finances`, {
@@ -734,7 +736,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     });
     const adminDoc = await getAdminRes.json();
     const adminReadList = Array.isArray(adminDoc.readReleases) ? adminDoc.readReleases : [];
-    assert.strictEqual(adminReadList.includes('3.1.0'), false, 'Outro usuário deve manter estado de leitura independente');
+    assert.strictEqual(adminReadList.includes('3.4.0'), false, 'Outro usuário deve manter estado de leitura independente');
   });
 
   test('21. Gestão de Despesas e Pagamentos: Métodos À Vista/Parcelado/Fixa, herança de vencimento, nativos Pix e Dinheiro', async () => {
@@ -2118,5 +2120,384 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     if (normalizedActive) {
       assert.strictEqual(normalizedActive.dashboard.maintenance, true, "Dashboard com maintenance: true deve normalizar para true (Em Manutenção)");
     }
+  });
+
+  test('29. Checkpoint 6 — Ícones Semânticos de Investimentos + Globe', async () => {
+    const vm = require('node:vm');
+    const constantsJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'constants.js'), 'utf-8');
+    const investmentsJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'modules', 'investments.js'), 'utf-8');
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf-8');
+
+    // Contexto VM para validar constantes e helpers
+    const ctx = {
+      window: {},
+      document: {
+        readyState: 'complete',
+        addEventListener: () => {},
+        getElementById: () => null,
+        querySelector: () => null,
+        querySelectorAll: () => []
+      }
+    };
+    ctx.window = ctx;
+    vm.createContext(ctx);
+    vm.runInContext(constantsJs, ctx);
+
+    // 1. globe possui SVG válido e simétrico (contém -4-10 para fechamento do hemisfério esquerdo)
+    const destGlobe = ctx.DEST_SVG_ICONS ? ctx.DEST_SVG_ICONS.globe : null;
+    assert.ok(destGlobe, 'DEST_SVG_ICONS.globe deve existir');
+    assert.ok(destGlobe.includes('viewBox="0 0 24 24"'), 'globe deve ter viewBox 0 0 24 24');
+    assert.ok(destGlobe.includes('-4-10') || destGlobe.includes('-4 -10') || destGlobe.includes('15.3 0 0 1-4-10'), 'globe deve possuir simetria de arco elíptico correta');
+
+    // 2. globe existe para Destinos
+    assert.ok(ctx.DEST_SVG_ICONS && ctx.DEST_SVG_ICONS.globe, 'DEST_SVG_ICONS.globe deve estar definido');
+
+    // 3. globe existe para Categorias
+    assert.ok(ctx.CATEGORY_SVG_ICONS && ctx.CATEGORY_SVG_ICONS.globe, 'CATEGORY_SVG_ICONS.globe deve estar definido');
+
+    // 4. Categorias de investimento possuem metadado de ícone
+    assert.ok(typeof ctx.INVESTMENT_CATEGORY_META === 'object', 'INVESTMENT_CATEGORY_META deve ser um objeto');
+    assert.strictEqual(typeof ctx.getInvestmentCategoryMeta, 'function', 'getInvestmentCategoryMeta deve ser função');
+    assert.strictEqual(typeof ctx.getInvestmentIconSvg, 'function', 'getInvestmentIconSvg deve ser função');
+
+    // 5. Renda Fixa possui ícone
+    const rfMeta = ctx.getInvestmentCategoryMeta('Renda Fixa');
+    assert.strictEqual(rfMeta.icon, 'banknote', 'Renda Fixa deve ter ícone banknote');
+    assert.ok(ctx.getInvestmentIconSvg('Renda Fixa').includes('<svg'), 'getInvestmentIconSvg(Renda Fixa) deve retornar SVG');
+
+    // 6. Ações possui ícone
+    const acoesMeta = ctx.getInvestmentCategoryMeta('Ações');
+    assert.strictEqual(acoesMeta.icon, 'chart', 'Ações deve ter ícone chart');
+    assert.ok(ctx.getInvestmentIconSvg('Ações').includes('<svg'), 'getInvestmentIconSvg(Ações) deve retornar SVG');
+
+    // 7. FIIs possui ícone
+    const fiisMeta = ctx.getInvestmentCategoryMeta('FIIs');
+    assert.strictEqual(fiisMeta.icon, 'building', 'FIIs deve ter ícone building');
+    assert.ok(ctx.getInvestmentIconSvg('FIIs').includes('<svg'), 'getInvestmentIconSvg(FIIs) deve retornar SVG');
+
+    // 8. Cripto possui ícone
+    const criptoMeta = ctx.getInvestmentCategoryMeta('Cripto');
+    assert.strictEqual(criptoMeta.icon, 'coins', 'Cripto deve ter ícone coins');
+    assert.ok(ctx.getInvestmentIconSvg('Cripto').includes('<svg'), 'getInvestmentIconSvg(Cripto) deve retornar SVG');
+
+    // Modalidades patrimoniais
+    assert.strictEqual(ctx.getInvestmentCategoryMeta('Veículo').icon, 'car', 'Veículo deve ter ícone car');
+    assert.strictEqual(ctx.getInvestmentCategoryMeta('Viagem').icon, 'plane', 'Viagem deve ter ícone plane');
+    assert.strictEqual(ctx.getInvestmentCategoryMeta('Residência').icon, 'home', 'Residência deve ter ícone home');
+
+    // 9. Outros utiliza fallback válido
+    const outrosMeta = ctx.getInvestmentCategoryMeta('Outros');
+    assert.strictEqual(outrosMeta.icon, 'globe', 'Outros deve ter ícone globe');
+    assert.ok(ctx.getInvestmentIconSvg('Outros').includes('<svg'), 'getInvestmentIconSvg(Outros) deve retornar SVG');
+
+    // 10. Categoria desconhecida não quebra renderização e faz fallback para globe
+    const unkMeta = ctx.getInvestmentCategoryMeta('Ativo Raro Inexistente');
+    assert.strictEqual(unkMeta.icon, 'globe', 'Categoria desconhecida deve fazer fallback seguro para globe');
+    assert.ok(ctx.getInvestmentIconSvg('Ativo Raro Inexistente').includes('<svg'), 'Categoria desconhecida deve retornar SVG de fallback');
+
+    // 11. Ativo legado em string continua funcionando
+    assert.ok(ctx.getInvestmentIconSvg('Tesouro Direto Pré-Fixado').includes('<svg'), 'Normalização aproximada deve retornar SVG para ativos legados');
+
+    // 12. Validação estática de index.html e investments.js
+    assert.ok(indexHtml.includes('id="assetCategory"'), 'index.html deve conter o select de categorias de ativos');
+    assert.ok(indexHtml.includes('value="Veículo"'), 'index.html deve conter categoria Veículo');
+    assert.ok(indexHtml.includes('value="Viagem"'), 'index.html deve conter categoria Viagem');
+    assert.ok(indexHtml.includes('value="Residência"'), 'index.html deve conter categoria Residência');
+    assert.ok(investmentsJs.includes('getInvestmentIconSvg'), 'investments.js deve invocar getInvestmentIconSvg para renderizar tags com ícones');
+
+    // 13. Persistência real e aportes no MongoDB permanecem íntegros
+    const getRes1 = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Authorization': `Bearer ${testUserToken}` }
+    });
+    const userDoc1 = await getRes1.json();
+    const rev1 = Number(userDoc1.revision || 0);
+
+    const testAsset = {
+      id: 'asset-test-1',
+      name: 'Fundo Imobiliário HGLG11',
+      category: 'FIIs',
+      destination: 'XP Investimentos',
+      currentAmount: 5000.00,
+      goalAmount: 20000.00,
+      note: 'Logística'
+    };
+
+    const testAporte = {
+      id: 'aporte-test-1',
+      assetId: 'asset-test-1',
+      amount: 1000.00,
+      month: 8,
+      year: 2026,
+      note: 'Reinvestimento de proventos'
+    };
+
+    const updatePayload = Object.assign({}, userDoc1, {
+      expectedRevision: rev1,
+      assets: [testAsset],
+      aportes: [testAporte]
+    });
+
+    const putRes = await fetch(`${baseUrl}/api/finances`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${testUserToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updatePayload)
+    });
+    assert.strictEqual(putRes.status, 200, 'Salvar ativo e aporte deve retornar 200 OK');
+
+    // 14. Leitura subsequente confirma que assets permanece sem campo destrutivo e derivável em runtime
+    const getRes2 = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Authorization': `Bearer ${testUserToken}` }
+    });
+    const userDoc2 = await getRes2.json();
+    const savedAsset = userDoc2.assets.find(a => a.id === 'asset-test-1');
+    assert.ok(savedAsset, 'Ativo salvo deve existir no banco');
+    assert.strictEqual(savedAsset.category, 'FIIs', 'Categoria deve ser preservada como string limpa');
+    assert.strictEqual(savedAsset.currentAmount, 5000.00, 'Valor deve ser preservado');
+    assert.strictEqual(userDoc2.aportes.length, 1, 'Aporte deve ser persistido');
+    assert.strictEqual(userDoc2.aportes[0].amount, 1000.00, 'Valor do aporte deve ser preservado');
+  });
+
+  test('30. Checkpoint 7 — Guia do Sistema & Onboarding', async () => {
+    const vm = require('node:vm');
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf-8');
+    const welcomeTourJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'modules', 'welcomeTour.js'), 'utf-8');
+    const stateJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'state.js'), 'utf-8');
+
+    // 1. Guia contém seção Simulação
+    assert.ok(indexHtml.includes('Simulação de Cenários Financeiros'), 'Guia deve conter título de Simulação de Cenários');
+
+    // 2. Guia contém seção Lista de Compras
+    assert.ok(indexHtml.includes('Lista de Compras Inteligente'), 'Guia deve conter título de Lista de Compras');
+
+    // 3. Documentação da Simulação menciona sandbox/isolamento
+    assert.ok(indexHtml.includes('Sandbox') || indexHtml.includes('sandbox'), 'Guia de Simulação deve citar Sandbox');
+    assert.ok(indexHtml.includes('isolado') || indexHtml.includes('seguro'), 'Guia de Simulação deve destacar ambiente seguro e isolado');
+
+    // 4. Documentação da Lista menciona autocomplete e catálogo
+    assert.ok(indexHtml.includes('Autocomplete') || indexHtml.includes('autocomplete'), 'Guia de Lista de Compras deve citar Autocomplete');
+    assert.ok(indexHtml.includes('catálogo') || indexHtml.includes('sugestões'), 'Guia de Lista de Compras deve citar catálogo de sugestões');
+
+    // 5. Modal de boas-vindas existe no DOM
+    assert.ok(indexHtml.includes('id="welcome-tour-popover"'), 'index.html deve conter o modal welcome-tour-popover');
+    assert.ok(indexHtml.includes('id="btnDismissOnboarding"'), 'index.html deve conter o botão Explorar depois');
+    assert.ok(indexHtml.includes('id="btnExploreGuideOnboarding"') || indexHtml.includes('id="btnOpenGuideFromWelcome"'), 'index.html deve conter ação de Abrir Guia');
+
+    // Setup de contexto VM para validar lógica de exibição
+    let mockHydrated = false;
+    let mockState = { onboarding: { welcomeSeen: false } };
+    const ctx = {
+      window: {},
+      isStateHydrated: () => mockHydrated,
+      getState: () => mockState,
+      saveState: () => Promise.resolve(true),
+      document: {
+        readyState: 'complete',
+        addEventListener: () => {},
+        getElementById: () => ({ hidden: true, classList: { add: () => {}, remove: () => {}, contains: () => false }, style: { setProperty: () => {}, removeProperty: () => {} }, setAttribute: () => {}, removeAttribute: () => {} })
+      }
+    };
+    ctx.window = ctx;
+    vm.createContext(ctx);
+    vm.runInContext(welcomeTourJs, ctx);
+
+    // 6. Modal NÃO abre antes da hidratação completa
+    mockHydrated = false;
+    mockState = { onboarding: { welcomeSeen: false } };
+    assert.strictEqual(ctx.shouldShowWelcomeTour(), false, 'Modal de boas-vindas NÃO deve abrir antes da hidratação');
+
+    // 7. Novo usuário (com welcomeSeen: false) recebe onboarding pós-hidratação
+    mockHydrated = true;
+    mockState = { onboarding: { welcomeSeen: false } };
+    assert.strictEqual(ctx.shouldShowWelcomeTour(), true, 'Novo usuário hidratado deve receber o modal');
+
+    // 8. Usuário que já concluiu (com welcomeSeen: true) não recebe novamente
+    mockHydrated = true;
+    mockState = { onboarding: { welcomeSeen: true } };
+    assert.strictEqual(ctx.shouldShowWelcomeTour(), false, 'Usuário que já concluiu não deve ver o modal');
+
+    // 10. Usuário legado (sem a chave onboarding) não é interrompido
+    mockHydrated = true;
+    mockState = {};
+    assert.strictEqual(ctx.shouldShowWelcomeTour(), false, 'Usuário legado não deve ser interrompido');
+
+    // 9 & 11 & 12 & 13. Teste end-to-end com cadastro de novo usuário na API
+    const newLogin = `onboard_${Date.now()}`;
+    const regRes = await fetch(`${baseUrl}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome: 'Novo Onboarding User',
+        login: newLogin,
+        email: `${newLogin}@omnifin.test`,
+        senha: 'Password123!@#'
+      })
+    });
+    assert.strictEqual(regRes.status, 201, 'Registro de novo usuário deve retornar 201');
+    const regJson = await regRes.json();
+    const newUserToken = regJson.token;
+
+    // Primeiro login: leitura das finanças inicializadas
+    const getFin1 = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Authorization': `Bearer ${newUserToken}` }
+    });
+    const finDoc1 = await getFin1.json();
+    assert.ok(finDoc1.onboarding, 'Documento de novo usuário deve conter objeto onboarding');
+    assert.strictEqual(finDoc1.onboarding.welcomeSeen, false, 'Novo usuário deve nascer com onboarding.welcomeSeen = false');
+
+    // Usuário conclui onboarding ("Explorar depois" ou "Abrir Guia")
+    const revNew = Number(finDoc1.revision || 0);
+    const updateOnboarding = Object.assign({}, finDoc1, {
+      expectedRevision: revNew,
+      onboarding: { welcomeSeen: true }
+    });
+    const putFin = await fetch(`${baseUrl}/api/finances`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${newUserToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updateOnboarding)
+    });
+    assert.strictEqual(putFin.status, 200, 'Salvar conclusão do onboarding deve retornar 200 OK');
+
+    // Segundo login / F5: confirmação de que onboarding foi gravado e isolado por usuário
+    const getFin2 = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Authorization': `Bearer ${newUserToken}` }
+    });
+    const finDoc2 = await getFin2.json();
+    assert.strictEqual(finDoc2.onboarding.welcomeSeen, true, 'welcomeSeen deve permanecer true em sessões subsequentes');
+
+    // Confirmação de isolamento: usuário principal não foi afetado
+    const getAdminFin = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Authorization': `Bearer ${testUserToken}` }
+    });
+    const adminDoc = await getAdminFin.json();
+    assert.ok(adminDoc, 'Documento de outro usuário permanece íntegro');
+
+    // 14. Novo usuário criado via painel ADMIN também deve nascer com onboarding.welcomeSeen = false
+    const adminCreatedLogin = `admin_created_${Date.now()}`;
+    const adminCreateRes = await fetch(`${baseUrl}/api/admin/users`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${testAdminToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        nome: 'Usuario Criado Pelo Admin',
+        login: adminCreatedLogin,
+        email: `${adminCreatedLogin}@omnifin.test`,
+        senha: 'Password123!@#',
+        is_admin: false
+      })
+    });
+    assert.strictEqual(adminCreateRes.status, 201, 'Admin criar usuário deve retornar 201');
+
+    // Login com o usuário criado pelo admin
+    const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        login: adminCreatedLogin,
+        senha: 'Password123!@#'
+      })
+    });
+    const loginJson = await loginRes.json();
+    assert.strictEqual(loginRes.status, 200, 'Login do usuário criado pelo admin deve retornar 200');
+
+    const adminCreatedFinRes = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Authorization': `Bearer ${loginJson.token}` }
+    });
+    const adminCreatedFin = await adminCreatedFinRes.json();
+    assert.strictEqual(adminCreatedFin.onboarding?.welcomeSeen, false, 'Usuário criado pelo admin deve nascer com onboarding.welcomeSeen = false');
+  });
+
+  test('31. Checkpoint 7.1 — Cores Personalizáveis nas Categorias & Paleta Rápida', async () => {
+    const vm = require('node:vm');
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf-8');
+    const constantsJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'constants.js'), 'utf-8');
+    const stateJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'state.js'), 'utf-8');
+    const profileJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'modules', 'profile.js'), 'utf-8');
+
+    // 1. UI: input de cor e paleta rápida existem no DOM de Categorias no Perfil
+    assert.ok(indexHtml.includes('id="newCategoryColor"'), 'index.html deve conter input id="newCategoryColor"');
+    assert.ok(indexHtml.includes('id="catColorPalette"'), 'index.html deve conter paleta id="catColorPalette"');
+    assert.ok(indexHtml.includes('cat-color-swatch-btn'), 'index.html deve conter botões de swatch para categorias');
+
+    // 2. Setup VM com constants.js e state.js
+    const ctx = {
+      window: {},
+      getState: () => ({ categories: [] }),
+      document: { readyState: 'complete', addEventListener: () => {} }
+    };
+    ctx.window = ctx;
+    vm.createContext(ctx);
+    vm.runInContext(constantsJs, ctx);
+    vm.runInContext(stateJs, ctx);
+
+    // 3. getCategoryColor e getCategoryMeta resolvem cor personalizada e fallback
+    assert.strictEqual(typeof ctx.getCategoryColor, 'function', 'getCategoryColor deve ser função global');
+    assert.strictEqual(typeof ctx.getCategoryMeta, 'function', 'getCategoryMeta deve ser função global');
+
+    // Objeto com cor explícita
+    const customCat = { name: 'Supermercado Especial', icon: 'shopping', color: '#820AD1' };
+    assert.strictEqual(ctx.getCategoryColor(customCat), '#820AD1', 'getCategoryColor deve retornar cor explícita');
+
+    // Categoria legada como string simples
+    const stringCat = 'Moradia';
+    const resolvedColor = ctx.getCategoryColor(stringCat);
+    assert.ok(resolvedColor && resolvedColor.startsWith('#'), 'Categoria legada string deve resolver para cor HEX de fallback');
+
+    // 4. normalizeCategories preserva color e normaliza dados híbridos
+    const mixedCats = [
+      'Transporte',
+      { name: 'Saúde', icon: 'health' },
+      { name: 'Lazer VIP', icon: 'star', color: '#EC4899' }
+    ];
+    const normalized = ctx.normalizeCategories(mixedCats);
+    assert.strictEqual(normalized.length, 3, 'normalizeCategories deve retornar todos os itens');
+    assert.strictEqual(normalized[0].name, 'Transporte');
+    assert.ok(normalized[0].color, 'Item string deve receber cor padrão');
+    assert.strictEqual(normalized[2].color, '#EC4899', 'Item com cor explícita deve preservar sua cor');
+
+    // 5. Teste E2E de persistência via API PUT /api/finances e leitura subsequente
+    const getRes = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Authorization': `Bearer ${testUserToken}` }
+    });
+    const curDoc = await getRes.json();
+    const curRev = Number(curDoc.revision || 0);
+
+    const updatedCategories = [
+      { name: 'Alimentação Gourmet', icon: 'utensils', color: '#FF7A00' },
+      { name: 'Tech & Gadgets', icon: 'briefcase', color: '#2563EB' },
+      { name: 'Viagens', icon: 'plane', color: '#06B6D4' }
+    ];
+
+    const putPayload = Object.assign({}, curDoc, {
+      expectedRevision: curRev,
+      categories: updatedCategories
+    });
+
+    const putRes = await fetch(`${baseUrl}/api/finances`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${testUserToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(putPayload)
+    });
+    assert.strictEqual(putRes.status, 200, 'Salvar categorias com cores personalizadas deve retornar 200 OK');
+
+    // Leitura subsequente confirma persistência íntegra no banco de dados
+    const getRes2 = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Authorization': `Bearer ${testUserToken}` }
+    });
+    const freshDoc = await getRes2.json();
+    const techCat = freshDoc.categories.find(c => c.name === 'Tech & Gadgets');
+    assert.ok(techCat, 'Categoria personalizada deve existir no documento lido');
+    assert.strictEqual(techCat.color, '#2563EB', 'Cor personalizada #2563EB deve ser persistida com sucesso');
+    assert.strictEqual(techCat.icon, 'briefcase', 'Ícone deve ser preservado');
   });
 });

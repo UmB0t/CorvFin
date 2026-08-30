@@ -54,16 +54,29 @@
 
   window.normalizeCategories = function normalizeCategories(cats) {
     if (!Array.isArray(cats) || cats.length === 0) {
-      return (typeof DEFAULT_CATEGORIES !== 'undefined') ? DEFAULT_CATEGORIES.map(c => ({ name: c.name || c, icon: c.icon || 'tag' })) : [];
+      return (typeof DEFAULT_CATEGORIES !== 'undefined')
+        ? DEFAULT_CATEGORIES.map((c, idx) => ({
+            name: c.name || c,
+            icon: c.icon || (window.DEFAULT_CATEGORY_ICONS_MAP && window.DEFAULT_CATEGORY_ICONS_MAP[c.name || c]) || 'tag',
+            color: c.color || (window.DEFAULT_CATEGORY_COLORS_MAP && window.DEFAULT_CATEGORY_COLORS_MAP[c.name || c]) || (window.CATEGORY_COLORS && window.CATEGORY_COLORS[idx % window.CATEGORY_COLORS.length]) || '#1F7A5C'
+          }))
+        : [];
     }
     const defaultIconsMap = (typeof DEFAULT_CATEGORY_ICONS_MAP !== 'undefined') ? DEFAULT_CATEGORY_ICONS_MAP : {};
-    return cats.map(c => {
+    const defaultColorsMap = (typeof DEFAULT_CATEGORY_COLORS_MAP !== 'undefined') ? DEFAULT_CATEGORY_COLORS_MAP : {};
+    return cats.map((c, idx) => {
+      const fallbackColor = defaultColorsMap[typeof c === 'string' ? c : (c.name || 'Gerais')] || (window.CATEGORY_COLORS && window.CATEGORY_COLORS[idx % window.CATEGORY_COLORS.length]) || '#1F7A5C';
       if (typeof c === 'string') {
-        return { name: c, icon: defaultIconsMap[c] || 'tag' };
+        return {
+          name: c,
+          icon: defaultIconsMap[c] || 'tag',
+          color: fallbackColor
+        };
       }
       const name = c.name || 'Gerais';
       const icon = c.icon || defaultIconsMap[name] || 'tag';
-      return { name, icon };
+      const color = c.color || fallbackColor;
+      return { name, icon, color };
     });
   };
 
@@ -237,6 +250,9 @@
     s.destinations = normalizeDestinations(parsed.destinations);
     s.savedSimulations = Array.isArray(parsed.savedSimulations) ? parsed.savedSimulations : [];
     s.readReleases = Array.isArray(parsed.readReleases) ? parsed.readReleases : [];
+    s.onboarding = (parsed.onboarding && parsed.onboarding.welcomeSeen === false)
+      ? { welcomeSeen: false }
+      : { welcomeSeen: true };
     return s;
   };
 

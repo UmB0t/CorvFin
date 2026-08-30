@@ -152,7 +152,7 @@
       const name = (typeof getCategoryName === 'function') ? getCategoryName(c) : (typeof c === 'string' ? c : c.name);
       const iconKey = (typeof c === 'object' && c.icon) ? c.icon : (window.DEFAULT_CATEGORY_ICONS_MAP[name] || 'tag');
       const iconSvg = window.CATEGORY_SVG_ICONS[iconKey] || window.CATEGORY_SVG_ICONS.tag;
-      const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+      const color = (typeof getCategoryColor === 'function') ? getCategoryColor(c) : (c.color || CATEGORY_COLORS[idx % CATEGORY_COLORS.length]);
       const budget = state.budgets[name] || 0;
       if (budget === 0) unbudgetedCount++;
       const usage = countUsage('cat', name);
@@ -162,7 +162,7 @@
         <span class="tag" style="border-radius:999px; padding:5px 12px; font-size:.78rem; font-weight:750; display:inline-flex; align-items:center; gap:6px; background:${color}18; color:var(--text); border:1px solid ${color}44;">
           <span style="display:inline-flex; color:${color};">${iconSvg}</span>
           <strong>${escapeHtml(name)}</strong> ${budget > 0 ? `<small style="color:var(--brand); font-weight:800;">(${currency(budget)})</small>` : `<small style="color:var(--warning); font-weight:700;">(Sem Teto)</small>`}
-          <button type="button" data-edit-cat="${escapeHtml(name)}" data-tooltip="Editar Categoria / Teto / Ícone" aria-label="Editar Categoria / Teto / Ícone" style="background:transparent; border:none; color:inherit; cursor:pointer; font-weight:800; padding:0 2px; display:inline-flex; align-items:center; opacity:0.75;">
+          <button type="button" data-edit-cat="${escapeHtml(name)}" data-tooltip="Editar Categoria / Teto / Ícone / Cor" aria-label="Editar Categoria / Teto / Ícone / Cor" style="background:transparent; border:none; color:inherit; cursor:pointer; font-weight:800; padding:0 2px; display:inline-flex; align-items:center; opacity:0.75;">
             ${ICONS.edit}
           </button>
           <button type="button" data-del-cat="${escapeHtml(name)}" data-tooltip="${delCatTip}" aria-label="${delCatTip}" style="background:transparent; border:none; color:inherit; cursor:pointer; font-weight:800; padding:0 2px; display:inline-flex; align-items:center; opacity:0.75;">
@@ -190,10 +190,14 @@
         if ($('#newCategoryIcon')) {
           $('#newCategoryIcon').value = (typeof catObj === 'object' && catObj.icon) ? catObj.icon : (window.DEFAULT_CATEGORY_ICONS_MAP[catName] || 'tag');
         }
+        if ($('#newCategoryColor')) {
+          const resolvedColor = (typeof getCategoryColor === 'function') ? getCategoryColor(catObj || catName) : (catObj?.color || '#10B981');
+          $('#newCategoryColor').value = resolvedColor;
+        }
         $('#newCategoryBudgetInput').value = state.budgets[catName] || '';
         $('#editingCategoryOriginalName').value = catName;
         $('#addCategoryBtn').textContent = 'Salvar Categoria';
-        notify(`Editando categoria "${catName}". Altere o ícone, teto ou nome e clique em Salvar Categoria.`);
+        notify(`Editando categoria "${catName}". Altere o ícone, cor, teto ou nome e clique em Salvar Categoria.`);
       });
     });
 
@@ -250,11 +254,20 @@
       notify('Perfil e Benefícios atualizados com sucesso!', 'success');
     });
 
-    $$('.color-swatch-btn').forEach(btn => {
+    $$('.color-swatch-btn:not(.cat-color-swatch-btn)').forEach(btn => {
       btn.addEventListener('click', () => {
         const c = btn.getAttribute('data-color');
         if (c && $('#newDestColor')) {
           $('#newDestColor').value = c;
+        }
+      });
+    });
+
+    $$('.cat-color-swatch-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const c = btn.getAttribute('data-color');
+        if (c && $('#newCategoryColor')) {
+          $('#newCategoryColor').value = c;
         }
       });
     });
@@ -300,6 +313,7 @@
       const state = getState();
       const catName = $('#newCategoryInput').value.trim();
       const icon = $('#newCategoryIcon')?.value || 'tag';
+      const color = $('#newCategoryColor')?.value || '#10B981';
       const budgetVal = Number($('#newCategoryBudgetInput').value) || 0;
       const origCat = $('#editingCategoryOriginalName').value;
 
@@ -309,7 +323,7 @@
 
       if (origCat) {
         const idx = state.categories.findIndex(x => ((typeof getCategoryName === 'function') ? getCategoryName(x) : (typeof x === 'string' ? x : x.name)) === origCat);
-        if (idx >= 0) state.categories[idx] = { name: catName, icon };
+        if (idx >= 0) state.categories[idx] = { name: catName, icon, color };
         delete state.budgets[origCat];
         if (budgetVal > 0) state.budgets[catName] = budgetVal;
 
@@ -325,9 +339,9 @@
       } else {
         const existingIdx = state.categories.findIndex(x => ((typeof getCategoryName === 'function') ? getCategoryName(x) : (typeof x === 'string' ? x : x.name)) === catName);
         if (existingIdx >= 0) {
-          state.categories[existingIdx] = { name: catName, icon };
+          state.categories[existingIdx] = { name: catName, icon, color };
         } else {
-          state.categories.push({ name: catName, icon });
+          state.categories.push({ name: catName, icon, color });
         }
         if (budgetVal > 0) state.budgets[catName] = budgetVal;
         else delete state.budgets[catName];
@@ -336,6 +350,7 @@
 
       $('#newCategoryInput').value = '';
       if ($('#newCategoryIcon')) $('#newCategoryIcon').value = 'tag';
+      if ($('#newCategoryColor')) $('#newCategoryColor').value = '#10B981';
       $('#newCategoryBudgetInput').value = '';
 
       saveState(); updateDestinationSelects(); updateCategorySelects(); updateCategoryTagsList(); render();

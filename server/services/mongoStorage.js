@@ -296,13 +296,16 @@ async function saveMaintenanceConfig(newConfig) {
 /**
  * Helper síncrono puro que constrói a estrutura default de finanças do usuário.
  */
-function getDefaultUserFinances(userId, userName, userSalary = 0) {
+function getDefaultUserFinances(userId, userName, userSalary = 0, isNewUser = false) {
   const now = new Date();
   return {
     userId,
     version: 5,
     revision: 0,
     firstLogin: true,
+    onboarding: {
+      welcomeSeen: !isNewUser
+    },
     sidebarCollapsed: false,
     simplifiedView: false,
     chartViewType: 'bar',
@@ -409,12 +412,12 @@ async function saveAllFinances(finances) {
  * Retorna as finanças de um usuário específico sem expor _id.
  * Se não existir, inicializa com o template padrão.
  */
-async function getUserFinances(userId, userName, userSalary = 0) {
+async function getUserFinances(userId, userName, userSalary = 0, isNewUser = false) {
   const col = await getCollection('finances');
   const doc = await col.findOne({ _id: userId });
 
   if (!doc) {
-    const defaults = getDefaultUserFinances(userId, userName, userSalary);
+    const defaults = getDefaultUserFinances(userId, userName, userSalary, isNewUser);
     await col.updateOne(
       { _id: userId },
       { $set: { _id: userId, ...defaults } },

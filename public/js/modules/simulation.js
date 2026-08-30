@@ -507,7 +507,7 @@ function renderSimulationTab() {
         for (const v of versions) {
           if ((v.year * 12 + v.month) <= curTarget) activeV = v; else break;
         }
-        const catMeta = (typeof getCategoryMeta === 'function') ? getCategoryMeta(f.group || 'Gerais') : { name: f.group || 'Gerais', icon: 'tag' };
+        const catMeta = (typeof getCategoryMeta === 'function') ? getCategoryMeta(f.group || 'Gerais') : { name: f.group || 'Gerais', icon: 'tag', color: '#1F7A5C' };
         const catIconSvg = (typeof getCategoryIconSvg === 'function') ? getCategoryIconSvg(catMeta.icon) : '';
         const amt = activeV ? Number(activeV.amount || 0) : f.amount;
         const destMeta = f.destination ? getDestMeta(f.destination) : null;
@@ -516,6 +516,7 @@ function renderSimulationTab() {
           <span class="tag dest" style="background:${destMeta.color}22; color:${destMeta.color}; border:1px solid ${destMeta.color}44;">
             ${destIconSvg} ${escapeHtml(f.destination)}
           </span>` : '';
+        const catColor = catMeta.color || '#1F7A5C';
 
         html += `
           <div class="entry-row" style="border-left:3px solid var(--c-fixed); cursor:default;">
@@ -523,7 +524,7 @@ function renderSimulationTab() {
               <div class="entry-title">${escapeHtml(f.name)}</div>
               <div class="entry-meta">
                 <span class="tag" style="background:var(--c-fixed-soft); color:var(--c-fixed);">Fixa</span>
-                <span class="tag" style="display:inline-flex; align-items:center; gap:4px;">${catIconSvg} ${escapeHtml(f.group || 'Gerais')}</span>
+                <span class="tag" style="display:inline-flex; align-items:center; gap:4px; background:${catColor}18; color:var(--text); border:1px solid ${catColor}44;"><span style="color:${catColor}; display:inline-flex;">${catIconSvg}</span> ${escapeHtml(f.group || 'Gerais')}</span>
                 ${destPillHtml}
               </div>
             </div>
@@ -535,7 +536,7 @@ function renderSimulationTab() {
       activeVar.forEach(v => {
         const sTarget = (v.startYear || activeYear) * 12 + (v.startMonth || 1);
         const curInst = (curTarget - sTarget) + 1;
-        const catMeta = (typeof getCategoryMeta === 'function') ? getCategoryMeta(v.group || 'Gerais') : { name: v.group || 'Gerais', icon: 'tag' };
+        const catMeta = (typeof getCategoryMeta === 'function') ? getCategoryMeta(v.group || 'Gerais') : { name: v.group || 'Gerais', icon: 'tag', color: '#1F7A5C' };
         const catIconSvg = (typeof getCategoryIconSvg === 'function') ? getCategoryIconSvg(catMeta.icon) : '';
         const destMeta = v.destination ? getDestMeta(v.destination) : null;
         const destIconSvg = destMeta ? (DEST_SVG_ICONS[destMeta.icon] || DEST_SVG_ICONS.card) : '';
@@ -543,6 +544,7 @@ function renderSimulationTab() {
           <span class="tag dest" style="background:${destMeta.color}22; color:${destMeta.color}; border:1px solid ${destMeta.color}44;">
             ${destIconSvg} ${escapeHtml(v.destination)}
           </span>` : '';
+        const catColor = catMeta.color || '#1F7A5C';
 
         html += `
           <div class="entry-row" style="border-left:3px solid var(--c-variable); cursor:default;">
@@ -550,7 +552,7 @@ function renderSimulationTab() {
               <div class="entry-title">${escapeHtml(v.name)}</div>
               <div class="entry-meta">
                 <span class="tag" style="background:var(--c-variable-soft); color:var(--c-variable);">${curInst}/${v.installments || 1}x</span>
-                <span class="tag" style="display:inline-flex; align-items:center; gap:4px;">${catIconSvg} ${escapeHtml(v.group || 'Gerais')}</span>
+                <span class="tag" style="display:inline-flex; align-items:center; gap:4px; background:${catColor}18; color:var(--text); border:1px solid ${catColor}44;"><span style="color:${catColor}; display:inline-flex;">${catIconSvg}</span> ${escapeHtml(v.group || 'Gerais')}</span>
                 ${destPillHtml}
               </div>
             </div>
@@ -598,7 +600,7 @@ function renderSimulationTab() {
         const sTarget = (sim.startYear || activeYear) * 12 + (sim.startMonth || 1);
         const curInst = (curTarget - sTarget) + 1;
         const totalCost = Number(sim.amount) * Number(sim.installments || 1);
-        const catMeta = (typeof getCategoryMeta === 'function') ? getCategoryMeta(sim.group || 'Gerais') : { name: sim.group || 'Gerais', icon: 'tag' };
+        const catMeta = (typeof getCategoryMeta === 'function') ? getCategoryMeta(sim.group || 'Gerais') : { name: sim.group || 'Gerais', icon: 'tag', color: '#1F7A5C' };
         const catIconSvg = (typeof getCategoryIconSvg === 'function') ? getCategoryIconSvg(catMeta.icon) : '';
         const destMeta = sim.destination ? getDestMeta(sim.destination) : null;
         const destIconSvg = destMeta ? (DEST_SVG_ICONS[destMeta.icon] || DEST_SVG_ICONS.card) : '';
@@ -606,6 +608,7 @@ function renderSimulationTab() {
           <span class="tag dest" style="background:${destMeta.color}22; color:${destMeta.color}; border:1px solid ${destMeta.color}44;">
             ${destIconSvg} ${escapeHtml(sim.destination)}
           </span>` : '';
+        const catColor = catMeta.color || '#1F7A5C';
 
         return `
           <div class="entry-row" style="border-left:3px solid var(--warning, #D97706); cursor:default;">
@@ -613,7 +616,7 @@ function renderSimulationTab() {
               <div class="entry-title">${escapeHtml(sim.name)}</div>
               <div class="entry-meta">
                 <span class="tag" style="background:var(--warning-soft); color:var(--warning); font-weight:800;">Simulado ${curInst}/${sim.installments}x</span>
-                <span class="tag" style="display:inline-flex; align-items:center; gap:4px;">${catIconSvg} ${escapeHtml(sim.group || 'Gerais')}</span>
+                <span class="tag" style="display:inline-flex; align-items:center; gap:4px; background:${catColor}18; color:var(--text); border:1px solid ${catColor}44;"><span style="color:${catColor}; display:inline-flex;">${catIconSvg}</span> ${escapeHtml(sim.group || 'Gerais')}</span>
                 ${destPillHtml}
                 <span class="tag" title="Total do Contrato">Total: ${currency(totalCost)}</span>
               </div>

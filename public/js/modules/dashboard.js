@@ -553,7 +553,7 @@ function renderRibbon(explicitTabId) {
           const isOver30Income = totalIncome > 0 && pctIncome > 30;
           const isOverBudget = budget > 0 && spent > budget;
           const isNearBudget = budget > 0 && spent <= budget && pctBudget >= 80;
-          const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
+          const color = (typeof getCategoryColor === 'function') ? getCategoryColor(cat) : CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
           return {
             cat,
             spent,

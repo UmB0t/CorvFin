@@ -489,12 +489,13 @@
     const categoryCardsHtml = catAgg.map(cat => {
       const isExpanded = !!expandedAccordions.categories[cat.name];
       const iconSvg = (typeof getCategoryIconSvg === 'function') ? getCategoryIconSvg(cat.meta?.icon || cat.name) : (window.CATEGORY_SVG_ICONS?.tag || '');
+      const catColor = cat.meta?.color || (typeof getCategoryColor === 'function' ? getCategoryColor(cat.name) : '#1F7A5C');
 
       return `
         <div class="card" style="padding:12px 16px; border-radius:12px; background:var(--surface); border:1px solid var(--line); margin-bottom:10px;">
           <div class="consolidated-accordion-header" data-toggle-cat="${escapeHtml(cat.name)}" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:12px;">
             <div style="display:flex; align-items:center; gap:10px; overflow:hidden;">
-              <div style="width:34px; height:34px; border-radius:10px; background:var(--surface-2); display:grid; place-items:center; flex-shrink:0; color:var(--brand);">
+              <div style="width:34px; height:34px; border-radius:10px; background:${catColor}18; display:grid; place-items:center; flex-shrink:0; color:${catColor};">
                 ${iconSvg}
               </div>
               <div>
@@ -513,7 +514,7 @@
           </div>
 
           <div style="margin-top:8px; height:4px; border-radius:2px; background:var(--surface-2); overflow:hidden;">
-            <div style="width:${cat.pct}%; height:100%; background:var(--brand); border-radius:2px;"></div>
+            <div style="width:${cat.pct}%; height:100%; background:${catColor}; border-radius:2px;"></div>
           </div>
 
           <!-- DRILL-DOWN ITENS EXPANSÍVEIS -->
