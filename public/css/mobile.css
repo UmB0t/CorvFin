@@ -264,7 +264,7 @@
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    height: calc(62px + env(safe-area-inset-bottom)) !important;
+    height: calc(var(--mobile-bottom-nav-height, 62px) + env(safe-area-inset-bottom)) !important;
     padding-bottom: env(safe-area-inset-bottom) !important;
     background: var(--surface) !important;
     border-top: 1px solid var(--line) !important;
@@ -324,6 +324,118 @@
     height: 7px;
     border-radius: 50%;
     background: var(--warning, #f59e0b);
+  }
+
+  /* FAB CENTRAL "+" NA NAVEGAÇÃO MOBILE */
+  .bottom-nav-fab {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
+    background: var(--brand, #10b981) !important;
+    color: #ffffff !important;
+    border: 3px solid var(--surface) !important;
+    border-radius: 50% !important;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.45) !important;
+    margin-top: -16px !important;
+    cursor: pointer !important;
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease !important;
+    z-index: 995 !important;
+    -webkit-tap-highlight-color: transparent !important;
+  }
+  .bottom-nav-fab:active {
+    transform: scale(0.92) !important;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.6) !important;
+  }
+  .bottom-nav-fab .svg-icon {
+    width: 24px !important;
+    height: 24px !important;
+    stroke: #ffffff !important;
+    stroke-width: 2.5 !important;
+    fill: none !important;
+  }
+
+  /* 3.5.1 FAB E PAINEL DO ASSISTENTE IA NO MOBILE */
+  .ai-assistant-fab {
+    bottom: calc(var(--mobile-bottom-nav-height, 62px) + env(safe-area-inset-bottom) + 16px) !important;
+    right: 16px !important;
+    width: 48px !important;
+    height: 48px !important;
+    z-index: 998 !important;
+  }
+
+  .ai-assistant-panel {
+    bottom: calc(var(--mobile-bottom-nav-height, 62px) + env(safe-area-inset-bottom) + 8px) !important;
+    right: 12px !important;
+    left: 12px !important;
+    width: auto !important;
+    max-width: calc(100vw - 24px) !important;
+    height: calc(100dvh - var(--mobile-bottom-nav-height, 62px) - env(safe-area-inset-bottom) - 80px) !important;
+    max-height: 560px !important;
+    border-radius: 16px !important;
+    z-index: 999 !important;
+  }
+
+  /* QUICK ACTION ITEMS */
+  .quick-action-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    padding: 12px 14px !important;
+    background: var(--surface-2) !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 12px !important;
+    cursor: pointer !important;
+    text-align: left !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    transition: background 0.15s ease, transform 0.12s ease, border-color 0.15s ease !important;
+    color: var(--text) !important;
+  }
+  .quick-action-item:active {
+    transform: scale(0.98) !important;
+    background: var(--surface) !important;
+  }
+  .quick-action-icon {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 10px !important;
+    display: grid !important;
+    place-items: center !important;
+    flex-shrink: 0 !important;
+  }
+  .quick-action-icon .svg-icon {
+    width: 22px !important;
+    height: 22px !important;
+    stroke: currentColor !important;
+    fill: none !important;
+  }
+  .quick-action-info {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+  .quick-action-info strong {
+    font-size: 0.95rem !important;
+    color: var(--text) !important;
+    font-weight: 750 !important;
+  }
+  .quick-action-info small {
+    font-size: 0.76rem !important;
+    color: var(--muted) !important;
+  }
+  .quick-action-item .arrow {
+    width: 18px !important;
+    height: 18px !important;
+    stroke: var(--muted) !important;
+    stroke-width: 2 !important;
+    fill: none !important;
+    flex-shrink: 0 !important;
   }
 
   /* 3.6 MOBILE DRAWER / BOTTOM SHEET */

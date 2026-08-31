@@ -23,5 +23,10 @@ module.exports = {
   PERMISSIONS_FILE: path.join(__dirname, '..', 'data', 'permissions.json'),
   DEFAULT_PERMISSIONS_FILE: path.join(__dirname, '..', 'data', 'default_permissions.json'),
   MAINTENANCE_FILE: path.join(__dirname, '..', 'data', 'maintenance.json'),
-  FINANCES_FILE: path.join(__dirname, '..', 'data', 'finances_data.json')
+  FINANCES_FILE: path.join(__dirname, '..', 'data', 'finances_data.json'),
+  // n8n AI Agent Integration (Basic Auth)
+  N8N_AI_WEBHOOK_URL: (process.env.N8N_AI_WEBHOOK_URL || process.env.N8N_WEBHOOK_URL || process.env.N8N_AI_URL || '').trim(),
+  N8N_AI_BASIC_AUTH_USER: (process.env.N8N_AI_BASIC_AUTH_USER || process.env.N8N_BASIC_AUTH_USER || process.env.N8N_AUTH_USER || process.env.N8N_USER || '').trim(),
+  N8N_AI_BASIC_AUTH_PASSWORD: (process.env.N8N_AI_BASIC_AUTH_PASSWORD || process.env.N8N_BASIC_AUTH_PASSWORD || process.env.N8N_AUTH_PASSWORD || process.env.N8N_AI_BASIC_AUTH_PASS || process.env.N8N_BASIC_AUTH_PASS || process.env.N8N_PASSWORD || '').trim(),
+  AI_REQUEST_TIMEOUT_MS: parseInt(process.env.AI_REQUEST_TIMEOUT_MS, 10) || 30000
 };

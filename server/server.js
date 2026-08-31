@@ -26,6 +26,7 @@ const {
   saveAllFinances
 } = require('./services/storageService');
 const { authMiddleware, adminOnlyMiddleware } = require('./middleware/auth');
+const { buildFinancialContext, SYSTEM_GUIDE_CONTEXT, sendToN8nWebhook } = require('./services/aiService');
 
 const app = express();
 
@@ -316,6 +317,110 @@ app.put('/api/finances', authMiddleware, async (req, res) => {
     }
     console.error('Erro ao salvar finanças:', err);
     return res.status(500).json({ success: false, message: 'Erro ao salvar dados financeiros.' });
+  }
+});
+
+/* ==========================================================================
+   AI ASSISTANT & N8N INTEGRATION ROUTES
+   ========================================================================== */
+
+// POST /api/ai/chat - Processar mensagem do usuário com o Agente de IA via n8n
+app.post('/api/ai/chat', authMiddleware, async (req, res) => {
+  try {
+    const { message, conversationId, context } = req.body || {};
+
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'A mensagem do usuário é obrigatória e deve ser um texto válido.'
+      });
+    }
+
+    const cleanMessage = message.trim();
+    if (cleanMessage.length > 2000) {
+      return res.status(400).json({
+        success: false,
+        message: 'A mensagem excede o limite máximo permitido de 2000 caracteres.'
+      });
+    }
+
+    if (!config.N8N_AI_WEBHOOK_URL || !config.N8N_AI_BASIC_AUTH_USER || !config.N8N_AI_BASIC_AUTH_PASSWORD) {
+      console.warn('[AI] request received but n8n integration is not fully configured in environment');
+      return res.status(503).json({
+        success: false,
+        unavailable: true,
+        message: 'O Assistente de IA não está configurado no servidor.'
+      });
+    }
+
+    const convId = conversationId && typeof conversationId === 'string'
+      ? conversationId.trim()
+      : ('conv_' + req.user.id + '_' + Date.now().toString(36));
+
+    console.log(`[AI] request received: user=${req.user.id} conversation=${convId}`);
+
+    // Carrega os dados financeiros estritamente do usuário autenticado pelo JWT
+    const finances = await getUserFinances(req.user.id, req.user.nome);
+
+    const targetMonth = Number(context?.month) || (new Date().getMonth() + 1);
+    const targetYear = Number(context?.year) || new Date().getFullYear();
+
+    const financialContext = buildFinancialContext(finances, targetMonth, targetYear);
+
+    const requestId = 'req_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+
+    const webhookPayload = {
+      requestId,
+      conversationId: convId,
+      user: {
+        id: req.user.id,
+        name: req.user.nome
+      },
+      query: {
+        message: cleanMessage,
+        month: targetMonth,
+        year: targetYear
+      },
+      financialContext,
+      systemDocumentation: SYSTEM_GUIDE_CONTEXT,
+      metadata: {
+        appVersion: '3.4.0',
+        timezone: 'America/Sao_Paulo',
+        sentAt: new Date().toISOString()
+      }
+    };
+
+    const aiResponse = await sendToN8nWebhook(webhookPayload);
+    console.log(`[AI] response sent to client: conversation=${convId} duration=${aiResponse.duration || 0}ms`);
+    return res.json(aiResponse);
+  } catch (err) {
+    if (err.status === 503) {
+      console.warn(`[AI] chat failed: 503 Service Unavailable (${err.message})`);
+      return res.status(503).json({
+        success: false,
+        unavailable: true,
+        message: 'O Assistente de IA não está configurado no servidor.'
+      });
+    }
+    if (err.status === 504 || err.code === 'AI_TIMEOUT') {
+      console.error(`[AI] chat failed: 504 Timeout (${err.message})`);
+      return res.status(504).json({
+        success: false,
+        message: 'Tempo limite esgotado ao consultar o Assistente de IA. Tente novamente em instantes.'
+      });
+    }
+    if (err.status === 502) {
+      console.error(`[AI] chat failed: 502 Bad Gateway (${err.message})`);
+      return res.status(502).json({
+        success: false,
+        message: 'O serviço do Assistente de IA encontrou uma instabilidade temporária. Tente novamente em instantes.'
+      });
+    }
+    console.error('[AI] chat internal error:', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno ao processar pergunta com o assistente.'
+    });
   }
 });
 

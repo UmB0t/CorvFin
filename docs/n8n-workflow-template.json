@@ -1,0 +1,77 @@
+{
+  "name": "OmniFin V3 - AI Financial Assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "omnifin-ai",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "id": "node-webhook",
+      "name": "OmniFin Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Preparação do Contexto para a LLM (Autenticação realizada via Basic Auth nativo no Webhook)\nconst body = $input.item.json.body || $input.item.json;\nconst userMessage = body.query?.message || 'Olá';\nconst userName = body.user?.name || 'Usuário';\nconst financialContextStr = JSON.stringify(body.financialContext || {}, null, 2);\nconst systemDocStr = body.systemDocumentation || '';\n\nreturn [{\n  json: {\n    valid: true,\n    requestId: body.requestId,\n    conversationId: body.conversationId,\n    userName,\n    userMessage,\n    prompt: `Contexto Financeiro do Usuário (${userName}):\\n${financialContextStr}\\n\\nDocumentação do Sistema OmniFin:\\n${systemDocStr}\\n\\nPergunta do Usuário:\\n${userMessage}`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ],
+      "id": "node-prepare-context",
+      "name": "Preparar Prompt & Contexto"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"conversationId\": $json.conversationId,\n  \"answer\": $json.answer || \"Olá! Sou o Assistente OmniFin. Como posso te ajudar hoje?\",\n  \"suggestions\": [\n    \"Resumo das despesas do mês\",\n    \"Quais categorias estão perto do teto?\",\n    \"Como funciona a Simulação?\"\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        720,
+        300
+      ],
+      "id": "node-respond-webhook",
+      "name": "Respond to OmniFin"
+    }
+  ],
+  "connections": {
+    "OmniFin Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validar & Montar Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar & Montar Prompt": {
+      "main": [
+        [
+          {
+            "node": "Respond to OmniFin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

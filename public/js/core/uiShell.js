@@ -263,6 +263,66 @@
   }
   window.applyPermissions = applyPermissions;
 
+  const MOBILE_MODULE_CONFIG = [
+    {
+      tabId: 'tab-dashboard',
+      key: 'dashboard',
+      label: 'Dashboard',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>'
+    },
+    {
+      tabId: 'tab-expenses',
+      key: 'despesas',
+      label: 'Despesas',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>'
+    },
+    {
+      tabId: 'tab-debtors',
+      key: 'devedores',
+      label: 'Devedores',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>'
+    },
+    {
+      tabId: 'tab-extras',
+      key: 'extras',
+      label: 'Extras',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2" /><path d="M6 12h.01M18 12h.01" /></svg>'
+    },
+    {
+      tabId: 'tab-investments',
+      key: 'investimentos',
+      label: 'Investir',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>'
+    },
+    {
+      tabId: 'tab-benefits',
+      key: 'beneficios',
+      label: 'Benefícios',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1" /><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" /><line x1="6" y1="1" x2="6" y2="4" /><line x1="10" y1="1" x2="10" y2="4" /><line x1="14" y1="1" x2="14" y2="4" /></svg>'
+    },
+    {
+      tabId: 'tab-shopping',
+      key: 'compras',
+      label: 'Compras',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" /></svg>'
+    },
+    {
+      tabId: 'tab-simulation',
+      key: 'simulacao',
+      label: 'Simulação',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><polygon points="12 6 12 12 16 14" /></svg>'
+    }
+  ];
+  window.MOBILE_MODULE_CONFIG = MOBILE_MODULE_CONFIG;
+
+  function normalizeTabId(item) {
+    if (!item) return null;
+    if (typeof item === 'string' && item.startsWith('tab-')) return item;
+    const found = MOBILE_MODULE_CONFIG.find(m => m.key === item || m.tabId === 'tab-' + item);
+    return found ? found.tabId : 'tab-' + item;
+  }
+  window.normalizeTabId = normalizeTabId;
+
   function activateTab(tabId, updateUrl = true) {
     let targetTabId = tabId || DEFAULT_TAB;
 
@@ -276,17 +336,26 @@
       l.classList.toggle('active', lTab === targetTabId);
     });
 
-    // Se a aba ativa for secundária (do drawer), destaca o botão "Mais" no bottom nav
-    const isSecondaryTab = ['tab-benefits', 'tab-shopping', 'tab-simulation', 'tab-profile', 'tab-admin'].includes(targetTabId);
+    // Se a aba ativa não estiver visível nos botões da barra inferior, destaca o botão "Mais"
+    const state = (typeof getState === 'function') ? getState() : {};
+    const rawFavs = (state.preferences && Array.isArray(state.preferences.mobileNavigation))
+      ? state.preferences.mobileNavigation
+      : ['tab-dashboard', 'tab-expenses', 'tab-debtors'];
+    const currentFavTabs = rawFavs.map(normalizeTabId);
+    const isSecondaryTab = !currentFavTabs.includes(targetTabId);
     const moreBtn = document.getElementById('btnMobileMore') || $('#btnMobileMore');
     if (moreBtn) {
       moreBtn.classList.toggle('active', isSecondaryTab);
     }
 
-    // Fecha o drawer mobile caso esteja aberto
+    // Fecha o drawer mobile e quick action caso estejam abertos
     const drawerOverlay = document.getElementById('mobileDrawerOverlay') || $('#mobileDrawerOverlay');
     if (drawerOverlay && drawerOverlay.classList.contains('open')) {
       drawerOverlay.classList.remove('open');
+    }
+    const quickOverlay = document.getElementById('mobileQuickActionOverlay') || $('#mobileQuickActionOverlay');
+    if (quickOverlay && quickOverlay.classList.contains('open')) {
+      quickOverlay.classList.remove('open');
     }
 
     // Alterna visibilidade das abas sem tocar em seus conteúdos internos
@@ -631,6 +700,10 @@
       });
     }
 
+    // Inicializa listeners do Cadastro Rápido e renderiza Bottom Nav dinâmico
+    initQuickActionListeners();
+    renderMobileBottomNav();
+
     // Ações secundárias do Drawer Mobile
     $('#themeBtn')?.addEventListener('click', (e) => {
       e.preventDefault();
@@ -677,6 +750,212 @@
     // Carrega o status de manutenção do sistema de forma assíncrona no boot
     loadSystemMaintenance();
   }
+
+  function openQuickActionSheet() {
+    const quickOverlay = document.getElementById('mobileQuickActionOverlay') || $('#mobileQuickActionOverlay');
+    if (!quickOverlay) return;
+
+    // Aplica RBAC e manutenção nos itens de cadastro rápido
+    const btnExp = document.getElementById('quickActionNewExpense') || $('#quickActionNewExpense');
+    const btnDeb = document.getElementById('quickActionNewDebtor') || $('#quickActionNewDebtor');
+    const btnBen = document.getElementById('quickActionNewBenefit') || $('#quickActionNewBenefit');
+
+    if (btnExp) {
+      const allowed = hasTabPermission('tab-expenses') && !isModuleInMaintenance('tab-expenses');
+      btnExp.style.display = allowed ? 'flex' : 'none';
+    }
+    if (btnDeb) {
+      const allowed = hasTabPermission('tab-debtors') && !isModuleInMaintenance('tab-debtors');
+      btnDeb.style.display = allowed ? 'flex' : 'none';
+    }
+    if (btnBen) {
+      const allowed = hasTabPermission('tab-benefits') && !isModuleInMaintenance('tab-benefits');
+      btnBen.style.display = allowed ? 'flex' : 'none';
+    }
+
+    quickOverlay.classList.add('open');
+  }
+  window.openQuickActionSheet = openQuickActionSheet;
+
+  function initQuickActionListeners() {
+    const quickOverlay = document.getElementById('mobileQuickActionOverlay') || $('#mobileQuickActionOverlay');
+    const closeBtn = document.getElementById('closeMobileQuickActionBtn') || $('#closeMobileQuickActionBtn');
+
+    if (closeBtn && quickOverlay) {
+      closeBtn.addEventListener('click', () => {
+        quickOverlay.classList.remove('open');
+      });
+    }
+
+    if (quickOverlay) {
+      quickOverlay.addEventListener('click', (e) => {
+        if (e.target === quickOverlay) {
+          quickOverlay.classList.remove('open');
+        }
+      });
+    }
+
+    // Ação: Nova Despesa
+    const btnExp = document.getElementById('quickActionNewExpense') || $('#quickActionNewExpense');
+    if (btnExp) {
+      btnExp.addEventListener('click', () => {
+        quickOverlay?.classList.remove('open');
+        if (typeof window.openEntryDialog === 'function') {
+          window.openEntryDialog({ mode: 'new', type: 'cash' });
+        } else {
+          activateTab('tab-expenses', true);
+        }
+      });
+    }
+
+    // Ação: Novo Devedor
+    const btnDeb = document.getElementById('quickActionNewDebtor') || $('#quickActionNewDebtor');
+    if (btnDeb) {
+      btnDeb.addEventListener('click', () => {
+        quickOverlay?.classList.remove('open');
+        if (typeof window.openDebtorDialog === 'function') {
+          window.openDebtorDialog('new');
+        } else {
+          activateTab('tab-debtors', true);
+        }
+      });
+    }
+
+    // Ação: Novo Benefício
+    const btnBen = document.getElementById('quickActionNewBenefit') || $('#quickActionNewBenefit');
+    if (btnBen) {
+      btnBen.addEventListener('click', () => {
+        quickOverlay?.classList.remove('open');
+        if (typeof window.openBenefitDialog === 'function') {
+          window.openBenefitDialog('new');
+        } else {
+          activateTab('tab-benefits', true);
+        }
+      });
+    }
+  }
+  window.initQuickActionListeners = initQuickActionListeners;
+
+  function renderMobileBottomNav() {
+    const navEl = document.getElementById('mobileBottomNav') || $('#mobileBottomNav');
+    if (!navEl) return;
+
+    const state = (typeof getState === 'function') ? getState() : {};
+    const rawFavs = (state.preferences && Array.isArray(state.preferences.mobileNavigation) && state.preferences.mobileNavigation.length > 0)
+      ? state.preferences.mobileNavigation
+      : ['tab-dashboard', 'tab-expenses', 'tab-debtors'];
+
+    // Normaliza e filtra por permissões ativas e manutenção
+    const validFavs = [];
+    rawFavs.forEach(f => {
+      const tabId = normalizeTabId(f);
+      if (tabId && hasTabPermission(tabId) && !isModuleInMaintenance(tabId) && !validFavs.includes(tabId)) {
+        validFavs.push(tabId);
+      }
+    });
+
+    // Se faltarem favoritos para compor até 3, completa com os primeiros permitidos do sistema
+    if (validFavs.length < 3) {
+      MOBILE_MODULE_CONFIG.forEach(m => {
+        if (validFavs.length < 3 && hasTabPermission(m.tabId) && !isModuleInMaintenance(m.tabId) && !validFavs.includes(m.tabId)) {
+          validFavs.push(m.tabId);
+        }
+      });
+    }
+
+    const fav1 = validFavs[0] ? MOBILE_MODULE_CONFIG.find(m => m.tabId === validFavs[0]) : MOBILE_MODULE_CONFIG[0];
+    const fav2 = validFavs[1] ? MOBILE_MODULE_CONFIG.find(m => m.tabId === validFavs[1]) : (validFavs[0] !== MOBILE_MODULE_CONFIG[1]?.tabId ? MOBILE_MODULE_CONFIG[1] : null);
+    const fav3 = validFavs[2] ? MOBILE_MODULE_CONFIG.find(m => m.tabId === validFavs[2]) : (validFavs.length > 2 ? MOBILE_MODULE_CONFIG.find(m => m.tabId === validFavs[2]) : null);
+
+    const activeTab = document.querySelector('.tab-content:not([hidden])')?.id || DEFAULT_TAB;
+
+    let html = '';
+    // Posição 1: Favorito 1
+    if (fav1) {
+      html += `
+        <button type="button" class="bottom-nav-item ${activeTab === fav1.tabId ? 'active' : ''}" data-tab="${fav1.tabId}" id="bottomNavFav1">
+          ${fav1.iconSvg}
+          <span>${fav1.label}</span>
+        </button>
+      `;
+    }
+
+    // Posição 2: Favorito 2
+    if (fav2) {
+      html += `
+        <button type="button" class="bottom-nav-item ${activeTab === fav2.tabId ? 'active' : ''}" data-tab="${fav2.tabId}" id="bottomNavFav2">
+          ${fav2.iconSvg}
+          <span>${fav2.label}</span>
+        </button>
+      `;
+    }
+
+    // Posição 3: Botão Central "+" (Cadastro Rápido)
+    html += `
+      <button type="button" class="bottom-nav-fab" id="btnMobileQuickAction" aria-label="Cadastro Rápido" data-tooltip="Cadastro Rápido">
+        <svg class="svg-icon" viewBox="0 0 24 24">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </button>
+    `;
+
+    // Posição 4: Favorito 3
+    if (fav3) {
+      html += `
+        <button type="button" class="bottom-nav-item ${activeTab === fav3.tabId ? 'active' : ''}" data-tab="${fav3.tabId}" id="bottomNavFav3">
+          ${fav3.iconSvg}
+          <span>${fav3.label}</span>
+        </button>
+      `;
+    }
+
+    // Posição 5: Botão "Mais"
+    const isSecondaryTab = !validFavs.includes(activeTab);
+    html += `
+      <button type="button" class="bottom-nav-item ${isSecondaryTab ? 'active' : ''}" id="btnMobileMore" aria-label="Mais Módulos">
+        <svg class="svg-icon" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="1.5"/>
+          <circle cx="19" cy="12" r="1.5"/>
+          <circle cx="5" cy="12" r="1.5"/>
+        </svg>
+        <span>Mais</span>
+      </button>
+    `;
+
+    navEl.innerHTML = html;
+
+    // Attach listeners aos itens recém-renderizados
+    navEl.querySelectorAll('.bottom-nav-item[data-tab]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const tId = btn.getAttribute('data-tab');
+        if (tId && typeof activateTab === 'function') {
+          activateTab(tId, true);
+        }
+      });
+    });
+
+    const fabBtn = navEl.querySelector('#btnMobileQuickAction');
+    if (fabBtn) {
+      fabBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        openQuickActionSheet();
+      });
+    }
+
+    const moreBtn = navEl.querySelector('#btnMobileMore');
+    const drawerOverlay = document.getElementById('mobileDrawerOverlay') || $('#mobileDrawerOverlay');
+    if (moreBtn && drawerOverlay) {
+      moreBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        drawerOverlay.classList.add('open');
+      });
+    }
+
+    updateSidebarMaintenanceBadges();
+  }
+  window.renderMobileBottomNav = renderMobileBottomNav;
 
   function initDialogs() {
     $$('dialog').forEach(d => {

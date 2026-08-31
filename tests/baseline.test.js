@@ -672,6 +672,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf-8');
     const cssComponents = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'components.css'), 'utf-8');
 
+    assert.ok(relNotesJs.includes('version: "3.5.0"'), 'releaseNotes.js deve conter a release v3.5.0');
     assert.ok(relNotesJs.includes('version: "3.4.0"'), 'releaseNotes.js deve conter a release v3.4.0');
     assert.ok(relNotesJs.includes('version: "3.3.0"'), 'releaseNotes.js deve conter a release v3.3.0');
     assert.ok(relNotesJs.includes('version: "3.2.0"'), 'releaseNotes.js deve conter a release v3.2.0');
@@ -682,12 +683,13 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.ok(relNotesJs.includes('fixes:'), 'releaseNotes.js deve estruturar correções');
 
     // Validação da ordem das releases
+    const idx35 = relNotesJs.indexOf('version: "3.5.0"');
     const idx34 = relNotesJs.indexOf('version: "3.4.0"');
     const idx33 = relNotesJs.indexOf('version: "3.3.0"');
     const idx32 = relNotesJs.indexOf('version: "3.2.0"');
     const idx31 = relNotesJs.indexOf('version: "3.1.0"');
     const idx30 = relNotesJs.indexOf('version: "3.0.0"');
-    assert.ok(idx34 < idx33 && idx33 < idx32 && idx32 < idx31 && idx31 < idx30, 'Releases devem estar ordenadas: v3.4 -> v3.3 -> v3.2 -> v3.1 -> v3.0');
+    assert.ok(idx35 < idx34 && idx34 < idx33 && idx33 < idx32 && idx32 < idx31 && idx31 < idx30, 'Releases devem estar ordenadas: v3.5 -> v3.4 -> v3.3 -> v3.2 -> v3.1 -> v3.0');
 
     // Validação de UI no HTML e CSS
     assert.ok(indexHtml.includes('id="releaseNotesBtn"'), 'index.html deve conter o botão de release notes na barra superior');
@@ -704,12 +706,12 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     const userDoc1 = await getRes1.json();
     const currentRev = Number(userDoc1.revision || 0);
     const readListInitial = Array.isArray(userDoc1.readReleases) ? userDoc1.readReleases : [];
-    assert.strictEqual(readListInitial.includes('3.4.0'), false, 'Usuário novo/sem leitura não deve ter a release 3.4.0 como lida');
+    assert.strictEqual(readListInitial.includes('3.5.0'), false, 'Usuário novo/sem leitura não deve ter a release 3.5.0 como lida');
 
-    // 3. Usuário abre e marca a release 3.4.0 como lida
+    // 3. Usuário abre e marca a release 3.5.0 como lida
     const updatePayload = Object.assign({}, userDoc1, {
       expectedRevision: currentRev,
-      readReleases: ['3.4.0']
+      readReleases: ['3.5.0']
     });
 
     const putRes = await fetch(`${baseUrl}/api/finances`, {
@@ -722,13 +724,13 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     });
     assert.strictEqual(putRes.status, 200, 'Salvar readReleases deve retornar 200 OK');
 
-    // 4. Refresh / Leitura subsequente confirma que release 3.4.0 permanece lida
+    // 4. Refresh / Leitura subsequente confirma que release 3.5.0 permanece lida
     const getRes2 = await fetch(`${baseUrl}/api/finances`, {
       headers: { 'Authorization': `Bearer ${testUserToken}` }
     });
     const userDoc2 = await getRes2.json();
     assert.ok(Array.isArray(userDoc2.readReleases), 'readReleases deve ser um array');
-    assert.strictEqual(userDoc2.readReleases.includes('3.4.0'), true, 'readReleases deve persistir 3.4.0');
+    assert.strictEqual(userDoc2.readReleases.includes('3.5.0'), true, 'readReleases deve persistir 3.5.0');
 
     // 5. Isolamento: Outro usuário (ex: admin) não foi impactado e tem seu próprio estado independente
     const getAdminRes = await fetch(`${baseUrl}/api/finances`, {
@@ -736,7 +738,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     });
     const adminDoc = await getAdminRes.json();
     const adminReadList = Array.isArray(adminDoc.readReleases) ? adminDoc.readReleases : [];
-    assert.strictEqual(adminReadList.includes('3.4.0'), false, 'Outro usuário deve manter estado de leitura independente');
+    assert.strictEqual(adminReadList.includes('3.5.0'), false, 'Outro usuário deve manter estado de leitura independente');
   });
 
   test('21. Gestão de Despesas e Pagamentos: Métodos À Vista/Parcelado/Fixa, herança de vencimento, nativos Pix e Dinheiro', async () => {
@@ -2499,5 +2501,698 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.ok(techCat, 'Categoria personalizada deve existir no documento lido');
     assert.strictEqual(techCat.color, '#2563EB', 'Cor personalizada #2563EB deve ser persistida com sucesso');
     assert.strictEqual(techCat.icon, 'briefcase', 'Ícone deve ser preservado');
+  });
+
+  test('32. Checkpoint 8 — Agente de IA + Integração com n8n (Read-Only Assistant, Contrato e Segurança via Basic Auth)', async () => {
+    // 0. Leitura inicial dos dados para checagem de integridade read-only
+    const initialFinancesRes = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Authorization': `Bearer ${testUserToken}` }
+    });
+    const initialFinances = await initialFinancesRes.json();
+    const initialRevision = Number(initialFinances.revision || 0);
+
+    // 1. Rota exige autenticação (401 sem token)
+    const unauthRes = await fetch(`${baseUrl}/api/ai/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Quanto gastei este mês?' })
+    });
+    assert.strictEqual(unauthRes.status, 401, 'POST /api/ai/chat sem token deve retornar 401 Unauthorized');
+
+    // 2. Mensagem vazia retorna 400 Bad Request
+    const emptyMsgRes = await fetch(`${baseUrl}/api/ai/chat`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${testUserToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ message: '   ' })
+    });
+    assert.strictEqual(emptyMsgRes.status, 400, 'Mensagem vazia deve retornar 400');
+    const emptyJson = await emptyMsgRes.json();
+    assert.strictEqual(emptyJson.success, false);
+
+    // 3. Mensagem excessivamente longa (> 2000 caracteres) retorna 400 Bad Request
+    const longMsgRes = await fetch(`${baseUrl}/api/ai/chat`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${testUserToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ message: 'A'.repeat(2005) })
+    });
+    assert.strictEqual(longMsgRes.status, 400, 'Mensagem superior a 2000 caracteres deve retornar 400');
+
+    // 4. Sem URL de webhook ou credenciais Basic Auth configuradas (503 Service Unavailable)
+    const origWebhookUrl = config.N8N_AI_WEBHOOK_URL;
+    const origAuthUser = config.N8N_AI_BASIC_AUTH_USER;
+    const origAuthPass = config.N8N_AI_BASIC_AUTH_PASSWORD;
+
+    // Cenário A: URL ausente
+    config.N8N_AI_WEBHOOK_URL = '';
+    config.N8N_AI_BASIC_AUTH_USER = 'user_test';
+    config.N8N_AI_BASIC_AUTH_PASSWORD = 'pass_test';
+
+    const noUrlRes = await fetch(`${baseUrl}/api/ai/chat`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${testUserToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ message: 'Quanto gastei?' })
+    });
+    assert.strictEqual(noUrlRes.status, 503, 'Sem N8N_AI_WEBHOOK_URL deve retornar 503 Service Unavailable');
+    const noUrlJson = await noUrlRes.json();
+    assert.strictEqual(noUrlJson.unavailable, true);
+
+    // Cenário B: Usuário ou senha Basic Auth ausentes
+    config.N8N_AI_WEBHOOK_URL = 'http://127.0.0.1:9999/mock-n8n';
+    config.N8N_AI_BASIC_AUTH_USER = '';
+    config.N8N_AI_BASIC_AUTH_PASSWORD = '';
+
+    const noCredsRes = await fetch(`${baseUrl}/api/ai/chat`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${testUserToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ message: 'Quanto gastei?' })
+    });
+    assert.strictEqual(noCredsRes.status, 503, 'Sem Basic Auth configurado deve retornar 503 Service Unavailable');
+
+    // 5. Teste com Mock de Webhook do n8n com Basic Auth
+    const testUser = 'omnifin_agent_test';
+    const testPass = 'secret_pass_test_2026';
+    const expectedBasicHeader = 'Basic ' + Buffer.from(`${testUser}:${testPass}`).toString('base64');
+
+    config.N8N_AI_WEBHOOK_URL = 'http://127.0.0.1:9999/mock-n8n';
+    config.N8N_AI_BASIC_AUTH_USER = testUser;
+    config.N8N_AI_BASIC_AUTH_PASSWORD = testPass;
+
+    const originalGlobalFetch = global.fetch;
+    let interceptedWebhookCall = null;
+
+    try {
+      // Mock da requisição enviada pelo backend ao n8n
+      global.fetch = async (url, options = {}) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/mock-n8n')) {
+          interceptedWebhookCall = {
+            url: urlStr,
+            method: options.method,
+            headers: options.headers,
+            body: JSON.parse(options.body)
+          };
+
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              conversationId: interceptedWebhookCall.body.conversationId,
+              answer: 'Você gastou um total de R$ 1.500,00 neste mês.',
+              suggestions: ['Ver despesas por categoria', 'Comparar com o mês passado']
+            }),
+            text: async () => ''
+          };
+        }
+        return originalGlobalFetch(url, options);
+      };
+
+      // Tenta enviar userId malicioso no body para tentar espionar outro usuário
+      const chatRes = await fetch(`${baseUrl}/api/ai/chat`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${testUserToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: 'usr_hacker_impostor',
+          message: 'Quanto gastei com mercado?',
+          conversationId: 'conv_unit_test_123',
+          context: { month: 8, year: 2026 }
+        })
+      });
+
+      assert.strictEqual(chatRes.status, 200, 'POST /api/ai/chat com n8n mockado deve retornar 200 OK');
+      const chatJson = await chatRes.json();
+      assert.strictEqual(chatJson.success, true);
+      assert.strictEqual(chatJson.conversationId, 'conv_unit_test_123');
+      assert.ok(chatJson.answer.includes('R$ 1.500,00'));
+      assert.strictEqual(chatJson.suggestions.length, 2);
+
+      // Validação minuciosa do payload e headers interceptados enviados ao n8n
+      assert.ok(interceptedWebhookCall, 'A chamada para o n8n deve ter sido executada');
+      assert.strictEqual(interceptedWebhookCall.headers['Authorization'], expectedBasicHeader, 'Header Authorization deve conter Basic Auth correto');
+      assert.strictEqual(interceptedWebhookCall.headers['X-OmniFin-Webhook-Secret'], undefined, 'Header antigo X-OmniFin-Webhook-Secret NÃO deve mais ser enviado');
+
+      // Credenciais não devem entrar no corpo JSON do payload
+      assert.strictEqual(interceptedWebhookCall.body[testUser], undefined);
+      assert.strictEqual(interceptedWebhookCall.body[testPass], undefined);
+
+      assert.notStrictEqual(interceptedWebhookCall.body.user.id, 'usr_hacker_impostor', 'userId enviado pelo body não deve sobrepor o usuário do JWT');
+      assert.ok(interceptedWebhookCall.body.user.id, 'userId deve ser o do usuário autenticado');
+      assert.ok(interceptedWebhookCall.body.financialContext, 'Contexto financeiro deve ser construído');
+      assert.strictEqual(interceptedWebhookCall.body.financialContext.period.month, 8);
+      assert.strictEqual(interceptedWebhookCall.body.financialContext.period.year, 2026);
+      assert.ok(interceptedWebhookCall.body.systemDocumentation.includes('OMNIFIN V3 - GUIA'), 'Documentação do sistema deve ser incluída');
+
+      // 6. Teste de Falha HTTP 401 / 500 do n8n
+      global.fetch = async (url, options = {}) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/mock-n8n')) {
+          return {
+            ok: false,
+            status: 401,
+            text: async () => 'Unauthorized Basic Auth in n8n'
+          };
+        }
+        return originalGlobalFetch(url, options);
+      };
+
+      const unauthN8nRes = await fetch(`${baseUrl}/api/ai/chat`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${testUserToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: 'Teste erro 401 n8n' })
+      });
+      assert.strictEqual(unauthN8nRes.status, 502, 'Erro upstream 401 do n8n deve retornar 502 Bad Gateway seguro');
+      const unauthN8nJson = await unauthN8nRes.json();
+      assert.strictEqual(unauthN8nJson.success, false);
+
+      // 7. Teste de Resposta Inválida do n8n (sem campo answer)
+      global.fetch = async (url, options = {}) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/mock-n8n')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ foo: 'bar' })
+          };
+        }
+        return originalGlobalFetch(url, options);
+      };
+
+      const invalidRes = await fetch(`${baseUrl}/api/ai/chat`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${testUserToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: 'Teste resposta sem answer' })
+      });
+      assert.strictEqual(invalidRes.status, 502, 'Resposta sem answer deve retornar 502');
+
+      // 8. Teste de Timeout (Simulação de AbortController)
+      global.fetch = async (url, options = {}) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/mock-n8n')) {
+          const timeoutErr = new Error('The operation was aborted');
+          timeoutErr.name = 'AbortError';
+          throw timeoutErr;
+        }
+        return originalGlobalFetch(url, options);
+      };
+
+      const timeoutRes = await fetch(`${baseUrl}/api/ai/chat`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${testUserToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: 'Teste timeout' })
+      });
+      assert.strictEqual(timeoutRes.status, 504, 'Timeout deve retornar 504 Gateway Timeout');
+
+      // 9. Garantia de Read-Only: Verifica que o documento do usuário não sofreu mutações
+      const getFinancesRes = await fetch(`${baseUrl}/api/finances`, {
+        headers: { 'Authorization': `Bearer ${testUserToken}` }
+      });
+      const financesAfterChat = await getFinancesRes.json();
+      assert.strictEqual(Number(financesAfterChat.revision), initialRevision, 'Revisão dos dados do usuário não deve ser alterada pelo chat com IA');
+
+      // 10. Contrato de Frontend (api.js & aiAssistant.js): Validação de API.aiChat
+      const apiCode = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'api.js'), 'utf-8');
+      const aiAssistantCode = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'modules', 'aiAssistant.js'), 'utf-8');
+
+      assert.ok(apiCode.includes('aiChat: (payload) => request(\'/api/ai/chat\''), 'api.js deve expor método público aiChat');
+      assert.ok(apiCode.includes('request: (endpoint, options) => request(endpoint, options)'), 'api.js deve expor método request no objeto público API');
+      assert.ok(aiAssistantCode.includes('window.API.aiChat'), 'aiAssistant.js deve utilizar window.API.aiChat como método primário');
+      assert.ok(!aiAssistantCode.includes('window.API.request('), 'aiAssistant.js não deve chamar window.API.request diretamente');
+
+      // 11. Segurança: Frontend não pode conter credenciais n8n
+      assert.ok(!apiCode.includes('N8N_AI_BASIC_AUTH_PASSWORD'), 'api.js não pode conter referências a senhas do n8n');
+      assert.ok(!aiAssistantCode.includes('N8N_AI_BASIC_AUTH_PASSWORD'), 'aiAssistant.js não pode conter senhas do n8n');
+
+      // 12. Execução simulada de window.API.aiChat com JWT
+      const vm = await import('vm');
+      let apiFetchCalled = false;
+      let apiFetchUrl = '';
+      let apiFetchOptions = {};
+
+      const sandbox = {
+        window: {
+          location: { pathname: '/dashboard' }
+        },
+        document: {
+          querySelector: () => null,
+          getElementById: () => null,
+          createElement: () => ({ appendChild: () => {}, classList: { add: () => {}, remove: () => {} }, addEventListener: () => {} }),
+          body: { appendChild: () => {} }
+        },
+        localStorage: {
+          getItem: (k) => k === 'auth_token' ? 'mock_jwt_token_12345' : null,
+          setItem: () => {},
+          removeItem: () => {}
+        },
+        fetch: async (url, opts) => {
+          apiFetchCalled = true;
+          apiFetchUrl = url;
+          apiFetchOptions = opts;
+          return {
+            status: 200,
+            json: async () => ({ success: true, conversationId: 'conv_fe_test', answer: 'Olá, teste de contrato!', suggestions: [] })
+          };
+        },
+        console
+      };
+      vm.createContext(sandbox);
+      vm.runInContext(apiCode, sandbox);
+
+      assert.strictEqual(typeof sandbox.window.API.aiChat, 'function', 'window.API.aiChat deve ser uma função no browser');
+      assert.strictEqual(typeof sandbox.window.API.request, 'function', 'window.API.request deve ser uma função no browser');
+
+      const chatResult = await sandbox.window.API.aiChat({ message: 'Oi', conversationId: 'conv_fe_test' });
+      assert.ok(apiFetchCalled, 'window.API.aiChat deve invocar o fetch subjacente');
+      assert.strictEqual(apiFetchUrl, '/api/ai/chat', 'URL de chamada deve ser /api/ai/chat');
+      assert.strictEqual(apiFetchOptions.headers['Authorization'], 'Bearer mock_jwt_token_12345', 'Deve incluir header Bearer com JWT do usuário');
+      assert.strictEqual(chatResult.success, true);
+      assert.strictEqual(chatResult.answer, 'Olá, teste de contrato!');
+
+      // 13. Checkpoint 8.1: Diretrizes de Tom, Reatividade e Formatação sem Markdown Cru
+      const { SYSTEM_GUIDE_CONTEXT } = await import('../server/services/aiService.js');
+      assert.ok(SYSTEM_GUIDE_CONTEXT.includes('Tom de Voz: Leve, natural, direto'), 'SYSTEM_GUIDE_CONTEXT deve conter diretrizes de tom leve e direto');
+      assert.ok(SYSTEM_GUIDE_CONTEXT.includes('Regra de Não-Despejo de Contexto'), 'SYSTEM_GUIDE_CONTEXT deve proibir despejo automático de relatórios em saudações');
+      assert.ok(SYSTEM_GUIDE_CONTEXT.includes('Widget Compacto'), 'SYSTEM_GUIDE_CONTEXT deve instruir respostas concisas para widget compacto');
+      assert.ok(SYSTEM_GUIDE_CONTEXT.includes('Sem Markdown Cru'), 'SYSTEM_GUIDE_CONTEXT deve orientar texto limpo sem markdown cru');
+
+      // 14. Checkpoint 8.1: Teste de Sanitização e Formatação no Frontend (formatAiMessageContent)
+      assert.ok(aiAssistantCode.includes('function formatAiMessageContent('), 'aiAssistant.js deve definir formatAiMessageContent');
+      assert.ok(aiAssistantCode.includes('formatAiMessageContent(msg.text)'), 'renderAiMessages deve utilizar formatAiMessageContent');
+
+      // Simulação da função formatAiMessageContent
+      const sandboxAi = {
+        window: { API: { isAuthenticated: () => false } },
+        document: {
+          getElementById: () => null,
+          createElement: () => ({ setAttribute: () => {}, classList: { add: () => {}, remove: () => {} }, appendChild: () => {} }),
+          body: { appendChild: () => {} },
+          addEventListener: () => {}
+        }
+      };
+      const vmAi = await import('vm');
+      vmAi.createContext(sandboxAi);
+      vmAi.runInContext(aiAssistantCode, sandboxAi);
+
+      const formatFn = sandboxAi.window.formatAiMessageContent;
+      assert.strictEqual(typeof formatFn, 'function', 'formatAiMessageContent deve ser uma função executável');
+
+      // A. Conversão de Markdown Bold para <strong> sem asteriscos literais
+      const boldFormatted = formatFn('Você tem **R$ 2.858,06** em despesas em **outubro de 2026**.');
+      assert.strictEqual(boldFormatted, 'Você tem <strong>R$ 2.858,06</strong> em despesas em <strong>outubro de 2026</strong>.');
+      assert.ok(!boldFormatted.includes('**'), 'Não deve conter asteriscos duplos após formatação');
+
+      // B. Preservação de quebras de linha com <br>
+      const multiline = formatFn('Olá, Lorenzo!\nComo posso te ajudar hoje?');
+      assert.strictEqual(multiline, 'Olá, Lorenzo!<br>Como posso te ajudar hoje?');
+
+      // C. Limpeza de hashes de headers e backticks
+      const hashFormatted = formatFn('### Resumo do Mês\n`detalhe`');
+      assert.strictEqual(hashFormatted, 'Resumo do Mês<br>detalhe');
+
+      // D. Proteção XSS (escape de tags maliciosas)
+      const xssFormatted = formatFn('<script>alert("hack")</script>');
+      assert.ok(!xssFormatted.includes('<script>'), 'Tags script devem ser escapadas');
+      assert.ok(xssFormatted.includes('&lt;script&gt;'));
+
+      // 15. Checkpoint 8.2: Validação de Contexto Histórico Multiperíodo e Paridade de Métricas
+      const { buildFinancialContext } = await import('../server/services/aiService.js');
+
+      // Mock de documento financeiro com dados de múltiplos meses, devedores com countInTotal true/false, rendas extras e benefícios
+      const mockFinances = {
+        month: 10,
+        year: 2026,
+        profile: {
+          name: 'Lorenzo',
+          baseSalary: 2917.56
+        },
+        benefitsConfig: {
+          amount: 1053.63,
+          va: 600.00,
+          vr: 453.63
+        },
+        fixed: [
+          {
+            id: 'fix_1',
+            name: 'Internet Fibra',
+            group: 'Moradia',
+            destination: 'Nubank',
+            amount: 120.00,
+            versions: [
+              { year: 2026, month: 1, amount: 100.00 },
+              { year: 2026, month: 8, amount: 120.00 }
+            ]
+          }
+        ],
+        variable: [
+          {
+            id: 'var_1',
+            name: 'Celular Novo',
+            group: 'Tecnologia',
+            destination: 'Inter',
+            amount: 300.00,
+            startYear: 2026,
+            startMonth: 8,
+            endYear: 2026,
+            endMonth: 11
+          }
+        ],
+        extras: [
+          {
+            id: 'ext_1',
+            title: 'Freelance Design',
+            source: 'Projetos',
+            amount: 500.00,
+            startYear: 2026,
+            startMonth: 9,
+            endYear: 2026,
+            endMonth: 9
+          }
+        ],
+        debtors: [
+          {
+            id: 'deb_1',
+            debtorName: 'Carlos',
+            title: 'Empréstimo',
+            amount: 200.00,
+            startYear: 2026,
+            startMonth: 8,
+            endYear: 2026,
+            endMonth: 10,
+            countInTotal: true // entra na renda
+          },
+          {
+            id: 'deb_2',
+            debtorName: 'Mariana',
+            title: 'Viagem',
+            amount: 150.00,
+            startYear: 2026,
+            startMonth: 8,
+            endYear: 2026,
+            endMonth: 10,
+            countInTotal: false // NÃO entra na renda mensal
+          }
+        ],
+        assets: [
+          { name: 'Tesouro Selic', category: 'Renda Fixa', currentAmount: 15000.00 }
+        ]
+      };
+
+      // Executa buildFinancialContext com activePeriod = Outubro/2026
+      const ctx = buildFinancialContext(mockFinances, 10, 2026);
+
+      // A. Active period Outubro / períodos históricos disponíveis
+      assert.strictEqual(ctx.activePeriod.month, 10, 'activePeriod deve ser Outubro');
+      assert.strictEqual(ctx.activePeriod.year, 2026);
+      assert.ok(Array.isArray(ctx.periods), 'periods deve ser um array com o histórico');
+      assert.ok(ctx.periods.length >= 12, 'Deve conter os 12 meses do ano ativo');
+
+      // B. Consulta a Setembro existente em periods
+      const septData = ctx.periods.find(p => p.month === 9 && p.year === 2026);
+      assert.ok(septData, 'Deve conter dados de Setembro/2026 em periods');
+      assert.strictEqual(septData.month, 9);
+      assert.strictEqual(septData.summary.baseSalary, 2917.56);
+      assert.strictEqual(septData.summary.totalExtras, 500.00, 'Setembro deve conter 500 de renda extra');
+
+      // C. Separação Semântica: Salário Base !== Salário + Benefício
+      assert.strictEqual(ctx.profile.baseSalary, 2917.56, 'baseSalary não pode incluir benefícios');
+      assert.strictEqual(ctx.profile.benefit, 1053.63, 'benefit deve estar isolado no profile');
+      assert.strictEqual(ctx.benefits.amount, 1053.63, 'benefits.amount deve ser 1053.63');
+      assert.notStrictEqual(ctx.profile.baseSalary, 3971.19, 'Salário base nunca deve ser a soma automática de salário + benefício');
+
+      // D. Rendas Extras e Devedores (Paridade com OmniFin)
+      // Em Outubro/2026:
+      // Despesas: Internet Fibra (120) + Celular Novo (300) = 420.00
+      // Renda Extra: 0
+      // Devedores: Carlos (200, countInTotal: true) + Mariana (150, countInTotal: false) = 350 a receber
+      // totalDebtorsCounted: 200
+      // totalIncome: 2917.56 + 0 + 200 = 3117.56
+      // netBalance: 3117.56 - 420 = 2697.56
+      const octData = ctx.currentPeriod;
+      assert.strictEqual(octData.summary.totalExpenses, 420.00, 'Total de despesas de Outubro deve ser 420.00');
+      assert.strictEqual(octData.summary.totalDebtorsReceivable, 350.00, 'Total a receber de devedores deve ser 350.00');
+      assert.strictEqual(octData.summary.totalDebtorsCounted, 200.00, 'Apenas devedores com countInTotal true devem entrar na soma da renda');
+      assert.strictEqual(octData.summary.totalIncome, 3117.56, 'totalIncome deve ser exatamente Salário + Extras + Devedores Contabilizados');
+      assert.strictEqual(octData.summary.netBalance, 2697.56, 'netBalance deve ser totalIncome - totalExpenses');
+
+      // E. Devedores excluídos (Mariana countInTotal: false) não entram na renda
+      assert.strictEqual(octData.debtors.find(d => d.debtorName === 'Mariana').countInTotal, false);
+      assert.strictEqual(octData.debtors.find(d => d.debtorName === 'Carlos').countInTotal, true);
+
+      // F. Isolamento por Usuário: Contexto de um usuário nunca herda dados de outro
+      const mockFinancesUserB = {
+        profile: { name: 'Fernando', baseSalary: 8500.00 },
+        fixed: [], variable: [], extras: [], debtors: []
+      };
+      const ctxUserB = buildFinancialContext(mockFinancesUserB, 10, 2026);
+      assert.strictEqual(ctxUserB.profile.name, 'Fernando');
+      assert.strictEqual(ctxUserB.profile.baseSalary, 8500.00);
+      assert.notStrictEqual(ctxUserB.profile.name, ctx.profile.name);
+      assert.strictEqual(ctx.periods.some(p => p.summary.baseSalary === 8500.00), false, 'Dados do Usuário B nunca vazam para o histórico do Usuário A');
+
+    } finally {
+      // Restaura configuração original e global.fetch
+      global.fetch = originalGlobalFetch;
+      config.N8N_AI_WEBHOOK_URL = origWebhookUrl;
+      config.N8N_AI_BASIC_AUTH_USER = origAuthUser;
+      config.N8N_AI_BASIC_AUTH_PASSWORD = origAuthPass;
+    }
+  });
+
+  test('33. Regressão Visual: Estilos de Impressão / PDF (@media print com Fundo Branco e Isolamento sem Backdrops Cinzas)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const cssPath = path.join(process.cwd(), 'public', 'css', 'responsive.css');
+    const css = fs.readFileSync(cssPath, 'utf-8');
+
+    // 1. Deve conter bloco @media print
+    assert.ok(css.includes('@media print'), 'responsive.css deve conter bloco @media print');
+
+    // 2. html e body devem possuir fundo branco explícito
+    assert.ok(css.includes('html,\n      body') || css.includes('html, body') || css.includes('html,\r\n      body'), 'Deve estilizar html e body em print');
+    assert.ok(css.includes('background: #ffffff !important;'), 'html e body devem ter background #ffffff !important');
+
+    // 3. Remoção de backdrops escuros de dialogs
+    assert.ok(css.includes('dialog::backdrop') && css.includes('display: none !important;'), 'dialog::backdrop deve ser ocultado na impressão');
+    assert.ok(css.includes('background: transparent !important;'), 'dialog::backdrop deve ter background transparent');
+
+    // 4. Ocultação de interface regular e isolamento do dialog de relatório
+    assert.ok(css.includes('body > :not(#reportDialog)'), 'Elementos fora de #reportDialog devem ser ocultados');
+    assert.ok(css.includes('dialog:not(#reportDialog)'), 'Outros dialogs devem ser ocultados');
+    assert.ok(css.includes('dialog#reportDialog .dialog-head') && css.includes('display: none !important;'), 'Cabeçalho e controles do modal de relatório devem ser ocultados');
+
+    // 5. Área de impressão e tabela com background branco
+    assert.ok(css.includes('#reportPrintArea') && css.includes('background: #ffffff !important;'), '#reportPrintArea deve ter fundo branco');
+    assert.ok(css.includes('#reportDynamicTable') && css.includes('background: #ffffff !important;'), '#reportDynamicTable deve ter fundo branco');
+  });
+
+  test('34. Relatório de Devedores: Estrutura de Colunas (PARCELA e PARCELAMENTO, Remoção de Total do Débito e CSV)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const reportsPath = path.join(process.cwd(), 'public', 'js', 'modules', 'reports.js');
+    const reportsCode = fs.readFileSync(reportsPath, 'utf-8');
+
+    // 1. Validação estática de ausência de colunas antigas e presença das novas
+    assert.ok(!reportsCode.includes('Parcela do Mês'), 'A coluna antiga "Parcela do Mês" não deve mais existir no thead');
+    assert.ok(!reportsCode.includes('Total do Débito'), 'A coluna antiga "Total do Débito" não deve mais existir no thead');
+    assert.ok(reportsCode.includes('>Parcela</th>'), 'A coluna "Parcela" deve estar presente no thead');
+    assert.ok(reportsCode.includes('>Parcelamento</th>'), 'A coluna "Parcelamento" deve estar presente no thead');
+
+    // 2. Validação do cabeçalho do CSV
+    assert.ok(reportsCode.includes('Devedor,Descricao,Destino,Inicio,Fim,Status,Parcela,Parcelamento'), 'CSV de devedores deve utilizar o novo cabeçalho');
+    assert.ok(!reportsCode.includes('Parcela Mes,Total Debito'), 'CSV antigo com "Parcela Mes,Total Debito" não deve mais existir');
+
+    // 3. Execução das funções auxiliares de formatação de parcelamento
+    const vm = await import('vm');
+    const sandbox = {
+      window: {},
+      MONTH_NAMES: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
+      mk: (y, m) => Number(y) * 12 + Number(m),
+      $: () => null,
+      getState: () => ({ year: 2026, month: 8 }),
+      currency: (v) => `R$ ${Number(v).toFixed(2)}`
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(reportsCode, sandbox);
+
+    const formatDebtorInstallment = sandbox.window.formatDebtorInstallment;
+    const formatDebtorVigencia = sandbox.window.formatDebtorVigencia;
+
+    assert.strictEqual(typeof formatDebtorInstallment, 'function', 'formatDebtorInstallment deve ser uma função');
+    assert.strictEqual(typeof formatDebtorVigencia, 'function', 'formatDebtorVigencia deve ser uma função');
+
+    // A. Cobrança parcelada com índice atual e total -> "2/4"
+    const parceladaComCur = formatDebtorInstallment({ installmentIndex: 2, installmentTotal: 4 }, 2026, 8);
+    assert.strictEqual(parceladaComCur, '2/4', 'Parcela 2 de 4 deve retornar "2/4"');
+
+    // B. Cobrança parcelada derivada de datas -> "2/4"
+    const parceladaPorData = formatDebtorInstallment({ startYear: 2026, startMonth: 7, endYear: 2026, endMonth: 10 }, 2026, 8);
+    assert.strictEqual(parceladaPorData, '2/4', 'Período 07/2026 a 10/2026 na referência 08/2026 deve retornar "2/4"');
+
+    // C. Cobrança parcelada apenas com total -> "4x"
+    const parceladaSemCur = formatDebtorInstallment({ installmentTotal: 4 }, 2026, 8);
+    assert.strictEqual(parceladaSemCur, '4x', 'Apenas total 4 deve retornar "4x"');
+
+    // D. Cobrança única / à vista -> "1x"
+    const cobrancaUnica = formatDebtorInstallment({ installmentTotal: 1 }, 2026, 8);
+    assert.strictEqual(cobrancaUnica, '1x', 'Cobrança de 1 mês deve retornar "1x"');
+
+    const cobrancaUnicaPorData = formatDebtorInstallment({ startYear: 2026, startMonth: 8, endYear: 2026, endMonth: 8 }, 2026, 8);
+    assert.strictEqual(cobrancaUnicaPorData, '1x', 'Cobrança com mês inicial igual ao final deve retornar "1x"');
+
+    // E. Registro legado ou sem datas -> Fallback "—"
+    const legadoVazio = formatDebtorInstallment({}, 2026, 8);
+    assert.strictEqual(legadoVazio, '—', 'Registro sem dados deve retornar "—"');
+
+    const nulo = formatDebtorInstallment(null, 2026, 8);
+    assert.strictEqual(nulo, '—', 'Registro nulo deve retornar "—"');
+
+    // F. Validação de vigência
+    const vigenciaRange = formatDebtorVigencia({ startMonth: 7, startYear: 2026, endMonth: 10, endYear: 2026 });
+    assert.strictEqual(vigenciaRange, 'Julho/2026 - Outubro/2026', 'Range de vigência deve ser formatado corretamente');
+
+    const vigenciaSingle = formatDebtorVigencia({ startMonth: 8, startYear: 2026, endMonth: 8, endYear: 2026 });
+    assert.strictEqual(vigenciaSingle, 'Agosto/2026', 'Vigência de mês único não deve repetir o mês');
+  });
+
+  test('35. Checkpoint 8.3: UX Mobile (Aviso IA Removido, Bottom Nav 5 Posições com +, Cadastro Rápido e Estado Visual de Devedores Quitado)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const vm = await import('vm');
+
+    // 1. PARTE A & D: Validação do Assistente IA (Aviso Removido e Estado 'Digitando...')
+    const aiAssistantPath = path.join(process.cwd(), 'public', 'js', 'modules', 'aiAssistant.js');
+    const aiAssistantCode = fs.readFileSync(aiAssistantPath, 'utf-8');
+    assert.ok(!aiAssistantCode.includes('ai-privacy-note'), 'A classe ai-privacy-note não deve estar presente no aiAssistant.js');
+    assert.ok(!aiAssistantCode.includes('O assistente utiliza seus dados do OmniFin'), 'A mensagem sobre dados/privacidade não deve estar no aiAssistant.js');
+    assert.ok(!aiAssistantCode.includes('Analisando dados...'), 'O texto antigo "Analisando dados..." não deve existir no aiAssistant.js');
+    assert.ok(aiAssistantCode.includes('Digitando...'), 'O indicador de loading deve exibir "Digitando..." no aiAssistant.js');
+    assert.ok(aiAssistantCode.includes('aria-label="Assistente digitando"'), 'O indicador deve conter aria-label descritivo de acessibilidade');
+    assert.ok(aiAssistantCode.includes('role="status"') && aiAssistantCode.includes('aria-live="polite"'), 'O indicador deve conter role status e aria-live polite');
+
+    // 2. PARTE B: Navegação Mobile, Botão +, Cadastro Rápido e Preferências
+    const statePath = path.join(process.cwd(), 'public', 'js', 'core', 'state.js');
+    const stateCode = fs.readFileSync(statePath, 'utf-8');
+    assert.ok(stateCode.includes('mobileNavigation'), 'state.js deve conter suporte a preferences.mobileNavigation');
+
+    const indexPath = path.join(process.cwd(), 'public', 'index.html');
+    const indexCode = fs.readFileSync(indexPath, 'utf-8');
+    assert.ok(indexCode.includes('id="btnMobileQuickAction"'), 'index.html deve conter o botão central + (#btnMobileQuickAction)');
+    assert.ok(indexCode.includes('id="mobileQuickActionOverlay"'), 'index.html deve conter o modal/sheet de Cadastro Rápido');
+    assert.ok(indexCode.includes('id="quickActionNewExpense"'), 'index.html deve conter a opção Nova Despesa no Cadastro Rápido');
+    assert.ok(indexCode.includes('id="quickActionNewDebtor"'), 'index.html deve conter a opção Novo Devedor no Cadastro Rápido');
+    assert.ok(indexCode.includes('id="quickActionNewBenefit"'), 'index.html deve conter a opção Novo Benefício no Cadastro Rápido');
+    assert.ok(indexCode.includes('id="profileMobileNavCard"'), 'index.html deve conter o card de configuração no perfil');
+    assert.ok(indexCode.includes('id="mobileNavFavoritesPicker"'), 'index.html deve conter o seletor de favoritos');
+    assert.ok(indexCode.includes('id="mobileNavFavoritesWarning"'), 'index.html deve conter o aviso de limite de 3 atalhos');
+
+    const mobileCssPath = path.join(process.cwd(), 'public', 'css', 'mobile.css');
+    const mobileCss = fs.readFileSync(mobileCssPath, 'utf-8');
+    assert.ok(mobileCss.includes('.bottom-nav-fab'), 'mobile.css deve conter estilos para .bottom-nav-fab');
+    assert.ok(mobileCss.includes('.quick-action-item'), 'mobile.css deve conter estilos para .quick-action-item');
+    assert.ok(mobileCss.includes('.ai-assistant-fab') && mobileCss.includes('--mobile-bottom-nav-height'), 'mobile.css deve posicionar o FAB da IA acima da barra inferior considerando a altura e safe-area');
+    assert.ok(mobileCss.includes('.ai-assistant-panel') && mobileCss.includes('--mobile-bottom-nav-height'), 'mobile.css deve posicionar o painel do Assistente acima da barra inferior');
+
+    const variablesCssPath = path.join(process.cwd(), 'public', 'css', 'variables.css');
+    const variablesCss = fs.readFileSync(variablesCssPath, 'utf-8');
+    assert.ok(variablesCss.includes('--mobile-bottom-nav-height: 62px;'), 'variables.css deve definir a custom property --mobile-bottom-nav-height');
+
+    const benefitsPath = path.join(process.cwd(), 'public', 'js', 'modules', 'benefits.js');
+    const benefitsCode = fs.readFileSync(benefitsPath, 'utf-8');
+    assert.ok(benefitsCode.includes('window.openBenefitDialog = openBenefitDialog;'), 'benefits.js deve exportar openBenefitDialog no window');
+
+    // Executa e valida normalização e configuração de módulos
+    const uiShellPath = path.join(process.cwd(), 'public', 'js', 'core', 'uiShell.js');
+    const uiShellCode = fs.readFileSync(uiShellPath, 'utf-8');
+    assert.ok(uiShellCode.includes('renderMobileBottomNav'), 'uiShell.js deve implementar renderMobileBottomNav');
+    assert.ok(uiShellCode.includes('openQuickActionSheet'), 'uiShell.js deve implementar openQuickActionSheet');
+
+    // 3. PARTE C: Devedores - Estado Visual de Pagamento no Gráfico Montante por Devedor
+    const debtorsPath = path.join(process.cwd(), 'public', 'js', 'modules', 'debtors.js');
+    const debtorsCode = fs.readFileSync(debtorsPath, 'utf-8');
+    assert.ok(debtorsCode.includes('✓ Quitado'), 'debtors.js deve renderizar o badge "✓ Quitado" para devedores com todas as cobranças pagas');
+    assert.ok(debtorsCode.includes('personStatusMap'), 'debtors.js deve calcular o mapa de status de pagamento por devedor');
+
+    // Validação funcional da renderização do badge no sandbox
+    let mockContainer = { innerHTML: '', querySelectorAll: () => [], addEventListener: () => {} };
+    const debtorsSandbox = {
+      window: {},
+      $: () => mockContainer,
+      $$: () => [],
+      escapeHtml: (s) => String(s || ''),
+      currency: (v) => `R$ ${Number(v).toFixed(2)}`,
+      DEBTOR_COLORS_PALETTE: ['#10B981', '#3B82F6'],
+      getDebtorPersonColor: () => '#10B981',
+      DEST_SVG_ICONS: { card: '<svg></svg>' },
+      ICONS: { check: '<svg>check</svg>' },
+      getDestMeta: () => ({ color: '#10B981', icon: 'card' }),
+      getState: () => ({ year: 2026, month: 8 }),
+      activeDebtorsForMonth: () => [
+        { id: 'd1', debtorName: 'Carlos', amount: 150, status: 'pago' },
+        { id: 'd2', debtorName: 'Ana', amount: 200, status: 'pendente' }
+      ]
+    };
+    vm.createContext(debtorsSandbox);
+    vm.runInContext(debtorsCode, debtorsSandbox);
+
+    const renderDynamicDebtorChart = debtorsSandbox.window.renderDynamicDebtorChart || debtorsSandbox.renderDynamicDebtorChart;
+
+    // Renderiza em modo barras
+    renderDynamicDebtorChart(
+      mockContainer,
+      { 'Carlos': 150, 'Ana': 200 },
+      'bar',
+      false,
+      null,
+      { 'Carlos': { total: 150, paid: 150, count: 1, paidCount: 1 }, 'Ana': { total: 200, paid: 0, count: 1, paidCount: 0 } }
+    );
+
+    assert.ok(mockContainer.innerHTML.includes('✓ Quitado'), 'O devedor Carlos (100% pago) deve exibir o badge "✓ Quitado" no modo bar');
+    assert.ok(mockContainer.innerHTML.includes('R$ 150.00'), 'O valor de Carlos deve permanecer visível no gráfico');
+    assert.ok(mockContainer.innerHTML.includes('R$ 200.00'), 'O valor de Ana deve permanecer visível no gráfico');
+
+    // Renderiza em modo colunas
+    renderDynamicDebtorChart(
+      mockContainer,
+      { 'Carlos': 150 },
+      'column',
+      false,
+      null,
+      { 'Carlos': { total: 150, paid: 150, count: 1, paidCount: 1 } }
+    );
+    assert.ok(mockContainer.innerHTML.includes('✓ Quitado'), 'O devedor Carlos deve exibir o badge "✓ Quitado" no modo column');
+
+    // Renderiza em modo donut
+    renderDynamicDebtorChart(
+      mockContainer,
+      { 'Carlos': 150 },
+      'donut',
+      false,
+      null,
+      { 'Carlos': { total: 150, paid: 150, count: 1, paidCount: 1 } }
+    );
+    assert.ok(mockContainer.innerHTML.includes('✓ Quitado'), 'O devedor Carlos deve exibir o badge "✓ Quitado" no modo donut');
   });
 });

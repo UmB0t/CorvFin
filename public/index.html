@@ -1629,6 +1629,26 @@
               <div id="categoryTagsList" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;"></div>
             </div>
           </div>
+
+          <div class="card section-card full-width" id="profileMobileNavCard">
+            <div class="section-head">
+              <div class="section-title">
+                <svg class="svg-icon" viewBox="0 0 24 24">
+                  <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                  <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                </svg>
+                Navegação Mobile
+              </div>
+            </div>
+            <div style="padding: 18px; display: grid; gap: 14px;">
+              <p class="hint" style="margin:0;">Escolha até 3 módulos para manter na barra inferior do celular.</p>
+              <div id="mobileNavFavoritesPicker" style="display:grid; gap:8px;"></div>
+              <div id="mobileNavFavoritesWarning" style="color:var(--warning, #f59e0b); font-size:0.82rem; font-weight:750; display:none; align-items:center; gap:6px;">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:currentColor; width:16px; height:16px; stroke-width:2.2;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Você pode escolher até 3 atalhos.
+              </div>
+            </div>
+          </div>
         </div>
       </main>
 
@@ -3470,6 +3490,7 @@
   <script src="js/modules/consolidatedDashboard.js"></script>
   <script src="js/modules/expenses.js"></script>
   <script src="js/modules/welcomeTour.js"></script>
+  <script src="js/modules/aiAssistant.js"></script>
   <script src="js/modules/backup.js"></script>
   <script src="js/modules/notifications.js"></script>
   <script>
@@ -3852,6 +3873,9 @@
         if (window.initReleaseNotesModule) {
           try { window.initReleaseNotesModule(); } catch (e) { console.error('initReleaseNotesModule error:', e); }
         }
+        if (window.initAiAssistant) {
+          try { window.initAiAssistant(); } catch (e) { console.error('initAiAssistant error:', e); }
+        }
         try { initGlobalDropZones(); } catch (e) { console.error('initGlobalDropZones error:', e); }
         try { render(); } catch (e) { console.error('render error:', e); }
         try { checkWelcomeTour(); } catch (e) { console.error('checkWelcomeTour error:', e); }
@@ -3867,7 +3891,7 @@
   </script>
     <!-- BOTTOM NAVIGATION BAR (MOBILE) -->
   <nav class="bottom-nav-bar" id="mobileBottomNav" aria-label="Navegação Principal Mobile">
-    <button type="button" class="bottom-nav-item active" data-tab="tab-dashboard">
+    <button type="button" class="bottom-nav-item active" data-tab="tab-dashboard" id="bottomNavFav1">
       <svg class="svg-icon" viewBox="0 0 24 24">
         <rect x="3" y="3" width="7" height="7"></rect>
         <rect x="14" y="3" width="7" height="7"></rect>
@@ -3877,7 +3901,7 @@
       <span>Dashboard</span>
     </button>
 
-    <button type="button" class="bottom-nav-item" data-tab="tab-expenses">
+    <button type="button" class="bottom-nav-item" data-tab="tab-expenses" id="bottomNavFav2">
       <svg class="svg-icon" viewBox="0 0 24 24">
         <line x1="18" y1="20" x2="18" y2="10" />
         <line x1="12" y1="20" x2="12" y2="4" />
@@ -3886,16 +3910,14 @@
       <span>Despesas</span>
     </button>
 
-    <button type="button" class="bottom-nav-item" data-tab="tab-extras">
+    <button type="button" class="bottom-nav-fab" id="btnMobileQuickAction" aria-label="Cadastro Rápido" data-tooltip="Cadastro Rápido">
       <svg class="svg-icon" viewBox="0 0 24 24">
-        <rect x="2" y="6" width="20" height="12" rx="2" />
-        <circle cx="12" cy="12" r="2" />
-        <path d="M6 12h.01M18 12h.01" />
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
       </svg>
-      <span>Extras</span>
     </button>
 
-    <button type="button" class="bottom-nav-item" data-tab="tab-debtors">
+    <button type="button" class="bottom-nav-item" data-tab="tab-debtors" id="bottomNavFav3">
       <svg class="svg-icon" viewBox="0 0 24 24">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
@@ -3905,15 +3927,7 @@
       <span>Devedores</span>
     </button>
 
-    <button type="button" class="bottom-nav-item" data-tab="tab-investments">
-      <svg class="svg-icon" viewBox="0 0 24 24">
-        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-        <polyline points="17 6 23 6 23 12" />
-      </svg>
-      <span>Investir</span>
-    </button>
-
-    <button type="button" class="bottom-nav-item" id="btnMobileMore">
+    <button type="button" class="bottom-nav-item" id="btnMobileMore" aria-label="Mais Módulos">
       <svg class="svg-icon" viewBox="0 0 24 24">
         <circle cx="12" cy="12" r="1.5"/>
         <circle cx="19" cy="12" r="1.5"/>
@@ -3923,7 +3937,73 @@
     </button>
   </nav>
 
-  <!-- MOBILE DRAWER / BOTTOM SHEET -->
+  <!-- QUICK ACTION SHEET / BOTTOM SHEET (MOBILE) -->
+  <div class="mobile-drawer-overlay" id="mobileQuickActionOverlay" role="dialog" aria-modal="true" aria-label="Cadastro Rápido">
+    <div class="mobile-drawer-sheet" style="max-width:440px;">
+      <div class="mobile-drawer-header">
+        <div style="display:flex; align-items:center; gap:8px; font-weight:800; font-size:1.05rem; color:var(--text);">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:20px; height:20px; stroke-width:2.2;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="16"></line>
+            <line x1="8" y1="12" x2="16" y2="12"></line>
+          </svg>
+          Cadastro Rápido
+        </div>
+        <button type="button" class="icon-btn small" id="closeMobileQuickActionBtn" aria-label="Fechar Cadastro Rápido">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="quick-action-list" id="quickActionList" style="display:flex; flex-direction:column; gap:10px; padding:12px 0 16px 0;">
+        <button type="button" class="quick-action-item btn-quick-expense" id="quickActionNewExpense" data-tab-required="tab-expenses">
+          <div class="quick-action-icon" style="background:var(--brand-soft); color:var(--brand);">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2;">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </div>
+          <div class="quick-action-info">
+            <strong>Nova Despesa</strong>
+            <small>À vista, parcelada ou fixa com vencimento</small>
+          </div>
+          <svg class="svg-icon arrow" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+
+        <button type="button" class="quick-action-item btn-quick-debtor" id="quickActionNewDebtor" data-tab-required="tab-debtors">
+          <div class="quick-action-icon" style="background:rgba(59, 130, 246, 0.15); color:#3b82f6;">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2;">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </div>
+          <div class="quick-action-info">
+            <strong>Novo Devedor</strong>
+            <small>Cobranças, empréstimos e parcelas a receber</small>
+          </div>
+          <svg class="svg-icon arrow" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+
+        <button type="button" class="quick-action-item btn-quick-benefit" id="quickActionNewBenefit" data-tab-required="tab-benefits">
+          <div class="quick-action-icon" style="background:rgba(245, 158, 11, 0.15); color:#f59e0b;">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2;">
+              <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+              <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+              <line x1="6" y1="1" x2="6" y2="4"></line>
+              <line x1="10" y1="1" x2="10" y2="4"></line>
+              <line x1="14" y1="1" x2="14" y2="4"></line>
+            </svg>
+          </div>
+          <div class="quick-action-info">
+            <strong>Novo Benefício</strong>
+            <small>Lançar gasto de alimentação, refeição ou auxílio</small>
+          </div>
+          <svg class="svg-icon arrow" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </div>
+    </div>
+  </div>
   <div class="mobile-drawer-overlay" id="mobileDrawerOverlay" role="dialog" aria-modal="true" aria-label="Mais Módulos e Opções">
     <div class="mobile-drawer-sheet">
       <div class="mobile-drawer-header">

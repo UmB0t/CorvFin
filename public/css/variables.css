@@ -11,6 +11,7 @@
       --shadow-lg: 0 20px 45px rgba(20, 48, 38, 0.12);
       --radius: 18px;
       --radius-sm: 12px;
+      --mobile-bottom-nav-height: 62px;
 
       --brand: #1F7A5C;
       --brand-strong: #145C45;
@@ -34,4 +35,4 @@
       --c-extra-soft: #D1FAE5;
       --c-debt: #DC2626;
       --c-debt-soft: #FEE2E2;
-    }
+    }

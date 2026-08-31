@@ -60,6 +60,48 @@
         reportDlg.showModal();
       }
 
+  function formatDebtorInstallment(d, year, month) {
+    if (!d) return '—';
+    let cur = d.installmentIndex || d.currentInstallmentIndex;
+    let total = d.installmentTotal || d.installmentsCount || d.totalMonths;
+
+    if ((!total || !cur) && d.startYear && d.startMonth && d.endYear && d.endMonth) {
+      if (typeof mk === 'function') {
+        total = mk(d.endYear, d.endMonth) - mk(d.startYear, d.startMonth) + 1;
+        if (year && month) {
+          cur = mk(year, month) - mk(d.startYear, d.startMonth) + 1;
+        }
+      } else {
+        total = (d.endYear - d.startYear) * 12 + (d.endMonth - d.startMonth) + 1;
+        if (year && month) {
+          cur = (year - d.startYear) * 12 + (month - d.startMonth) + 1;
+        }
+      }
+    }
+
+    if (typeof total === 'number' && !isNaN(total) && total > 0) {
+      if (total === 1) return '1x';
+      if (typeof cur === 'number' && !isNaN(cur) && cur > 0) {
+        return `${cur}/${total}`;
+      }
+      return `${total}x`;
+    }
+    return '—';
+  }
+
+  function formatDebtorVigencia(d) {
+    if (!d || !d.startMonth || !d.startYear) return '—';
+    const startStr = `${MONTH_NAMES[d.startMonth - 1] || d.startMonth}/${d.startYear}`;
+    if (!d.endMonth || !d.endYear || (d.startYear === d.endYear && d.startMonth === d.endMonth)) {
+      return startStr;
+    }
+    const endStr = `${MONTH_NAMES[d.endMonth - 1] || d.endMonth}/${d.endYear}`;
+    return `${startStr} - ${endStr}`;
+  }
+
+  window.formatDebtorInstallment = formatDebtorInstallment;
+  window.formatDebtorVigencia = formatDebtorVigencia;
+
       function updateReportPreview() {
     const state = getState();
         const type = $('#reportTypeFilter')?.value || 'consolidated_annual';
@@ -311,10 +353,10 @@
                 <th>Devedor</th>
                 <th>Descrição / Cobrança</th>
                 <th>Destino</th>
-                <th>Vigência / Parcela</th>
+                <th>Vigência</th>
                 <th>Status no Mês</th>
-                <th style="text-align:right;">Parcela do Mês</th>
-                <th style="text-align:right;">Total do Débito</th>
+                <th style="text-align:right;">Parcela</th>
+                <th style="text-align:center;">Parcelamento</th>
               </tr>
             `;
           }
@@ -328,12 +370,11 @@
             filtered = filtered.filter(d => d.status === statusFilter);
           }
 
-          let totParcela = 0, totDebito = 0, totPaid = 0, totPending = 0;
+          let totParcela = 0, totPaid = 0, totPending = 0;
           let rowsHtml = '';
 
           filtered.forEach(d => {
             totParcela += d.amount;
-            totDebito += (d.totalAmount || d.amount);
             if (d.status === 'pago') totPaid += d.amount;
             else totPending += d.amount;
 
@@ -342,10 +383,10 @@
                 <td><strong>${escapeHtml(d.debtorName)}</strong></td>
                 <td>${escapeHtml(d.title)}</td>
                 <td>${escapeHtml(d.destination || 'Nubank')}</td>
-                <td>${d.installmentsCount > 1 ? `${d.currentInstallmentIndex}/${d.installmentsCount} (${MONTH_NAMES[d.startMonth - 1]}/${d.startYear} - ${MONTH_NAMES[d.endMonth - 1]}/${d.endYear})` : `${MONTH_NAMES[d.startMonth - 1]}/${d.startYear}`}</td>
+                <td>${formatDebtorVigencia(d)}</td>
                 <td><span class="status-badge ${d.status === 'pago' ? 'paid' : 'pending'}" style="font-size:.72rem;">${d.status === 'pago' ? 'Quitado' : 'Pendente'}</span></td>
                 <td class="num" style="text-align:right; font-weight:750;">${currency(d.amount)}</td>
-                <td class="num" style="text-align:right;">${currency(d.totalAmount || d.amount)}</td>
+                <td style="text-align:center; font-weight:700;">${formatDebtorInstallment(d, year, month)}</td>
               </tr>
             `;
           });
@@ -361,7 +402,7 @@
               <tr>
                 <td colspan="5">TOTAIS DE COBRANÇAS</td>
                 <td class="num" style="text-align:right; font-weight:800;">${currency(totParcela)}</td>
-                <td class="num" style="text-align:right; font-weight:800;">${currency(totDebito)}</td>
+                <td style="text-align:center; color:var(--muted); font-weight:700;">—</td>
               </tr>
             `;
           }
@@ -509,14 +550,17 @@
           });
           filename = `omnifin-relatorio-detalhado-${year}-${String(month).padStart(2, '0')}.csv`;
         } else if (type === 'debtors_report') {
-          csv = `Devedor,Descricao,Destino,Inicio,Fim,Status,Parcela Mes,Total Debito\n`;
+          csv = `Devedor,Descricao,Destino,Inicio,Fim,Status,Parcela,Parcelamento\n`;
           const activeDebtors = activeDebtorsForMonth(year, month);
           let filtered = activeDebtors;
           if (debtorFilter !== 'all') filtered = filtered.filter(d => d.debtorName === debtorFilter);
           if (statusFilter !== 'all') filtered = filtered.filter(d => d.status === statusFilter);
 
           filtered.forEach(d => {
-            csv += `"${d.debtorName}","${d.title}","${d.destination || ''}","${MONTH_NAMES[d.startMonth - 1]}/${d.startYear}","${MONTH_NAMES[d.endMonth - 1]}/${d.endYear}","${d.status === 'pago' ? 'Quitado' : 'Pendente'}",${d.amount.toFixed(2)},${(d.totalAmount || d.amount).toFixed(2)}\n`;
+            const parcelamento = formatDebtorInstallment(d, year, month);
+            const startStr = `${MONTH_NAMES[d.startMonth - 1] || d.startMonth}/${d.startYear}`;
+            const endStr = d.endMonth && d.endYear ? `${MONTH_NAMES[d.endMonth - 1] || d.endMonth}/${d.endYear}` : startStr;
+            csv += `"${d.debtorName}","${d.title}","${d.destination || ''}","${startStr}","${endStr}","${d.status === 'pago' ? 'Quitado' : 'Pendente'}",${Number(d.amount || 0).toFixed(2)},"${parcelamento}"\n`;
           });
           filename = `omnifin-relatorio-devedores-${year}-${String(month).padStart(2, '0')}.csv`;
         } else if (type === 'benefits_report') {
@@ -538,7 +582,7 @@
         notify('Planilha exportada com sucesso!', 'success');
       }
 
-      $('#reportBtn').addEventListener('click', openReportDialog);
+      $('#reportBtn')?.addEventListener('click', openReportDialog);
 
   // Inicializa o diálogo e registra os listeners de interface
   initReportDialog();

@@ -129,7 +129,10 @@
       aportes: [],
       shoppingLists: [],
       shoppingItemSuggestions: [],
-      savedSimulations: []
+      savedSimulations: [],
+      preferences: {
+        mobileNavigation: ['tab-dashboard', 'tab-expenses', 'tab-debtors']
+      }
     };
   };
 
@@ -153,6 +156,9 @@
     s.month = Number(parsed.month) || s.month;
     s.categories = normalizeCategories(parsed.categories);
     s.budgets = Object.assign({}, DEFAULT_BUDGETS, parsed.budgets || {});
+    s.preferences = Object.assign({
+      mobileNavigation: ['tab-dashboard', 'tab-expenses', 'tab-debtors']
+    }, parsed.preferences || {});
 
     // Dashboards default to COLLAPSED (true) unless explicitly configured in local preferences
     s.collapsedSections = Object.assign({

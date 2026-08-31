@@ -115,11 +115,17 @@
         return { success: false, message: 'Sessão expirada. Faça login novamente.' };
       }
 
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
+      if (!data) {
+        return { success: false, status: response.status, message: `Erro na resposta do servidor (HTTP ${response.status}).` };
+      }
+      if (typeof data === 'object' && !('status' in data)) {
+        data.status = response.status;
+      }
       return data;
     } catch (err) {
       console.error('API Request Error:', err);
-      return { success: false, message: 'Erro na comunicação com o servidor.' };
+      return { success: false, status: 0, message: 'Erro na comunicação com o servidor.' };
     }
   }
 
@@ -134,10 +140,14 @@
     isAuthenticated,
 
     // Generic HTTP Methods
+    request: (endpoint, options) => request(endpoint, options),
     get: (url) => request(url, { method: 'GET' }),
     post: (url, body) => request(url, { method: 'POST', body: JSON.stringify(body) }),
     put: (url, body) => request(url, { method: 'PUT', body: JSON.stringify(body) }),
     delete: (url) => request(url, { method: 'DELETE' }),
+
+    // AI Assistant endpoint
+    aiChat: (payload) => request('/api/ai/chat', { method: 'POST', body: JSON.stringify(payload) }),
 
     // Auth endpoints
     login: (login, senha) => request('/api/auth/login', { method: 'POST', body: JSON.stringify({ login, senha }) }),

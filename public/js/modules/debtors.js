@@ -192,7 +192,7 @@ function markDebtorDestPaid(destName) {
   }
 };
 
-function renderDynamicDebtorChart(container, mapData, chartType, isDestination = false, totalBadgeSel = null) {
+function renderDynamicDebtorChart(container, mapData, chartType, isDestination = false, totalBadgeSel = null, statusMap = null) {
   if (!container) return;
 
   const entries = Object.entries(mapData).sort((a, b) => b[1] - a[1]);
@@ -220,7 +220,22 @@ function renderDynamicDebtorChart(container, mapData, chartType, isDestination =
     }
     const pct = total > 0 ? Math.round((val / total) * 100) : 0;
     const btnClass = isDestination ? 'pay-debt-dest-btn' : 'pay-debt-person-btn';
-    return { name, val, color, iconSvg, pct, btnClass };
+
+    const statusInfo = statusMap ? statusMap[name] : null;
+    const isFullPaid = !!(statusInfo && statusInfo.count > 0 && statusInfo.paidCount === statusInfo.count);
+    const isPartialPaid = !!(statusInfo && statusInfo.paidCount > 0 && statusInfo.paidCount < statusInfo.count);
+
+    let statusBadgeHtml = '';
+    let statusLabel = 'Pendente';
+    if (isFullPaid) {
+      statusBadgeHtml = `<span class="badge success" style="font-size:0.68rem; padding:2px 6px; font-weight:800; display:inline-flex; align-items:center; gap:3px;">✓ Quitado</span>`;
+      statusLabel = 'Quitado';
+    } else if (isPartialPaid) {
+      statusBadgeHtml = `<span class="badge warning" style="font-size:0.68rem; padding:2px 6px; font-weight:800; display:inline-flex; align-items:center; gap:3px;">Parcial (${statusInfo.paidCount}/${statusInfo.count})</span>`;
+      statusLabel = `Parcial (${statusInfo.paidCount}/${statusInfo.count})`;
+    }
+
+    return { name, val, color, iconSvg, pct, btnClass, isFullPaid, isPartialPaid, statusBadgeHtml, statusLabel };
   });
 
   if (chartType === 'column') {
@@ -231,15 +246,18 @@ function renderDynamicDebtorChart(container, mapData, chartType, isDestination =
           ${items.map(item => {
             const colHeight = Math.max(14, Math.round((item.val / maxVal) * 100));
             return `
-              <div style="display:flex; flex-direction:column; align-items:center; flex:1; min-width:55px; height:100%; justify-content:flex-end;" data-tooltip="${escapeHtml(item.name)}: ${currency(item.val)} (${item.pct}%)">
+              <div style="display:flex; flex-direction:column; align-items:center; flex:1; min-width:65px; height:100%; justify-content:flex-end;" data-tooltip="${escapeHtml(item.name)}: ${currency(item.val)} (${item.pct}%) • ${item.statusLabel}">
                 <div class="num" style="font-size:.7rem; font-weight:800; margin-bottom:3px; text-align:center;">
                   ${currency(item.val)}
                   <div style="font-size:.62rem; color:var(--muted);">${item.pct}%</div>
                 </div>
-                <div style="width:100%; height:${colHeight}px; background:${item.color}; border-radius:6px 6px 0 0; transition:height .3s ease; box-shadow:0 2px 5px rgba(0,0,0,0.08);" title="${escapeHtml(item.name)}: ${currency(item.val)} (${item.pct}%)"></div>
-                <div style="margin-top:6px; font-size:.72rem; font-weight:750; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%; display:flex; align-items:center; justify-content:center; gap:4px;" title="${escapeHtml(item.name)}">
-                  <span style="color:${item.color}; display:inline-flex;">${item.iconSvg}</span>
-                  <span>${escapeHtml(item.name)}</span>
+                <div style="width:100%; height:${colHeight}px; background:${item.color}; border-radius:6px 6px 0 0; transition:height .3s ease; box-shadow:0 2px 5px rgba(0,0,0,0.08); ${item.isFullPaid ? 'opacity:0.9;' : ''}" title="${escapeHtml(item.name)}: ${currency(item.val)} (${item.pct}%) • ${item.statusLabel}"></div>
+                <div style="margin-top:6px; font-size:.72rem; font-weight:750; text-align:center; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;" title="${escapeHtml(item.name)}">
+                  <div style="display:flex; align-items:center; gap:4px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                    <span style="color:${item.color}; display:inline-flex;">${item.iconSvg}</span>
+                    <span>${escapeHtml(item.name)}</span>
+                  </div>
+                  ${item.statusBadgeHtml}
                 </div>
               </div>
             `;
@@ -247,13 +265,16 @@ function renderDynamicDebtorChart(container, mapData, chartType, isDestination =
         </div>
         <div style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center;">
           ${items.map(item => {
-            const quitTip = `Quitar: Marcar todas as cobranças de '${escapeHtml(item.name)}' como PAGAS`;
+            const quitTip = item.isFullPaid
+              ? `Cobranças de '${escapeHtml(item.name)}' já estão quitadas`
+              : `Quitar: Marcar todas as cobranças de '${escapeHtml(item.name)}' como PAGAS`;
             return `
             <div style="display:inline-flex; align-items:center; gap:6px; background:var(--surface-2); padding:4px 8px; border-radius:8px; font-size:.74rem; border:1px solid var(--line);">
               <span style="width:8px; height:8px; border-radius:50%; background:${item.color}; flex-shrink:0;"></span>
               <strong>${escapeHtml(item.name)}:</strong>
               <span class="num">${currency(item.val)} (${item.pct}%)</span>
-              <button type="button" class="icon-btn small ${item.btnClass}" style="width:22px; height:22px; font-size:.7rem; margin-left:3px;" data-target-name="${escapeHtml(item.name)}" data-tooltip="${quitTip}" aria-label="${quitTip}">
+              ${item.statusBadgeHtml}
+              <button type="button" class="icon-btn small ${item.btnClass}" style="width:22px; height:22px; font-size:.7rem; margin-left:3px; ${item.isFullPaid ? 'background:var(--brand-soft); color:var(--brand);' : ''}" data-target-name="${escapeHtml(item.name)}" data-tooltip="${quitTip}" aria-label="${quitTip}">
                 ${ICONS.check}
               </button>
             </div>
@@ -282,8 +303,8 @@ function renderDynamicDebtorChart(container, mapData, chartType, isDestination =
           stroke-dasharray="${strokeDasharray}"
           stroke-dashoffset="${strokeDashoffset}"
           transform="rotate(-90 ${size / 2} ${size / 2})"
-          style="transition: stroke-dasharray .4s ease, stroke-dashoffset .4s ease;">
-          <title>${escapeHtml(item.name)}: ${currency(item.val)} (${item.pct}%)</title>
+          style="transition: stroke-dasharray .4s ease, stroke-dashoffset .4s ease; ${item.isFullPaid ? 'opacity:0.9;' : ''}">
+          <title>${escapeHtml(item.name)}: ${currency(item.val)} (${item.pct}%) • ${item.statusLabel}</title>
         </circle>
       `;
     }).join('');
@@ -302,18 +323,21 @@ function renderDynamicDebtorChart(container, mapData, chartType, isDestination =
         </div>
         <div style="flex:1; min-width:200px; display:grid; gap:6px; max-height:220px; overflow-y:auto;">
           ${items.map(item => {
-            const quitTip = `Quitar: Marcar todas as cobranças de '${escapeHtml(item.name)}' como PAGAS`;
+            const quitTip = item.isFullPaid
+              ? `Cobranças de '${escapeHtml(item.name)}' já estão quitadas`
+              : `Quitar: Marcar todas as cobranças de '${escapeHtml(item.name)}' como PAGAS`;
             return `
             <div style="display:flex; align-items:center; justify-content:space-between; padding:5px 8px; background:var(--surface-2); border-radius:8px; font-size:.76rem; gap:8px; border:1px solid var(--line);">
               <div style="display:flex; align-items:center; gap:6px; overflow:hidden;">
                 <span style="width:8px; height:8px; border-radius:50%; background:${item.color}; flex-shrink:0;"></span>
                 <span style="color:${item.color}; display:inline-flex;">${item.iconSvg}</span>
                 <span style="font-weight:750; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(item.name)}</span>
+                ${item.statusBadgeHtml}
               </div>
               <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
                 <span class="num" style="font-weight:800;">${currency(item.val)}</span>
                 <span class="badge info" style="font-size:.68rem;">${item.pct}%</span>
-                <button type="button" class="icon-btn small ${item.btnClass}" style="width:24px; height:24px; font-size:.72rem;" data-target-name="${escapeHtml(item.name)}" data-tooltip="${quitTip}" aria-label="${quitTip}">
+                <button type="button" class="icon-btn small ${item.btnClass}" style="width:24px; height:24px; font-size:.72rem; ${item.isFullPaid ? 'background:var(--brand-soft); color:var(--brand);' : ''}" data-target-name="${escapeHtml(item.name)}" data-tooltip="${quitTip}" aria-label="${quitTip}">
                   ${ICONS.check}
                 </button>
               </div>
@@ -327,18 +351,21 @@ function renderDynamicDebtorChart(container, mapData, chartType, isDestination =
     container.innerHTML = `
       <div class="dest-bars" style="display:grid; gap:8px;">
         ${items.map(item => {
-          const quitTip = `Quitar: Marcar todas as cobranças de '${escapeHtml(item.name)}' como PAGAS`;
+          const quitTip = item.isFullPaid
+            ? `Cobranças de '${escapeHtml(item.name)}' já estão quitadas`
+            : `Quitar: Marcar todas as cobranças de '${escapeHtml(item.name)}' como PAGAS`;
           return `
-          <div class="dest-bar-item" style="grid-template-columns: 120px 1fr auto auto; gap: 10px; align-items: center;">
+          <div class="dest-bar-item" style="grid-template-columns: 140px 1fr auto auto; gap: 10px; align-items: center;">
             <div style="display:flex; align-items:center; gap:6px; overflow:hidden;">
               <span style="width:18px; height:18px; border-radius:5px; background:${item.color}22; color:${item.color}; display:grid; place-items:center; flex-shrink:0;">${item.iconSvg}</span>
-              <span class="dest-name" data-tooltip="${escapeHtml(item.name)}" aria-label="${escapeHtml(item.name)}"><strong>${escapeHtml(item.name)}</strong></span>
+              <span class="dest-name" data-tooltip="${escapeHtml(item.name)}: ${item.statusLabel}" aria-label="${escapeHtml(item.name)}"><strong>${escapeHtml(item.name)}</strong></span>
+              ${item.statusBadgeHtml}
             </div>
             <div class="dest-track" style="height:10px; background:var(--surface-2); border-radius:999px; overflow:hidden;">
-              <div class="dest-fill" style="width:${item.pct}%; background:${item.color}; border-radius:999px; height:100%; transition:width .3s ease;"></div>
+              <div class="dest-fill" style="width:${item.pct}%; background:${item.color}; border-radius:999px; height:100%; transition:width .3s ease; ${item.isFullPaid ? 'opacity:0.9;' : ''}"></div>
             </div>
             <span class="dest-val num" style="font-size:.8rem;"><strong>${currency(item.val)}</strong> <small style="color:var(--muted)">(${item.pct}%)</small></span>
-            <button type="button" class="icon-btn small ${item.btnClass}" style="width:24px; height:24px; font-size:.75rem;" data-target-name="${escapeHtml(item.name)}" data-tooltip="${quitTip}" aria-label="${quitTip}">
+            <button type="button" class="icon-btn small ${item.btnClass}" style="width:24px; height:24px; font-size:.75rem; ${item.isFullPaid ? 'background:var(--brand-soft); color:var(--brand);' : ''}" data-target-name="${escapeHtml(item.name)}" data-tooltip="${quitTip}" aria-label="${quitTip}">
               ${ICONS.check}
             </button>
           </div>
@@ -410,20 +437,41 @@ function renderDebtorCharts() {
 
   if (!isPersonCollapsed) {
     const personMap = {};
+    const personStatusMap = {};
     rawDebtors.forEach(d => {
       personMap[d.debtorName] = (personMap[d.debtorName] || 0) + Number(d.amount);
+      if (!personStatusMap[d.debtorName]) {
+        personStatusMap[d.debtorName] = { total: 0, paid: 0, count: 0, paidCount: 0 };
+      }
+      personStatusMap[d.debtorName].total += Number(d.amount);
+      personStatusMap[d.debtorName].count += 1;
+      if (d.status === 'pago') {
+        personStatusMap[d.debtorName].paid += Number(d.amount);
+        personStatusMap[d.debtorName].paidCount += 1;
+      }
     });
     const personContainer = $('#debtorPersonChartContent') || $('#debtorPersonBars');
-    renderDynamicDebtorChart(personContainer, personMap, personType, false, '#debtorPersonTotal');
+    renderDynamicDebtorChart(personContainer, personMap, personType, false, '#debtorPersonTotal', personStatusMap);
   }
 
   if (!isDestCollapsed) {
     const destMap = {};
+    const destStatusMap = {};
     rawDebtors.forEach(d => {
-      destMap[d.destination || 'Gerais'] = (destMap[d.destination || 'Gerais'] || 0) + Number(d.amount);
+      const dest = d.destination || 'Gerais';
+      destMap[dest] = (destMap[dest] || 0) + Number(d.amount);
+      if (!destStatusMap[dest]) {
+        destStatusMap[dest] = { total: 0, paid: 0, count: 0, paidCount: 0 };
+      }
+      destStatusMap[dest].total += Number(d.amount);
+      destStatusMap[dest].count += 1;
+      if (d.status === 'pago') {
+        destStatusMap[dest].paid += Number(d.amount);
+        destStatusMap[dest].paidCount += 1;
+      }
     });
     const destContainer = $('#debtorDestChartContent') || $('#debtorDestBars');
-    renderDynamicDebtorChart(destContainer, destMap, destType, true, '#debtorDestTotal');
+    renderDynamicDebtorChart(destContainer, destMap, destType, true, '#debtorDestTotal', destStatusMap);
   }
 };
 

@@ -237,7 +237,157 @@
         ? state.benefitsConfig.amount
         : (Number(state.benefitsConfig?.va || 0) + Number(state.benefitsConfig?.vr || 0));
     }
+
+    renderMobileNavPreferences();
   }
+
+  function renderMobileNavPreferences() {
+    const container = $('#mobileNavFavoritesPicker');
+    if (!container) return;
+
+    const state = getState();
+    if (!state) return;
+
+    state.preferences = state.preferences || {};
+    const rawFavs = (Array.isArray(state.preferences.mobileNavigation) && state.preferences.mobileNavigation.length > 0)
+      ? state.preferences.mobileNavigation
+      : ['tab-dashboard', 'tab-expenses', 'tab-debtors'];
+
+    const normalize = (typeof window.normalizeTabId === 'function')
+      ? window.normalizeTabId
+      : (t) => (t && t.startsWith('tab-') ? t : 'tab-' + t);
+
+    const currentFavs = rawFavs.map(normalize);
+    const modules = window.MOBILE_MODULE_CONFIG || [
+      { tabId: 'tab-dashboard', key: 'dashboard', label: 'Dashboard' },
+      { tabId: 'tab-expenses', key: 'despesas', label: 'Despesas' },
+      { tabId: 'tab-debtors', key: 'devedores', label: 'Devedores' },
+      { tabId: 'tab-extras', key: 'extras', label: 'Extras' },
+      { tabId: 'tab-investments', key: 'investimentos', label: 'Investir' },
+      { tabId: 'tab-benefits', key: 'beneficios', label: 'Benefícios' },
+      { tabId: 'tab-shopping', key: 'compras', label: 'Compras' },
+      { tabId: 'tab-simulation', key: 'simulacao', label: 'Simulação' }
+    ];
+
+    // Filtra módulos permitidos por RBAC
+    const allowedModules = modules.filter(m => (typeof window.hasTabPermission === 'function' ? window.hasTabPermission(m.tabId) : true));
+
+    // Ordena para exibir selecionados no topo de acordo com a ordem de currentFavs, seguidos pelos não selecionados
+    const sortedModules = [...allowedModules].sort((a, b) => {
+      const idxA = currentFavs.indexOf(a.tabId);
+      const idxB = currentFavs.indexOf(b.tabId);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return 0;
+    });
+
+    container.innerHTML = sortedModules.map((m) => {
+      const isSelected = currentFavs.includes(m.tabId);
+      const favIndex = currentFavs.indexOf(m.tabId);
+      const canMoveUp = isSelected && favIndex > 0;
+      const canMoveDown = isSelected && favIndex < currentFavs.length - 1;
+
+      return `
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:10px; gap:8px;">
+          <label style="display:flex; align-items:center; gap:10px; cursor:pointer; flex:1; margin:0; user-select:none;">
+            <input type="checkbox" class="mobile-nav-fav-check" data-tab-id="${m.tabId}" ${isSelected ? 'checked' : ''} style="width:18px; height:18px; cursor:pointer; accent-color:var(--brand);">
+            <div style="display:flex; align-items:center; gap:8px; font-weight:750; font-size:0.9rem; color:var(--text);">
+              ${m.iconSvg || ''}
+              <span>${m.label}</span>
+            </div>
+          </label>
+          ${isSelected ? `
+            <div style="display:flex; align-items:center; gap:4px;">
+              <span class="badge info" style="font-size:0.7rem; padding:2px 6px;">Posição #${favIndex + 1}</span>
+              <button type="button" class="icon-btn small move-fav-up-btn" data-tab-id="${m.tabId}" ${!canMoveUp ? 'disabled style="opacity:0.35;"' : ''} data-tooltip="Mover para cima" aria-label="Mover para cima">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px;"><polyline points="18 15 12 9 6 15"></polyline></svg>
+              </button>
+              <button type="button" class="icon-btn small move-fav-down-btn" data-tab-id="${m.tabId}" ${!canMoveDown ? 'disabled style="opacity:0.35;"' : ''} data-tooltip="Mover para baixo" aria-label="Mover para baixo">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+
+    const warningEl = $('#mobileNavFavoritesWarning');
+
+    // Listeners de checkboxes
+    container.querySelectorAll('.mobile-nav-fav-check').forEach(chk => {
+      chk.addEventListener('change', (e) => {
+        const tabId = chk.getAttribute('data-tab-id');
+        let favs = [...currentFavs];
+        if (chk.checked) {
+          if (favs.length >= 3) {
+            e.preventDefault();
+            chk.checked = false;
+            if (warningEl) {
+              warningEl.style.display = 'flex';
+            }
+            if (typeof notify === 'function') {
+              notify('Você pode escolher até 3 atalhos.', 'warning');
+            }
+            return;
+          }
+          if (!favs.includes(tabId)) {
+            favs.push(tabId);
+          }
+        } else {
+          favs = favs.filter(t => t !== tabId);
+          if (warningEl) warningEl.style.display = 'none';
+        }
+
+        state.preferences.mobileNavigation = favs;
+        saveState();
+        if (typeof window.renderMobileBottomNav === 'function') {
+          window.renderMobileBottomNav();
+        }
+        renderMobileNavPreferences();
+      });
+    });
+
+    // Listeners de Reordenação
+    container.querySelectorAll('.move-fav-up-btn:not([disabled])').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tabId = btn.getAttribute('data-tab-id');
+        const idx = currentFavs.indexOf(tabId);
+        if (idx > 0) {
+          const favs = [...currentFavs];
+          const temp = favs[idx - 1];
+          favs[idx - 1] = favs[idx];
+          favs[idx] = temp;
+          state.preferences.mobileNavigation = favs;
+          saveState();
+          if (typeof window.renderMobileBottomNav === 'function') {
+            window.renderMobileBottomNav();
+          }
+          renderMobileNavPreferences();
+        }
+      });
+    });
+
+    container.querySelectorAll('.move-fav-down-btn:not([disabled])').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tabId = btn.getAttribute('data-tab-id');
+        const idx = currentFavs.indexOf(tabId);
+        if (idx !== -1 && idx < currentFavs.length - 1) {
+          const favs = [...currentFavs];
+          const temp = favs[idx + 1];
+          favs[idx + 1] = favs[idx];
+          favs[idx] = temp;
+          state.preferences.mobileNavigation = favs;
+          saveState();
+          if (typeof window.renderMobileBottomNav === 'function') {
+            window.renderMobileBottomNav();
+          }
+          renderMobileNavPreferences();
+        }
+      });
+    });
+  }
+  window.renderMobileNavPreferences = renderMobileNavPreferences;
 
   function initProfileForm() {
     renderProfile();

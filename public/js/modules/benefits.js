@@ -373,6 +373,7 @@ function renderBenefitsTab() {
   }
 
   // Bridges publicas autorizadas
+  window.openBenefitDialog = openBenefitDialog;
   window.renderBenefitsTab = renderBenefitsTab;
   window.updateBenefitCharts = updateBenefitCharts;
   window.monthBenefitsTotals = monthBenefitsTotals;
