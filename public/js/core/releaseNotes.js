@@ -9,10 +9,38 @@
   // Catálogo Central Estático de Releases do OmniFin
   const RELEASES_CATALOG = [
     {
-      version: "3.6.0",
+      version: "3.7.0",
       date: "01/09/2026",
       tag: "Mais Recente",
       isLatest: true,
+      title: "v3.7 — Lançamentos mais rápidos e flexíveis",
+      summary: "Esta atualização deixa o dia a dia no OmniFin mais rápido, organizado e preciso, principalmente na hora de cadastrar lançamentos e acompanhar pagamentos e recebimentos.",
+      news: [
+        "Cadastro rápido de despesas: agora é possível registrar uma despesa de forma simplificada, utilizando apenas as informações essenciais. O cadastro completo continua disponível quando forem necessários mais detalhes.",
+        "Pagamentos parciais: despesas podem ser pagas parcialmente, e o OmniFin passa a acompanhar o valor já pago e o saldo restante até a quitação.",
+        "Recebimentos parciais: valores de Devedores e Rendas Extras podem ser recebidos parcialmente, com acompanhamento de quanto já foi recebido e quanto ainda está pendente. No caso de cobranças parceladas de devedores, cada parcela mantém seu próprio acompanhamento.",
+        "Cadastros rápidos e globais: novos atalhos na interface permitem iniciar lançamentos de Despesas, Devedores, Rendas Extras e Benefícios de forma mais prática e a partir de qualquer tela.",
+        "Organização alfabética: categorias e destinos agora são apresentados em ordem alfabética nos campos de seleção, facilitando a localização."
+      ],
+      improvements: [
+        "Indicadores financeiros: totais pagos, recebidos e pendentes passam a representar corretamente pagamentos e recebimentos parciais.",
+        "Dashboard atualizado: indicadores e informações financeiras são atualizados após novos lançamentos e movimentações, mantendo a visão consolidada sincronizada.",
+        "Parcelas de devedores: o acompanhamento das cobranças parceladas foi aprimorado para que pagamentos e recebimentos sejam associados corretamente às respectivas parcelas.",
+        "Experiência de cadastro: fluxos de lançamento foram aprimorados para reduzir etapas em operações simples sem remover as opções avançadas do cadastro completo.",
+        "Experiência mobile: os novos atalhos e fluxos de cadastro foram adaptados para facilitar lançamentos pelo celular.",
+        "Navegação e interface: pequenos refinamentos de navegação e apresentação para melhorar a leitura e o uso dos atalhos do sistema.",
+        "Compatibilidade total: os novos controles de pagamentos e recebimentos mantêm compatibilidade com lançamentos cadastrados anteriormente."
+      ],
+      fixes: [
+        "Ajustes no cálculo e exibição de saldos restantes ao registrar pagamentos e recebimentos parciais.",
+        "Refinamentos no alinhamento visual de dicas e atalhos na barra lateral e painéis de controle."
+      ]
+    },
+    {
+      version: "3.6.0",
+      date: "01/09/2026",
+      tag: "",
+      isLatest: false,
       title: "Navegação mais prática e OmniFin no seu celular",
       summary: "Navegação mensal direta no Dashboard, novo atalho para o mês atual, paginação de 10 usuários por página na gestão de usuários, experiência otimizada ao adicionar o OmniFin à Tela de Início do celular e aprimoramentos na navegação mobile.",
       news: [

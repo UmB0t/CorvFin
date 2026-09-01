@@ -714,6 +714,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf-8');
     const cssComponents = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'components.css'), 'utf-8');
 
+    assert.ok(relNotesJs.includes('version: "3.7.0"'), 'releaseNotes.js deve conter a release v3.7.0');
     assert.ok(relNotesJs.includes('version: "3.6.0"'), 'releaseNotes.js deve conter a release v3.6.0');
     assert.ok(relNotesJs.includes('version: "3.5.0"'), 'releaseNotes.js deve conter a release v3.5.0');
     assert.ok(relNotesJs.includes('version: "3.4.0"'), 'releaseNotes.js deve conter a release v3.4.0');
@@ -726,6 +727,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.ok(relNotesJs.includes('fixes:'), 'releaseNotes.js deve estruturar correções');
 
     // Validação da ordem das releases
+    const idx37 = relNotesJs.indexOf('version: "3.7.0"');
     const idx36 = relNotesJs.indexOf('version: "3.6.0"');
     const idx35 = relNotesJs.indexOf('version: "3.5.0"');
     const idx34 = relNotesJs.indexOf('version: "3.4.0"');
@@ -733,23 +735,20 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     const idx32 = relNotesJs.indexOf('version: "3.2.0"');
     const idx31 = relNotesJs.indexOf('version: "3.1.0"');
     const idx30 = relNotesJs.indexOf('version: "3.0.0"');
-    assert.ok(idx36 < idx35 && idx35 < idx34 && idx34 < idx33 && idx33 < idx32 && idx32 < idx31 && idx31 < idx30, 'Releases devem estar ordenadas: v3.6 -> v3.5 -> v3.4 -> v3.3 -> v3.2 -> v3.1 -> v3.0');
+    assert.ok(idx37 < idx36 && idx36 < idx35 && idx35 < idx34 && idx34 < idx33 && idx33 < idx32 && idx32 < idx31 && idx31 < idx30, 'Releases devem estar ordenadas: v3.7 -> v3.6 -> v3.5 -> v3.4 -> v3.3 -> v3.2 -> v3.1 -> v3.0');
 
-    // Validação de conteúdo amigável e não técnico na v3.6
-    const v36Snippet = relNotesJs.slice(idx36, idx35);
-    assert.ok(v36Snippet.includes('isLatest: true'), 'v3.6 deve ser marcada com isLatest: true');
-    assert.ok(v36Snippet.includes('Dashboard'), 'v3.6 deve destacar Dashboard');
-    assert.ok(v36Snippet.includes('Mês Atual'), 'v3.6 deve destacar Mês Atual');
-    assert.ok(v36Snippet.includes('paginação'), 'v3.6 deve destacar paginação');
-    assert.ok(v36Snippet.includes('10 usuários'), 'v3.6 deve destacar 10 usuários por página');
-    assert.ok(v36Snippet.includes('Tela de Início'), 'v3.6 deve destacar Tela de Início');
-    assert.ok(v36Snippet.includes('favoritos'), 'v3.6 deve destacar favoritos');
-    assert.ok(v36Snippet.includes('Mais'), 'v3.6 deve destacar menu Mais');
+    // Validação de conteúdo amigável e não técnico na v3.7
+    const v37Snippet = relNotesJs.slice(idx37, idx36);
+    assert.ok(v37Snippet.includes('isLatest: true'), 'v3.7 deve ser marcada com isLatest: true');
+    assert.ok(v37Snippet.includes('Cadastro rápido'), 'v3.7 deve destacar Cadastro rápido');
+    assert.ok(v37Snippet.includes('Pagamentos parciais'), 'v3.7 deve destacar Pagamentos parciais');
+    assert.ok(v37Snippet.includes('Recebimentos parciais'), 'v3.7 deve destacar Recebimentos parciais');
+    assert.ok(v37Snippet.includes('ordem alfabética'), 'v3.7 deve destacar ordem alfabética');
 
-    // Auditoria editorial: ausência de termos técnicos no conteúdo da v3.6
-    const forbiddenTerms = ['Service Worker', 'BASE_PATH', 'start_url', 'scope', 'endpoint', 'payload', 'localStorage', 'JavaScript'];
+    // Auditoria editorial: ausência de termos técnicos no conteúdo da v3.7
+    const forbiddenTerms = ['MongoDB', 'paidHistory', 'PUT', 'CAS', 'RBAC', 'endpoint', 'payload', 'localStorage', 'JavaScript', 'Service Worker', 'BASE_PATH'];
     for (const term of forbiddenTerms) {
-      assert.ok(!v36Snippet.includes(term), `v3.6 não deve conter termo técnico: ${term}`);
+      assert.ok(!v37Snippet.includes(term), `v3.7 não deve conter termo técnico: ${term}`);
     }
 
     // Validação de UI no HTML e CSS
@@ -760,19 +759,19 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.ok(cssComponents.includes('#releaseNotesBtn'), 'components.css deve estilizar o botão de release notes');
     assert.ok(cssComponents.includes('.notification-badge.unread-dot'), 'components.css deve estilizar o ponto indicador de não lido');
 
-    // 2. Estado de leitura inicial do usuário comum para 3.6.0
+    // 2. Estado de leitura inicial do usuário comum para 3.7.0
     const getRes1 = await fetch(`${baseUrl}/api/finances`, {
       headers: { 'Authorization': `Bearer ${testUserToken}` }
     });
     const userDoc1 = await getRes1.json();
     const currentRev = Number(userDoc1.revision || 0);
     const readListInitial = Array.isArray(userDoc1.readReleases) ? userDoc1.readReleases : [];
-    assert.strictEqual(readListInitial.includes('3.6.0'), false, 'Usuário novo/sem leitura não deve ter a release 3.6.0 como lida');
+    assert.strictEqual(readListInitial.includes('3.7.0'), false, 'Usuário novo/sem leitura não deve ter a release 3.7.0 como lida');
 
-    // 3. Usuário abre e marca a release 3.6.0 como lida
+    // 3. Usuário abre e marca a release 3.7.0 como lida
     const updatePayload = Object.assign({}, userDoc1, {
       expectedRevision: currentRev,
-      readReleases: ['3.6.0', '3.5.0']
+      readReleases: ['3.7.0', '3.6.0', '3.5.0']
     });
 
     const putRes = await fetch(`${baseUrl}/api/finances`, {
@@ -785,13 +784,13 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     });
     assert.strictEqual(putRes.status, 200, 'Salvar readReleases deve retornar 200 OK');
 
-    // 4. Refresh / Leitura subsequente confirma que release 3.6.0 permanece lida
+    // 4. Refresh / Leitura subsequente confirma que release 3.7.0 permanece lida
     const getRes2 = await fetch(`${baseUrl}/api/finances`, {
       headers: { 'Authorization': `Bearer ${testUserToken}` }
     });
     const userDoc2 = await getRes2.json();
     assert.ok(Array.isArray(userDoc2.readReleases), 'readReleases deve ser um array');
-    assert.strictEqual(userDoc2.readReleases.includes('3.6.0'), true, 'readReleases deve persistir 3.6.0');
+    assert.strictEqual(userDoc2.readReleases.includes('3.7.0'), true, 'readReleases deve persistir 3.7.0');
 
     // 5. Isolamento: Outro usuário (ex: admin) não foi impactado e tem seu próprio estado independente
     const getAdminRes = await fetch(`${baseUrl}/api/finances`, {
@@ -799,7 +798,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     });
     const adminDoc = await getAdminRes.json();
     const adminReadList = Array.isArray(adminDoc.readReleases) ? adminDoc.readReleases : [];
-    assert.strictEqual(adminReadList.includes('3.6.0'), false, 'Outro usuário deve manter estado de leitura independente');
+    assert.strictEqual(adminReadList.includes('3.7.0'), false, 'Outro usuário deve manter estado de leitura independente');
   });
 
   test('21. Gestão de Despesas e Pagamentos: Métodos À Vista/Parcelado/Fixa, herança de vencimento, nativos Pix e Dinheiro', async () => {
@@ -4763,5 +4762,45 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.strictEqual(activeFix[0].status, 'parcial');
     assert.strictEqual(activeFix[0].paidAmount, 60);
     assert.strictEqual(activeFix[0].remainingAmount, 90);
+  });
+
+  test('43. Hotfix Mobile v3.7: Compactação de Layout, Viewport Meta e Eliminação de Overflow Horizontal', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+
+    const indexHtml = fs.readFileSync(path.join(process.cwd(), 'public', 'index.html'), 'utf-8');
+    const loginHtml = fs.readFileSync(path.join(process.cwd(), 'public', 'login.html'), 'utf-8');
+    const mobileCss = fs.readFileSync(path.join(process.cwd(), 'public', 'css', 'mobile.css'), 'utf-8');
+    const styleCss = fs.readFileSync(path.join(process.cwd(), 'public', 'css', 'style.css'), 'utf-8');
+
+    // 1. Auditoria de Viewport Meta Tags (index.html e login.html)
+    assert.ok(indexHtml.includes('name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"'), 'index.html deve conter viewport-fit=cover sem restrições de zoom');
+    assert.ok(loginHtml.includes('name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"'), 'login.html deve conter viewport-fit=cover sem restrições de zoom');
+
+    const forbiddenViewportAttrs = ['user-scalable=no', 'maximum-scale', 'minimum-scale'];
+    for (const attr of forbiddenViewportAttrs) {
+      assert.ok(!indexHtml.includes(attr), `index.html não deve conter atributo restritivo: ${attr}`);
+      assert.ok(!loginHtml.includes(attr), `login.html não deve conter atributo restritivo: ${attr}`);
+    }
+
+    // 2. Prevenção de 100vw e Overflow em Containers Raiz
+    assert.ok(!styleCss.includes('.app-container {\n  display: flex;\n  width: 100vw;'), 'style.css não deve fixar width: 100vw em .app-container');
+    assert.ok(mobileCss.includes('overflow-x: hidden !important;'), 'mobile.css deve aplicar overflow-x: hidden no html/body');
+    assert.ok(mobileCss.includes('max-width: 100% !important;'), 'mobile.css deve restringir max-width: 100% nos containers principais');
+
+    // 3. Grade de Métricas e Compactação 2 Colunas Mobile
+    assert.ok(mobileCss.includes('grid-template-columns: repeat(2, minmax(0, 1fr)) !important;'), 'mobile.css deve estruturar .metrics em repeat(2, minmax(0, 1fr))');
+    assert.ok(mobileCss.includes('.metric {') && mobileCss.includes('min-width: 0 !important;'), 'mobile.css deve garantir min-width: 0 nos cards de métricas');
+
+    // 4. Subtabs & Segmented Controls
+    assert.ok(mobileCss.includes('#expensesSubTabsWrap') && mobileCss.includes('#debtorsSubTabsWrap'), 'mobile.css deve estruturar subtelas em segmented control');
+    assert.ok(mobileCss.includes('clamp('), 'mobile.css deve utilizar clamp() para tipografia responsiva e compacta');
+
+    // 5. Ribbon Mensal com Scroll Interno Seguro
+    assert.ok(mobileCss.includes('.ribbon {') && mobileCss.includes('overflow-x: auto !important;'), 'mobile.css deve manter scroll horizontal interno no ribbon mensal');
+
+    // 6. Dialogs / Modais e Bottom Nav
+    assert.ok(mobileCss.includes('.bottom-nav-bar {') && mobileCss.includes('env(safe-area-inset-bottom)'), 'mobile.css deve respeitar safe-area-inset-bottom na barra inferior');
+    assert.ok(mobileCss.includes('dialog {') && mobileCss.includes('border-radius: 18px 18px 0 0 !important;'), 'mobile.css deve apresentar dialogs compactos em bottom sheet');
   });
 });
