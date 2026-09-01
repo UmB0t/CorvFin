@@ -190,23 +190,42 @@ function generateSvg() {
 </svg>`;
 }
 
+function generateFaviconSvg() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="favGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#248A68"/>
+      <stop offset="100%" stop-color="#145C44"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="url(#favGrad)"/>
+  <circle cx="16" cy="16" r="10" fill="none" stroke="#FFFFFF" stroke-width="2.6"/>
+  <path d="M16 9.5v13M12.5 12.5c0-1.7 1.6-3 3.5-3s3.5 1.3 3.5 3c0 2-3.5 2.5-3.5 4s1.6 2.5 3.5 2.5" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+}
+
 const iconsDir = path.join(process.cwd(), 'public', 'icons');
 if (!fs.existsSync(iconsDir)) {
   fs.mkdirSync(iconsDir, { recursive: true });
 }
 
-// 1. icon.svg
+// 1. icon.svg & favicon.svg
 fs.writeFileSync(path.join(iconsDir, 'icon.svg'), generateSvg(), 'utf-8');
 console.log('Created icon.svg');
 
-// 2. PNG sizes
+fs.writeFileSync(path.join(iconsDir, 'favicon.svg'), generateFaviconSvg(), 'utf-8');
+console.log('Created favicon.svg');
+
+// 2. PNG sizes (PWA, Apple Touch and Favicon PNGs)
 const sizes = [
   { name: 'icon-192x192.png', size: 192, cornerRatio: 0.22 },
   { name: 'icon-512x512.png', size: 512, cornerRatio: 0.22 },
   { name: 'apple-touch-icon.png', size: 180, cornerRatio: 0.22 },
   { name: 'apple-touch-icon-180x180.png', size: 180, cornerRatio: 0.22 },
   { name: 'apple-touch-icon-152x152.png', size: 152, cornerRatio: 0.22 },
-  { name: 'apple-touch-icon-120x120.png', size: 120, cornerRatio: 0.22 }
+  { name: 'apple-touch-icon-120x120.png', size: 120, cornerRatio: 0.22 },
+  { name: 'favicon-32x32.png', size: 32, cornerRatio: 0.22 },
+  { name: 'favicon-16x16.png', size: 16, cornerRatio: 0.22 }
 ];
 
 for (const s of sizes) {
@@ -215,4 +234,4 @@ for (const s of sizes) {
   console.log(`Created ${s.name} (${s.size}x${s.size})`);
 }
 
-console.log('All PWA and iOS icons generated successfully!');
+console.log('All PWA, iOS and Favicon icons generated successfully!');

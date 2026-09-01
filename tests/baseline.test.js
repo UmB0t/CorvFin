@@ -3689,6 +3689,9 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.ok(fs.existsSync(iconsDir), 'Pasta public/icons deve existir');
 
     const expectedIcons = [
+      'favicon.svg',
+      'favicon-32x32.png',
+      'favicon-16x16.png',
       'icon.svg',
       'icon-192x192.png',
       'icon-512x512.png',
@@ -3705,12 +3708,14 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
       assert.ok(stat.size > 100, `Arquivo ${iconFile} deve ter tamanho válido (> 100 bytes)`);
     }
 
-    // 3. Meta Tags iOS e Apple Touch Icons no index.html e login.html (caminhos relativos e BASE_PATH safe)
+    // 3. Meta Tags iOS, Favicon Dedicado e Apple Touch Icons no index.html e login.html (caminhos relativos e BASE_PATH safe)
     const indexHtml = fs.readFileSync(path.join(process.cwd(), 'public', 'index.html'), 'utf-8');
     const loginHtml = fs.readFileSync(path.join(process.cwd(), 'public', 'login.html'), 'utf-8');
 
     for (const [name, html] of [['index.html', indexHtml], ['login.html', loginHtml]]) {
       assert.ok(html.includes('href="manifest.webmanifest"'), `${name} deve referenciar o webmanifest de forma relativa`);
+      assert.ok(html.includes('rel="icon" type="image/svg+xml" href="icons/favicon.svg"'), `${name} deve referenciar o favicon dedicado`);
+      assert.ok(!html.includes('rel="icon" type="image/svg+xml" href="icons/icon.svg"'), `${name} não deve reutilizar o ícone principal do PWA como favicon`);
       assert.ok(html.includes('rel="apple-touch-icon" href="icons/apple-touch-icon.png"'), `${name} deve referenciar apple-touch-icon relativo`);
       assert.ok(html.includes('name="apple-mobile-web-app-capable" content="yes"'), `${name} deve conter apple-mobile-web-app-capable`);
       assert.ok(html.includes('name="apple-mobile-web-app-status-bar-style"'), `${name} deve conter apple-mobile-web-app-status-bar-style`);
