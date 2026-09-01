@@ -336,7 +336,13 @@
                 </svg>
               </button>
             </div>
-            <button class="btn primary" id="expensesAddBtn" style="height:38px; border-radius:999px;">
+            <button class="btn soft" id="btnQuickExpenseDesktop" data-tooltip="Lançamento à vista rápido em 4 campos">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.2;">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>
+              Despesa Rápida
+            </button>
+            <button class="btn primary" id="expensesAddBtn" data-tooltip="Abrir Wizard Completo de Lançamento" style="height:38px; border-radius:999px;">
               <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
@@ -2704,6 +2710,127 @@
     </form>
   </dialog>
 
+  <!-- MODAL: CADASTRO RÁPIDO DE DESPESA -->
+  <dialog id="quickExpenseDialog" style="max-width: 500px; width: 95%; border-radius: 16px;">
+    <div class="dialog-head">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:36px; height:36px; border-radius:10px; background:var(--brand-soft, rgba(31,122,92,0.12)); color:var(--brand); display:grid; place-items:center; flex-shrink:0;">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); stroke-width:2.2; width:20px; height:20px;">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
+        <div>
+          <h3 id="quickExpenseDialogTitle" style="margin:0; font-size:1.05rem; font-weight:800; color:var(--text);">Cadastro Rápido de Despesa</h3>
+          <p id="quickExpenseSubtitle" style="margin:0; font-size:.78rem; color:var(--muted); font-weight:600;">Lançamento à vista na competência ativa</p>
+        </div>
+      </div>
+      <button type="button" class="icon-btn small" data-close="quickExpenseDialog" aria-label="Fechar">
+        <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="quickExpenseForm" style="display:flex; flex-direction:column; gap:14px; padding:16px 20px;">
+      <div class="field">
+        <label for="quickExpenseName">Descrição do Lançamento *</label>
+        <input type="text" id="quickExpenseName" placeholder="Ex: Mercado, Farmácia, Combustível, Almoço" required>
+      </div>
+
+      <div class="field">
+        <label for="quickExpenseAmount">Valor (R$) *</label>
+        <input type="number" id="quickExpenseAmount" step="0.01" min="0.01" placeholder="0,00" required class="num" style="font-weight:850; font-size:1.1rem;">
+      </div>
+
+      <div class="field-grid">
+        <div class="field">
+          <label for="quickExpenseGroup">Categoria *</label>
+          <select id="quickExpenseGroup" required></select>
+        </div>
+        <div class="field">
+          <label for="quickExpenseDestination">Destino / Pagamento *</label>
+          <select id="quickExpenseDestination" required></select>
+        </div>
+      </div>
+
+      <div id="quickExpenseDestHint" class="hint" style="margin:0; font-size:.78rem; color:var(--brand); font-weight:700;"></div>
+
+      <div class="field">
+        <label for="quickExpenseNote">Observações / Detalhes (Opcional)</label>
+        <textarea id="quickExpenseNote" rows="2" placeholder="Informações adicionais da compra"></textarea>
+      </div>
+
+      <div id="quickExpenseValidationAlert" class="alert-box error" style="display:none; font-size:0.80rem; padding:8px 12px; border-radius:8px; background:rgba(239,68,68,0.12); color:var(--danger, #ef4444); border:1px solid rgba(239,68,68,0.3);"></div>
+
+      <div style="background:var(--surface-2); border:1px dashed var(--line); border-radius:10px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <span style="font-size:0.78rem; color:var(--muted); font-weight:600;">Precisa parcelar ou despesa fixa?</span>
+        <button type="button" id="btnSwitchToFullWizard" class="btn soft small" style="border-radius:999px; font-size:0.75rem; white-space:nowrap;">
+          Abrir Cadastro Completo &rarr;
+        </button>
+      </div>
+
+      <div class="dialog-actions" style="display:flex; justify-content:flex-end; gap:10px; margin-top:4px;">
+        <button type="button" class="btn soft" data-close="quickExpenseDialog" style="border-radius:10px;">Cancelar</button>
+        <button type="submit" class="btn primary" id="btnSubmitQuickExpense" style="border-radius:10px; font-weight:800;">✓ Salvar Despesa</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: PAGAMENTO PARCIAL DE DESPESA -->
+  <dialog id="partialPaymentDialog" style="max-width: 460px; width: 95%; border-radius: 16px;">
+    <div class="dialog-head">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:36px; height:36px; border-radius:10px; background:var(--brand-soft, rgba(31,122,92,0.12)); color:var(--brand); display:grid; place-items:center; flex-shrink:0;">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); stroke-width:2.2; width:20px; height:20px;">
+            <rect x="2" y="4" width="20" height="16" rx="2"/>
+            <line x1="12" y1="11" x2="12" y2="17"/>
+            <line x1="9" y1="14" x2="15" y2="14"/>
+          </svg>
+        </div>
+        <div>
+          <h3 id="partialPayDialogTitle" style="margin:0; font-size:1.05rem; font-weight:800; color:var(--text);">Pagamento de Despesa</h3>
+          <p id="partialPaySubtitle" style="margin:0; font-size:.78rem; color:var(--muted); font-weight:600;"><span id="partialPayItemName" style="color:var(--brand); font-weight:750;"></span></p>
+        </div>
+      </div>
+      <button type="button" class="icon-btn small" data-close="partialPaymentDialog" aria-label="Fechar">
+        <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="partialPayForm" style="display:flex; flex-direction:column; gap:14px; padding:16px 20px;">
+      <div style="background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:12px 14px; display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; text-align:center;">
+        <div>
+          <div style="font-size:0.72rem; color:var(--muted); font-weight:750; text-transform:uppercase;">Valor Total</div>
+          <div id="partialPayTotalVal" class="num" style="font-size:0.92rem; font-weight:850; color:var(--text); margin-top:2px;">R$ 0,00</div>
+        </div>
+        <div style="border-left:1px solid var(--line); border-right:1px solid var(--line);">
+          <div id="partialPayPaidLabel" style="font-size:0.72rem; color:var(--muted); font-weight:750; text-transform:uppercase;">Já Pago</div>
+          <div id="partialPayPaidVal" class="num" style="font-size:0.92rem; font-weight:850; color:var(--success, #10b981); margin-top:2px;">R$ 0,00</div>
+        </div>
+        <div>
+          <div id="partialPayRemainingLabel" style="font-size:0.72rem; color:var(--muted); font-weight:750; text-transform:uppercase;">Restante</div>
+          <div id="partialPayRemainingVal" class="num" style="font-size:0.92rem; font-weight:850; color:var(--warning, #f59e0b); margin-top:2px;">R$ 0,00</div>
+        </div>
+      </div>
+
+      <div class="field" style="display:flex; flex-direction:column; gap:6px;">
+        <label id="partialPayAmountLabel" for="partialPayAmountInput" style="font-size:0.82rem; font-weight:750; color:var(--text);">Valor a pagar agora (R$):</label>
+        <input type="number" id="partialPayAmountInput" step="0.01" min="0.01" placeholder="0,00" required class="num"
+          style="width:100%; padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:1.15rem; font-weight:850;">
+      </div>
+
+      <div id="partialPayAlert" class="alert-box error" style="display:none; font-size:0.80rem; padding:8px 12px; border-radius:8px; background:rgba(239,68,68,0.12); color:var(--danger, #ef4444); border:1px solid rgba(239,68,68,0.3);"></div>
+
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:6px;">
+        <button type="button" class="btn soft" id="btnPayFull" style="justify-content:center; border-radius:10px; font-weight:800; border-color:var(--brand);">
+          ✓ Quitar Total
+        </button>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button type="button" class="btn soft" data-close="partialPaymentDialog" style="border-radius:10px;">Cancelar</button>
+          <button type="submit" class="btn primary" id="btnConfirmPartialPay" style="border-radius:10px; font-weight:800; margin-left:auto;">
+            Confirmar Pagamento
+          </button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
   <!-- DIALOG: EXTRA INCOME FORM -->
   <dialog id="extraDialog">
     <form id="extraForm">
@@ -2780,6 +2907,7 @@
             placeholder="Informações adicionais"></textarea></div>
       </div>
       <div class="dialog-foot">
+        <button type="button" class="btn soft" data-close="extraDialog" style="border-radius:10px;">Cancelar</button>
         <button type="button" class="btn danger small" id="deleteExtraBtn" hidden>Excluir</button>
         <button type="submit" class="btn primary" style="margin-left:auto;">Salvar Renda Extra</button>
       </div>
@@ -2874,6 +3002,7 @@
             placeholder="Detalhes do acordo"></textarea></div>
       </div>
       <div class="dialog-foot">
+        <button type="button" class="btn soft" data-close="debtorDialog" style="border-radius:10px;">Cancelar</button>
         <button type="button" class="btn danger small" id="deleteDebtorBtn" hidden>Excluir</button>
         <button type="submit" class="btn primary" style="margin-left:auto;">Salvar Devedor</button>
       </div>
@@ -2979,6 +3108,7 @@
         </div>
       </div>
       <div class="dialog-foot">
+        <button type="button" class="btn soft" data-close="benefitDialog" style="border-radius:10px;">Cancelar</button>
         <button type="button" class="btn danger small" id="deleteBenefitBtn" hidden>Excluir</button>
         <button type="submit" class="btn primary" style="margin-left:auto;">Salvar Lançamento</button>
       </div>
@@ -3977,16 +4107,29 @@
       </div>
 
       <div class="quick-action-list" id="quickActionList" style="display:flex; flex-direction:column; gap:10px; padding:12px 0 16px 0;">
-        <button type="button" class="quick-action-item btn-quick-expense" id="quickActionNewExpense" data-tab-required="tab-expenses">
+        <button type="button" class="quick-action-item btn-quick-expense" id="quickActionFastExpense" data-tab-required="tab-expenses">
           <div class="quick-action-icon" style="background:var(--brand-soft); color:var(--brand);">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.2;">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+          </div>
+          <div class="quick-action-info">
+            <strong>Despesa Rápida</strong>
+            <small>Lançamento à vista rápido em 4 campos</small>
+          </div>
+          <svg class="svg-icon arrow" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+
+        <button type="button" class="quick-action-item btn-quick-expense" id="quickActionNewExpense" data-tab-required="tab-expenses">
+          <div class="quick-action-icon" style="background:rgba(31,122,92,0.15); color:var(--brand);">
             <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2;">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
           </div>
           <div class="quick-action-info">
-            <strong>Nova Despesa</strong>
-            <small>À vista, parcelada ou fixa com vencimento</small>
+            <strong>Despesa Completa (Wizard)</strong>
+            <small>Parcelada, fixa ou vigência avançada</small>
           </div>
           <svg class="svg-icon arrow" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
         </button>
@@ -4003,6 +4146,20 @@
           <div class="quick-action-info">
             <strong>Novo Devedor</strong>
             <small>Cobranças, empréstimos e parcelas a receber</small>
+          </div>
+          <svg class="svg-icon arrow" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+
+        <button type="button" class="quick-action-item btn-quick-extra" id="quickActionNewExtra" data-tab-required="tab-extras">
+          <div class="quick-action-icon" style="background:rgba(16, 185, 129, 0.15); color:#10b981;">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2;">
+              <line x1="12" y1="1" x2="12" y2="23"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+          </div>
+          <div class="quick-action-info">
+            <strong>Nova Renda Extra</strong>
+            <small>Recebimentos avulsos, freelances e vendas</small>
           </div>
           <svg class="svg-icon arrow" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
         </button>

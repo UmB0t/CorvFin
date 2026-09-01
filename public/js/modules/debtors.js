@@ -28,24 +28,43 @@ function normalizeSearchText(str) {
     }
   }
 
-  function openDebtorDialog(mode, id) {
+  function openDebtorDialog(mode = 'new', id = null) {
+    if (typeof window.hasTabPermission === 'function' && !window.hasTabPermission('tab-debtors')) {
+      if (typeof notify === 'function') notify('Você não tem permissão para acessar o módulo de Devedores.', 'error');
+      return;
+    }
+    if (typeof window.isModuleInMaintenance === 'function' && window.isModuleInMaintenance('tab-debtors')) {
+      if (typeof notify === 'function') notify('O módulo de Devedores está temporariamente em manutenção.', 'warning');
+      return;
+    }
+
     const state = getState();
     const debtorDlg = $('#debtorDialog');
+    if (!debtorDlg) return;
     $('#debtorForm')?.reset();
     debtorDlgId = id || null;
     if ($('#deleteDebtorBtn')) $('#deleteDebtorBtn').hidden = !id;
 
-    const startSel = $('#debtorStartMonth');
-    const endSel = $('#debtorEndMonth');
-    if (startSel) startSel.innerHTML = MONTH_ABBR.map((m, idx) => `<option value="${idx + 1}">${m}</option>`).join('');
-    if (endSel) endSel.innerHTML = MONTH_ABBR.map((m, idx) => `<option value="${idx + 1}">${m}</option>`).join('');
-
-    const destSelect = $('#debtorDestination');
-    if (destSelect) {
-      destSelect.innerHTML = (state.destinations || []).map(d => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
+    if (typeof fillMonthSelects === 'function') {
+      try { fillMonthSelects(); } catch (e) {}
     }
 
-    if (mode === 'new') {
+    const startSel = $('#debtorStartMonth');
+    const endSel = $('#debtorEndMonth');
+    if (startSel && (!startSel.children || startSel.children.length === 0)) {
+      startSel.innerHTML = MONTH_ABBR.map((m, idx) => `<option value="${idx + 1}">${m}</option>`).join('');
+    }
+    if (endSel && (!endSel.children || endSel.children.length === 0)) {
+      endSel.innerHTML = MONTH_ABBR.map((m, idx) => `<option value="${idx + 1}">${m}</option>`).join('');
+    }
+
+    const destSelect = $('#debtorDestination');
+    const sortedDests = (typeof getSortedDestinations === 'function') ? getSortedDestinations(state.destinations) : (state.destinations || []);
+    if (destSelect) {
+      destSelect.innerHTML = sortedDests.map(d => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
+    }
+
+    if (mode === 'new' || !id) {
       if ($('#debtorDialogTitle')) $('#debtorDialogTitle').textContent = 'Cadastrar Devedor';
       if ($('#debtorTitle')) $('#debtorTitle').value = '';
       if ($('#debtorName')) $('#debtorName').value = '';
@@ -54,8 +73,8 @@ function normalizeSearchText(str) {
       if ($('#debtorStartYear')) $('#debtorStartYear').value = state.year || 2026;
       if ($('#debtorEndMonth')) $('#debtorEndMonth').value = state.month || 1;
       if ($('#debtorEndYear')) $('#debtorEndYear').value = state.year || 2026;
-      if (destSelect && state.destinations && state.destinations.length > 0) {
-        destSelect.value = state.destinations[0].name;
+      if (destSelect && sortedDests.length > 0) {
+        destSelect.value = sortedDests[0].name;
       }
       if ($('#debtorStatus')) $('#debtorStatus').value = 'pendente';
       if ($('#debtorCountInTotal')) $('#debtorCountInTotal').checked = true;
@@ -80,7 +99,10 @@ function normalizeSearchText(str) {
       if ($('#debtorDescription')) $('#debtorDescription').value = d.description || '';
       updateDebtorInstallments();
     }
-    if (debtorDlg) debtorDlg.showModal();
+    debtorDlg.showModal();
+    setTimeout(() => {
+      $('#debtorTitle')?.focus();
+    }, 50);
   }
 
 function activeDebtorsForMonth(year, month) {
@@ -91,11 +113,16 @@ function activeDebtorsForMonth(year, month) {
     .map(d => {
       const total = mk(d.endYear, d.endMonth) - mk(d.startYear, d.startMonth) + 1;
       const cur = mk(year, month) - mk(d.startYear, d.startMonth) + 1;
-      const isPaid = d.paidHistory ? d.paidHistory[key] === true : d.status === 'pago';
+      const payInfo = (typeof getExpensePaymentInfo === 'function')
+        ? getExpensePaymentInfo(d, year, month, d.amount)
+        : { totalAmount: Number(d.amount), paidAmount: (d.paidHistory && d.paidHistory[key] === true ? Number(d.amount) : 0), remainingAmount: 0, status: (d.paidHistory && d.paidHistory[key] === true ? 'pago' : 'pendente') };
+
       return Object.assign({}, d, {
         installmentIndex: cur,
         installmentTotal: total,
-        status: isPaid ? 'pago' : 'pendente'
+        status: payInfo.status,
+        paidAmount: payInfo.paidAmount,
+        remainingAmount: payInfo.remainingAmount
       });
     });
 };
@@ -143,15 +170,18 @@ function getDebtorPersonColor(name, index) {
 function markDebtorPersonPaid(debtorName) {
   const state = getState();
   const y = state.year, m = state.month;
-  const key = ymKey(y, m);
   let count = 0;
 
   activeDebtorsForMonth(y, m).forEach(d => {
     if (d.debtorName === debtorName && d.status !== 'pago') {
       const item = (state.debtors || []).find(x => x.id === d.id);
       if (item) {
-        item.paidHistory = item.paidHistory || {};
-        item.paidHistory[key] = true;
+        if (typeof setExpensePayment === 'function') {
+          setExpensePayment(item, y, m, item.amount, item.amount);
+        } else {
+          item.paidHistory = item.paidHistory || {};
+          item.paidHistory[ymKey(y, m)] = { paidAmount: Number(item.amount), updatedAt: new Date().toISOString() };
+        }
         count++;
       }
     }
@@ -169,15 +199,18 @@ function markDebtorPersonPaid(debtorName) {
 function markDebtorDestPaid(destName) {
   const state = getState();
   const y = state.year, m = state.month;
-  const key = ymKey(y, m);
   let count = 0;
 
   activeDebtorsForMonth(y, m).forEach(d => {
     if ((d.destination || 'Gerais') === destName && d.status !== 'pago') {
       const item = (state.debtors || []).find(x => x.id === d.id);
       if (item) {
-        item.paidHistory = item.paidHistory || {};
-        item.paidHistory[key] = true;
+        if (typeof setExpensePayment === 'function') {
+          setExpensePayment(item, y, m, item.amount, item.amount);
+        } else {
+          item.paidHistory = item.paidHistory || {};
+          item.paidHistory[ymKey(y, m)] = { paidAmount: Number(item.amount), updatedAt: new Date().toISOString() };
+        }
         count++;
       }
     }
@@ -222,8 +255,8 @@ function renderDynamicDebtorChart(container, mapData, chartType, isDestination =
     const btnClass = isDestination ? 'pay-debt-dest-btn' : 'pay-debt-person-btn';
 
     const statusInfo = statusMap ? statusMap[name] : null;
-    const isFullPaid = !!(statusInfo && statusInfo.count > 0 && statusInfo.paidCount === statusInfo.count);
-    const isPartialPaid = !!(statusInfo && statusInfo.paidCount > 0 && statusInfo.paidCount < statusInfo.count);
+    const isFullPaid = !!(statusInfo && statusInfo.total > 0 && statusInfo.paid >= statusInfo.total);
+    const isPartialPaid = !!(statusInfo && statusInfo.paid > 0 && statusInfo.paid < statusInfo.total);
 
     let statusBadgeHtml = '';
     let statusLabel = 'Pendente';
@@ -231,8 +264,8 @@ function renderDynamicDebtorChart(container, mapData, chartType, isDestination =
       statusBadgeHtml = `<span class="badge success" style="font-size:0.68rem; padding:2px 6px; font-weight:800; display:inline-flex; align-items:center; gap:3px;">✓ Quitado</span>`;
       statusLabel = 'Quitado';
     } else if (isPartialPaid) {
-      statusBadgeHtml = `<span class="badge warning" style="font-size:0.68rem; padding:2px 6px; font-weight:800; display:inline-flex; align-items:center; gap:3px;">Parcial (${statusInfo.paidCount}/${statusInfo.count})</span>`;
-      statusLabel = `Parcial (${statusInfo.paidCount}/${statusInfo.count})`;
+      statusBadgeHtml = `<span class="badge warning" style="font-size:0.68rem; padding:2px 6px; font-weight:800; display:inline-flex; align-items:center; gap:3px; background:rgba(245,158,11,0.15); color:#f59e0b;">Parcial (${currency(statusInfo.paid)})</span>`;
+      statusLabel = `Parcial (${currency(statusInfo.paid)})`;
     }
 
     return { name, val, color, iconSvg, pct, btnClass, isFullPaid, isPartialPaid, statusBadgeHtml, statusLabel };
@@ -445,8 +478,9 @@ function renderDebtorCharts() {
       }
       personStatusMap[d.debtorName].total += Number(d.amount);
       personStatusMap[d.debtorName].count += 1;
+      const paid = Number(d.paidAmount !== undefined ? d.paidAmount : (d.status === 'pago' ? d.amount : 0));
+      personStatusMap[d.debtorName].paid += paid;
       if (d.status === 'pago') {
-        personStatusMap[d.debtorName].paid += Number(d.amount);
         personStatusMap[d.debtorName].paidCount += 1;
       }
     });
@@ -465,8 +499,9 @@ function renderDebtorCharts() {
       }
       destStatusMap[dest].total += Number(d.amount);
       destStatusMap[dest].count += 1;
+      const paid = Number(d.paidAmount !== undefined ? d.paidAmount : (d.status === 'pago' ? d.amount : 0));
+      destStatusMap[dest].paid += paid;
       if (d.status === 'pago') {
-        destStatusMap[dest].paid += Number(d.amount);
         destStatusMap[dest].paidCount += 1;
       }
     });
@@ -519,11 +554,19 @@ function toggleDebtorStatus(id) {
     grandTotalDebt += totalValue;
 
     if (d.paidHistory) {
-      Object.values(d.paidHistory).forEach(p => { if (p === true) grandPaidDebt += Number(d.amount); });
+      Object.keys(d.paidHistory).forEach(k => {
+        const [kY, kM] = k.split('-').map(Number);
+        const pay = (typeof getExpensePaymentInfo === 'function')
+          ? getExpensePaymentInfo(d, kY, kM, d.amount)
+          : { paidAmount: (d.paidHistory[k] === true ? Number(d.amount) : 0) };
+        grandPaidDebt += Number(pay.paidAmount || 0);
+      });
+    } else if (d.status === 'pago') {
+      grandPaidDebt += totalValue;
     }
   });
 
-  const grandRemainingDebt = grandTotalDebt - grandPaidDebt;
+  const grandRemainingDebt = Math.max(0, grandTotalDebt - grandPaidDebt);
 
   $('#debtorMetrics').innerHTML = `
       <div class="metric">
@@ -574,7 +617,11 @@ function toggleDebtorStatus(id) {
         d.countInTotal ? 'Soma na Renda do Mês' : null,
         d.description || 'Sem obs'
       ].filter(Boolean),
-      amount: d.amount, status: d.status, destination: d.destination,
+      amount: d.amount,
+      status: d.status,
+      paidAmount: d.paidAmount,
+      remainingAmount: d.remainingAmount,
+      destination: d.destination,
       onClickToggleStatus: () => toggleExpenseStatus('debtor', d.id, d.status),
       onClickEdit: () => openDebtorDialog('edit', d.id)
     });
@@ -1011,6 +1058,7 @@ window.renderDebtorsTab = renderDebtorsTab;
   }
 
   // Bridges publicas autorizadas
+  window.openDebtorDialog = openDebtorDialog;
   window.activeDebtorsForMonth = activeDebtorsForMonth;
   window.reorderDebtors = reorderDebtors;
   window.moveDebtorToEnd = moveDebtorToEnd;

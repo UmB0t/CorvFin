@@ -583,11 +583,13 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.ok(css.includes('.global-tooltip') || css.includes('#globalTooltip'), 'components.css deve estilizar .global-tooltip');
     assert.ok(css.includes('position: fixed !important;'), '.global-tooltip deve ter position: fixed');
 
-    // 3. uiShell exporta e inicializa initGlobalTooltips
+    // 3. uiShell exporta e inicializa initGlobalTooltips e calculateTooltipPosition
     assert.ok(uiShell.includes('function initGlobalTooltips()'), 'uiShell.js deve definir initGlobalTooltips');
     assert.ok(uiShell.includes('window.initGlobalTooltips = initGlobalTooltips'), 'uiShell.js deve expor initGlobalTooltips');
+    assert.ok(uiShell.includes('function calculateTooltipPosition('), 'uiShell.js deve definir calculateTooltipPosition');
+    assert.ok(uiShell.includes('window.calculateTooltipPosition = calculateTooltipPosition'), 'uiShell.js deve expor calculateTooltipPosition');
 
-    // 4. Teste unitário da lógica de cálculo de inversão acima/abaixo e clamp horizontal
+    // 4. Teste unitário da lógica de cálculo lateral (sidebar) e inversão acima/abaixo (outras áreas)
     const MARGIN = 8;
     const calculateTooltipPos = (rect, tipRect, windowWidth, windowHeight) => {
       const hasSpaceAbove = (rect.top - tipRect.height - MARGIN) >= MARGIN;
@@ -617,6 +619,46 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     const posC = calculateTooltipPos({ top: 300, bottom: 332, left: 1260, width: 32, height: 32 }, { width: 200, height: 30 }, 1280, 800);
     assert.strictEqual(posC.left, 1280 - 200 - MARGIN, 'Tooltip encostado à direita deve ser clampado dentro da tela');
     assert.ok(posC.left + 200 <= 1280 - MARGIN, 'Tooltip nunca pode vazar borda direita');
+
+    // Caso D: Item da Sidebar Desktop (deve abrir LATERALMENTE para a direita, sem cobrir o item acima)
+    const mockSidebarTarget = {
+      closest: (sel) => sel.includes('.sidebar')
+    };
+    const vm = require('node:vm');
+    const sandbox = {
+      window: {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      document: {
+        readyState: 'complete',
+        getElementById: () => null,
+        querySelector: () => null,
+        querySelectorAll: () => [],
+        createElement: () => ({ setAttribute: () => {}, style: {}, addEventListener: () => {} }),
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        body: { appendChild: () => {} }
+      },
+      $: () => null,
+      $$: () => []
+    };
+    sandbox.window = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(uiShell, sandbox);
+    const calcFn = sandbox.calculateTooltipPosition || sandbox.window.calculateTooltipPosition;
+    assert.strictEqual(typeof calcFn, 'function', 'calculateTooltipPosition deve ser uma função no sandbox');
+
+    const sidebarPos = calcFn(
+      mockSidebarTarget,
+      { top: 180, bottom: 224, left: 10, right: 72, width: 62, height: 44 },
+      { width: 110, height: 26 },
+      1280,
+      800
+    );
+    assert.strictEqual(sidebarPos.position, 'right', 'Tooltip de item da sidebar deve abrir para a direita');
+    assert.strictEqual(sidebarPos.left, 72 + MARGIN, 'Posição left do tooltip deve ser à direita da sidebar');
+    assert.strictEqual(sidebarPos.top, 180 + 22 - 13, 'Posição top deve ser centralizada verticalmente com o item');
+    assert.ok(sidebarPos.top >= 180, 'Tooltip não pode invadir a área do item acima (y < 180)');
   });
 
   test('19. Concorrência: Fila de serialização de saves, visualOnly sem PUT e proteção anti-flood', async () => {
@@ -3959,5 +4001,767 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
 
     dTabs = getDrawerTabs();
     assert.ok(!dTabs.includes('tab-simulation'), 'Módulo em manutenção não deve aparecer em Mais');
+  });
+
+  test('40. Checkpoint 11 — Refinamentos de Lançamentos, Pagamento Parcial, Cadastro Rápido e Modais Globais', async () => {
+    // Carrega scripts no sandbox
+    const fs = require('fs');
+    const constantsJs = fs.readFileSync(path.join(__dirname, '../public/js/core/constants.js'), 'utf8');
+    const utilsJs = fs.readFileSync(path.join(__dirname, '../public/js/core/utils.js'), 'utf8');
+    const stateJs = fs.readFileSync(path.join(__dirname, '../public/js/core/state.js'), 'utf8');
+    const financeQueriesJs = fs.readFileSync(path.join(__dirname, '../public/js/core/financeQueries.js'), 'utf8');
+    const consolidatedDashboardJs = fs.readFileSync(path.join(__dirname, '../public/js/modules/consolidatedDashboard.js'), 'utf8');
+
+    const testState = {
+      year: 2026,
+      month: 9,
+      categories: [
+        { name: 'Transporte', color: '#10B981' },
+        { name: 'Alimentação', color: '#EF4444' },
+        { name: 'Água & Luz', color: '#3B82F6' },
+        { name: 'alimentação gourmet', color: '#F59E0B' },
+        { name: 'Saúde', color: '#EC4899' },
+        { name: 'beleza & estética', color: '#8B5CF6' }
+      ],
+      destinations: [
+        { name: 'Nubank', dueDay: 15 },
+        { name: 'Ágora Invest', dueDay: 10 },
+        { name: 'Bradesco', dueDay: 20 },
+        { name: 'inter', dueDay: 5 },
+        { name: 'Pix' },
+        { name: 'Dinheiro' }
+      ],
+      profile: { name: 'Usuário Teste', baseSalary: 10000 },
+      incomes: {},
+      extras: [],
+      debtors: [],
+      fixed: [],
+      variable: [],
+      benefits: []
+    };
+
+    const sandbox = {
+      window: {},
+      state: testState,
+      getState: () => testState,
+      saveState: () => {},
+      MONTH_ABBR: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+      DEST_SVG_ICONS: { card: '<svg></svg>', pix: '<svg></svg>', money: '<svg></svg>' },
+      CATEGORY_COLORS: ['#1F7A5C', '#3B82F6'],
+      getCategoryName: (c) => typeof c === 'string' ? c : (c?.name || ''),
+      getCategoryColor: (c) => typeof c === 'object' ? (c?.color || '#1F7A5C') : '#1F7A5C',
+      getDestMeta: (name) => {
+        const d = (testState.destinations || []).find(x => x.name === name);
+        return { name, color: '#1F7A5C', icon: 'card', dueDay: d?.dueDay || null };
+      },
+      uid: () => 'uid_' + Math.random().toString(36).slice(2, 9),
+      currency: (v) => `R$ ${Number(v || 0).toFixed(2).replace('.', ',')}`,
+      escapeHtml: (s) => String(s || ''),
+      document: {
+        getElementById: () => null,
+        querySelector: () => null,
+        querySelectorAll: () => []
+      },
+      $: () => null,
+      $$: () => []
+    };
+    sandbox.window = sandbox;
+
+    vm.createContext(sandbox);
+    vm.runInContext(constantsJs, sandbox);
+    vm.runInContext(utilsJs, sandbox);
+    vm.runInContext(stateJs, sandbox);
+    vm.runInContext(financeQueriesJs, sandbox);
+    vm.runInContext(consolidatedDashboardJs, sandbox);
+
+    // =========================================================================
+    // 1. ORDENAÇÃO ALFABÉTICA EM PT-BR (Categorias e Destinos)
+    // =========================================================================
+    const sortedCats = sandbox.getSortedCategories(testState.categories);
+    const sortedCatNames = sortedCats.map(c => sandbox.getCategoryName(c));
+
+    // 'Água & Luz' e 'Alimentação' devem vir no início por ordenação canônica em português
+    assert.strictEqual(sortedCatNames[0], 'Água & Luz', 'Água & Luz deve ser a primeira categoria');
+    assert.strictEqual(sortedCatNames[1], 'Alimentação', 'Alimentação deve ser a segunda categoria');
+    assert.strictEqual(sortedCatNames[2], 'alimentação gourmet', 'alimentação gourmet deve ser a terceira categoria');
+    assert.strictEqual(sortedCatNames[sortedCatNames.length - 1], 'Transporte', 'Transporte deve ser a última categoria');
+
+    // Verifica que a array original NÃO foi mutada
+    assert.strictEqual(testState.categories[0].name, 'Transporte', 'Array original de categorias deve ser preservada');
+
+    const sortedDests = sandbox.getSortedDestinations(testState.destinations);
+    const sortedDestNames = sortedDests.map(d => d.name);
+    assert.strictEqual(sortedDestNames[0], 'Ágora Invest', 'Ágora Invest deve ser o primeiro destino');
+    assert.strictEqual(sortedDestNames[1], 'Bradesco', 'Bradesco deve ser o segundo destino');
+    assert.strictEqual(sortedDestNames[2], 'Dinheiro', 'Dinheiro deve ser o terceiro destino');
+    assert.strictEqual(sortedDestNames[3], 'inter', 'inter deve ser o quarto destino');
+    assert.strictEqual(sortedDestNames[4], 'Nubank', 'Nubank deve ser o quinto destino');
+    assert.strictEqual(sortedDestNames[5], 'Pix', 'Pix deve ser o sexto destino');
+
+    // =========================================================================
+    // 2. HELPER CENTRAL E MOTOR DE PAGAMENTO PARCIAL (Retrocompatibilidade & Escrita Canônica)
+    // =========================================================================
+    const sampleItem = {
+      id: 'fix_1',
+      name: 'Internet Fibra',
+      amount: 200,
+      paidHistory: {
+        '2026-07': true,                       // Booleano legado (100% pago)
+        '2026-08': false,                      // Booleano legado (0% pago / pendente)
+        '2026-09': 80,                         // Número legado (80 pago / 120 restante)
+        '2026-10': { paidAmount: 150 }         // Objeto (150 pago / 50 restante)
+      }
+    };
+
+    // Leitura retrocompatível 2026-07 (true)
+    const payJul = sandbox.getExpensePaymentInfo(sampleItem, 2026, 7, 200);
+    assert.strictEqual(payJul.status, 'pago');
+    assert.strictEqual(payJul.paidAmount, 200);
+    assert.strictEqual(payJul.remainingAmount, 0);
+    assert.strictEqual(payJul.isPaid, true);
+    assert.strictEqual(payJul.isPartial, false);
+
+    // Leitura retrocompatível 2026-08 (false)
+    const payAgo = sandbox.getExpensePaymentInfo(sampleItem, 2026, 8, 200);
+    assert.strictEqual(payAgo.status, 'pendente');
+    assert.strictEqual(payAgo.paidAmount, 0);
+    assert.strictEqual(payAgo.remainingAmount, 200);
+    assert.strictEqual(payAgo.isPending, true);
+
+    // Leitura retrocompatível 2026-09 (número legado 80)
+    const paySet = sandbox.getExpensePaymentInfo(sampleItem, 2026, 9, 200);
+    assert.strictEqual(paySet.status, 'parcial');
+    assert.strictEqual(paySet.paidAmount, 80);
+    assert.strictEqual(paySet.remainingAmount, 120);
+    assert.strictEqual(paySet.isPartial, true);
+
+    // Leitura retrocompatível 2026-10 (objeto { paidAmount: 150 })
+    const payOut = sandbox.getExpensePaymentInfo(sampleItem, 2026, 10, 200);
+    assert.strictEqual(payOut.status, 'parcial');
+    assert.strictEqual(payOut.paidAmount, 150);
+    assert.strictEqual(payOut.remainingAmount, 50);
+
+    // ESCRITA CANÔNICA ÚNICA via setExpensePayment
+    sandbox.setExpensePayment(sampleItem, 2026, 11, 75, 200);
+    assert.deepStrictEqual(typeof sampleItem.paidHistory['2026-11'], 'object', 'Nova escrita deve ser estritamente um objeto');
+    assert.strictEqual(sampleItem.paidHistory['2026-11'].paidAmount, 75, 'paidAmount deve ser 75');
+    assert.ok(sampleItem.paidHistory['2026-11'].updatedAt, 'updatedAt deve ser gravado');
+    assert.strictEqual(sampleItem.paidHistory['2026-11'].status, undefined, 'Status NÃO deve ser persistido se derivável');
+
+    // Clamping: valor negativo é travado em 0
+    sandbox.setExpensePayment(sampleItem, 2026, 11, -30, 200);
+    assert.strictEqual(sampleItem.paidHistory['2026-11'].paidAmount, 0, 'Valor negativo deve ser limitado a 0');
+
+    // Clamping: valor superior ao total é travado no total
+    sandbox.setExpensePayment(sampleItem, 2026, 11, 350, 200);
+    assert.strictEqual(sampleItem.paidHistory['2026-11'].paidAmount, 200, 'Valor excessivo deve ser limitado ao totalAmount');
+    const payNov = sandbox.getExpensePaymentInfo(sampleItem, 2026, 11, 200);
+    assert.strictEqual(payNov.status, 'pago', 'Ao atingir o valor total, status derivado deve ser "pago"');
+
+    // =========================================================================
+    // 3. ISOLAMENTO DE COMPETÊNCIA PARA FIXAS E PARCELADAS
+    // =========================================================================
+    testState.fixed = [
+      {
+        id: 'fix_aluguel',
+        name: 'Aluguel',
+        group: 'Moradia',
+        destination: 'Nubank',
+        versions: [{ year: 2026, month: 1, amount: 1200 }],
+        paidHistory: {}
+      }
+    ];
+    testState.variable = [
+      {
+        id: 'var_curso',
+        name: 'Curso Online',
+        group: 'Educação',
+        destination: 'Nubank',
+        amount: 300,
+        startYear: 2026,
+        startMonth: 8,
+        endYear: 2026,
+        endMonth: 10,
+        installments: 3,
+        paymentType: 'installment',
+        paidHistory: {}
+      }
+    ];
+
+    // Realiza pagamento parcial no aluguel em Setembro/2026 (R$ 500 de R$ 1200)
+    sandbox.setExpensePayment(testState.fixed[0], 2026, 9, 500, 1200);
+
+    // Consulta Setembro/2026
+    const setFixed = sandbox.activeFixedForMonth(2026, 9);
+    assert.strictEqual(setFixed.length, 1);
+    assert.strictEqual(setFixed[0].status, 'parcial');
+    assert.strictEqual(setFixed[0].paidAmount, 500);
+    assert.strictEqual(setFixed[0].remainingAmount, 700);
+
+    // Consulta Outubro/2026 (deve estar 100% pendente e isolado)
+    const outFixed = sandbox.activeFixedForMonth(2026, 10);
+    assert.strictEqual(outFixed.length, 1);
+    assert.strictEqual(outFixed[0].status, 'pendente');
+    assert.strictEqual(outFixed[0].paidAmount, 0);
+    assert.strictEqual(outFixed[0].remainingAmount, 1200);
+
+    // Realiza pagamento parcial na parcela 2 (Setembro/2026) do Curso (R$ 100 de R$ 300)
+    sandbox.setExpensePayment(testState.variable[0], 2026, 9, 100, 300);
+
+    const setVar = sandbox.activeVariableForMonth(2026, 9);
+    assert.strictEqual(setVar.length, 1);
+    assert.strictEqual(setVar[0].status, 'parcial');
+    assert.strictEqual(setVar[0].paidAmount, 100);
+    assert.strictEqual(setVar[0].remainingAmount, 200);
+
+    // Parcela 3 em Outubro/2026 continua pendente
+    const outVar = sandbox.activeVariableForMonth(2026, 10);
+    assert.strictEqual(outVar.length, 1);
+    assert.strictEqual(outVar[0].status, 'pendente');
+    assert.strictEqual(outVar[0].paidAmount, 0);
+    assert.strictEqual(outVar[0].remainingAmount, 300);
+
+    // =========================================================================
+    // 4. MÉTRICAS FINANCEIRAS DE MONTH TOTALS COM PARCIAIS
+    // =========================================================================
+    // Em 2026-09:
+    // Renda = 10.000
+    // Despesas Totais = 1200 (Aluguel) + 300 (Curso) = 1500
+    // Pago = 500 (Aluguel) + 100 (Curso) = 600
+    // Pendente = 700 (Aluguel) + 200 (Curso) = 900
+    // Balanço = 10000 - 1500 = 8500
+    const totalsSet = sandbox.monthTotals(2026, 9);
+    assert.strictEqual(totalsSet.totalExpenses, 1500, 'Total de despesas deve ser 1500');
+    assert.strictEqual(totalsSet.paidExpenses, 600, 'Total pago deve ser exatamente 600');
+    assert.strictEqual(totalsSet.pendingExpenses, 900, 'Total pendente deve ser exatamente 900');
+    assert.strictEqual(totalsSet.balance, 8500, 'Balanço deve ser 8500');
+
+    // =========================================================================
+    // 5. DASHBOARD CONSOLIDADO COM PARCIAIS E FILTRO DE STATUS
+    // =========================================================================
+    const dataset = sandbox.buildConsolidatedDataset({ year: 2026, month: 9 });
+    assert.strictEqual(dataset.length, 2, 'Dataset deve conter 2 despesas');
+    assert.strictEqual(dataset[0].paidAmount, 500);
+    assert.strictEqual(dataset[0].remainingAmount, 700);
+    assert.strictEqual(dataset[1].paidAmount, 100);
+    assert.strictEqual(dataset[1].remainingAmount, 200);
+
+    // Agregações por Categoria no consolidado
+    const byCat = sandbox.aggregateByCategory(dataset);
+    const moradiaCat = byCat.find(c => c.name === 'Moradia');
+    assert.ok(moradiaCat, 'Categoria Moradia deve existir no dataset consolidado');
+    assert.strictEqual(moradiaCat.total, 1200);
+    assert.strictEqual(moradiaCat.paidTotal, 500);
+    assert.strictEqual(moradiaCat.pendingTotal, 700);
+
+    // Agregações por Destino no consolidado
+    const byDest = sandbox.aggregateByDestination(dataset);
+    const nubankDest = byDest.find(d => d.name === 'Nubank');
+    assert.ok(nubankDest, 'Destino Nubank deve existir no dataset consolidado');
+    assert.strictEqual(nubankDest.total, 1500);
+    assert.strictEqual(nubankDest.paidTotal, 600);
+    assert.strictEqual(nubankDest.pendingTotal, 900);
+
+    // =========================================================================
+    // 6. CADASTRO RÁPIDO: Destino Pix/Dinheiro vs Destino com Vencimento
+    // =========================================================================
+    // Criação de despesa via Cadastro Rápido com Pix:
+    const quickPix = {
+      id: sandbox.uid(),
+      name: 'Almoço Restaurante',
+      amount: 65,
+      group: 'Alimentação',
+      destination: 'Pix',
+      dueDay: null,
+      note: 'Almoço de trabalho',
+      startMonth: 9,
+      startYear: 2026,
+      endMonth: 9,
+      endYear: 2026,
+      installments: 1,
+      paymentType: 'cash',
+      status: 'pago',
+      paidHistory: {}
+    };
+    sandbox.setExpensePayment(quickPix, 2026, 9, 65, 65);
+    testState.variable.push(quickPix);
+
+    const checkPix = sandbox.getExpensePaymentInfo(quickPix, 2026, 9, 65);
+    assert.strictEqual(checkPix.status, 'pago', 'Despesa rápida Pix deve estar quitada');
+    assert.strictEqual(checkPix.paidAmount, 65);
+    assert.strictEqual(checkPix.remainingAmount, 0);
+
+    // Criação de despesa via Cadastro Rápido com Nubank (herda dueDay: 15):
+    const quickNubank = {
+      id: sandbox.uid(),
+      name: 'Farmácia Medicamentos',
+      amount: 120,
+      group: 'Saúde',
+      destination: 'Nubank',
+      dueDay: 15,
+      note: '',
+      startMonth: 9,
+      startYear: 2026,
+      endMonth: 9,
+      endYear: 2026,
+      installments: 1,
+      paymentType: 'cash',
+      status: 'pendente',
+      paidHistory: {}
+    };
+    testState.variable.push(quickNubank);
+
+    const checkNubank = sandbox.getExpensePaymentInfo(quickNubank, 2026, 9, 120);
+    assert.strictEqual(checkNubank.status, 'pendente', 'Despesa rápida com vencimento inicia pendente');
+    assert.strictEqual(checkNubank.paidAmount, 0);
+    assert.strictEqual(checkNubank.remainingAmount, 120);
+    assert.strictEqual(quickNubank.dueDay, 15, 'dueDay 15 deve ser herdado do destino');
+  });
+
+  test('41. Checkpoint 11 Complemento: Modais Globais de Devedores, Rendas Extras e Benefícios com RBAC e Atualização Reativa', async () => {
+    const fs = require('fs');
+    const path = require('path');
+    const vm = require('vm');
+
+    // 1. Asserções estáticas do index.html
+    const indexHtml = fs.readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+    assert.ok(indexHtml.includes('id="quickActionFastExpense"'), 'Deve conter Despesa Rápida no quick action');
+    assert.ok(indexHtml.includes('id="quickActionNewExpense"'), 'Deve conter Despesa Completa no quick action');
+    assert.ok(indexHtml.includes('id="quickActionNewDebtor"'), 'Deve conter Novo Devedor no quick action');
+    assert.ok(indexHtml.includes('id="quickActionNewExtra"'), 'Deve conter Nova Renda Extra no quick action');
+    assert.ok(indexHtml.includes('id="quickActionNewBenefit"'), 'Deve conter Novo Benefício no quick action');
+
+    assert.ok(indexHtml.includes('data-close="extraDialog"'), 'extraDialog deve conter botão Cancelar com data-close');
+    assert.ok(indexHtml.includes('data-close="debtorDialog"'), 'debtorDialog deve conter botão Cancelar com data-close');
+    assert.ok(indexHtml.includes('data-close="benefitDialog"'), 'benefitDialog deve conter botão Cancelar com data-close');
+
+    // 2. Asserções funcionais no Sandbox VM
+    const constantsJs = fs.readFileSync(path.join(__dirname, '../public/js/core/constants.js'), 'utf8');
+    const utilsJs = fs.readFileSync(path.join(__dirname, '../public/js/core/utils.js'), 'utf8');
+    const stateJs = fs.readFileSync(path.join(__dirname, '../public/js/core/state.js'), 'utf8');
+    const financeQueriesJs = fs.readFileSync(path.join(__dirname, '../public/js/core/financeQueries.js'), 'utf8');
+    const consolidatedDashboardJs = fs.readFileSync(path.join(__dirname, '../public/js/modules/consolidatedDashboard.js'), 'utf8');
+    const debtorsJs = fs.readFileSync(path.join(__dirname, '../public/js/modules/debtors.js'), 'utf8');
+    const extrasJs = fs.readFileSync(path.join(__dirname, '../public/js/modules/extras.js'), 'utf8');
+    const benefitsJs = fs.readFileSync(path.join(__dirname, '../public/js/modules/benefits.js'), 'utf8');
+    const uiShellJs = fs.readFileSync(path.join(__dirname, '../public/js/core/uiShell.js'), 'utf8');
+
+    const testState = {
+      year: 2026,
+      month: 9,
+      categories: [
+        { name: 'Alimentação', color: '#EF4444' },
+        { name: 'Moradia', color: '#10B981' }
+      ],
+      destinations: [
+        { name: 'Nubank', dueDay: 15 },
+        { name: 'Pix' }
+      ],
+      profile: { name: 'Usuário Teste', baseSalary: 10000 },
+      incomes: {},
+      extras: [],
+      debtors: [],
+      fixed: [],
+      variable: [],
+      benefitTransactions: [],
+      benefitsConfig: { amount: 1200, va: 600, vr: 600 }
+    };
+
+    let notifications = [];
+    const sandbox = {
+      window: {},
+      state: testState,
+      getState: () => testState,
+      saveState: () => {},
+      render: () => {},
+      notify: (msg, type) => { notifications.push({ msg, type }); },
+      MONTH_ABBR: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+      MONTH_NAMES: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
+      BENEFIT_TYPES_MAP: {
+        va: { label: 'Vale Alimentação (VA)', short: 'VA', color: '#10B981', bg: 'rgba(16,185,129,0.15)' },
+        vr: { label: 'Vale Refeição (VR)', short: 'VR', color: '#F59E0B', bg: 'rgba(245,158,11,0.15)' }
+      },
+      CATEGORY_COLORS: ['#1F7A5C', '#3B82F6'],
+      DEBTOR_COLORS_PALETTE: ['#10B981', '#3B82F6'],
+      getCategoryName: (c) => typeof c === 'string' ? c : (c?.name || ''),
+      getCategoryColor: (c) => typeof c === 'object' ? (c?.color || '#1F7A5C') : '#1F7A5C',
+      getDestMeta: (name) => ({ name, color: '#1F7A5C', icon: 'card', dueDay: 15 }),
+      uid: () => 'uid_' + Math.random().toString(36).slice(2, 9),
+      currency: (v) => `R$ ${Number(v || 0).toFixed(2).replace('.', ',')}`,
+      escapeHtml: (s) => String(s || ''),
+      hasTabPermission: (tabId) => true,
+      isModuleInMaintenance: (tabId) => false,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      document: {
+        getElementById: () => null,
+        querySelector: () => null,
+        querySelectorAll: () => [],
+        createElement: () => ({ setAttribute: () => {}, style: {}, addEventListener: () => {} }),
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        body: { appendChild: () => {} }
+      },
+      $: () => null,
+      $$: () => []
+    };
+    sandbox.window = sandbox;
+
+    vm.createContext(sandbox);
+    vm.runInContext(constantsJs, sandbox);
+    vm.runInContext(utilsJs, sandbox);
+    vm.runInContext(stateJs, sandbox);
+    vm.runInContext(financeQueriesJs, sandbox);
+    vm.runInContext(consolidatedDashboardJs, sandbox);
+    vm.runInContext(debtorsJs, sandbox);
+    vm.runInContext(extrasJs, sandbox);
+    vm.runInContext(benefitsJs, sandbox);
+    vm.runInContext(uiShellJs, sandbox);
+
+    // 3. Validação de Bloqueio por RBAC e Manutenção
+    sandbox.hasTabPermission = (tabId) => tabId !== 'tab-extras';
+    notifications = [];
+    sandbox.openExtraDialog('new');
+    assert.strictEqual(notifications.length, 1);
+    assert.strictEqual(notifications[0].type, 'error');
+    assert.ok(notifications[0].msg.includes('permissão'), 'RBAC deve bloquear abertura sem permissão');
+
+    sandbox.hasTabPermission = (tabId) => true;
+    sandbox.isModuleInMaintenance = (tabId) => tabId === 'tab-debtors';
+    notifications = [];
+    sandbox.openDebtorDialog('new');
+    assert.strictEqual(notifications.length, 1);
+    assert.strictEqual(notifications[0].type, 'warning');
+    assert.ok(notifications[0].msg.includes('manutenção'), 'Manutenção deve bloquear abertura sem bypass');
+
+    sandbox.isModuleInMaintenance = (tabId) => false;
+
+    // 4. Criação de Devedor Global com countInTotal e atualização do Dashboard Consolidado
+    const newDebtor = {
+      id: sandbox.uid(),
+      title: 'Empréstimo Curso',
+      debtorName: 'Marcos Oliveira',
+      name: 'Marcos Oliveira',
+      amount: 400,
+      destination: 'Nubank',
+      startMonth: 9,
+      startYear: 2026,
+      endMonth: 12,
+      endYear: 2026,
+      status: 'pendente',
+      installments: 4,
+      countInTotal: true,
+      includeInSimulation: true,
+      description: 'Parcela 1 de 4',
+      paidHistory: {}
+    };
+    testState.debtors.push(newDebtor);
+
+    const datasetWithDebtor = sandbox.buildConsolidatedDataset({ year: 2026, month: 9 });
+    const debItem = datasetWithDebtor.find(x => x.isDebtor === true);
+    assert.ok(debItem, 'Devedor cadastrado deve refletir no dataset consolidado');
+    assert.strictEqual(debItem.amount, 400);
+    assert.strictEqual(debItem.category, 'Devedores');
+    assert.strictEqual(debItem.status, 'pendente');
+
+    const totalsWithDebtor = sandbox.monthTotals(2026, 9);
+    assert.strictEqual(totalsWithDebtor.sumDebtorCounted, 400);
+    assert.strictEqual(totalsWithDebtor.totalIncome, 10400, 'Renda total deve somar 10000 + 400 = 10400');
+
+    // 5. Criação de Renda Extra Global e impacto na Renda Mensal
+    const newExtra = {
+      id: sandbox.uid(),
+      title: 'Consultoria Web',
+      source: 'Freelance',
+      amount: 1500,
+      sender: 'Empresa Alpha',
+      startMonth: 9,
+      startYear: 2026,
+      endMonth: 9,
+      endYear: 2026,
+      status: 'pago',
+      description: 'Serviço prestado',
+      installments: 1,
+      includeInSimulation: true,
+      paidHistory: { '2026-9': true }
+    };
+    testState.extras.push(newExtra);
+
+    const totalsWithExtra = sandbox.monthTotals(2026, 9);
+    assert.strictEqual(totalsWithExtra.sumExt, 1500);
+    assert.strictEqual(totalsWithExtra.totalIncome, 11900, 'Renda total deve somar 10000 + 400 + 1500 = 11900');
+
+    // 6. Criação de Benefício Global e Isolamento Semântico
+    const newBenefitTx = {
+      id: sandbox.uid(),
+      description: 'Supermercado Mensal',
+      type: 'va',
+      amount: 320,
+      day: 10,
+      month: 9,
+      year: 2026,
+      note: 'Compras do mês'
+    };
+    testState.benefitTransactions.push(newBenefitTx);
+
+    const benefitTotals = sandbox.monthBenefitsTotals(2026, 9);
+    assert.strictEqual(benefitTotals.spentTotal, 320);
+    assert.strictEqual(benefitTotals.remTotal, 880);
+
+    // Garante que benefício não infla salário base nem contamina rendas comuns
+    const totalsFinal = sandbox.monthTotals(2026, 9);
+    assert.strictEqual(totalsFinal.baseSalary, 10000);
+    assert.strictEqual(totalsFinal.totalIncome, 11900);
+  });
+
+  test('42. Checkpoint 11.1 — Pagamento/Recebimento Parcial para Devedores e Rendas Extras (Controle por Parcela, Acúmulo, Validações, Retrocompatibilidade e Métricas)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const vm = await import('vm');
+
+    const financeQueriesJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'financeQueries.js'), 'utf-8');
+    const expensesJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'modules', 'expenses.js'), 'utf-8');
+    const debtorsJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'modules', 'debtors.js'), 'utf-8');
+    const extrasJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'modules', 'extras.js'), 'utf-8');
+    const dashboardJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'modules', 'consolidatedDashboard.js'), 'utf-8');
+
+    // 1. Validações estáticas de código
+    assert.ok(financeQueriesJs.includes('window.getDebtorPaymentInfo'), 'financeQueries.js deve expor getDebtorPaymentInfo');
+    assert.ok(financeQueriesJs.includes('window.getExtraPaymentInfo'), 'financeQueries.js deve expor getExtraPaymentInfo');
+    assert.ok(expensesJs.includes('type === \'debtor\''), 'expenses.js deve suportar tipo debtor em openPartialPaymentDialog e toggle');
+    assert.ok(expensesJs.includes('type === \'extra\''), 'expenses.js deve suportar tipo extra em openPartialPaymentDialog e toggle');
+    assert.ok(debtorsJs.includes('getExpensePaymentInfo'), 'debtors.js deve utilizar motor de cálculo getExpensePaymentInfo');
+    assert.ok(extrasJs.includes('getExpensePaymentInfo'), 'extras.js deve utilizar motor de cálculo getExpensePaymentInfo');
+    assert.ok(dashboardJs.includes('payInfo = (typeof getExpensePaymentInfo'), 'consolidatedDashboard.js deve mapear payInfo para devedores');
+
+    // 2. Setup Sandbox
+    const testState = {
+      year: 2026,
+      month: 9,
+      categories: [{ name: 'Alimentação' }, { name: 'Devedores' }],
+      destinations: [{ name: 'Nubank' }],
+      profile: { name: 'Usuário Teste', baseSalary: 8000 },
+      debtors: [
+        {
+          id: 'deb-test-1',
+          debtorName: 'Yasmim',
+          title: 'Empréstimo Familiar',
+          amount: 400,
+          destination: 'Nubank',
+          startMonth: 5,
+          startYear: 2026,
+          endMonth: 11,
+          endYear: 2026,
+          countInTotal: true,
+          status: 'pendente',
+          paidHistory: {}
+        }
+      ],
+      extras: [
+        {
+          id: 'ext-test-1',
+          title: 'Projeto Freelance',
+          source: 'Consultoria',
+          amount: 1000,
+          sender: 'Cliente Alpha',
+          startMonth: 9,
+          startYear: 2026,
+          endMonth: 9,
+          endYear: 2026,
+          status: 'pendente',
+          paidHistory: {}
+        }
+      ],
+      fixed: [
+        {
+          id: 'fix-test-1',
+          name: 'Internet',
+          amount: 150,
+          group: 'Gerais',
+          destination: 'Nubank',
+          versions: [{ id: 'v1', year: 2026, month: 1, amount: 150 }],
+          paidHistory: {}
+        }
+      ],
+      variable: [
+        {
+          id: 'var-test-1',
+          name: 'Supermercado',
+          amount: 500,
+          group: 'Alimentação',
+          destination: 'Nubank',
+          startMonth: 9,
+          startYear: 2026,
+          endMonth: 9,
+          endYear: 2026,
+          paidHistory: {}
+        }
+      ],
+      benefitTransactions: []
+    };
+
+    const sandbox = {
+      window: {},
+      state: testState,
+      getState: () => testState,
+      saveState: () => {},
+      render: () => {},
+      notify: () => {},
+      mk: (y, m) => y * 12 + m,
+      ymKey: (y, m) => `${y}-${String(m).padStart(2, '0')}`,
+      MONTH_ABBR: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
+      MONTH_NAMES: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
+      CATEGORY_COLORS: ['#1F7A5C', '#3B82F6'],
+      DEBTOR_COLORS_PALETTE: ['#10B981', '#3B82F6'],
+      getCategoryName: (c) => typeof c === 'string' ? c : (c?.name || ''),
+      getCategoryColor: () => '#1F7A5C',
+      getDestMeta: () => ({ color: '#1F7A5C', icon: 'card' }),
+      currency: (v) => `R$ ${Number(v || 0).toFixed(2).replace('.', ',')}`,
+      escapeHtml: (s) => String(s || ''),
+      document: {
+        readyState: 'complete',
+        getElementById: () => null,
+        querySelector: () => null,
+        querySelectorAll: () => [],
+        createElement: () => ({ setAttribute: () => {}, style: {}, addEventListener: () => {} }),
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        body: { appendChild: () => {} }
+      },
+      $: () => null,
+      $$: () => []
+    };
+    sandbox.window = sandbox;
+
+    vm.createContext(sandbox);
+    vm.runInContext(financeQueriesJs, sandbox);
+    vm.runInContext(debtorsJs, sandbox);
+    vm.runInContext(extrasJs, sandbox);
+    vm.runInContext(dashboardJs, sandbox);
+
+    // 3. Devedor: Ciclo de vida completo por parcela/competência
+    const deb = testState.debtors[0];
+
+    // 3.1 Inicial (0 recebido)
+    let activeDebs = sandbox.activeDebtorsForMonth(2026, 9);
+    assert.strictEqual(activeDebs[0].status, 'pendente');
+    assert.strictEqual(activeDebs[0].paidAmount, 0);
+    assert.strictEqual(activeDebs[0].remainingAmount, 400);
+
+    // 3.2 Recebimento Parcial de R$ 150
+    sandbox.setExpensePayment(deb, 2026, 9, 150, 400);
+    activeDebs = sandbox.activeDebtorsForMonth(2026, 9);
+    assert.strictEqual(activeDebs[0].status, 'parcial');
+    assert.strictEqual(activeDebs[0].paidAmount, 150);
+    assert.strictEqual(activeDebs[0].remainingAmount, 250);
+
+    // 3.3 Garantia de isolamento por parcela: Mês 10 (Outubro) permanece 0 recebido / pendente
+    let octDebs = sandbox.activeDebtorsForMonth(2026, 10);
+    assert.strictEqual(octDebs[0].status, 'pendente');
+    assert.strictEqual(octDebs[0].paidAmount, 0);
+    assert.strictEqual(octDebs[0].remainingAmount, 400);
+
+    // 3.4 Novo recebimento de +R$ 100 -> Acumulado R$ 250
+    sandbox.setExpensePayment(deb, 2026, 9, 250, 400);
+    activeDebs = sandbox.activeDebtorsForMonth(2026, 9);
+    assert.strictEqual(activeDebs[0].status, 'parcial');
+    assert.strictEqual(activeDebs[0].paidAmount, 250);
+    assert.strictEqual(activeDebs[0].remainingAmount, 150);
+
+    // 3.5 Recebimento final de +R$ 150 -> Total R$ 400 (Quitado)
+    sandbox.setExpensePayment(deb, 2026, 9, 400, 400);
+    activeDebs = sandbox.activeDebtorsForMonth(2026, 9);
+    assert.strictEqual(activeDebs[0].status, 'pago');
+    assert.strictEqual(activeDebs[0].paidAmount, 400);
+    assert.strictEqual(activeDebs[0].remainingAmount, 0);
+
+    // 4. Renda Extra: Ciclo de vida completo
+    const ext = testState.extras[0];
+
+    // 4.1 Inicial (0 recebido)
+    let activeExts = sandbox.activeExtrasForMonth(2026, 9);
+    assert.strictEqual(activeExts[0].status, 'pendente');
+    assert.strictEqual(activeExts[0].paidAmount, 0);
+    assert.strictEqual(activeExts[0].remainingAmount, 1000);
+
+    // 4.2 Recebimento Parcial de R$ 300
+    sandbox.setExpensePayment(ext, 2026, 9, 300, 1000);
+    activeExts = sandbox.activeExtrasForMonth(2026, 9);
+    assert.strictEqual(activeExts[0].status, 'parcial');
+    assert.strictEqual(activeExts[0].paidAmount, 300);
+    assert.strictEqual(activeExts[0].remainingAmount, 700);
+
+    // 4.3 Recebimento adicional de +R$ 200 -> Acumulado R$ 500
+    sandbox.setExpensePayment(ext, 2026, 9, 500, 1000);
+    activeExts = sandbox.activeExtrasForMonth(2026, 9);
+    assert.strictEqual(activeExts[0].status, 'parcial');
+    assert.strictEqual(activeExts[0].paidAmount, 500);
+    assert.strictEqual(activeExts[0].remainingAmount, 500);
+
+    // 4.4 Recebimento final de +R$ 500 -> Total R$ 1000 (Quitado)
+    sandbox.setExpensePayment(ext, 2026, 9, 1000, 1000);
+    activeExts = sandbox.activeExtrasForMonth(2026, 9);
+    assert.strictEqual(activeExts[0].status, 'pago');
+    assert.strictEqual(activeExts[0].paidAmount, 1000);
+    assert.strictEqual(activeExts[0].remainingAmount, 0);
+
+    // 5. Retrocompatibilidade com registros legados
+    const legacyItem1 = { amount: 600, paidHistory: { '2026-09': true } };
+    const legacyInfo1 = sandbox.getExpensePaymentInfo(legacyItem1, 2026, 9, 600);
+    assert.strictEqual(legacyInfo1.status, 'pago');
+    assert.strictEqual(legacyInfo1.paidAmount, 600);
+    assert.strictEqual(legacyInfo1.remainingAmount, 0);
+
+    const legacyItem2 = { amount: 600, paidHistory: { '2026-09': 250 } };
+    const legacyInfo2 = sandbox.getExpensePaymentInfo(legacyItem2, 2026, 9, 600);
+    assert.strictEqual(legacyInfo2.status, 'parcial');
+    assert.strictEqual(legacyInfo2.paidAmount, 250);
+    assert.strictEqual(legacyInfo2.remainingAmount, 350);
+
+    const legacyItem3 = { amount: 600, status: 'pago' };
+    const legacyInfo3 = sandbox.getExpensePaymentInfo(legacyItem3, 2026, 9, 600);
+    assert.strictEqual(legacyInfo3.status, 'pago');
+    assert.strictEqual(legacyInfo3.paidAmount, 600);
+
+    const legacyItem4 = { amount: 600, status: 'recebido' };
+    const legacyInfo4 = sandbox.getExpensePaymentInfo(legacyItem4, 2026, 9, 600);
+    assert.strictEqual(legacyInfo4.status, 'pago');
+    assert.strictEqual(legacyInfo4.paidAmount, 600);
+
+    const legacyItem5 = { amount: 600, status: 'pendente' };
+    const legacyInfo5 = sandbox.getExpensePaymentInfo(legacyItem5, 2026, 9, 600);
+    assert.strictEqual(legacyInfo5.status, 'pendente');
+    assert.strictEqual(legacyInfo5.paidAmount, 0);
+    assert.strictEqual(legacyInfo5.remainingAmount, 600);
+
+    // 6. Dataset Consolidado e Métricas
+    sandbox.setExpensePayment(deb, 2026, 9, 150, 400); // 150 pago, 250 pendente
+    sandbox.setExpensePayment(ext, 2026, 9, 400, 1000); // 400 pago, 600 pendente
+
+    const dataset = sandbox.buildConsolidatedDataset(testState, 2026, 9);
+    const debInDataset = dataset.find(x => x.sourceType === 'debtor');
+    assert.ok(debInDataset, 'Devedor deve constar no dataset');
+    assert.strictEqual(debInDataset.status, 'parcial');
+    assert.strictEqual(debInDataset.paidAmount, 150);
+    assert.strictEqual(debInDataset.remainingAmount, 250);
+
+    const totals = sandbox.monthTotals(2026, 9);
+    assert.strictEqual(totals.baseSalary, 8000);
+    assert.strictEqual(totals.sumExt, 1000);
+    assert.strictEqual(totals.sumDeb, 400);
+    assert.strictEqual(totals.sumDebtorCounted, 400);
+    assert.strictEqual(totals.totalIncome, 8000 + 1000 + 400);
+    assert.strictEqual(totals.receivedExt, 400);
+    assert.strictEqual(totals.pendingExt, 600);
+    assert.strictEqual(totals.receivedDeb, 150);
+    assert.strictEqual(totals.pendingDeb, 250);
+
+    // 7. Ausência de regressão em Despesas Fixas e Variáveis
+    const fix = testState.fixed[0];
+    sandbox.setExpensePayment(fix, 2026, 9, 60, 150);
+    const activeFix = sandbox.activeFixedForMonth(2026, 9);
+    assert.strictEqual(activeFix[0].status, 'parcial');
+    assert.strictEqual(activeFix[0].paidAmount, 60);
+    assert.strictEqual(activeFix[0].remainingAmount, 90);
   });
 });

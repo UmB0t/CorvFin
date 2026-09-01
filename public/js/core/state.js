@@ -80,6 +80,28 @@
     });
   };
 
+  window.getSortedCategories = function getSortedCategories(catsInput) {
+    const list = Array.isArray(catsInput)
+      ? catsInput
+      : (typeof getState === 'function' && getState()?.categories ? getState().categories : (typeof DEFAULT_CATEGORIES !== 'undefined' ? DEFAULT_CATEGORIES : []));
+    return list.slice().sort((a, b) => {
+      const nameA = (typeof getCategoryName === 'function') ? getCategoryName(a) : (typeof a === 'string' ? a : (a?.name || ''));
+      const nameB = (typeof getCategoryName === 'function') ? getCategoryName(b) : (typeof b === 'string' ? b : (b?.name || ''));
+      return String(nameA || '').localeCompare(String(nameB || ''), 'pt-BR', { sensitivity: 'base' });
+    });
+  };
+
+  window.getSortedDestinations = function getSortedDestinations(destsInput) {
+    const list = Array.isArray(destsInput)
+      ? destsInput
+      : (typeof getState === 'function' && getState()?.destinations ? getState().destinations : (typeof DEFAULT_DESTINATIONS !== 'undefined' ? DEFAULT_DESTINATIONS : []));
+    return list.slice().sort((a, b) => {
+      const nameA = typeof a === 'string' ? a : (a?.name || '');
+      const nameB = typeof b === 'string' ? b : (b?.name || '');
+      return String(nameA || '').localeCompare(String(nameB || ''), 'pt-BR', { sensitivity: 'base' });
+    });
+  };
+
   window.initialState = function initialState() {
     const t = todayYM();
     const localPrefs = (typeof window.loadLocalPreferences === 'function') ? window.loadLocalPreferences() : {};

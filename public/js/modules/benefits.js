@@ -8,33 +8,61 @@
 
   let benefitDlgId = null;
 
-  function openBenefitDialog(mode, id) {
+  function openBenefitDialog(mode = 'new', id = null) {
+    if (typeof window.hasTabPermission === 'function' && !window.hasTabPermission('tab-benefits')) {
+      if (typeof notify === 'function') notify('Você não tem permissão para acessar o módulo de Benefícios.', 'error');
+      return;
+    }
+    if (typeof window.isModuleInMaintenance === 'function' && window.isModuleInMaintenance('tab-benefits')) {
+      if (typeof notify === 'function') notify('O módulo de Benefícios está temporariamente em manutenção.', 'warning');
+      return;
+    }
+
     const state = getState();
     const benefitDlg = $('#benefitDialog');
-    $('#benefitForm').reset();
+    if (!benefitDlg) return;
+    $('#benefitForm')?.reset();
     benefitDlgId = id || null;
-    $('#deleteBenefitBtn').hidden = !id;
+    if ($('#deleteBenefitBtn')) $('#deleteBenefitBtn').hidden = !id;
 
-    if (mode === 'new') {
-      $('#benefitDialogTitle').textContent = 'Lançar Gasto com Benefício';
+    if (typeof fillMonthSelects === 'function') {
+      try { fillMonthSelects(); } catch (e) {}
+    }
+
+    const monthSel = $('#benefitMonth');
+    if (monthSel && (!monthSel.children || monthSel.children.length === 0)) {
+      const monthList = (typeof MONTH_NAMES !== 'undefined' && Array.isArray(MONTH_NAMES) && MONTH_NAMES.length === 12)
+        ? MONTH_NAMES
+        : (window.MONTH_NAMES && Array.isArray(window.MONTH_NAMES) && window.MONTH_NAMES.length === 12 ? window.MONTH_NAMES : ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']);
+      monthSel.innerHTML = monthList.map((m, idx) => `<option value="${idx + 1}">${m}</option>`).join('');
+    }
+
+    if (mode === 'new' || !id) {
+      if ($('#benefitDialogTitle')) $('#benefitDialogTitle').textContent = 'Lançar Gasto com Benefício';
       const now = new Date();
-      $('#benefitDay').value = now.getDate();
-      $('#benefitMonth').value = state.month || (now.getMonth() + 1);
-      $('#benefitYear').value = state.year || now.getFullYear();
-      $('#benefitType').value = 'va';
+      if ($('#benefitDescription')) $('#benefitDescription').value = '';
+      if ($('#benefitAmount')) $('#benefitAmount').value = '';
+      if ($('#benefitDay')) $('#benefitDay').value = now.getDate();
+      if ($('#benefitMonth')) $('#benefitMonth').value = state.month || (now.getMonth() + 1);
+      if ($('#benefitYear')) $('#benefitYear').value = state.year || now.getFullYear();
+      if ($('#benefitType')) $('#benefitType').value = 'va';
+      if ($('#benefitNote')) $('#benefitNote').value = '';
     } else {
       const item = (state.benefitTransactions || []).find(t => t.id === id);
       if (!item) return;
-      $('#benefitDialogTitle').textContent = 'Editar Gasto com Benefício';
-      $('#benefitDescription').value = item.description || '';
-      $('#benefitType').value = item.type || 'va';
-      $('#benefitAmount').value = item.amount || '';
-      $('#benefitDay').value = item.day || 1;
-      $('#benefitMonth').value = item.month || state.month;
-      $('#benefitYear').value = item.year || state.year;
-      $('#benefitNote').value = item.note || '';
+      if ($('#benefitDialogTitle')) $('#benefitDialogTitle').textContent = 'Editar Gasto com Benefício';
+      if ($('#benefitDescription')) $('#benefitDescription').value = item.description || '';
+      if ($('#benefitType')) $('#benefitType').value = item.type || 'va';
+      if ($('#benefitAmount')) $('#benefitAmount').value = item.amount || '';
+      if ($('#benefitDay')) $('#benefitDay').value = item.day || 1;
+      if ($('#benefitMonth')) $('#benefitMonth').value = item.month || state.month;
+      if ($('#benefitYear')) $('#benefitYear').value = item.year || state.year;
+      if ($('#benefitNote')) $('#benefitNote').value = item.note || '';
     }
-    if (benefitDlg) benefitDlg.showModal();
+    benefitDlg.showModal();
+    setTimeout(() => {
+      $('#benefitDescription')?.focus();
+    }, 50);
   }
 
   function deleteBenefit(id) {

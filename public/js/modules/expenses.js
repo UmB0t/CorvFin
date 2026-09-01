@@ -48,14 +48,20 @@ function openFullscreenTable(presetType) {
           $('#fsModalTitle').textContent = `Visão Completa em Tabela (Estilo Excel)`;
         }
 
+        const sortedDests = (typeof getSortedDestinations === 'function') ? getSortedDestinations(state.destinations) : (state.destinations || []);
         const destSelect = $('#fsDestFilter');
-        destSelect.innerHTML = `<option value="all">Todos os Destinos</option>` + state.destinations.map(d => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
+        if (destSelect) {
+          destSelect.innerHTML = `<option value="all">Todos os Destinos</option>` + sortedDests.map(d => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
+        }
 
+        const sortedCats = (typeof getSortedCategories === 'function') ? getSortedCategories(state.categories) : (state.categories || []);
         const catSelect = $('#fsCategoryFilter');
-        catSelect.innerHTML = `<option value="all">Todas as Categorias</option>` + state.categories.map(c => {
-          const name = (typeof getCategoryName === 'function') ? getCategoryName(c) : (typeof c === 'string' ? c : c.name);
-          return `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
-        }).join('');
+        if (catSelect) {
+          catSelect.innerHTML = `<option value="all">Todas as Categorias</option>` + sortedCats.map(c => {
+            const name = (typeof getCategoryName === 'function') ? getCategoryName(c) : (typeof c === 'string' ? c : c.name);
+            return `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
+          }).join('');
+        }
 
         renderFullscreenTable();
         dlg.showModal();
@@ -250,7 +256,7 @@ function clearRibbonHighlight() {
       }
 
 function buildEntryRow({
-        id, fixedId, type, title, tags = [], amount, status, dueDay, destination,
+        id, fixedId, type, title, tags = [], amount, status, paidAmount, remainingAmount, dueDay, destination,
         onClickToggleStatus, onClickEdit, onClickTimeline, onMouseEnter, onMouseLeave,
         customLeftBadge, onDelete
       }) {
@@ -263,16 +269,33 @@ function buildEntryRow({
         row.dataset.entryId = itemKey;
         row.dataset.entryType = type;
 
+        const isIncome = (type === 'debtor' || type === 'extra');
         const isPaid = status === 'pago';
+        const isPartial = status === 'parcial';
         let leftIconHtml = '';
 
         if (customLeftBadge) {
           leftIconHtml = customLeftBadge;
         } else if (onClickToggleStatus) {
-          const statusTip = isPaid ? 'Marcado como Pago/Recebido. Clique para alternar' : 'Pendente. Clique para marcar como Pago/Recebido';
+          let statusTip = isIncome ? 'Pendente. Clique para registrar recebimento' : 'Pendente. Clique para registrar pagamento';
+          let statusClass = 'pending';
+          let statusIcon = ICONS.clock;
+
+          if (isPaid) {
+            statusTip = isIncome ? 'Marcado como Recebido. Clique para alternar para Pendente' : 'Marcado como Pago. Clique para alternar para Pendente';
+            statusClass = 'paid';
+            statusIcon = ICONS.check;
+          } else if (isPartial) {
+            statusTip = isIncome
+              ? `Parcialmente Recebido (${currency(paidAmount || 0)} de ${currency(amount)}). Clique para gerenciar recebimento`
+              : `Parcialmente Pago (${currency(paidAmount || 0)} de ${currency(amount)}). Clique para gerenciar pagamento`;
+            statusClass = 'partial';
+            statusIcon = `<svg class="svg-icon" viewBox="0 0 24 24" style="stroke:currentColor; fill:none; width:16px; height:16px;"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 9 9h-9z" fill="currentColor" opacity="0.75"/></svg>`;
+          }
+
           leftIconHtml = `
-            <button type="button" class="status-btn ${isPaid ? 'paid' : 'pending'}" data-tooltip="${statusTip}" aria-label="${statusTip}">
-              ${isPaid ? ICONS.check : ICONS.clock}
+            <button type="button" class="status-btn ${statusClass}" data-tooltip="${statusTip}" aria-label="${statusTip}">
+              ${statusIcon}
             </button>`;
         }
 
@@ -290,6 +313,14 @@ function buildEntryRow({
           } else {
             dueTagHtml = `<span class="tag">Vence dia ${dueDay}</span>`;
           }
+        }
+
+        let partialTagHtml = '';
+        if (isPartial) {
+          const resolvedPaid = Number(paidAmount || 0);
+          const resolvedRem = remainingAmount !== undefined ? Number(remainingAmount) : Math.max(0, Number(amount) - resolvedPaid);
+          const prefix = isIncome ? 'Recebido' : 'Pago';
+          partialTagHtml = `<span class="tag partial" style="background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.35); font-weight:750;">${prefix}: ${currency(resolvedPaid)} • Restante: ${currency(resolvedRem)}</span>`;
         }
 
         const destMeta = destination ? getDestMeta(destination) : null;
@@ -317,7 +348,7 @@ function buildEntryRow({
         const deleteBtnHtml = onDelete ? `
       <button type="button" class="icon-btn small delete-btn" data-tooltip="Excluir Lançamento" aria-label="Excluir Lançamento" style="color:var(--danger);">${ICONS.close}</button>` : '';
 
-        const amountClass = type === 'benefit' ? 'negative' : (isPaid ? 'positive' : '');
+        const amountClass = type === 'benefit' ? 'negative' : (isPaid ? 'positive' : (isPartial ? 'partial' : ''));
 
         row.innerHTML = `
       ${dragHandleHtml}
@@ -327,6 +358,7 @@ function buildEntryRow({
         <div class="entry-meta">
           ${destPillHtml}
           ${dueTagHtml}
+          ${partialTagHtml}
           ${tags.filter(Boolean).map(t => {
             const isCat = (state.categories || []).some(c => ((typeof getCategoryName === 'function') ? getCategoryName(c) : (typeof c === 'string' ? c : c.name)) === t);
             if (isCat && typeof getCategoryIconSvg === 'function') {
@@ -428,30 +460,151 @@ function buildEntryRow({
         return row;
       }
 
-function toggleExpenseStatus(type, idKey, currentStatus) {
+  let partialPayState = { type: null, idKey: null, totalAmount: 0, paidAmount: 0, remainingAmount: 0, itemName: '' };
+
+  function openPartialPaymentDialog(type, idKey) {
     const state = getState();
-        const newStatus = currentStatus === 'pago' ? 'pendente' : 'pago';
-        const key = ymKey(state.year, state.month);
+    const y = state.year, m = state.month;
 
-        if (type === 'fixed') {
-          const item = state.fixed.find(f => f.id === idKey);
-          if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = newStatus === 'pago'; }
-        } else if (type === 'variable') {
-          const item = state.variable.find(v => v.id === idKey);
-          if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = newStatus === 'pago'; }
-        } else if (type === 'extra') {
-          const item = state.extras.find(e => e.id === idKey);
-          if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = newStatus === 'pago'; }
-        } else if (type === 'debtor') {
-          const item = state.debtors.find(d => d.id === idKey);
-          if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = newStatus === 'pago'; }
-        }
+    let item = null;
+    let totalAmount = 0;
+    let itemName = '';
+    let dialogTitle = 'Pagamento de Despesa';
+    let subtitle = '';
+    const isIncome = (type === 'debtor' || type === 'extra');
 
-        saveState(); render();
-        notify(`Status alterado para "${newStatus === 'pago' ? 'Pago' : 'Pendente'}".`);
+    if (type === 'fixed') {
+      item = state.fixed.find(f => f.id === idKey);
+      const active = activeFixedForMonth(y, m).find(a => a.fixedId === idKey);
+      totalAmount = active ? Number(active.amount) : (item?.versions && item.versions[0] ? Number(item.versions[0].amount) : 0);
+      itemName = item?.name || 'Despesa Fixa';
+      dialogTitle = 'Pagamento de Despesa';
+      subtitle = itemName;
+    } else if (type === 'variable') {
+      item = state.variable.find(v => v.id === idKey);
+      totalAmount = item ? Number(item.amount) : 0;
+      itemName = item?.name || 'Despesa Variável';
+      dialogTitle = 'Pagamento de Despesa';
+      subtitle = itemName;
+    } else if (type === 'debtor') {
+      item = (state.debtors || []).find(d => d.id === idKey);
+      totalAmount = item ? Number(item.amount) : 0;
+      itemName = item ? (item.debtorName || item.name || item.title || 'Devedor') : 'Devedor';
+      dialogTitle = 'Recebimento de Devedor';
+      subtitle = `${itemName}${item?.title ? ' • ' + item.title : ''}`;
+    } else if (type === 'extra') {
+      item = (state.extras || []).find(e => e.id === idKey);
+      totalAmount = item ? Number(item.amount) : 0;
+      itemName = item ? (item.title || item.source || 'Renda Extra') : 'Renda Extra';
+      dialogTitle = 'Recebimento de Renda Extra';
+      subtitle = `${itemName}${item?.sender ? ' • ' + item.sender : ''}`;
+    }
+
+    if (!item) return;
+
+    const payInfo = (typeof getExpensePaymentInfo === 'function')
+      ? getExpensePaymentInfo(item, y, m, totalAmount)
+      : { totalAmount, paidAmount: 0, remainingAmount: totalAmount, status: 'pendente' };
+
+    partialPayState = {
+      type,
+      idKey,
+      totalAmount: payInfo.totalAmount,
+      paidAmount: payInfo.paidAmount,
+      remainingAmount: payInfo.remainingAmount,
+      itemName,
+      isIncome
+    };
+
+    const dlg = $('#partialPaymentDialog');
+    if ($('#partialPayDialogTitle')) $('#partialPayDialogTitle').textContent = dialogTitle;
+    if ($('#partialPayItemName')) $('#partialPayItemName').textContent = subtitle;
+    if ($('#partialPayTotalVal')) $('#partialPayTotalVal').textContent = currency(payInfo.totalAmount);
+    if ($('#partialPayPaidVal')) $('#partialPayPaidVal').textContent = currency(payInfo.paidAmount);
+    if ($('#partialPayRemainingVal')) $('#partialPayRemainingVal').textContent = currency(payInfo.remainingAmount);
+
+    const paidLabel = $('#partialPayPaidLabel');
+    if (paidLabel) paidLabel.textContent = isIncome ? 'Já Recebido' : 'Já Pago';
+
+    const amountLabel = $('#partialPayAmountLabel') || $('label[for="partialPayAmountInput"]');
+    if (amountLabel) amountLabel.textContent = isIncome ? 'Valor a receber agora (R$):' : 'Valor a pagar agora (R$):';
+
+    const input = $('#partialPayAmountInput');
+    if (input) {
+      input.value = payInfo.remainingAmount > 0 ? payInfo.remainingAmount : '';
+      input.max = String(payInfo.remainingAmount);
+      input.min = '0.01';
+      input.step = '0.01';
+    }
+
+    const btnPayFull = $('#btnPayFull');
+    if (btnPayFull) {
+      const fullActionText = isIncome
+        ? `✓ Receber valor restante / Quitar (${currency(payInfo.remainingAmount)})`
+        : `✓ Quitar Total (${currency(payInfo.remainingAmount)})`;
+      btnPayFull.textContent = fullActionText;
+    }
+
+    const btnConfirm = $('#btnConfirmPartialPay');
+    if (btnConfirm) {
+      btnConfirm.textContent = isIncome ? 'Confirmar Recebimento' : 'Confirmar Pagamento';
+    }
+
+    const alert = $('#partialPayAlert');
+    if (alert) alert.style.display = 'none';
+
+    if (dlg && typeof dlg.showModal === 'function') dlg.showModal();
+    setTimeout(() => {
+      $('#partialPayAmountInput')?.focus();
+    }, 50);
+  }
+  window.openPartialPaymentDialog = openPartialPaymentDialog;
+
+  function toggleExpenseStatus(type, idKey, currentStatus) {
+    const state = getState();
+    const y = state.year, m = state.month;
+    const key = ymKey(y, m);
+
+    let item = null;
+    let totalAmount = 0;
+
+    if (type === 'fixed') {
+      item = state.fixed.find(f => f.id === idKey);
+      const active = activeFixedForMonth(y, m).find(a => a.fixedId === idKey);
+      totalAmount = active ? Number(active.amount) : (item?.versions && item.versions[0] ? Number(item.versions[0].amount) : 0);
+    } else if (type === 'variable') {
+      item = state.variable.find(v => v.id === idKey);
+      totalAmount = item ? Number(item.amount) : 0;
+    } else if (type === 'debtor') {
+      item = (state.debtors || []).find(d => d.id === idKey);
+      totalAmount = item ? Number(item.amount) : 0;
+    } else if (type === 'extra') {
+      item = (state.extras || []).find(e => e.id === idKey);
+      totalAmount = item ? Number(item.amount) : 0;
+    }
+
+    if (!item) return;
+
+    if (currentStatus === 'pago') {
+      // Alterna de pago total para pendente (0 pago)
+      if (typeof setExpensePayment === 'function') {
+        setExpensePayment(item, y, m, 0, totalAmount);
+      } else {
+        item.paidHistory = item.paidHistory || {};
+        item.paidHistory[key] = {
+          paidAmount: 0,
+          updatedAt: new Date().toISOString()
+        };
       }
+      saveState(); render();
+      notify(`Status alterado para "Pendente".`);
+    } else {
+      // Abre modal de pagamento / recebimento parcial ou quitação
+      openPartialPaymentDialog(type, idKey);
+    }
+  }
 
-function markAllSectionPaid(type) {
+  function markAllSectionPaid(type) {
     const state = getState();
     const y = state.year, m = state.month;
     const key = ymKey(y, m);
@@ -466,7 +619,15 @@ function markAllSectionPaid(type) {
       items.forEach(f => {
         if (f.status !== 'pago') {
           const item = state.fixed.find(x => x.id === f.fixedId);
-          if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = true; count++; }
+          if (item) {
+            if (typeof setExpensePayment === 'function') {
+              setExpensePayment(item, y, m, f.amount, f.amount);
+            } else {
+              item.paidHistory = item.paidHistory || {};
+              item.paidHistory[key] = { paidAmount: f.amount, updatedAt: new Date().toISOString() };
+            }
+            count++;
+          }
         }
       });
     } else if (normType === 'variable' || normType === 'variaveis') {
@@ -475,7 +636,15 @@ function markAllSectionPaid(type) {
       items.forEach(v => {
         if (v.status !== 'pago') {
           const item = state.variable.find(x => x.id === v.id);
-          if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = true; count++; }
+          if (item) {
+            if (typeof setExpensePayment === 'function') {
+              setExpensePayment(item, y, m, v.amount, v.amount);
+            } else {
+              item.paidHistory = item.paidHistory || {};
+              item.paidHistory[key] = { paidAmount: v.amount, updatedAt: new Date().toISOString() };
+            }
+            count++;
+          }
         }
       });
     } else if (normType === 'extra' || normType === 'extras') {
@@ -484,7 +653,15 @@ function markAllSectionPaid(type) {
       items.forEach(e => {
         if (e.status !== 'pago') {
           const item = state.extras.find(x => x.id === e.id);
-          if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = true; count++; }
+          if (item) {
+            if (typeof setExpensePayment === 'function') {
+              setExpensePayment(item, y, m, e.amount, e.amount);
+            } else {
+              item.paidHistory = item.paidHistory || {};
+              item.paidHistory[key] = { paidAmount: e.amount, updatedAt: new Date().toISOString() };
+            }
+            count++;
+          }
         }
       });
     } else if (normType === 'debtor' || normType === 'debtors' || normType === 'devedores') {
@@ -493,7 +670,15 @@ function markAllSectionPaid(type) {
       items.forEach(d => {
         if (d.status !== 'pago') {
           const item = state.debtors.find(x => x.id === d.id);
-          if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = true; count++; }
+          if (item) {
+            if (typeof setExpensePayment === 'function') {
+              setExpensePayment(item, y, m, d.amount, d.amount);
+            } else {
+              item.paidHistory = item.paidHistory || {};
+              item.paidHistory[key] = { paidAmount: d.amount, updatedAt: new Date().toISOString() };
+            }
+            count++;
+          }
         }
       });
     }
@@ -728,7 +913,7 @@ function renderExpensesLists() {
           const activeMonths = getFixedActiveMonths(origFixed, y);
           return buildEntryRow({
             fixedId: f.fixedId, type: 'fixed', title: f.name, tags: [f.group || 'Fixa', `desde ${MONTH_ABBR[f.effMonth - 1]}/${f.effYear}`],
-            amount: f.amount, status: f.status, dueDay: f.dueDay, destination: f.destination,
+            amount: f.amount, status: f.status, paidAmount: f.paidAmount, remainingAmount: f.remainingAmount, dueDay: f.dueDay, destination: f.destination,
             onClickToggleStatus: () => toggleExpenseStatus('fixed', f.fixedId, f.status),
             onClickEdit: () => openEntryDialog({ mode: 'edit', type: 'fixed', fixedId: f.fixedId }),
             onClickTimeline: () => openExpenseTimeline({ type: 'fixed', fixedId: f.fixedId }),
@@ -751,7 +936,7 @@ function renderExpensesLists() {
               `parcela ${v.installmentIndex}/${v.installmentTotal}`,
               `Total: ${currency(totalContract)}`
             ],
-            amount: v.amount, status: v.status, dueDay: v.dueDay, destination: v.destination,
+            amount: v.amount, status: v.status, paidAmount: v.paidAmount, remainingAmount: v.remainingAmount, dueDay: v.dueDay, destination: v.destination,
             onClickToggleStatus: () => toggleExpenseStatus('variable', v.id, v.status),
             onClickEdit: () => openEntryDialog({ mode: 'edit', type: 'variable', id: v.id }),
             onClickTimeline: () => openExpenseTimeline({ type: 'variable', id: v.id }),
@@ -1161,6 +1346,67 @@ function renderExpensesLists() {
     }
   }
 
+  function updateQuickExpenseSelects() {
+    const state = getState();
+    const sortedCats = (typeof getSortedCategories === 'function') ? getSortedCategories(state.categories) : (state.categories || []);
+    const sortedDests = (typeof getSortedDestinations === 'function') ? getSortedDestinations(state.destinations) : (state.destinations || []);
+
+    const groupSelect = $('#quickExpenseGroup');
+    if (groupSelect) {
+      groupSelect.innerHTML = sortedCats.map((c, idx) => {
+        const name = (typeof getCategoryName === 'function') ? getCategoryName(c) : (typeof c === 'string' ? c : c.name);
+        const color = (typeof getCategoryColor === 'function') ? getCategoryColor(c) : (c.color || (window.CATEGORY_COLORS && window.CATEGORY_COLORS[idx % window.CATEGORY_COLORS.length]) || '#1F7A5C');
+        return `<option value="${escapeHtml(name)}" data-color="${color}">${escapeHtml(name)}</option>`;
+      }).join('');
+      if (sortedCats.length > 0) {
+        groupSelect.value = (typeof getCategoryName === 'function') ? getCategoryName(sortedCats[0]) : (typeof sortedCats[0] === 'string' ? sortedCats[0] : sortedCats[0].name);
+      }
+    }
+
+    const destSelect = $('#quickExpenseDestination');
+    if (destSelect) {
+      destSelect.innerHTML = sortedDests.map(d => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
+      if (sortedDests.length > 0) {
+        destSelect.value = sortedDests[0].name;
+      }
+    }
+  }
+
+  function syncQuickExpenseDestHint() {
+    const state = getState();
+    const destName = $('#quickExpenseDestination')?.value || '';
+    const dest = (state.destinations || []).find(d => d.name === destName);
+    const hintEl = $('#quickExpenseDestHint');
+    if (!hintEl) return;
+
+    const isPixOrCash = (destName.toLowerCase() === 'pix' || destName.toLowerCase() === 'dinheiro');
+    if (isPixOrCash) {
+      hintEl.textContent = '⚡ Pagamento à vista com quitação automática.';
+      hintEl.style.color = 'var(--brand)';
+    } else if (dest && dest.dueDay) {
+      hintEl.textContent = `📅 Vencimento padrão deste destino: dia ${dest.dueDay}`;
+      hintEl.style.color = 'var(--muted)';
+    } else {
+      hintEl.textContent = '✓ Lançamento à vista na competência atual.';
+      hintEl.style.color = 'var(--muted)';
+    }
+  }
+
+  function openQuickExpenseDialog() {
+    const state = getState();
+    const dlg = $('#quickExpenseDialog');
+    $('#quickExpenseForm')?.reset();
+
+    updateQuickExpenseSelects();
+    syncQuickExpenseDestHint();
+
+    const alert = $('#quickExpenseValidationAlert');
+    if (alert) { alert.style.display = 'none'; alert.textContent = ''; }
+
+    if (dlg && typeof dlg.showModal === 'function') dlg.showModal();
+  }
+  window.openQuickExpenseDialog = openQuickExpenseDialog;
+
   function openEntryDialog(opts) {
     const state = getState();
     const entryDlg = $('#entryDialog');
@@ -1196,8 +1442,11 @@ function renderExpensesLists() {
     if ($('#varStartYear')) $('#varStartYear').value = curYear;
     if ($('#varInstallmentsCount')) $('#varInstallmentsCount').value = 2;
 
-    const firstCatName = state.categories.length > 0
-      ? ((typeof getCategoryName === 'function') ? getCategoryName(state.categories[0]) : (typeof state.categories[0] === 'string' ? state.categories[0] : state.categories[0].name))
+    const sortedCats = (typeof getSortedCategories === 'function') ? getSortedCategories(state.categories) : (state.categories || []);
+    const sortedDests = (typeof getSortedDestinations === 'function') ? getSortedDestinations(state.destinations) : (state.destinations || []);
+
+    const firstCatName = sortedCats.length > 0
+      ? ((typeof getCategoryName === 'function') ? getCategoryName(sortedCats[0]) : (typeof sortedCats[0] === 'string' ? sortedCats[0] : sortedCats[0].name))
       : 'Gerais';
     if ($('#entryGroup')) $('#entryGroup').value = firstCatName;
 
@@ -1205,7 +1454,7 @@ function renderExpensesLists() {
       entryDlgState = { mode: 'new', step: 1, type: (type === 'fixed' ? 'fixed' : 'cash'), id: null, fixedId: null };
       $('#entryDialogTitle').textContent = 'Nova Despesa';
 
-      const defaultDest = state.destinations[0]?.name || 'Pix';
+      const defaultDest = sortedDests[0]?.name || 'Pix';
       $('#entryDestination').value = defaultDest;
       syncDestinationRules();
       setEntryExpenseType(entryDlgState.type);
@@ -1487,8 +1736,12 @@ function renderExpensesLists() {
         }
 
         if (fixed && effMonth === state.month && effYear === state.year) {
-          fixed.paidHistory = fixed.paidHistory || {};
-          fixed.paidHistory[key] = (status === 'pago');
+          if (typeof setExpensePayment === 'function') {
+            setExpensePayment(fixed, effYear, effMonth, status === 'pago' ? amount : 0, amount);
+          } else {
+            fixed.paidHistory = fixed.paidHistory || {};
+            fixed.paidHistory[key] = (status === 'pago');
+          }
         }
       } else {
         state.variable = state.variable || [];
@@ -1563,9 +1816,13 @@ function renderExpensesLists() {
         }
 
         if (v) {
-          v.paidHistory = v.paidHistory || {};
-          const expenseKey = ymKey(sYear, sMonth);
-          v.paidHistory[expenseKey] = (status === 'pago');
+          if (typeof setExpensePayment === 'function') {
+            setExpensePayment(v, sYear, sMonth, status === 'pago' ? amount : 0, amount);
+          } else {
+            v.paidHistory = v.paidHistory || {};
+            const expenseKey = ymKey(sYear, sMonth);
+            v.paidHistory[expenseKey] = (status === 'pago');
+          }
         }
       }
 
@@ -1631,12 +1888,181 @@ function renderExpensesLists() {
         markAllSectionPaid('variable');
       });
     }
+
+    // Botão de Despesa Rápida no desktop
+    $('#btnQuickExpenseDesktop')?.addEventListener('click', openQuickExpenseDialog);
+
+    // Mudança de destino no Quick Expense
+    $('#quickExpenseDestination')?.addEventListener('change', syncQuickExpenseDestHint);
+
+    // Alternar do Quick Expense para o Wizard Completo
+    $('#btnSwitchToFullWizard')?.addEventListener('click', () => {
+      const qName = ($('#quickExpenseName')?.value || '').trim();
+      const qAmt = ($('#quickExpenseAmount')?.value || '').trim();
+      const qGrp = ($('#quickExpenseGroup')?.value || '').trim();
+      const qDst = ($('#quickExpenseDestination')?.value || '').trim();
+      const qNote = ($('#quickExpenseNote')?.value || '').trim();
+
+      $('#quickExpenseDialog')?.close();
+      openEntryDialog({ mode: 'new', type: 'cash' });
+
+      if (qName && $('#entryName')) $('#entryName').value = qName;
+      if (qAmt && $('#entryAmount')) $('#entryAmount').value = qAmt;
+      if (qGrp && $('#entryGroup')) $('#entryGroup').value = qGrp;
+      if (qDst && $('#entryDestination')) {
+        $('#entryDestination').value = qDst;
+        syncDestinationRules();
+      }
+      if (qNote) setEntryNote(qNote);
+    });
+
+    // Submissão do Quick Expense Form
+    $('#quickExpenseForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = ($('#quickExpenseName')?.value || '').trim();
+      const amount = Number($('#quickExpenseAmount')?.value);
+      const group = ($('#quickExpenseGroup')?.value || '').trim() || 'Gerais';
+      const destination = ($('#quickExpenseDestination')?.value || '').trim() || 'Pix';
+      const note = ($('#quickExpenseNote')?.value || '').trim();
+
+      const alert = $('#quickExpenseValidationAlert');
+      if (!name) {
+        if (alert) { alert.style.display = 'block'; alert.textContent = 'Informe a descrição do lançamento.'; }
+        return;
+      }
+      if (!amount || isNaN(amount) || amount <= 0) {
+        if (alert) { alert.style.display = 'block'; alert.textContent = 'Informe um valor válido maior que zero.'; }
+        return;
+      }
+
+      const state = getState();
+      state.variable = state.variable || [];
+      const destMeta = (state.destinations || []).find(d => d.name === destination);
+      const isPixOrCash = (destination.toLowerCase() === 'pix' || destination.toLowerCase() === 'dinheiro');
+      const dueDay = isPixOrCash ? null : (destMeta?.dueDay || null);
+      const y = state.year, m = state.month;
+
+      const newExpense = {
+        id: uid(),
+        name,
+        amount,
+        group,
+        destination,
+        dueDay,
+        note,
+        startMonth: m,
+        startYear: y,
+        endMonth: m,
+        endYear: y,
+        installments: 1,
+        paymentType: 'cash',
+        status: isPixOrCash ? 'pago' : 'pendente',
+        paidHistory: {}
+      };
+
+      if (isPixOrCash && typeof setExpensePayment === 'function') {
+        setExpensePayment(newExpense, y, m, amount, amount);
+      }
+
+      state.variable.push(newExpense);
+      saveState();
+      $('#quickExpenseDialog')?.close();
+      render();
+      notify('Despesa rápida adicionada com sucesso!', 'success');
+    });
+
+    // Partial Payment: Quitar Total / Receber Restante
+    $('#btnPayFull')?.addEventListener('click', () => {
+      if (!partialPayState.type || !partialPayState.idKey) return;
+      const state = getState();
+      const y = state.year, m = state.month;
+      let item = null;
+      if (partialPayState.type === 'fixed') {
+        item = state.fixed.find(f => f.id === partialPayState.idKey);
+      } else if (partialPayState.type === 'variable') {
+        item = state.variable.find(v => v.id === partialPayState.idKey);
+      } else if (partialPayState.type === 'debtor') {
+        item = (state.debtors || []).find(d => d.id === partialPayState.idKey);
+      } else if (partialPayState.type === 'extra') {
+        item = (state.extras || []).find(e => e.id === partialPayState.idKey);
+      }
+      if (!item) return;
+
+      if (typeof setExpensePayment === 'function') {
+        setExpensePayment(item, y, m, partialPayState.totalAmount, partialPayState.totalAmount);
+      } else {
+        item.paidHistory = item.paidHistory || {};
+        item.paidHistory[ymKey(y, m)] = {
+          paidAmount: partialPayState.totalAmount,
+          updatedAt: new Date().toISOString()
+        };
+      }
+
+      saveState();
+      $('#partialPaymentDialog')?.close();
+      render();
+      const actionMsg = partialPayState.isIncome ? 'recebido e quitado' : 'quitada';
+      notify(`"${partialPayState.itemName}" ${actionMsg} com sucesso!`, 'success');
+    });
+
+    // Partial Payment: Submissão do formulário (pagamento / recebimento parcial ou customizado)
+    $('#partialPayForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!partialPayState.type || !partialPayState.idKey) return;
+      const payVal = Number($('#partialPayAmountInput')?.value);
+      const alert = $('#partialPayAlert');
+
+      if (!payVal || isNaN(payVal) || payVal <= 0) {
+        if (alert) { alert.style.display = 'block'; alert.textContent = 'Informe um valor válido maior que zero.'; }
+        return;
+      }
+
+      const remaining = Number(partialPayState.remainingAmount || 0);
+      if (payVal > remaining + 0.0001) {
+        const actionLabel = partialPayState.isIncome ? 'a receber' : 'a pagar';
+        if (alert) { alert.style.display = 'block'; alert.textContent = `O valor informado (${currency(payVal)}) excede o restante ${actionLabel} (${currency(remaining)}).`; }
+        return;
+      }
+
+      const state = getState();
+      const y = state.year, m = state.month;
+      let item = null;
+      if (partialPayState.type === 'fixed') {
+        item = state.fixed.find(f => f.id === partialPayState.idKey);
+      } else if (partialPayState.type === 'variable') {
+        item = state.variable.find(v => v.id === partialPayState.idKey);
+      } else if (partialPayState.type === 'debtor') {
+        item = (state.debtors || []).find(d => d.id === partialPayState.idKey);
+      } else if (partialPayState.type === 'extra') {
+        item = (state.extras || []).find(e => e.id === partialPayState.idKey);
+      }
+      if (!item) return;
+
+      const newPaidTotal = Number(partialPayState.paidAmount || 0) + payVal;
+      if (typeof setExpensePayment === 'function') {
+        setExpensePayment(item, y, m, newPaidTotal, partialPayState.totalAmount);
+      } else {
+        item.paidHistory = item.paidHistory || {};
+        item.paidHistory[ymKey(y, m)] = {
+          paidAmount: Math.round(newPaidTotal * 100) / 100,
+          updatedAt: new Date().toISOString()
+        };
+      }
+
+      saveState();
+      $('#partialPaymentDialog')?.close();
+      render();
+      const actionName = partialPayState.isIncome ? 'Recebimento' : 'Pagamento';
+      notify(`${actionName} de ${currency(payVal)} registrado para "${partialPayState.itemName}"!`, 'success');
+    });
   }
 
   // Bridges publicas autorizadas do modulo de despesas
   window.renderExpensesLists = renderExpensesLists;
   window.renderSimplifiedExpenses = renderSimplifiedExpenses;
   window.openEntryDialog = openEntryDialog;
+  window.openQuickExpenseDialog = openQuickExpenseDialog;
+  window.openPartialPaymentDialog = openPartialPaymentDialog;
   window.openFullscreenTable = openFullscreenTable;
   window.toggleExpenseStatus = toggleExpenseStatus;
   window.markAllSectionPaid = markAllSectionPaid;

@@ -25,10 +25,22 @@
    * Constrói o dataset consolidado normalizado para a competência financeira (year, month).
    * Função pura e segura em runtime.
    */
-  function buildConsolidatedDataset(state, year, month) {
+  function buildConsolidatedDataset(stateInput, yearInput, monthInput) {
+    let state = stateInput;
+    let resolvedYear = yearInput;
+    let resolvedMonth = monthInput;
+
+    if (!state || (typeof state === 'object' && state.fixed === undefined && state.variable === undefined && typeof getState === 'function')) {
+      if (state && typeof state === 'object') {
+        if (state.year !== undefined) resolvedYear = state.year;
+        if (state.month !== undefined) resolvedMonth = state.month;
+      }
+      state = (typeof getState === 'function') ? getState() : (state || {});
+    }
+
     if (!state) return [];
-    const y = Number(year) || state.year || 2026;
-    const m = Number(month) || state.month || 1;
+    const y = Number(resolvedYear) || state.year || 2026;
+    const m = Number(resolvedMonth) || state.month || 1;
 
     const dataset = [];
 
@@ -56,7 +68,10 @@
       }
       if (!active) return;
 
-      const isPaid = f.paidHistory && f.paidHistory[key] === true;
+      const payInfo = (typeof getExpensePaymentInfo === 'function')
+        ? getExpensePaymentInfo(f, y, m, active.amount)
+        : { status: (f.paidHistory && f.paidHistory[key] === true) ? 'pago' : 'pendente', paidAmount: (f.paidHistory && f.paidHistory[key] === true) ? Number(active.amount) : 0, remainingAmount: (f.paidHistory && f.paidHistory[key] === true) ? 0 : Number(active.amount) };
+
       const catName = typeof getCategoryName === 'function' ? getCategoryName(f.group) : (f.group || 'Gerais');
 
       dataset.push({
@@ -68,7 +83,9 @@
         category: catName || 'Gerais',
         destination: f.destination || 'Nubank',
         amount: Number(active.amount || 0),
-        status: isPaid ? 'pago' : 'pendente',
+        status: payInfo.status,
+        paidAmount: payInfo.paidAmount,
+        remainingAmount: payInfo.remainingAmount,
         dueDay: f.dueDay || null,
         note: f.note || '',
         isExpense: true,
@@ -87,7 +104,10 @@
 
       const total = eTarget - sTarget + 1;
       const idx = target - sTarget + 1;
-      const isPaid = v.paidHistory && v.paidHistory[key] === true;
+      const payInfo = (typeof getExpensePaymentInfo === 'function')
+        ? getExpensePaymentInfo(v, y, m, v.amount)
+        : { status: (v.paidHistory && v.paidHistory[key] === true) ? 'pago' : 'pendente', paidAmount: (v.paidHistory && v.paidHistory[key] === true) ? Number(v.amount) : 0, remainingAmount: (v.paidHistory && v.paidHistory[key] === true) ? 0 : Number(v.amount) };
+
       const catName = typeof getCategoryName === 'function' ? getCategoryName(v.group) : (v.group || 'Gerais');
 
       dataset.push({
@@ -99,7 +119,9 @@
         category: catName || 'Gerais',
         destination: v.destination || 'Nubank',
         amount: Number(v.amount || 0),
-        status: isPaid ? 'pago' : 'pendente',
+        status: payInfo.status,
+        paidAmount: payInfo.paidAmount,
+        remainingAmount: payInfo.remainingAmount,
         dueDay: v.dueDay || null,
         installmentIndex: idx,
         installmentTotal: total,
@@ -120,7 +142,9 @@
 
       const total = eTarget - sTarget + 1;
       const idx = target - sTarget + 1;
-      const isPaid = d.paidHistory ? d.paidHistory[key] === true : d.status === 'pago';
+      const payInfo = (typeof getExpensePaymentInfo === 'function')
+        ? getExpensePaymentInfo(d, y, m, d.amount)
+        : { status: (d.paidHistory && d.paidHistory[key] === true) ? 'pago' : 'pendente', paidAmount: (d.paidHistory && d.paidHistory[key] === true) ? Number(d.amount) : 0, remainingAmount: (d.paidHistory && d.paidHistory[key] === true) ? 0 : Number(d.amount) };
       const debtorName = d.debtorName || d.name || 'Devedor';
       const title = d.title || 'Cobrança';
       const catName = d.category ? (typeof getCategoryName === 'function' ? getCategoryName(d.category) : d.category) : 'Devedores';
@@ -134,7 +158,9 @@
         category: catName || 'Devedores',
         destination: d.destination || 'Nubank',
         amount: Number(d.amount || 0),
-        status: isPaid ? 'pago' : 'pendente',
+        status: payInfo.status,
+        paidAmount: payInfo.paidAmount,
+        remainingAmount: payInfo.remainingAmount,
         installmentIndex: idx,
         installmentTotal: total,
         countInTotal: d.countInTotal !== false,
@@ -211,8 +237,10 @@
         };
       }
       map[cat].total += item.amount;
-      if (item.status === 'pago') map[cat].paidTotal += item.amount;
-      else map[cat].pendingTotal += item.amount;
+      const itemPaid = item.paidAmount !== undefined ? item.paidAmount : (item.status === 'pago' ? item.amount : 0);
+      const itemPending = item.remainingAmount !== undefined ? item.remainingAmount : (item.status === 'pago' ? 0 : item.amount);
+      map[cat].paidTotal += itemPaid;
+      map[cat].pendingTotal += itemPending;
       map[cat].count += 1;
       map[cat].items.push(item);
     });
@@ -246,8 +274,10 @@
         };
       }
       map[dest].total += item.amount;
-      if (item.status === 'pago') map[dest].paidTotal += item.amount;
-      else map[dest].pendingTotal += item.amount;
+      const itemPaid = item.paidAmount !== undefined ? item.paidAmount : (item.status === 'pago' ? item.amount : 0);
+      const itemPending = item.remainingAmount !== undefined ? item.remainingAmount : (item.status === 'pago' ? 0 : item.amount);
+      map[dest].paidTotal += itemPaid;
+      map[dest].pendingTotal += itemPending;
       map[dest].count += 1;
       map[dest].items.push(item);
     });
@@ -338,9 +368,9 @@
     // 1. Constrói dataset bruto da competência
     const rawDataset = buildConsolidatedDataset(state, year, month);
 
-    // Opções dinâmicas para os filtros
-    const distinctCategories = [...new Set(rawDataset.map(i => i.category))].sort();
-    const distinctDestinations = [...new Set(rawDataset.map(i => i.destination))].sort();
+    // Opções dinâmicas para os filtros ordenadas alfabeticamente
+    const distinctCategories = [...new Set(rawDataset.map(i => i.category))].sort((a, b) => String(a || '').localeCompare(String(b || ''), 'pt-BR', { sensitivity: 'base' }));
+    const distinctDestinations = [...new Set(rawDataset.map(i => i.destination))].sort((a, b) => String(a || '').localeCompare(String(b || ''), 'pt-BR', { sensitivity: 'base' }));
 
     // 2. Aplica filtros locais
     const dataset = filterConsolidatedDataset(rawDataset, localFilters);
@@ -353,8 +383,8 @@
     const totalDebtors = debtorItems.reduce((s, i) => s + i.amount, 0);
     const totalFiltered = dataset.reduce((s, i) => s + i.amount, 0);
 
-    const totalPaid = dataset.filter(i => i.status === 'pago').reduce((s, i) => s + i.amount, 0);
-    const totalPending = dataset.filter(i => i.status === 'pendente').reduce((s, i) => s + i.amount, 0);
+    const totalPaid = dataset.reduce((s, i) => s + (i.paidAmount !== undefined ? i.paidAmount : (i.status === 'pago' ? i.amount : 0)), 0);
+    const totalPending = dataset.reduce((s, i) => s + (i.remainingAmount !== undefined ? i.remainingAmount : (i.status === 'pago' ? 0 : i.amount)), 0);
 
     const pctPaid = totalFiltered > 0 ? Math.min(100, Math.round((totalPaid / totalFiltered) * 100)) : 0;
     const pctPending = totalFiltered > 0 ? Math.min(100, Math.round((totalPending / totalFiltered) * 100)) : 0;
@@ -410,6 +440,7 @@
             <select id="consolidatedStatusFilter" style="padding:7px 10px; border-radius:999px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.82rem;">
               <option value="all" ${localFilters.status === 'all' ? 'selected' : ''}>Todos os Status</option>
               <option value="pago" ${localFilters.status === 'pago' ? 'selected' : ''}>Pago / Liquidado</option>
+              <option value="parcial" ${localFilters.status === 'parcial' ? 'selected' : ''}>Parcialmente Pago</option>
               <option value="pendente" ${localFilters.status === 'pendente' ? 'selected' : ''}>Pendente</option>
             </select>
 
@@ -569,7 +600,7 @@
                   </div>
                   <div style="text-align:right; flex-shrink:0;">
                     <div class="num" style="font-weight:800;">${formatMoney(item.amount)}</div>
-                    <span class="badge ${item.status === 'pago' ? 'success' : 'warning'}" style="font-size:0.65rem; padding:1px 5px;">${item.status === 'pago' ? 'Pago' : 'Pendente'}</span>
+                    ${item.status === 'pago' ? `<span class="badge success" style="font-size:0.65rem; padding:1px 5px;">Pago</span>` : (item.status === 'parcial' ? `<span class="badge warning" style="font-size:0.65rem; padding:1px 5px; background:rgba(245,158,11,0.15); color:#f59e0b;">Parcial (${formatMoney(item.paidAmount)})</span>` : `<span class="badge warning" style="font-size:0.65rem; padding:1px 5px;">Pendente</span>`)}
                   </div>
                 </div>
               `).join('')}
@@ -626,7 +657,7 @@
                   </div>
                   <div style="text-align:right; flex-shrink:0;">
                     <div class="num" style="font-weight:800;">${formatMoney(item.amount)}</div>
-                    <span class="badge ${item.status === 'pago' ? 'success' : 'warning'}" style="font-size:0.65rem; padding:1px 5px;">${item.status === 'pago' ? 'Pago' : 'Pendente'}</span>
+                    ${item.status === 'pago' ? `<span class="badge success" style="font-size:0.65rem; padding:1px 5px;">Pago</span>` : (item.status === 'parcial' ? `<span class="badge warning" style="font-size:0.65rem; padding:1px 5px; background:rgba(245,158,11,0.15); color:#f59e0b;">Parcial (${formatMoney(item.paidAmount)})</span>` : `<span class="badge warning" style="font-size:0.65rem; padding:1px 5px;">Pendente</span>`)}
                   </div>
                 </div>
               `).join('')}

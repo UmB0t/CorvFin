@@ -11,7 +11,8 @@
   function updateCategorySelects() {
     const state = getState();
     const groupSelect = $('#entryGroup');
-    const cats = Array.isArray(state.categories) ? state.categories : [];
+    const rawCats = Array.isArray(state.categories) ? state.categories : [];
+    const cats = (typeof getSortedCategories === 'function') ? getSortedCategories(rawCats) : rawCats;
     if (groupSelect) {
       const curVal = groupSelect.value;
       let opts = cats.map((c, idx) => {
@@ -65,19 +66,20 @@
 
   function updateDestinationSelects() {
     const state = getState();
-    const opts = state.destinations.map(d => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
-    $('#entryDestination').innerHTML = opts;
-    $('#debtorDestination').innerHTML = opts;
-    $('#assetDestination').innerHTML = opts;
+    const sortedDests = (typeof getSortedDestinations === 'function') ? getSortedDestinations(state.destinations) : (state.destinations || []);
+    const opts = sortedDests.map(d => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
+    if ($('#entryDestination')) $('#entryDestination').innerHTML = opts;
+    if ($('#debtorDestination')) $('#debtorDestination').innerHTML = opts;
+    if ($('#assetDestination')) $('#assetDestination').innerHTML = opts;
 
     const destFilterSelect = $('#expensesDestFilter');
     if (destFilterSelect) {
-      destFilterSelect.innerHTML = `<option value="all">Todos os Destinos</option>` + state.destinations.map(d => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
+      destFilterSelect.innerHTML = `<option value="all">Todos os Destinos</option>` + sortedDests.map(d => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
     }
 
     const tagsContainer = $('#destTagsList');
     if (tagsContainer) {
-      tagsContainer.innerHTML = state.destinations.map(d => {
+      tagsContainer.innerHTML = sortedDests.map(d => {
         const iconSvg = DEST_SVG_ICONS[d.icon] || DEST_SVG_ICONS.card;
         const usage = countUsage('dest', d.name);
         const isNative = (d.name.toLowerCase() === 'pix' || d.name.toLowerCase() === 'dinheiro');
@@ -135,7 +137,8 @@
 
     const groupDatalist = $('#groupSuggestions');
     if (groupDatalist) {
-      const cats = Array.isArray(state.categories) ? state.categories : [];
+      const rawCats = Array.isArray(state.categories) ? state.categories : [];
+      const cats = (typeof getSortedCategories === 'function') ? getSortedCategories(rawCats) : rawCats;
       groupDatalist.innerHTML = cats.map(c => `<option value="${escapeHtml((typeof getCategoryName === 'function') ? getCategoryName(c) : (typeof c === 'string' ? c : c.name))}">`).join('');
     }
   }
@@ -146,7 +149,8 @@
     if (!container) return;
 
     let unbudgetedCount = 0;
-    const cats = Array.isArray(state.categories) ? state.categories : [];
+    const rawCats = Array.isArray(state.categories) ? state.categories : [];
+    const cats = (typeof getSortedCategories === 'function') ? getSortedCategories(rawCats) : rawCats;
 
     container.innerHTML = cats.map((c, idx) => {
       const name = (typeof getCategoryName === 'function') ? getCategoryName(c) : (typeof c === 'string' ? c : c.name);

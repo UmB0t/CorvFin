@@ -18,19 +18,37 @@
     }
   }
 
-  function openExtraDialog(mode, id) {
+  function openExtraDialog(mode = 'new', id = null) {
+    if (typeof window.hasTabPermission === 'function' && !window.hasTabPermission('tab-extras')) {
+      if (typeof notify === 'function') notify('Você não tem permissão para acessar o módulo de Rendas Extras.', 'error');
+      return;
+    }
+    if (typeof window.isModuleInMaintenance === 'function' && window.isModuleInMaintenance('tab-extras')) {
+      if (typeof notify === 'function') notify('O módulo de Rendas Extras está temporariamente em manutenção.', 'warning');
+      return;
+    }
+
     const state = getState();
     const extraDlg = $('#extraDialog');
+    if (!extraDlg) return;
     $('#extraForm')?.reset();
     extraDlgId = id || null;
     if ($('#deleteExtraBtn')) $('#deleteExtraBtn').hidden = !id;
 
+    if (typeof fillMonthSelects === 'function') {
+      try { fillMonthSelects(); } catch (e) {}
+    }
+
     const startSel = $('#extraStartMonth');
     const endSel = $('#extraEndMonth');
-    if (startSel) startSel.innerHTML = MONTH_ABBR.map((m, idx) => `<option value="${idx + 1}">${m}</option>`).join('');
-    if (endSel) endSel.innerHTML = MONTH_ABBR.map((m, idx) => `<option value="${idx + 1}">${m}</option>`).join('');
+    if (startSel && (!startSel.children || startSel.children.length === 0)) {
+      startSel.innerHTML = MONTH_ABBR.map((m, idx) => `<option value="${idx + 1}">${m}</option>`).join('');
+    }
+    if (endSel && (!endSel.children || endSel.children.length === 0)) {
+      endSel.innerHTML = MONTH_ABBR.map((m, idx) => `<option value="${idx + 1}">${m}</option>`).join('');
+    }
 
-    if (mode === 'new') {
+    if (mode === 'new' || !id) {
       if ($('#extraDialogTitle')) $('#extraDialogTitle').textContent = 'Nova Renda Extra';
       if ($('#extraTitle')) $('#extraTitle').value = '';
       if ($('#extraSource')) $('#extraSource').value = '';
@@ -61,7 +79,10 @@
       if ($('#extraDescription')) $('#extraDescription').value = e.description || '';
       updateExtraInstallments();
     }
-    if (extraDlg) extraDlg.showModal();
+    extraDlg.showModal();
+    setTimeout(() => {
+      $('#extraTitle')?.focus();
+    }, 50);
   }
 
 function activeExtrasForMonth(year, month) {
@@ -70,8 +91,15 @@ function activeExtrasForMonth(year, month) {
   const key = ymKey(year, month);
   return (state.extras || []).filter(e => target >= mk(e.startYear, e.startMonth) && target <= mk(e.endYear, e.endMonth))
     .map(e => {
-      const isPaid = e.paidHistory ? e.paidHistory[key] === true : e.status === 'pago';
-      return Object.assign({}, e, { status: isPaid ? 'pago' : 'pendente' });
+      const payInfo = (typeof getExpensePaymentInfo === 'function')
+        ? getExpensePaymentInfo(e, year, month, e.amount)
+        : { totalAmount: Number(e.amount), paidAmount: (e.paidHistory && e.paidHistory[key] === true ? Number(e.amount) : 0), remainingAmount: 0, status: (e.paidHistory && e.paidHistory[key] === true ? 'pago' : 'pendente') };
+
+      return Object.assign({}, e, {
+        status: payInfo.status,
+        paidAmount: payInfo.paidAmount,
+        remainingAmount: payInfo.remainingAmount
+      });
     });
 };
 
@@ -207,8 +235,8 @@ function toggleExtraStatus(id) {
   const y = state.year, m = state.month;
   const rawExtras = activeExtrasForMonth(y, m);
   const totalExtra = rawExtras.reduce((s, e) => s + Number(e.amount), 0);
-  const receivedExtra = rawExtras.filter(e => e.status === 'pago').reduce((s, e) => s + Number(e.amount), 0);
-  const pendingExtra = totalExtra - receivedExtra;
+  const receivedExtra = rawExtras.reduce((s, e) => s + Number(e.paidAmount !== undefined ? e.paidAmount : (e.status === 'pago' ? e.amount : 0)), 0);
+  const pendingExtra = Math.max(0, totalExtra - receivedExtra);
 
   $('#extraMetrics').innerHTML = `
       <div class="metric">
@@ -243,9 +271,15 @@ function toggleExtraStatus(id) {
   });
 
   const rows = extras.map(e => buildEntryRow({
-    id: e.id, type: 'extra', title: e.title,
+    id: e.id,
+    type: 'extra',
+    title: e.title,
     tags: [`Origem: ${e.source}`, `Envia: ${e.sender}`],
-    amount: e.amount, status: e.status, destination: 'Renda Extra',
+    amount: e.amount,
+    status: e.status,
+    paidAmount: e.paidAmount,
+    remainingAmount: e.remainingAmount,
+    destination: 'Renda Extra',
     onClickToggleStatus: () => toggleExpenseStatus('extra', e.id, e.status),
     onClickEdit: () => openExtraDialog('edit', e.id)
   }));

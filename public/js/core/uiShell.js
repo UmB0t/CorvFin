@@ -843,17 +843,25 @@
     if (!quickOverlay) return;
 
     // Aplica RBAC e manutenção nos itens de cadastro rápido
-    const btnExp = document.getElementById('quickActionNewExpense') || $('#quickActionNewExpense');
+    const btnFastExp = document.getElementById('quickActionFastExpense') || $('#quickActionFastExpense');
+    const btnWizExp = document.getElementById('quickActionWizardExpense') || $('#quickActionWizardExpense');
+    const btnExpLegacy = document.getElementById('quickActionNewExpense') || $('#quickActionNewExpense');
     const btnDeb = document.getElementById('quickActionNewDebtor') || $('#quickActionNewDebtor');
+    const btnExt = document.getElementById('quickActionNewExtra') || $('#quickActionNewExtra');
     const btnBen = document.getElementById('quickActionNewBenefit') || $('#quickActionNewBenefit');
 
-    if (btnExp) {
-      const allowed = hasTabPermission('tab-expenses') && !isModuleInMaintenance('tab-expenses');
-      btnExp.style.display = allowed ? 'flex' : 'none';
-    }
+    const expAllowed = hasTabPermission('tab-expenses') && !isModuleInMaintenance('tab-expenses');
+    if (btnFastExp) btnFastExp.style.display = expAllowed ? 'flex' : 'none';
+    if (btnWizExp) btnWizExp.style.display = expAllowed ? 'flex' : 'none';
+    if (btnExpLegacy) btnExpLegacy.style.display = expAllowed ? 'flex' : 'none';
+
     if (btnDeb) {
       const allowed = hasTabPermission('tab-debtors') && !isModuleInMaintenance('tab-debtors');
       btnDeb.style.display = allowed ? 'flex' : 'none';
+    }
+    if (btnExt) {
+      const allowed = hasTabPermission('tab-extras') && !isModuleInMaintenance('tab-extras');
+      btnExt.style.display = allowed ? 'flex' : 'none';
     }
     if (btnBen) {
       const allowed = hasTabPermission('tab-benefits') && !isModuleInMaintenance('tab-benefits');
@@ -882,12 +890,42 @@
       });
     }
 
-    // Ação: Nova Despesa
-    const btnExp = document.getElementById('quickActionNewExpense') || $('#quickActionNewExpense');
-    if (btnExp) {
-      btnExp.addEventListener('click', () => {
+    // Ação: Despesa Rápida (4 campos)
+    const btnFastExp = document.getElementById('quickActionFastExpense') || $('#quickActionFastExpense');
+    if (btnFastExp) {
+      btnFastExp.addEventListener('click', () => {
+        quickOverlay?.classList.remove('open');
+        if (typeof window.openQuickExpenseDialog === 'function') {
+          window.openQuickExpenseDialog();
+        } else if (typeof window.openEntryDialog === 'function') {
+          window.openEntryDialog({ mode: 'new', type: 'cash' });
+        } else {
+          activateTab('tab-expenses', true);
+        }
+      });
+    }
+
+    // Ação: Despesa Completa (Wizard)
+    const btnWizExp = document.getElementById('quickActionWizardExpense') || $('#quickActionWizardExpense');
+    if (btnWizExp) {
+      btnWizExp.addEventListener('click', () => {
         quickOverlay?.classList.remove('open');
         if (typeof window.openEntryDialog === 'function') {
+          window.openEntryDialog({ mode: 'new', type: 'cash' });
+        } else {
+          activateTab('tab-expenses', true);
+        }
+      });
+    }
+
+    // Compatibilidade com botão legado se existir
+    const btnExpLegacy = document.getElementById('quickActionNewExpense') || $('#quickActionNewExpense');
+    if (btnExpLegacy) {
+      btnExpLegacy.addEventListener('click', () => {
+        quickOverlay?.classList.remove('open');
+        if (typeof window.openQuickExpenseDialog === 'function') {
+          window.openQuickExpenseDialog();
+        } else if (typeof window.openEntryDialog === 'function') {
           window.openEntryDialog({ mode: 'new', type: 'cash' });
         } else {
           activateTab('tab-expenses', true);
@@ -904,6 +942,19 @@
           window.openDebtorDialog('new');
         } else {
           activateTab('tab-debtors', true);
+        }
+      });
+    }
+
+    // Ação: Nova Renda Extra
+    const btnExt = document.getElementById('quickActionNewExtra') || $('#quickActionNewExtra');
+    if (btnExt) {
+      btnExt.addEventListener('click', () => {
+        quickOverlay?.classList.remove('open');
+        if (typeof window.openExtraDialog === 'function') {
+          window.openExtraDialog('new');
+        } else {
+          activateTab('tab-extras', true);
         }
       });
     }
@@ -1113,6 +1164,94 @@
   // Listener exclusivo de abertura do diálogo institucional
   $('#infoBtn')?.addEventListener('click', openInfo);
 
+  function calculateTooltipPosition(target, rect, tipRect, windowWidth = (typeof window !== 'undefined' ? window.innerWidth : 1280), windowHeight = (typeof window !== 'undefined' ? window.innerHeight : 800)) {
+    const MARGIN = 8;
+    const explicitPos = target?.getAttribute ? target.getAttribute('data-tooltip-position') : null;
+    const isSidebar = Boolean(target?.closest && target.closest('.sidebar, .sidebar-nav, .sidebar-footer-nav, .sidebar-header, .sidebar-brand'));
+    const preferredPos = explicitPos || (isSidebar ? 'right' : 'top');
+
+    let left = 0;
+    let top = 0;
+    let actualPos = preferredPos;
+
+    if (preferredPos === 'right') {
+      left = rect.right + MARGIN;
+      top = rect.top + (rect.height / 2) - (tipRect.height / 2);
+
+      if (left + tipRect.width > windowWidth - MARGIN) {
+        if (rect.left - tipRect.width - MARGIN >= MARGIN) {
+          left = rect.left - tipRect.width - MARGIN;
+          actualPos = 'left';
+        } else {
+          left = Math.max(MARGIN, windowWidth - tipRect.width - MARGIN);
+        }
+      }
+
+      if (top + tipRect.height > windowHeight - MARGIN) {
+        top = Math.max(MARGIN, windowHeight - tipRect.height - MARGIN);
+      }
+      if (top < MARGIN) {
+        top = MARGIN;
+      }
+    } else if (preferredPos === 'left') {
+      left = rect.left - tipRect.width - MARGIN;
+      top = rect.top + (rect.height / 2) - (tipRect.height / 2);
+
+      if (left < MARGIN) {
+        if (rect.right + tipRect.width + MARGIN <= windowWidth - MARGIN) {
+          left = rect.right + MARGIN;
+          actualPos = 'right';
+        } else {
+          left = MARGIN;
+        }
+      }
+
+      if (top + tipRect.height > windowHeight - MARGIN) {
+        top = Math.max(MARGIN, windowHeight - tipRect.height - MARGIN);
+      }
+      if (top < MARGIN) {
+        top = MARGIN;
+      }
+    } else if (preferredPos === 'bottom') {
+      top = rect.bottom + MARGIN;
+      left = rect.left + (rect.width / 2) - (tipRect.width / 2);
+
+      if (top + tipRect.height > windowHeight - MARGIN) {
+        if (rect.top - tipRect.height - MARGIN >= MARGIN) {
+          top = rect.top - tipRect.height - MARGIN;
+          actualPos = 'top';
+        } else {
+          top = Math.max(MARGIN, windowHeight - tipRect.height - MARGIN);
+        }
+      }
+
+      left = Math.max(MARGIN, Math.min(left, windowWidth - tipRect.width - MARGIN));
+    } else {
+      // 'top' (default)
+      const hasSpaceAbove = (rect.top - tipRect.height - MARGIN) >= MARGIN;
+      top = hasSpaceAbove ? (rect.top - tipRect.height - MARGIN) : (rect.bottom + MARGIN);
+      actualPos = hasSpaceAbove ? 'top' : 'bottom';
+
+      if (top + tipRect.height > windowHeight - MARGIN) {
+        top = Math.max(MARGIN, windowHeight - tipRect.height - MARGIN);
+      }
+      if (top < MARGIN) {
+        top = MARGIN;
+      }
+
+      left = rect.left + (rect.width / 2) - (tipRect.width / 2);
+      left = Math.max(MARGIN, Math.min(left, windowWidth - tipRect.width - MARGIN));
+    }
+
+    return {
+      left: Math.round(left),
+      top: Math.round(top),
+      position: actualPos,
+      preferredPosition: preferredPos
+    };
+  }
+  window.calculateTooltipPosition = calculateTooltipPosition;
+
   // ==========================================================================
   // SISTEMA GLOBAL DE TOOLTIPS (SINGLETON VIEWPORT-SAFE)
   // ==========================================================================
@@ -1133,7 +1272,6 @@
     let isPointerOverTarget = false;
     let isPointerOverTooltip = false;
     let hideTimer = null;
-    const MARGIN = 8;
     const HIDE_DELAY_MS = 80;
 
     function updatePosition() {
@@ -1149,18 +1287,10 @@
       }
 
       const tipRect = tooltipEl.getBoundingClientRect();
-      const hasSpaceAbove = (rect.top - tipRect.height - MARGIN) >= MARGIN;
+      const pos = calculateTooltipPosition(activeTarget, rect, tipRect, window.innerWidth, window.innerHeight);
 
-      let top = hasSpaceAbove ? (rect.top - tipRect.height - MARGIN) : (rect.bottom + MARGIN);
-      if (top + tipRect.height > window.innerHeight - MARGIN) {
-        top = Math.max(MARGIN, window.innerHeight - tipRect.height - MARGIN);
-      }
-      if (top < MARGIN) top = MARGIN;
-
-      let left = rect.left + (rect.width / 2) - (tipRect.width / 2);
-      left = Math.max(MARGIN, Math.min(left, window.innerWidth - tipRect.width - MARGIN));
-
-      tooltipEl.style.transform = `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`;
+      tooltipEl.setAttribute('data-position', pos.position);
+      tooltipEl.style.transform = `translate3d(${pos.left}px, ${pos.top}px, 0)`;
     }
 
     function showTooltip(target) {
@@ -1251,6 +1381,12 @@
       }
     }, { capture: true, passive: true });
 
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && activeTarget && tooltipEl.classList.contains('show')) {
+        hideTooltip(true);
+      }
+    }, { capture: true, passive: true });
+
     window.addEventListener('scroll', () => {
       if (activeTarget && tooltipEl.classList.contains('show')) updatePosition();
     }, { capture: true, passive: true });
@@ -1310,6 +1446,7 @@
   window.updateSidebarMaintenanceBadges = updateSidebarMaintenanceBadges;
   window.isModuleInMaintenance = isModuleInMaintenance;
   window.initGlobalTooltips = initGlobalTooltips;
+  window.calculateTooltipPosition = calculateTooltipPosition;
   window.initPwaSupport = initPwaSupport;
 
   window.uiShell = {
@@ -1326,6 +1463,7 @@
     updateSidebarMaintenanceBadges,
     isModuleInMaintenance,
     initGlobalTooltips,
+    calculateTooltipPosition,
     initPwaSupport
   };
 
