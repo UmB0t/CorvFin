@@ -1373,8 +1373,88 @@
       fill: none;
     }
 
+    /* ==========================================================================
+       DASHBOARD: CONTROLE DE NAVEGAÇÃO DE COMPETÊNCIA (MÊS / ANO)
+       ========================================================================== */
+    .dashboard-month-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 12px 18px;
+      border-radius: 14px;
+    }
+
+    .dashboard-month-nav .dash-nav-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .dashboard-month-nav .dash-nav-icon-badge {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--brand-soft);
+      color: var(--brand);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .dashboard-month-nav .dash-nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface-2);
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+    }
+
+    .dashboard-month-nav .dash-month-display {
+      font-weight: 800;
+      font-size: 0.95rem;
+      min-width: 140px;
+      text-align: center;
+      user-select: none;
+      color: var(--text);
+    }
+
+    .dashboard-month-nav .dash-month-full {
+      display: inline;
+    }
+
+    .dashboard-month-nav .dash-month-short {
+      display: none;
+    }
+
     /* Mobile Friendly (<= 767px) */
     @media (max-width: 767px) {
+      .dashboard-month-nav {
+        padding: 10px 14px;
+        gap: 10px;
+      }
+      .dashboard-month-nav .dash-nav-header {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .dashboard-month-nav .dash-nav-controls {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .dashboard-month-nav .dash-month-display {
+        min-width: 90px;
+        font-size: 0.9rem;
+      }
+      .dashboard-month-nav .dash-month-full {
+        display: none;
+      }
+      .dashboard-month-nav .dash-month-short {
+        display: inline;
+      }
+
       .ai-assistant-fab {
         bottom: calc(var(--mobile-bottom-nav-height, 62px) + env(safe-area-inset-bottom) + 16px);
         right: 16px;
@@ -1394,4 +1474,57 @@
         border-radius: 16px;
         z-index: 999;
       }
+    }
+
+    /* ADMIN USERS PAGINATION */
+    .admin-users-pagination {
+      padding: 12px 18px;
+      border-top: 1px solid var(--line);
+      background: var(--surface-2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .admin-users-summary {
+      font-size: 0.84rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .admin-pagination-controls {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .admin-page-num {
+      min-width: 32px;
+      height: 32px;
+      padding: 0 8px;
+      font-size: 0.82rem;
+      font-weight: 750;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .admin-page-num.active {
+      background: var(--brand);
+      color: #fff;
+      border-color: var(--brand);
+      cursor: default;
+    }
+    .admin-page-ellipsis {
+      padding: 0 4px;
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 700;
+      user-select: none;
+    }
+    .admin-page-btn {
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      border-radius: 8px;
     }

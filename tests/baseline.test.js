@@ -3195,4 +3195,445 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     );
     assert.ok(mockContainer.innerHTML.includes('✓ Quitado'), 'O devedor Carlos deve exibir o badge "✓ Quitado" no modo donut');
   });
+
+  test('36. Checkpoint 9: Navegação Mensal no Dashboard (Controles Anterior/Próximo/Mês Atual, Rollover de Ano, Sincronização Global e Preservação de Filtros)', async () => {
+    const vm = require('node:vm');
+    const constantsJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'constants.js'), 'utf-8');
+    const utilsJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'utils.js'), 'utf-8');
+    const stateJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'state.js'), 'utf-8');
+    const financeQueriesJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'financeQueries.js'), 'utf-8');
+    const consolidatedJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'modules', 'consolidatedDashboard.js'), 'utf-8');
+    const componentsCss = fs.readFileSync(path.join(process.cwd(), 'public', 'css', 'components.css'), 'utf-8');
+    const mobileCss = fs.readFileSync(path.join(process.cwd(), 'public', 'css', 'mobile.css'), 'utf-8');
+
+    // 1. Validação de CSS e classes responsivas
+    assert.ok(componentsCss.includes('.dashboard-month-nav'), 'components.css deve conter .dashboard-month-nav');
+    assert.ok(componentsCss.includes('.dash-month-full'), 'components.css deve conter .dash-month-full');
+    assert.ok(componentsCss.includes('.dash-month-short'), 'components.css deve conter .dash-month-short');
+    assert.ok(mobileCss.includes('.dashboard-month-nav'), 'mobile.css deve conter regras para .dashboard-month-nav');
+    assert.ok(mobileCss.includes('.dash-month-short'), 'mobile.css deve conter regras para .dash-month-short');
+
+    // 2. Setup do Sandbox com DOM Mock
+    let renderedHtml = '';
+    const eventHandlers = {};
+
+    const mockDashboardWrap = {
+      id: 'dashboardViewWrap',
+      set innerHTML(html) {
+        renderedHtml = html;
+      },
+      get innerHTML() {
+        return renderedHtml;
+      },
+      querySelector: (sel) => {
+        if (sel === '#dashPrevMonthBtn') {
+          return {
+            id: 'dashPrevMonthBtn',
+            addEventListener: (ev, fn) => { eventHandlers['prev'] = fn; }
+          };
+        }
+        if (sel === '#dashNextMonthBtn') {
+          return {
+            id: 'dashNextMonthBtn',
+            addEventListener: (ev, fn) => { eventHandlers['next'] = fn; }
+          };
+        }
+        if (sel === '#dashTodayBtn') {
+          return {
+            id: 'dashTodayBtn',
+            addEventListener: (ev, fn) => { eventHandlers['today'] = fn; }
+          };
+        }
+        if (sel === '#consolidatedSearchInput') return { addEventListener: () => {} };
+        if (sel === '#consolidatedStatusFilter') return { addEventListener: () => {} };
+        if (sel === '#consolidatedCategoryFilter') return { addEventListener: () => {} };
+        if (sel === '#consolidatedDestFilter') return { addEventListener: () => {} };
+        if (sel === '#consolidatedSourceFilter') return { addEventListener: () => {} };
+        if (sel === '#consolidatedClearFiltersBtn' || sel === '#consolidatedEmptyResetBtn') return { addEventListener: () => {} };
+        return null;
+      },
+      querySelectorAll: () => []
+    };
+
+    const globalState = {
+      version: 5,
+      revision: 1,
+      year: 2026,
+      month: 8,
+      profile: { name: 'Teste User', baseSalary: 6000 },
+      destinations: [
+        { name: 'Nubank', color: '#8B5CF6', icon: 'card', dueDay: 10 },
+        { name: 'Pix', color: '#10B981', icon: 'dollar', dueDay: null }
+      ],
+      categories: [
+        { name: 'Moradia', icon: 'home', color: '#1F7A5C' },
+        { name: 'Lazer', icon: 'star', color: '#EC4899' }
+      ],
+      budgets: {},
+      fixed: [
+        {
+          id: 'f1',
+          name: 'Aluguel',
+          group: 'Moradia',
+          destination: 'Nubank',
+          versions: [{ year: 2026, month: 1, amount: 2000 }],
+          paidHistory: { '2026-08': true }
+        }
+      ],
+      variable: [
+        {
+          id: 'v1',
+          name: 'Cinema',
+          group: 'Lazer',
+          destination: 'Nubank',
+          startYear: 2026,
+          startMonth: 8,
+          endYear: 2026,
+          endMonth: 9,
+          amount: 150,
+          paidHistory: {}
+        }
+      ],
+      debtors: [
+        {
+          id: 'd1',
+          debtorName: 'Marcos',
+          title: 'Empréstimo',
+          category: 'Devedores',
+          destination: 'Pix',
+          startYear: 2026,
+          startMonth: 8,
+          endYear: 2026,
+          endMonth: 8,
+          amount: 500,
+          status: 'pendente',
+          countInTotal: true
+        }
+      ],
+      incomes: {},
+      extras: [],
+      assets: [],
+      aportes: [],
+      shoppingLists: [],
+      savedSimulations: [],
+      preferences: {
+        mobileNavigation: ['tab-dashboard', 'tab-expenses', 'tab-debtors']
+      }
+    };
+
+    let renderCallCount = 0;
+    let savedReasons = [];
+
+    const sandbox = {
+      window: {},
+      document: {
+        getElementById: (id) => (id === 'dashboardViewWrap' ? mockDashboardWrap : null),
+        querySelector: () => null,
+        querySelectorAll: () => []
+      },
+      getState: () => globalState,
+      state: globalState,
+      saveLocalState: () => {},
+      saveState: (reason) => { savedReasons.push(reason); },
+      render: (tabId) => {
+        renderCallCount++;
+        if (tabId === 'tab-dashboard' && sandbox.window.renderConsolidatedDashboardTab) {
+          sandbox.window.renderConsolidatedDashboardTab();
+        }
+      },
+      console: { log: () => {}, warn: () => {}, error: () => {} }
+    };
+
+    sandbox.window = sandbox;
+
+    vm.createContext(sandbox);
+    vm.runInContext(constantsJs, sandbox);
+    vm.runInContext(utilsJs, sandbox);
+    vm.runInContext(stateJs, sandbox);
+    vm.runInContext(financeQueriesJs, sandbox);
+    vm.runInContext(consolidatedJs, sandbox);
+
+    const { renderConsolidatedDashboardTab, prevMonth, nextMonth, goToCurrentMonth, getLocalFilters, setLocalFilters } = sandbox.window.ConsolidatedDashboardModule;
+
+    // 3. Renderiza o Dashboard inicial (Agosto/2026)
+    renderConsolidatedDashboardTab();
+
+    assert.ok(renderedHtml.includes('id="dashboardMonthNav"'), 'Dashboard deve conter o elemento de navegação #dashboardMonthNav');
+    assert.ok(renderedHtml.includes('id="dashPrevMonthBtn"'), 'Dashboard deve conter o botão #dashPrevMonthBtn');
+    assert.ok(renderedHtml.includes('id="dashNextMonthBtn"'), 'Dashboard deve conter o botão #dashNextMonthBtn');
+    assert.ok(renderedHtml.includes('id="dashTodayBtn"'), 'Dashboard deve conter o botão #dashTodayBtn');
+    assert.ok(renderedHtml.includes('id="dashMonthDisplay"'), 'Dashboard deve conter #dashMonthDisplay');
+    assert.ok(renderedHtml.includes('aria-label="Mês anterior"'), 'Botão anterior deve ter aria-label acessível');
+    assert.ok(renderedHtml.includes('aria-label="Próximo mês"'), 'Botão próximo deve ter aria-label acessível');
+    assert.ok(renderedHtml.includes('aria-label="Ir para o mês atual"'), 'Botão hoje deve ter aria-label acessível');
+    assert.ok(renderedHtml.includes('Competência: Agosto/2026'), 'Badge de competência deve sincronizar com Agosto/2026');
+
+    // 4. Teste de Incremento: Agosto/2026 -> Setembro/2026
+    nextMonth();
+    assert.strictEqual(globalState.month, 9, 'Mês deve ter sido incrementado para 9 (Setembro)');
+    assert.strictEqual(globalState.year, 2026, 'Ano deve permanecer 2026');
+    assert.ok(renderedHtml.includes('Competência: Setembro/2026'), 'Badge deve atualizar para Setembro/2026');
+    assert.ok(renderedHtml.includes('Setembro'), 'Display deve exibir Setembro');
+
+    // 5. Teste de Decremento: Setembro/2026 -> Agosto/2026
+    prevMonth();
+    assert.strictEqual(globalState.month, 8, 'Mês deve ter retornado para 8 (Agosto)');
+    assert.strictEqual(globalState.year, 2026, 'Ano deve permanecer 2026');
+    assert.ok(renderedHtml.includes('Competência: Agosto/2026'), 'Badge deve atualizar para Agosto/2026');
+
+    // 6. Teste de Rollover Dezembro -> Janeiro do ano seguinte
+    globalState.month = 12;
+    globalState.year = 2026;
+    nextMonth();
+    assert.strictEqual(globalState.month, 1, 'Mês 12 incrementado deve ir para mês 1 (Janeiro)');
+    assert.strictEqual(globalState.year, 2027, 'Ano deve ter sido incrementado de 2026 para 2027');
+    assert.ok(renderedHtml.includes('Competência: Janeiro/2027'), 'Badge deve exibir Janeiro/2027');
+
+    // 7. Teste de Rollover Janeiro -> Dezembro do ano anterior
+    globalState.month = 1;
+    globalState.year = 2026;
+    prevMonth();
+    assert.strictEqual(globalState.month, 12, 'Mês 1 decrementado deve ir para mês 12 (Dezembro)');
+    assert.strictEqual(globalState.year, 2025, 'Ano deve ter sido decrementado de 2026 para 2025');
+    assert.ok(renderedHtml.includes('Competência: Dezembro/2025'), 'Badge deve exibir Dezembro/2025');
+
+    // 8. Teste do botão "Mês Atual"
+    const today = sandbox.todayYM();
+    globalState.month = 3;
+    globalState.year = 2024;
+    goToCurrentMonth();
+    assert.strictEqual(globalState.month, today.month, 'goToCurrentMonth deve restaurar o mês atual');
+    assert.strictEqual(globalState.year, today.year, 'goToCurrentMonth deve restaurar o ano atual');
+
+    // 9. Preservação de Filtros ao navegar entre meses
+    setLocalFilters({ search: 'Aluguel', status: 'pago' });
+    globalState.month = 8;
+    globalState.year = 2026;
+    renderConsolidatedDashboardTab();
+    assert.ok(renderedHtml.includes('value="Aluguel"'), 'Input de busca deve preservar o termo "Aluguel"');
+    assert.ok(renderedHtml.includes('value="pago" selected'), 'Filtro de status deve preservar o valor "pago"');
+
+    // Avança de mês e confirma que o filtro continua ativo
+    nextMonth();
+    const currentFilters = getLocalFilters();
+    assert.strictEqual(currentFilters.search, 'Aluguel', 'Filtro de busca deve permanecer após mudar de mês');
+    assert.strictEqual(currentFilters.status, 'pago', 'Filtro de status deve permanecer após mudar de mês');
+
+    // 10. Estado vazio funciona adequadamente em mês sem lançamentos / filtros sem resultado
+    setLocalFilters({ search: 'Inexistente', status: 'all', category: 'all', destination: 'all', sourceType: 'all' });
+    renderConsolidatedDashboardTab();
+    assert.ok(renderedHtml.includes('Nenhum lançamento encontrado'), 'Deve exibir mensagem informativa de estado vazio');
+
+    // 11. Sincronização do estado global com Despesas e Assistente IA
+    globalState.month = 10;
+    globalState.year = 2026;
+    assert.strictEqual(sandbox.getState().month, 10, 'getState().month deve refletir Outubro');
+    assert.strictEqual(sandbox.getState().year, 2026, 'getState().year deve refletir 2026');
+  });
+
+  test('37. Checkpoint 9.1: Paginação da Gestão de Usuários (Limite Fixo 10, Navegação, Resumo, Indicadores Acessíveis, Exclusão e Edição Segura)', async () => {
+    const vm = require('node:vm');
+    const adminJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'admin.js'), 'utf-8');
+    const indexHtml = fs.readFileSync(path.join(process.cwd(), 'public', 'index.html'), 'utf-8');
+    const componentsCss = fs.readFileSync(path.join(process.cwd(), 'public', 'css', 'components.css'), 'utf-8');
+    const mobileCss = fs.readFileSync(path.join(process.cwd(), 'public', 'css', 'mobile.css'), 'utf-8');
+
+    // 1. Validação de HTML e CSS
+    assert.ok(indexHtml.includes('id="adminUsersPagination"'), 'index.html deve conter #adminUsersPagination');
+    assert.ok(componentsCss.includes('.admin-users-pagination'), 'components.css deve conter .admin-users-pagination');
+    assert.ok(componentsCss.includes('.admin-page-num'), 'components.css deve conter .admin-page-num');
+    assert.ok(mobileCss.includes('.admin-users-pagination'), 'mobile.css deve conter regras mobile para .admin-users-pagination');
+
+    // 2. Setup do Sandbox com DOM Mock
+    let tableBodyHtml = '';
+    let paginationHtml = '';
+    let paginationDisplay = '';
+
+    const mockTableBody = {
+      id: 'adminUsersTableBody',
+      set innerHTML(html) { tableBodyHtml = html; },
+      get innerHTML() { return tableBodyHtml; },
+      querySelectorAll: (sel) => {
+        // Mock buttons
+        const matches = [];
+        const regex = /data-(manage-modules|edit-user|del-user)="([^"]+)"/g;
+        let m;
+        while ((m = regex.exec(tableBodyHtml)) !== null) {
+          const attr = `data-${m[1]}`;
+          const val = m[2];
+          if (sel.includes(attr)) {
+            matches.push({
+              getAttribute: (name) => (name === attr ? val : null),
+              addEventListener: () => {}
+            });
+          }
+        }
+        return matches;
+      }
+    };
+
+    const mockPagination = {
+      id: 'adminUsersPagination',
+      style: {
+        set display(val) { paginationDisplay = val; },
+        get display() { return paginationDisplay; }
+      },
+      set innerHTML(html) { paginationHtml = html; },
+      get innerHTML() { return paginationHtml; },
+      querySelector: (sel) => {
+        if (sel === '#btnAdminUsersPrev' && paginationHtml.includes('id="btnAdminUsersPrev"')) {
+          return { addEventListener: () => {} };
+        }
+        if (sel === '#btnAdminUsersNext' && paginationHtml.includes('id="btnAdminUsersNext"')) {
+          return { addEventListener: () => {} };
+        }
+        return null;
+      },
+      querySelectorAll: (sel) => {
+        if (sel.includes('.admin-page-num[data-page]')) {
+          const matches = [];
+          const regex = /data-page="(\d+)"/g;
+          let m;
+          while ((m = regex.exec(paginationHtml)) !== null) {
+            const pageNum = m[1];
+            matches.push({
+              getAttribute: (name) => (name === 'data-page' ? pageNum : null),
+              addEventListener: () => {}
+            });
+          }
+          return matches;
+        }
+        return [];
+      }
+    };
+
+    // Gera 25 usuários fictícios para teste
+    const fakeUsers = [];
+    for (let i = 1; i <= 25; i++) {
+      fakeUsers.push({
+        id: `usr_${i}`,
+        nome: `Usuário Teste ${i}`,
+        login: `user${i}`,
+        email: `user${i}@teste.com`,
+        is_admin: i === 1,
+        createdAt: '2026-08-30T10:00:00Z',
+        permissions: { dashboard: true, despesas: true }
+      });
+    }
+
+    const sandbox = {
+      window: {},
+      document: {
+        getElementById: (id) => {
+          if (id === 'adminUsersTableBody') return mockTableBody;
+          if (id === 'adminUsersPagination') return mockPagination;
+          return null;
+        },
+        querySelector: () => null,
+        querySelectorAll: () => [],
+        createElement: () => ({ setAttribute: () => {}, appendChild: () => {}, style: {} }),
+        body: { appendChild: () => {} },
+        addEventListener: () => {}
+      },
+      API: {
+        getUser: () => ({ id: 'usr_1', nome: 'Admin Master', is_admin: true }),
+        getUsers: async () => ({ success: true, users: fakeUsers })
+      },
+      console: { log: () => {}, warn: () => {}, error: () => {} }
+    };
+    sandbox.window = sandbox;
+
+    vm.createContext(sandbox);
+    vm.runInContext(adminJs, sandbox);
+
+    const AdminMod = sandbox.window.AdminModule;
+
+    // 3. Validação do Limite Fixo de 10 por página
+    assert.strictEqual(AdminMod.getUsersPerPage(), 10, 'Limite de usuários por página deve ser fixo em 10');
+
+    // 4. Carrega e Renderiza com 25 usuários
+    AdminMod.setUsersList(fakeUsers);
+    assert.strictEqual(AdminMod.getTotalPages(), 3, '25 usuários devem gerar exatamente 3 páginas');
+    assert.strictEqual(AdminMod.getCurrentPage(), 1, 'Página inicial deve ser 1');
+
+    AdminMod.renderUsersTable();
+
+    // Página 1: Deve conter Usuário 1 até Usuário 10
+    assert.ok(tableBodyHtml.includes('Usuário Teste 1</strong>'), 'Página 1 deve conter Usuário 1');
+    assert.ok(tableBodyHtml.includes('Usuário Teste 10</strong>'), 'Página 1 deve conter Usuário 10');
+    assert.ok(!tableBodyHtml.includes('Usuário Teste 11</strong>'), 'Página 1 NÃO deve conter Usuário 11');
+    assert.ok(paginationHtml.includes('Mostrando 1–10 de 25 usuários'), 'Resumo deve indicar "Mostrando 1–10 de 25 usuários"');
+    assert.ok(paginationHtml.includes('id="btnAdminUsersPrev" disabled'), 'Botão Anterior deve estar desabilitado na página 1');
+    assert.ok(paginationHtml.includes('id="btnAdminUsersNext"') && !paginationHtml.includes('id="btnAdminUsersNext" disabled'), 'Botão Próxima deve estar habilitado na página 1');
+    assert.ok(paginationHtml.includes('aria-current="page"'), 'Página ativa deve ter aria-current="page"');
+
+    // 5. Navega para Página 2
+    AdminMod.nextPage();
+    assert.strictEqual(AdminMod.getCurrentPage(), 2, 'Deve estar na página 2');
+    assert.ok(!tableBodyHtml.includes('Usuário Teste 10</strong>'), 'Página 2 NÃO deve conter Usuário 10');
+    assert.ok(tableBodyHtml.includes('Usuário Teste 11</strong>'), 'Página 2 deve conter Usuário 11');
+    assert.ok(tableBodyHtml.includes('Usuário Teste 20</strong>'), 'Página 2 deve conter Usuário 20');
+    assert.ok(!tableBodyHtml.includes('Usuário Teste 21</strong>'), 'Página 2 NÃO deve conter Usuário 21');
+    assert.ok(paginationHtml.includes('Mostrando 11–20 de 25 usuários'), 'Resumo deve indicar "Mostrando 11–20 de 25 usuários"');
+    assert.ok(!paginationHtml.includes('id="btnAdminUsersPrev" disabled'), 'Botão Anterior deve estar habilitado na página 2');
+    assert.ok(!paginationHtml.includes('id="btnAdminUsersNext" disabled'), 'Botão Próxima deve estar habilitado na página 2');
+
+    // 6. Navega para Página 3 (Última Página com 5 itens)
+    AdminMod.nextPage();
+    assert.strictEqual(AdminMod.getCurrentPage(), 3, 'Deve estar na página 3');
+    assert.ok(!tableBodyHtml.includes('Usuário Teste 20</strong>'), 'Página 3 NÃO deve conter Usuário 20');
+    assert.ok(tableBodyHtml.includes('Usuário Teste 21</strong>'), 'Página 3 deve conter Usuário 21');
+    assert.ok(tableBodyHtml.includes('Usuário Teste 25</strong>'), 'Página 3 deve conter Usuário 25');
+    assert.ok(paginationHtml.includes('Mostrando 21–25 de 25 usuários'), 'Resumo deve indicar "Mostrando 21–25 de 25 usuários"');
+    assert.ok(!paginationHtml.includes('id="btnAdminUsersPrev" disabled'), 'Botão Anterior deve estar habilitado na página 3');
+    assert.ok(paginationHtml.includes('id="btnAdminUsersNext" disabled'), 'Botão Próxima deve estar desabilitado na última página');
+
+    // 7. Navegação Direta via goToPage
+    AdminMod.goToPage(2);
+    assert.strictEqual(AdminMod.getCurrentPage(), 2, 'goToPage(2) deve navegar para a página 2');
+    assert.ok(paginationHtml.includes('Mostrando 11–20 de 25 usuários'));
+
+    // 8. Edição de usuário preserva página atual
+    const user15 = fakeUsers.find(u => u.id === 'usr_15');
+    user15.nome = 'Usuário 15 Editado';
+    AdminMod.renderUsersTable();
+    assert.strictEqual(AdminMod.getCurrentPage(), 2, 'Edição deve manter o usuário na página 2');
+    assert.ok(tableBodyHtml.includes('Usuário 15 Editado</strong>'), 'Nome editado deve ser exibido na página 2');
+
+    // 9. Gerenciamento de Módulos (data-manage-modules) com IDs reais na página 2
+    assert.ok(tableBodyHtml.includes('data-manage-modules="usr_15"'), 'Ação Gerenciar deve utilizar o ID real usr_15 na página 2');
+
+    // 10. Exclusão na última página ajusta página inválida
+    // Simula estar na página 3 com apenas 21 usuários (1 na página 3) e exclui o usuário 21
+    const list21 = fakeUsers.slice(0, 21);
+    AdminMod.setUsersList(list21);
+    AdminMod.goToPage(3);
+    assert.strictEqual(AdminMod.getCurrentPage(), 3, 'Inicialmente na página 3');
+    assert.ok(paginationHtml.includes('Mostrando 21–21 de 21 usuários'));
+
+    // Exclui o item 21 -> restam 20 usuários (2 páginas)
+    const list20 = list21.filter(u => u.id !== 'usr_21');
+    AdminMod.setUsersList(list20);
+    AdminMod.renderUsersTable();
+    assert.strictEqual(AdminMod.getCurrentPage(), 2, 'Após exclusão que esvazia a última página, página deve recuar para 2');
+    assert.strictEqual(AdminMod.getTotalPages(), 2, 'Total de páginas deve ser 2');
+    assert.ok(paginationHtml.includes('Mostrando 11–20 de 20 usuários'));
+
+    // 11. Lista com menos de 10 usuários (ex: 7 usuários)
+    const list7 = fakeUsers.slice(0, 7);
+    AdminMod.setUsersList(list7);
+    AdminMod.renderUsersTable();
+    assert.strictEqual(AdminMod.getTotalPages(), 1, '7 usuários devem totalizar 1 página');
+    assert.strictEqual(AdminMod.getCurrentPage(), 1, 'Página deve ser 1');
+    assert.ok(paginationHtml.includes('Mostrando 1–7 de 7 usuários'), 'Resumo deve indicar "Mostrando 1–7 de 7 usuários"');
+    assert.ok(!paginationHtml.includes('‹ Anterior'), 'Controle de paginação não deve renderizar botões desnecessários para 1 página');
+
+    // 12. Lista vazia (0 usuários)
+    AdminMod.setUsersList([]);
+    AdminMod.renderUsersTable();
+    assert.strictEqual(AdminMod.getTotalPages(), 1);
+    assert.strictEqual(AdminMod.getCurrentPage(), 1);
+    assert.ok(tableBodyHtml.includes('Nenhum usuário cadastrado'), 'Deve exibir mensagem de lista vazia');
+    assert.strictEqual(paginationDisplay, 'none', 'Container de paginação deve ficar oculto com 0 usuários');
+  });
 });

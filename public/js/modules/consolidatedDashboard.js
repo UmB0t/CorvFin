@@ -328,6 +328,12 @@
     const year = Number(state.year) || 2026;
     const month = Number(state.month) || 1;
     const monthName = (typeof MONTH_NAMES !== 'undefined' && MONTH_NAMES[month - 1]) ? MONTH_NAMES[month - 1] : `Mês ${month}`;
+    const monthAbbrList = (typeof MONTH_ABBR !== 'undefined' && Array.isArray(MONTH_ABBR) && MONTH_ABBR.length === 12)
+      ? MONTH_ABBR
+      : ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const monthAbbr = monthAbbrList[month - 1] || monthName.slice(0, 3);
+    const now = (typeof todayYM === 'function') ? todayYM() : { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
+    const isCurrentMonth = (year === now.year && month === now.month);
 
     // 1. Constrói dataset bruto da competência
     const rawDataset = buildConsolidatedDataset(state, year, month);
@@ -358,6 +364,36 @@
     const destAgg = aggregateByDestination(dataset, totalFiltered);
     const matrixData = buildCategoryDestinationMatrix(dataset);
 
+    // Markup da Navegação Mensal do Dashboard
+    const navHtml = `
+      <div class="card section-card full-width dashboard-month-nav" id="dashboardMonthNav" style="margin-bottom:16px;">
+        <div class="dash-nav-header">
+          <div class="dash-nav-icon-badge">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:18px; height:18px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <div>
+            <h2 style="margin:0; font-size:1.02rem; font-weight:800; color:var(--text); line-height:1.2;">Visão Consolidada</h2>
+            <span style="font-size:0.75rem; color:var(--muted);">Navegação mensal e indicadores consolidados</span>
+          </div>
+        </div>
+
+        <div class="dash-nav-controls">
+          <button type="button" class="btn small soft icon-btn" id="dashPrevMonthBtn" aria-label="Mês anterior" data-tooltip="Mês anterior" style="width:32px; height:32px; border-radius:50%; padding:0; display:grid; place-items:center;">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="width:16px; height:16px;"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <div class="dash-month-display" id="dashMonthDisplay">
+            <span class="dash-month-full">${escapeHtml(monthName)}</span><span class="dash-month-short">${escapeHtml(monthAbbr)}</span>/${year}
+          </div>
+          <button type="button" class="btn small soft icon-btn" id="dashNextMonthBtn" aria-label="Próximo mês" data-tooltip="Próximo mês" style="width:32px; height:32px; border-radius:50%; padding:0; display:grid; place-items:center;">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="width:16px; height:16px;"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button type="button" class="btn small ${isCurrentMonth ? 'primary' : 'soft'}" id="dashTodayBtn" aria-label="Ir para o mês atual" data-tooltip="Ir para o mês atual" style="border-radius:999px; font-size:0.75rem; padding:4px 10px; margin-left:4px;">
+            Mês Atual
+          </button>
+        </div>
+      </div>
+    `;
+
     // Markup dos Filtros
     const filtersHtml = `
       <div class="card section-card full-width" style="padding:14px 18px; margin-bottom:20px; border-radius:14px;">
@@ -365,7 +401,7 @@
           <div style="display:flex; align-items:center; gap:8px;">
             <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand);"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
             <span style="font-weight:800; font-size:0.92rem;">Filtros da Visão Consolidada</span>
-            <span class="badge info" style="font-size:0.72rem;">Competência: ${escapeHtml(monthName)}/${year}</span>
+            <span class="badge info" id="dashCompetenceBadge" style="font-size:0.72rem;">Competência: ${escapeHtml(monthName)}/${year}</span>
           </div>
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; flex:1; justify-content:flex-end;">
             <input type="text" id="consolidatedSearchInput" placeholder="Buscar por descrição, categoria..." value="${escapeHtml(localFilters.search)}"
@@ -466,6 +502,7 @@
     // Se o dataset filtrado estiver vazio, exibe empty state elegante
     if (dataset.length === 0) {
       container.innerHTML = `
+        ${navHtml}
         ${filtersHtml}
         ${metricsHtml}
         <div class="card section-card full-width" style="padding:48px 20px; text-align:center; border-radius:14px;">
@@ -684,6 +721,7 @@
 
     // Monta o layout completo da aba
     container.innerHTML = `
+      ${navHtml}
       ${filtersHtml}
       ${metricsHtml}
 
@@ -724,10 +762,100 @@
   }
 
   /**
-   * Vincula listeners dos controles locais (filtros e drill-down)
+   * Navega para o mês anterior tratando mudança de ano
+   */
+  function prevMonth() {
+    const s = (typeof getState === 'function') ? getState() : (window.state || {});
+    let m = Number(s.month) || (new Date().getMonth() + 1);
+    let y = Number(s.year) || new Date().getFullYear();
+    if (m === 1) {
+      m = 12;
+      y--;
+    } else {
+      m--;
+    }
+    s.month = m;
+    s.year = y;
+    if (typeof saveLocalState === 'function') {
+      saveLocalState();
+    } else if (typeof saveState === 'function') {
+      saveState('month-select');
+    }
+    if (typeof render === 'function') {
+      render('tab-dashboard');
+    } else {
+      renderConsolidatedDashboardTab();
+    }
+  }
+
+  /**
+   * Navega para o próximo mês tratando mudança de ano
+   */
+  function nextMonth() {
+    const s = (typeof getState === 'function') ? getState() : (window.state || {});
+    let m = Number(s.month) || (new Date().getMonth() + 1);
+    let y = Number(s.year) || new Date().getFullYear();
+    if (m === 12) {
+      m = 1;
+      y++;
+    } else {
+      m++;
+    }
+    s.month = m;
+    s.year = y;
+    if (typeof saveLocalState === 'function') {
+      saveLocalState();
+    } else if (typeof saveState === 'function') {
+      saveState('month-select');
+    }
+    if (typeof render === 'function') {
+      render('tab-dashboard');
+    } else {
+      renderConsolidatedDashboardTab();
+    }
+  }
+
+  /**
+   * Retorna para a competência do mês e ano atuais
+   */
+  function goToCurrentMonth() {
+    const s = (typeof getState === 'function') ? getState() : (window.state || {});
+    const now = (typeof todayYM === 'function') ? todayYM() : { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
+    s.month = now.month;
+    s.year = now.year;
+    if (typeof saveLocalState === 'function') {
+      saveLocalState();
+    } else if (typeof saveState === 'function') {
+      saveState('month-select');
+    }
+    if (typeof render === 'function') {
+      render('tab-dashboard');
+    } else {
+      renderConsolidatedDashboardTab();
+    }
+  }
+
+  /**
+   * Vincula listeners dos controles locais (filtros, navegação e drill-down)
    */
   function attachConsolidatedListeners(container) {
     if (!container) return;
+
+    // Navegação Mensal no Dashboard
+    const prevBtn = container.querySelector('#dashPrevMonthBtn');
+    if (prevBtn) {
+      prevBtn.addEventListener('click', prevMonth);
+    }
+
+    const nextBtn = container.querySelector('#dashNextMonthBtn');
+    if (nextBtn) {
+      nextBtn.addEventListener('click', nextMonth);
+    }
+
+    const todayBtn = container.querySelector('#dashTodayBtn');
+    if (todayBtn) {
+      todayBtn.addEventListener('click', goToCurrentMonth);
+    }
 
     // Busca rápida
     const searchInput = container.querySelector('#consolidatedSearchInput');
@@ -818,6 +946,9 @@
     aggregateByDestination,
     buildCategoryDestinationMatrix,
     renderConsolidatedDashboardTab,
+    prevMonth,
+    nextMonth,
+    goToCurrentMonth,
     getLocalFilters: () => Object.assign({}, localFilters),
     setLocalFilters: (newFilters) => { Object.assign(localFilters, newFilters); }
   };

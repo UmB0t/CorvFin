@@ -2,6 +2,8 @@
  * Finanças Pro - Módulo Administrativo & Controle Granular de Permissões RBAC
  */
 const AdminModule = (() => {
+  const USERS_PER_PAGE = 10;
+  let currentUsersPage = 1;
   let usersList = [];
 
   const ALL_MODULES_CONFIG = [
@@ -202,7 +204,7 @@ const AdminModule = (() => {
           user.permissions = res.permissions || payload;
           modal.close();
           showFeedback(`Permissões de "${user.nome}" atualizadas com sucesso!`, 'success');
-          render();
+          renderUsersTable();
         } else {
           showFeedback(res?.message || 'Erro ao salvar permissões.', 'error');
         }
@@ -354,7 +356,8 @@ const AdminModule = (() => {
         if (res && res.success) {
           modal.close();
           showFeedback(res.message || 'Usuário criado com sucesso!', 'success');
-          render();
+          await loadUsers();
+          renderUsersTable();
         } else {
           showFeedback(res.message || 'Erro ao criar usuário.', 'error');
         }
@@ -445,7 +448,8 @@ const AdminModule = (() => {
         if (res && res.success) {
           modal.close();
           showFeedback(res.message || 'Dados do usuário atualizados com sucesso!', 'success');
-          render();
+          await loadUsers();
+          renderUsersTable();
         } else {
           showFeedback(res.message || 'Erro ao atualizar usuário.', 'error');
         }
@@ -455,6 +459,22 @@ const AdminModule = (() => {
     });
 
     modal.showModal();
+  }
+
+  // Helper for compact page numbers
+  function getPageNumbers(current, total) {
+    if (total <= 7) {
+      const pages = [];
+      for (let i = 1; i <= total; i++) pages.push(i);
+      return pages;
+    }
+    if (current <= 4) {
+      return [1, 2, 3, 4, 5, '...', total];
+    }
+    if (current >= total - 3) {
+      return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+    }
+    return [1, '...', current - 1, current, current + 1, '...', total];
   }
 
   // Delete User
@@ -467,7 +487,10 @@ const AdminModule = (() => {
         const res = await API.deleteUser(userId);
         if (res && res.success) {
           usersList = usersList.filter(u => u.id !== userId);
-          render();
+          const totalPages = Math.max(1, Math.ceil(usersList.length / USERS_PER_PAGE));
+          if (currentUsersPage > totalPages) currentUsersPage = totalPages;
+          if (currentUsersPage < 1) currentUsersPage = 1;
+          renderUsersTable();
           showFeedback('Usuário e dados excluídos com sucesso!', 'success');
         } else {
           showFeedback(res.message || 'Erro ao excluir usuário.', 'error');
@@ -478,13 +501,191 @@ const AdminModule = (() => {
     }
   }
 
+  // Render Paginated Users Table and Pagination Controls
+  function renderUsersTable() {
+    const loggedUser = (typeof API !== 'undefined' && API.getUser) ? API.getUser() : null;
+    const tableBody = document.getElementById('adminUsersTableBody');
+    const paginationContainer = document.getElementById('adminUsersPagination');
+
+    const totalUsers = usersList.length;
+    const totalPages = Math.max(1, Math.ceil(totalUsers / USERS_PER_PAGE));
+
+    if (currentUsersPage > totalPages) currentUsersPage = totalPages;
+    if (currentUsersPage < 1) currentUsersPage = 1;
+
+    const startIdx = (currentUsersPage - 1) * USERS_PER_PAGE;
+    const endIdx = Math.min(startIdx + USERS_PER_PAGE, totalUsers);
+    const pagedUsers = usersList.slice(startIdx, endIdx);
+
+    if (tableBody) {
+      if (pagedUsers.length === 0) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="6" style="padding:36px 16px; text-align:center; color:var(--muted);">
+              <div style="font-weight:700; font-size:0.95rem;">Nenhum usuário cadastrado.</div>
+            </td>
+          </tr>
+        `;
+      } else {
+        tableBody.innerHTML = pagedUsers.map(u => {
+          const perms = u.permissions || {};
+          const activeCount = ALL_MODULES_CONFIG.filter(m => perms[m.key] !== false).length;
+          const isSelf = u.id === loggedUser?.id;
+
+          return `
+            <tr style="border-bottom:1px solid var(--line); transition:background 0.15s ease;">
+              <td style="padding:14px 16px;">
+                <strong style="color:var(--text); font-size:0.92rem;">${escapeHtml(u.nome)}</strong>
+                <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">Criado em: ${u.createdAt ? new Date(u.createdAt).toLocaleDateString('pt-BR') : 'N/A'}</div>
+              </td>
+              <td style="padding:14px 16px; font-family:monospace; color:var(--brand-strong); font-weight:700;">
+                @${escapeHtml(u.login)}
+              </td>
+              <td style="padding:14px 16px; color:var(--muted); font-size:0.85rem;">
+                ${escapeHtml(u.email)}
+              </td>
+              <td style="padding:14px 16px; text-align:center;">
+                <span class="tag" style="background:${u.is_admin ? 'var(--brand-soft)' : 'var(--surface-2)'}; color:${u.is_admin ? 'var(--brand)' : 'var(--muted)'}; font-weight:800; font-size:0.75rem; padding:4px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
+                  ${u.is_admin
+                    ? '<svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Admin'
+                    : '<svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Usuário'}
+                </span>
+              </td>
+              <td style="padding:14px 16px; text-align:center;">
+                ${u.is_admin ? `
+                  <span class="tag" style="background:var(--brand-soft); color:var(--brand-strong); font-weight:800; font-size:0.75rem; padding:4px 10px; border-radius:6px; display:inline-flex; align-items:center; gap:5px;">
+                    <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    Admin — Acesso Total
+                  </span>
+                ` : `
+                  <div style="display:inline-flex; align-items:center; gap:8px;">
+                    <span class="badge ${activeCount > 0 ? 'info' : 'soft'}" style="font-weight:800; font-size:0.78rem;">
+                      ${activeCount} de ${ALL_MODULES_CONFIG.length} liberados
+                    </span>
+                    <button type="button" class="btn small soft" data-manage-modules="${u.id}" style="border-radius:8px; font-weight:750; font-size:0.75rem; padding:4px 8px; display:inline-flex; align-items:center; gap:4px;" data-tooltip="Gerenciar permissões de módulos deste usuário" aria-label="Gerenciar Módulos">
+                      <svg class="svg-icon" viewBox="0 0 24 24" style="width:12px; height:12px; stroke-width:2.2;"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                      Gerenciar
+                    </button>
+                  </div>
+                `}
+              </td>
+              <td style="padding:14px 16px; text-align:right; white-space:nowrap;">
+                <button type="button" class="btn soft small" data-edit-user="${u.id}" style="margin-right:4px; display:inline-flex; align-items:center; gap:4px;" data-tooltip="Editar Usuário" aria-label="Editar Usuário">
+                  <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                  Editar
+                </button>
+                <button type="button" class="btn danger small" data-del-user="${u.id}" ${isSelf ? 'disabled style="opacity:0.3;"' : ''} data-tooltip="${isSelf ? 'Você não pode excluir sua própria conta' : 'Excluir Usuário'}" aria-label="${isSelf ? 'Você não pode excluir sua própria conta' : 'Excluir Usuário'}" style="display:inline-flex; align-items:center; justify-content:center;">
+                  <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px; stroke-width:2.2;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        // Wire events in table
+        tableBody.querySelectorAll('[data-manage-modules]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const userId = btn.getAttribute('data-manage-modules');
+            openManageModulesModal(userId);
+          });
+        });
+
+        tableBody.querySelectorAll('[data-edit-user]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const userId = btn.getAttribute('data-edit-user');
+            openEditUserModal(userId);
+          });
+        });
+
+        tableBody.querySelectorAll('[data-del-user]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const userId = btn.getAttribute('data-del-user');
+            handleDeleteUser(userId);
+          });
+        });
+      }
+    }
+
+    if (paginationContainer) {
+      if (totalUsers === 0) {
+        paginationContainer.innerHTML = '';
+        paginationContainer.style.display = 'none';
+      } else if (totalPages <= 1) {
+        paginationContainer.style.display = 'flex';
+        paginationContainer.innerHTML = `
+          <span class="admin-users-summary" style="font-size:0.84rem; color:var(--muted); font-weight:600;">
+            Mostrando 1–${totalUsers} de ${totalUsers} usuários
+          </span>
+        `;
+      } else {
+        paginationContainer.style.display = 'flex';
+        const pageNumbers = getPageNumbers(currentUsersPage, totalPages);
+        const pageNumbersHtml = pageNumbers.map(p => {
+          if (p === '...') {
+            return `<span class="admin-page-ellipsis">…</span>`;
+          }
+          if (p === currentUsersPage) {
+            return `<button type="button" class="btn small primary admin-page-num active" aria-current="page" aria-label="Página ${p}">${p}</button>`;
+          }
+          return `<button type="button" class="btn small soft admin-page-num" data-page="${p}" aria-label="Ir para página ${p}">${p}</button>`;
+        }).join('');
+
+        paginationContainer.innerHTML = `
+          <span class="admin-users-summary" style="font-size:0.84rem; color:var(--muted); font-weight:600;">
+            Mostrando ${startIdx + 1}–${endIdx} de ${totalUsers} usuários
+          </span>
+          <div class="admin-pagination-controls" style="display:flex; align-items:center; gap:4px;">
+            <button type="button" class="btn small soft admin-page-btn" id="btnAdminUsersPrev" ${currentUsersPage === 1 ? 'disabled' : ''} aria-label="Página anterior">
+              ‹ Anterior
+            </button>
+            <div class="admin-page-numbers" style="display:flex; align-items:center; gap:4px;">
+              ${pageNumbersHtml}
+            </div>
+            <button type="button" class="btn small soft admin-page-btn" id="btnAdminUsersNext" ${currentUsersPage === totalPages ? 'disabled' : ''} aria-label="Próxima página">
+              Próxima ›
+            </button>
+          </div>
+        `;
+
+        const prevBtn = paginationContainer.querySelector('#btnAdminUsersPrev');
+        if (prevBtn) {
+          prevBtn.addEventListener('click', () => {
+            if (currentUsersPage > 1) {
+              currentUsersPage--;
+              renderUsersTable();
+            }
+          });
+        }
+
+        const nextBtn = paginationContainer.querySelector('#btnAdminUsersNext');
+        if (nextBtn) {
+          nextBtn.addEventListener('click', () => {
+            if (currentUsersPage < totalPages) {
+              currentUsersPage++;
+              renderUsersTable();
+            }
+          });
+        }
+
+        paginationContainer.querySelectorAll('.admin-page-num[data-page]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const pageNum = parseInt(btn.getAttribute('data-page'), 10);
+            if (pageNum && pageNum >= 1 && pageNum <= totalPages) {
+              currentUsersPage = pageNum;
+              renderUsersTable();
+            }
+          });
+        });
+      }
+    }
+  }
+
   // Render Table in specified container
   async function render() {
-    const loggedUser = API.getUser();
+    const loggedUser = (typeof API !== 'undefined' && API.getUser) ? API.getUser() : null;
     const isAdmin = !!loggedUser?.is_admin;
 
     // Support both tab-admin and view-config containers
-    const tableBody = document.getElementById('adminUsersTableBody');
     const adminTab = document.getElementById('tab-admin');
     const sidebarAdminLink = document.getElementById('sidebarAdminLink');
 
@@ -505,85 +706,7 @@ const AdminModule = (() => {
     }
 
     await loadUsers();
-
-    if (tableBody) {
-      tableBody.innerHTML = usersList.map(u => {
-        const perms = u.permissions || {};
-        const activeCount = ALL_MODULES_CONFIG.filter(m => perms[m.key] !== false).length;
-        const isSelf = u.id === loggedUser?.id;
-
-        return `
-          <tr style="border-bottom:1px solid var(--line); transition:background 0.15s ease;">
-            <td style="padding:14px 16px;">
-              <strong style="color:var(--text); font-size:0.92rem;">${escapeHtml(u.nome)}</strong>
-              <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">Criado em: ${u.createdAt ? new Date(u.createdAt).toLocaleDateString('pt-BR') : 'N/A'}</div>
-            </td>
-            <td style="padding:14px 16px; font-family:monospace; color:var(--brand-strong); font-weight:700;">
-              @${escapeHtml(u.login)}
-            </td>
-            <td style="padding:14px 16px; color:var(--muted); font-size:0.85rem;">
-              ${escapeHtml(u.email)}
-            </td>
-            <td style="padding:14px 16px; text-align:center;">
-              <span class="tag" style="background:${u.is_admin ? 'var(--brand-soft)' : 'var(--surface-2)'}; color:${u.is_admin ? 'var(--brand)' : 'var(--muted)'}; font-weight:800; font-size:0.75rem; padding:4px 8px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
-                ${u.is_admin 
-                  ? '<svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Admin' 
-                  : '<svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Usuário'}
-              </span>
-            </td>
-            <td style="padding:14px 16px; text-align:center;">
-              ${u.is_admin ? `
-                <span class="tag" style="background:var(--brand-soft); color:var(--brand-strong); font-weight:800; font-size:0.75rem; padding:4px 10px; border-radius:6px; display:inline-flex; align-items:center; gap:5px;">
-                  <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                  Admin — Acesso Total
-                </span>
-              ` : `
-                <div style="display:inline-flex; align-items:center; gap:8px;">
-                  <span class="badge ${activeCount > 0 ? 'info' : 'soft'}" style="font-weight:800; font-size:0.78rem;">
-                    ${activeCount} de ${ALL_MODULES_CONFIG.length} liberados
-                  </span>
-                  <button type="button" class="btn small soft" data-manage-modules="${u.id}" style="border-radius:8px; font-weight:750; font-size:0.75rem; padding:4px 8px; display:inline-flex; align-items:center; gap:4px;" data-tooltip="Gerenciar permissões de módulos deste usuário" aria-label="Gerenciar Módulos">
-                    <svg class="svg-icon" viewBox="0 0 24 24" style="width:12px; height:12px; stroke-width:2.2;"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                    Gerenciar
-                  </button>
-                </div>
-              `}
-            </td>
-            <td style="padding:14px 16px; text-align:right; white-space:nowrap;">
-              <button type="button" class="btn soft small" data-edit-user="${u.id}" style="margin-right:4px; display:inline-flex; align-items:center; gap:4px;" data-tooltip="Editar Usuário" aria-label="Editar Usuário">
-                <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                Editar
-              </button>
-              <button type="button" class="btn danger small" data-del-user="${u.id}" ${isSelf ? 'disabled style="opacity:0.3;"' : ''} data-tooltip="${isSelf ? 'Você não pode excluir sua própria conta' : 'Excluir Usuário'}" aria-label="${isSelf ? 'Você não pode excluir sua própria conta' : 'Excluir Usuário'}" style="display:inline-flex; align-items:center; justify-content:center;">
-                <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px; stroke-width:2.2;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-              </button>
-            </td>
-          </tr>
-        `;
-      }).join('');
-
-      // Wire events in table
-      tableBody.querySelectorAll('[data-manage-modules]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const userId = btn.getAttribute('data-manage-modules');
-          openManageModulesModal(userId);
-        });
-      });
-
-      tableBody.querySelectorAll('[data-edit-user]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const userId = btn.getAttribute('data-edit-user');
-          openEditUserModal(userId);
-        });
-      });
-
-      tableBody.querySelectorAll('[data-del-user]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const userId = btn.getAttribute('data-del-user');
-          handleDeleteUser(userId);
-        });
-      });
-    }
+    renderUsersTable();
 
     const btnNew = document.getElementById('btnAdminNewUser');
     if (btnNew) {
@@ -898,6 +1021,7 @@ const AdminModule = (() => {
 
   return {
     render,
+    renderUsersTable,
     loadDefaultPermissions,
     saveDefaultPermissions,
     loadMaintenanceConfig,
@@ -906,7 +1030,42 @@ const AdminModule = (() => {
     openEditUserModal,
     openManageModulesModal,
     handleDeleteUser,
-    loadUsers
+    loadUsers,
+    getCurrentPage: () => currentUsersPage,
+    setCurrentPage: (p) => {
+      const totalPages = Math.max(1, Math.ceil(usersList.length / USERS_PER_PAGE));
+      currentUsersPage = Math.max(1, Math.min(p, totalPages));
+      renderUsersTable();
+    },
+    getUsersPerPage: () => USERS_PER_PAGE,
+    getTotalPages: () => Math.max(1, Math.ceil(usersList.length / USERS_PER_PAGE)),
+    getUsersList: () => usersList,
+    setUsersList: (list) => {
+      usersList = Array.isArray(list) ? list : [];
+      const totalPages = Math.max(1, Math.ceil(usersList.length / USERS_PER_PAGE));
+      if (currentUsersPage > totalPages) currentUsersPage = totalPages;
+      if (currentUsersPage < 1) currentUsersPage = 1;
+    },
+    prevPage: () => {
+      if (currentUsersPage > 1) {
+        currentUsersPage--;
+        renderUsersTable();
+      }
+    },
+    nextPage: () => {
+      const totalPages = Math.max(1, Math.ceil(usersList.length / USERS_PER_PAGE));
+      if (currentUsersPage < totalPages) {
+        currentUsersPage++;
+        renderUsersTable();
+      }
+    },
+    goToPage: (p) => {
+      const totalPages = Math.max(1, Math.ceil(usersList.length / USERS_PER_PAGE));
+      if (p >= 1 && p <= totalPages) {
+        currentUsersPage = p;
+        renderUsersTable();
+      }
+    }
   };
 })();
 
