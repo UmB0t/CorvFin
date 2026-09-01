@@ -3646,8 +3646,8 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.strictEqual(manifestContent.name, 'OmniFin', 'Nome no manifest deve ser OmniFin');
     assert.strictEqual(manifestContent.short_name, 'OmniFin', 'Nome curto no manifest deve ser OmniFin');
     assert.strictEqual(manifestContent.display, 'standalone', 'display no manifest deve ser standalone');
-    assert.ok(manifestContent.start_url.includes('dashboard'), 'start_url deve direcionar para o dashboard');
-    assert.ok(manifestContent.scope === '/' || manifestContent.scope === './', 'scope deve ser coerente com a aplicação');
+    assert.strictEqual(manifestContent.start_url, './dashboard', 'start_url deve ser relativo (./dashboard) para suportar tanto subpath (/omnifin) quanto raiz (/)');
+    assert.strictEqual(manifestContent.scope, './', 'scope deve ser relativo (./) para suportar subpath (/omnifin) e raiz (/)');
     assert.strictEqual(manifestContent.theme_color, '#1F7A5C', 'theme_color deve ser o verde oficial OmniFin');
     assert.ok(Array.isArray(manifestContent.icons) && manifestContent.icons.length >= 3, 'Manifest deve conter array de ícones');
 
@@ -3655,6 +3655,15 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     const icon512 = manifestContent.icons.find(i => i.sizes === '512x512');
     assert.ok(icon192, 'Manifest deve referenciar ícone 192x192');
     assert.ok(icon512, 'Manifest deve referenciar ícone 512x512');
+    assert.ok(!icon192.src.startsWith('/'), 'Ícone 192 deve usar caminho relativo no manifest');
+    assert.ok(!icon512.src.startsWith('/'), 'Ícone 512 deve usar caminho relativo no manifest');
+
+    // Validação também de manifest.json (espelho)
+    const manifestJsonPath = path.join(process.cwd(), 'public', 'manifest.json');
+    assert.ok(fs.existsSync(manifestJsonPath), 'manifest.json deve existir na pasta public');
+    const manifestJsonContent = JSON.parse(fs.readFileSync(manifestJsonPath, 'utf-8'));
+    assert.strictEqual(manifestJsonContent.start_url, './dashboard', 'start_url em manifest.json deve ser relativo');
+    assert.strictEqual(manifestJsonContent.scope, './', 'scope em manifest.json deve ser relativo');
 
     // 2. Existência e Integridade dos Arquivos de Ícones Oficiais
     const iconsDir = path.join(process.cwd(), 'public', 'icons');
@@ -3677,13 +3686,13 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
       assert.ok(stat.size > 100, `Arquivo ${iconFile} deve ter tamanho válido (> 100 bytes)`);
     }
 
-    // 3. Meta Tags iOS e Apple Touch Icons no index.html e login.html
+    // 3. Meta Tags iOS e Apple Touch Icons no index.html e login.html (caminhos relativos e BASE_PATH safe)
     const indexHtml = fs.readFileSync(path.join(process.cwd(), 'public', 'index.html'), 'utf-8');
     const loginHtml = fs.readFileSync(path.join(process.cwd(), 'public', 'login.html'), 'utf-8');
 
     for (const [name, html] of [['index.html', indexHtml], ['login.html', loginHtml]]) {
-      assert.ok(html.includes('rel="manifest"'), `${name} deve referenciar o webmanifest`);
-      assert.ok(html.includes('rel="apple-touch-icon"'), `${name} deve referenciar apple-touch-icon`);
+      assert.ok(html.includes('href="manifest.webmanifest"'), `${name} deve referenciar o webmanifest de forma relativa`);
+      assert.ok(html.includes('rel="apple-touch-icon" href="icons/apple-touch-icon.png"'), `${name} deve referenciar apple-touch-icon relativo`);
       assert.ok(html.includes('name="apple-mobile-web-app-capable" content="yes"'), `${name} deve conter apple-mobile-web-app-capable`);
       assert.ok(html.includes('name="apple-mobile-web-app-status-bar-style"'), `${name} deve conter apple-mobile-web-app-status-bar-style`);
       assert.ok(html.includes('name="apple-mobile-web-app-title" content="OmniFin"'), `${name} deve conter apple-mobile-web-app-title`);
@@ -3702,9 +3711,10 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     // 5. Garantia de que rotas financeiras e IA não são cacheadas em storage estático
     assert.ok(!swContent.includes('cache.put(req, networkResponse)') || swContent.includes('!url.pathname.startsWith(\'/api/\')') || swContent.includes('url.pathname.startsWith(\'/api/\')'), 'Service Worker deve isolar o cache de requisições financeiras');
 
-    // 6. Proteção de Navegação iOS Standalone
+    // 6. Proteção de Navegação iOS Standalone e Registro de SW compatível com BASE_PATH
     const uiShellJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'uiShell.js'), 'utf-8');
     assert.ok(uiShellJs.includes('navigator.standalone') || uiShellJs.includes('serviceWorker'), 'uiShell.js deve conter suporte a PWA e proteção iOS standalone');
+    assert.ok(uiShellJs.includes('API.resolveUrl'), 'uiShell.js deve utilizar API.resolveUrl para registro do Service Worker');
 
     // 7. Ausência de target="_blank" em links internos
     assert.ok(!indexHtml.includes('href="/dashboard" target="_blank"'), 'Links internos não devem conter target="_blank"');
