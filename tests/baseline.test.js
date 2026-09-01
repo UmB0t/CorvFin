@@ -4803,4 +4803,52 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.ok(mobileCss.includes('.bottom-nav-bar {') && mobileCss.includes('env(safe-area-inset-bottom)'), 'mobile.css deve respeitar safe-area-inset-bottom na barra inferior');
     assert.ok(mobileCss.includes('dialog {') && mobileCss.includes('border-radius: 18px 18px 0 0 !important;'), 'mobile.css deve apresentar dialogs compactos em bottom sheet');
   });
+
+  test('44. Hotfix Mobile v3.7: Prevenção de Auto-Zoom no iOS Safari (font-size >= 16px) e Ações do Botão "+" (Despesa Rápida vs Despesa Completa)', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+
+    const mobileCss = fs.readFileSync(path.join(process.cwd(), 'public', 'css', 'mobile.css'), 'utf-8');
+    const uiShellJs = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'uiShell.js'), 'utf-8');
+    const indexHtml = fs.readFileSync(path.join(process.cwd(), 'public', 'index.html'), 'utf-8');
+
+    // 1. Prevenção de Auto-Zoom no iOS Safari: font-size >= 16px em inputs, selects e textareas
+    assert.ok(
+      mobileCss.includes('font-size: 16px !important;'),
+      'mobile.css deve definir font-size: 16px !important para inputs/selects/textareas para evitar zoom do iOS Safari'
+    );
+    assert.ok(
+      mobileCss.includes('dialog input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="hidden"])') ||
+      mobileCss.includes('.field input'),
+      'mobile.css deve aplicar explicitamente 16px para campos editáveis de dialogs e formulários'
+    );
+
+    // 2. Auditoria do Botão "+" (Quick Action Sheet):
+    // Despesa Rápida deve abrir openQuickExpenseDialog
+    // Despesa Completa deve abrir openEntryDialog
+    assert.ok(
+      uiShellJs.includes("btnFastExp.addEventListener('click',") && uiShellJs.includes('openQuickExpenseDialog()'),
+      'btnFastExp (quickActionFastExpense) deve chamar openQuickExpenseDialog()'
+    );
+    assert.ok(
+      uiShellJs.includes("btnExpLegacy.addEventListener('click',") && uiShellJs.includes("openEntryDialog({ mode: 'new', type: 'cash' })"),
+      'btnExpLegacy (quickActionNewExpense) deve chamar openEntryDialog({ mode: "new", type: "cash" })'
+    );
+    assert.ok(
+      uiShellJs.includes("btnWizExp.addEventListener('click',") && uiShellJs.includes("openEntryDialog({ mode: 'new', type: 'cash' })"),
+      'btnWizExp (quickActionWizardExpense) deve chamar openEntryDialog({ mode: "new", type: "cash" })'
+    );
+
+    // 3. Verificação de Isolamento e Fechamento do Overlay antes de Abrir Modais
+    assert.ok(
+      uiShellJs.includes("quickOverlay?.classList.remove('open')"),
+      'Quick Action Sheet deve fechar antes de abrir qualquer modal/dialog correspondente'
+    );
+
+    // 4. Integridade da estrutura HTML do Quick Action Sheet
+    assert.ok(indexHtml.includes('id="quickActionFastExpense"'), 'index.html deve conter botão quickActionFastExpense');
+    assert.ok(indexHtml.includes('id="quickActionNewExpense"'), 'index.html deve conter botão quickActionNewExpense');
+    assert.ok(indexHtml.includes('id="quickExpenseDialog"'), 'index.html deve conter quickExpenseDialog');
+    assert.ok(indexHtml.includes('id="entryDialog"'), 'index.html deve conter entryDialog (Wizard Completo)');
+  });
 });

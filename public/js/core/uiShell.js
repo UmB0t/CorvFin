@@ -918,14 +918,12 @@
       });
     }
 
-    // Compatibilidade com botão legado se existir
+    // Ação: Despesa Completa (Wizard / quickActionNewExpense)
     const btnExpLegacy = document.getElementById('quickActionNewExpense') || $('#quickActionNewExpense');
     if (btnExpLegacy) {
       btnExpLegacy.addEventListener('click', () => {
         quickOverlay?.classList.remove('open');
-        if (typeof window.openQuickExpenseDialog === 'function') {
-          window.openQuickExpenseDialog();
-        } else if (typeof window.openEntryDialog === 'function') {
+        if (typeof window.openEntryDialog === 'function') {
           window.openEntryDialog({ mode: 'new', type: 'cash' });
         } else {
           activateTab('tab-expenses', true);

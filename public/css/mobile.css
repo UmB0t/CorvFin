@@ -785,7 +785,7 @@
     padding: 2px !important;
   }
 
-  /* 3.10 FORMULÁRIOS, INPUTS & CHECKBOXES GLOBAIS */
+  /* 3.10 FORMULÁRIOS, INPUTS & CHECKBOXES GLOBAIS (PREVENÇÃO DE AUTO-ZOOM NO IOS SAFARI >= 16px) */
   .field-row {
     flex-direction: column !important;
     gap: 8px !important;
@@ -797,11 +797,21 @@
 
   input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="hidden"]),
   select,
-  textarea {
+  textarea,
+  .field input,
+  .field select,
+  .field textarea,
+  .filter-bar input,
+  .filter-bar select,
+  .shopping-autocomplete-wrapper input,
+  dialog input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="hidden"]),
+  dialog select,
+  dialog textarea {
     min-height: 40px !important;
-    font-size: 0.90rem !important;
+    font-size: 16px !important;
     box-sizing: border-box !important;
     width: 100% !important;
+    max-width: 100% !important;
   }
 
   input[type="checkbox"],
@@ -881,7 +891,8 @@
     right: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
-    max-height: 90vh !important;
+    max-height: 92dvh !important;
+    max-height: 92vh !important;
     margin: 0 !important;
     border-radius: 18px 18px 0 0 !important;
     border: none !important;
@@ -890,6 +901,7 @@
     transform: translateY(0) !important;
     animation: slideUpMobileSheet 0.24s cubic-bezier(0.16, 1, 0.3, 1) !important;
     box-sizing: border-box !important;
+    overscroll-behavior: contain !important;
   }
 
   @keyframes slideUpMobileSheet {
@@ -908,11 +920,13 @@
   }
 
   dialog .dialog-body {
-    max-height: 65vh !important;
+    max-height: calc(88dvh - 110px) !important;
+    max-height: calc(88vh - 110px) !important;
     overflow-y: auto !important;
     padding: 12px 14px !important;
     box-sizing: border-box !important;
     -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
   }
 
   dialog .dialog-foot,
