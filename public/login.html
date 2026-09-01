@@ -7,8 +7,25 @@
   <title>OmniFin - Autenticação</title>
   <meta name="description"
     content="Acesse ou crie sua conta no OmniFin, o sistema definitivo de gestão financeira pessoal e empresarial.">
-  <link rel="icon" type="image/svg+xml"
-    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231F7A5C'/%3E%3Cpath d='M32 14c-9.9 0-18 8.1-18 18s8.1 18 18 18 18-8.1 18-18-18zm-2 9h4v2.1c2.8.5 4.8 2.3 4.9 5h-3.4c-.1-1.3-.9-2.2-2.7-2.2-1.7 0-2.6.8-2.6 1.9 0 1.2 1 1.7 3.5 2.3 3.8.9 5.8 2.2 5.8 5.2 0 3-2.2 4.9-5.5 5.4V43h-4v-2.1c-3.1-.5-5.2-2.5-5.3-5.5h3.5c.2 1.6 1.2 2.6 3.1 2.6 1.8 0 2.8-.9 2.8-2 0-1.2-.9-1.8-3.6-2.4-3.6-.9-5.6-2.2-5.6-5.1 0-2.8 2.1-4.7 5.1-5.3V23z' fill='white'/%3E%3C/svg%3E">
+
+  <!-- PWA & Web App Manifest -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#1F7A5C">
+
+  <!-- Apple iOS Standalone & Web App Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="OmniFin">
+  <meta name="application-name" content="OmniFin">
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <!-- Icons & Apple Touch Icons -->
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180x180.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="icons/apple-touch-icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="icons/apple-touch-icon-120x120.png">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -142,6 +159,26 @@
   <script src="config.js"></script>
   <script src="js/api.js"></script>
   <script src="js/auth.js"></script>
+  <script>
+    // PWA Service Worker Registration & iOS Standalone Navigation
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js', { scope: './' }).catch(err => {
+          console.warn('[PWA] Service Worker registration failed:', err);
+        });
+      });
+    }
+
+    if (('standalone' in window.navigator) && window.navigator.standalone) {
+      document.addEventListener('click', (event) => {
+        const a = event.target.closest('a');
+        if (a && a.href && a.hostname === window.location.hostname && !a.target && !a.hasAttribute('download')) {
+          event.preventDefault();
+          window.location.href = a.href;
+        }
+      });
+    }
+  </script>
 </body>
 
 </html>

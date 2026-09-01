@@ -1135,6 +1135,33 @@
     initGlobalTooltips();
   }
 
+  // PWA Service Worker Registration & iOS Standalone Navigation Handler
+  function initPwaSupport() {
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js', { scope: './' }).catch(err => {
+          console.warn('[PWA] Service Worker registration failed:', err);
+        });
+      });
+    }
+
+    if (typeof navigator !== 'undefined' && ('standalone' in navigator) && navigator.standalone) {
+      document.addEventListener('click', (event) => {
+        const a = event.target.closest('a');
+        if (a && a.href && a.hostname === window.location.hostname && !a.target && !a.hasAttribute('download')) {
+          event.preventDefault();
+          window.location.href = a.href;
+        }
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPwaSupport);
+  } else {
+    initPwaSupport();
+  }
+
   // APIs públicas do Módulo de UI Shell & Roteador SPA
   window.applyTheme = applyTheme;
   window.toggleTheme = toggleTheme;
@@ -1149,6 +1176,7 @@
   window.updateSidebarMaintenanceBadges = updateSidebarMaintenanceBadges;
   window.isModuleInMaintenance = isModuleInMaintenance;
   window.initGlobalTooltips = initGlobalTooltips;
+  window.initPwaSupport = initPwaSupport;
 
   window.uiShell = {
     applyTheme,
@@ -1163,7 +1191,8 @@
     loadSystemMaintenance,
     updateSidebarMaintenanceBadges,
     isModuleInMaintenance,
-    initGlobalTooltips
+    initGlobalTooltips,
+    initPwaSupport
   };
 
 })();
