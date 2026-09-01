@@ -212,7 +212,13 @@
   ];
 
   function hasTabPermission(tabId, user) {
-    const u = user || (window.API && typeof API.getUser === 'function' ? API.getUser() : null) || JSON.parse(localStorage.getItem('user_data') || localStorage.getItem('user') || '{}');
+    let localUser = {};
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localUser = JSON.parse(localStorage.getItem('user_data') || localStorage.getItem('user') || '{}');
+      }
+    } catch (_) {}
+    const u = user || (window.API && typeof API.getUser === 'function' ? API.getUser() : null) || localUser;
     if (!u || !u.id) return true;
     if (u.is_admin) return true;
 
@@ -229,7 +235,13 @@
   }
 
   function getFirstAllowedTab(user) {
-    const u = user || (window.API && typeof API.getUser === 'function' ? API.getUser() : null) || JSON.parse(localStorage.getItem('user_data') || localStorage.getItem('user') || '{}');
+    let localUser = {};
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localUser = JSON.parse(localStorage.getItem('user_data') || localStorage.getItem('user') || '{}');
+      }
+    } catch (_) {}
+    const u = user || (window.API && typeof API.getUser === 'function' ? API.getUser() : null) || localUser;
     for (const tabId of TAB_ORDER) {
       if (hasTabPermission(tabId, u)) {
         if (!isModuleInMaintenance(tabId)) {
@@ -260,6 +272,9 @@
         el.style.display = allowed ? '' : 'none';
       }
     });
+    if (typeof renderMobileBottomNav === 'function') {
+      renderMobileBottomNav();
+    }
   }
   window.applyPermissions = applyPermissions;
 
@@ -310,15 +325,80 @@
       tabId: 'tab-simulation',
       key: 'simulacao',
       label: 'Simulação',
-      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><polygon points="12 6 12 12 16 14" /></svg>'
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2" /><line x1="8" y1="6" x2="16" y2="6" /><line x1="16" y1="14" x2="16" y2="18" /><path d="M16 10h.01M12 10h.01M8 10h.01M12 14h.01M8 14h.01M12 18h.01M8 18h.01" /></svg>'
     }
   ];
   window.MOBILE_MODULE_CONFIG = MOBILE_MODULE_CONFIG;
 
+  const ALL_DRAWER_MODULE_CONFIG = [
+    {
+      tabId: 'tab-dashboard',
+      key: 'dashboard',
+      label: 'Dashboard',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>'
+    },
+    {
+      tabId: 'tab-expenses',
+      key: 'despesas',
+      label: 'Despesas',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>'
+    },
+    {
+      tabId: 'tab-extras',
+      key: 'extras',
+      label: 'Rendas Extras',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2" /><path d="M6 12h.01M18 12h.01" /></svg>'
+    },
+    {
+      tabId: 'tab-debtors',
+      key: 'devedores',
+      label: 'Devedores',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>'
+    },
+    {
+      tabId: 'tab-investments',
+      key: 'investimentos',
+      label: 'Investir',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>'
+    },
+    {
+      tabId: 'tab-benefits',
+      key: 'beneficios',
+      label: 'Benefícios',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1" /><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" /><line x1="6" y1="1" x2="6" y2="4" /><line x1="10" y1="1" x2="10" y2="4" /><line x1="14" y1="1" x2="14" y2="4" /></svg>'
+    },
+    {
+      tabId: 'tab-shopping',
+      key: 'compras',
+      label: 'Compras',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" /></svg>'
+    },
+    {
+      tabId: 'tab-simulation',
+      key: 'simulacao',
+      label: 'Simulação',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2" /><line x1="8" y1="6" x2="16" y2="6" /><line x1="16" y1="14" x2="16" y2="18" /><path d="M16 10h.01M12 10h.01M8 10h.01M12 14h.01M8 14h.01M12 18h.01M8 18h.01" /></svg>'
+    },
+    {
+      tabId: 'tab-profile',
+      key: null,
+      label: 'Perfil',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>'
+    },
+    {
+      tabId: 'tab-admin',
+      key: 'configuracoes',
+      label: 'Configurações / Usuários',
+      fullWidth: true,
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>'
+    }
+  ];
+  window.ALL_DRAWER_MODULE_CONFIG = ALL_DRAWER_MODULE_CONFIG;
+
   function normalizeTabId(item) {
     if (!item) return null;
     if (typeof item === 'string' && item.startsWith('tab-')) return item;
-    const found = MOBILE_MODULE_CONFIG.find(m => m.key === item || m.tabId === 'tab-' + item);
+    const found = ALL_DRAWER_MODULE_CONFIG.find(m => m.key === item || m.tabId === 'tab-' + item);
     return found ? found.tabId : 'tab-' + item;
   }
   window.normalizeTabId = normalizeTabId;
@@ -545,9 +625,16 @@
     const moduleKey = MAINTENANCE_MODULE_MAP[tabId];
     if (!moduleKey) return false;
 
+    let localUser = {};
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localUser = JSON.parse(localStorage.getItem('user_data') || localStorage.getItem('user') || '{}');
+      }
+    } catch (_) {}
+
     const user = (typeof API !== 'undefined' && API.getUser)
       ? API.getUser()
-      : JSON.parse(localStorage.getItem('user_data') || localStorage.getItem('user') || '{}');
+      : localUser;
 
     // Admin possui bypass total
     if (user && user.is_admin) {
@@ -863,9 +950,9 @@
       });
     }
 
-    const fav1 = validFavs[0] ? MOBILE_MODULE_CONFIG.find(m => m.tabId === validFavs[0]) : MOBILE_MODULE_CONFIG[0];
-    const fav2 = validFavs[1] ? MOBILE_MODULE_CONFIG.find(m => m.tabId === validFavs[1]) : (validFavs[0] !== MOBILE_MODULE_CONFIG[1]?.tabId ? MOBILE_MODULE_CONFIG[1] : null);
-    const fav3 = validFavs[2] ? MOBILE_MODULE_CONFIG.find(m => m.tabId === validFavs[2]) : (validFavs.length > 2 ? MOBILE_MODULE_CONFIG.find(m => m.tabId === validFavs[2]) : null);
+    const fav1 = validFavs[0] ? (MOBILE_MODULE_CONFIG.find(m => m.tabId === validFavs[0]) || ALL_DRAWER_MODULE_CONFIG.find(m => m.tabId === validFavs[0])) : null;
+    const fav2 = validFavs[1] ? (MOBILE_MODULE_CONFIG.find(m => m.tabId === validFavs[1]) || ALL_DRAWER_MODULE_CONFIG.find(m => m.tabId === validFavs[1])) : null;
+    const fav3 = validFavs[2] ? (MOBILE_MODULE_CONFIG.find(m => m.tabId === validFavs[2]) || ALL_DRAWER_MODULE_CONFIG.find(m => m.tabId === validFavs[2])) : null;
 
     const activeTab = document.querySelector('.tab-content:not([hidden])')?.id || DEFAULT_TAB;
 
@@ -911,7 +998,8 @@
     }
 
     // Posição 5: Botão "Mais"
-    const isSecondaryTab = !validFavs.includes(activeTab);
+    const activeFavTabIds = [fav1?.tabId, fav2?.tabId, fav3?.tabId].filter(Boolean);
+    const isSecondaryTab = !activeFavTabIds.includes(activeTab);
     html += `
       <button type="button" class="bottom-nav-item ${isSecondaryTab ? 'active' : ''}" id="btnMobileMore" aria-label="Mais Módulos">
         <svg class="svg-icon" viewBox="0 0 24 24">
@@ -953,9 +1041,53 @@
       });
     }
 
+    // Renderiza dinamicamente os demais módulos permitidos dentro do menu "Mais" (sem omitir nenhum)
+    renderMobileDrawerGrid(activeFavTabIds);
+
     updateSidebarMaintenanceBadges();
   }
   window.renderMobileBottomNav = renderMobileBottomNav;
+
+  function renderMobileDrawerGrid(favTabIds = []) {
+    const drawerGrid = document.querySelector('.mobile-drawer-grid');
+    if (!drawerGrid) return;
+
+    const normalizedFavs = Array.isArray(favTabIds) ? favTabIds.map(normalizeTabId) : [];
+
+    const moreModules = ALL_DRAWER_MODULE_CONFIG.filter(m => {
+      if (m.tabId === 'tab-admin') {
+        const user = (window.API && typeof API.getUser === 'function') ? API.getUser() : null;
+        return (user && user.is_admin) && !normalizedFavs.includes(m.tabId);
+      }
+      return hasTabPermission(m.tabId) && !isModuleInMaintenance(m.tabId) && !normalizedFavs.includes(m.tabId);
+    });
+
+    drawerGrid.innerHTML = moreModules.map(m => {
+      const fullStyle = m.fullWidth ? 'style="grid-column:1 / -1;"' : '';
+      const idAttr = m.tabId === 'tab-admin' ? 'id="mobileDrawerAdminLink"' : '';
+      return `
+        <button type="button" class="mobile-drawer-card" data-tab="${m.tabId}" ${idAttr} ${fullStyle}>
+          ${m.iconSvg}
+          <span>${m.label}</span>
+        </button>
+      `;
+    }).join('');
+
+    const drawerOverlay = document.getElementById('mobileDrawerOverlay') || (typeof $ === 'function' ? $('#mobileDrawerOverlay') : null);
+    drawerGrid.querySelectorAll('.mobile-drawer-card[data-tab]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const tabId = btn.getAttribute('data-tab');
+        if (tabId && typeof activateTab === 'function') {
+          activateTab(tabId, true);
+          if (drawerOverlay && drawerOverlay.classList) {
+            drawerOverlay.classList.remove('open');
+          }
+        }
+      });
+    });
+  }
+  window.renderMobileDrawerGrid = renderMobileDrawerGrid;
 
   function initDialogs() {
     $$('dialog').forEach(d => {

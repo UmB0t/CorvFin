@@ -9,10 +9,37 @@
   // Catálogo Central Estático de Releases do OmniFin
   const RELEASES_CATALOG = [
     {
-      version: "3.5.0",
-      date: "31/08/2026",
+      version: "3.6.0",
+      date: "01/09/2026",
       tag: "Mais Recente",
       isLatest: true,
+      title: "Navegação mais prática e OmniFin no seu celular",
+      summary: "Navegação mensal direta no Dashboard, novo atalho para o mês atual, paginação de 10 usuários por página na gestão de usuários, experiência otimizada ao adicionar o OmniFin à Tela de Início do celular e aprimoramentos na navegação mobile.",
+      news: [
+        "Agora é possível navegar entre diferentes meses diretamente pelo Dashboard.",
+        "Novo atalho \"Mês Atual\" permite retornar rapidamente à competência atual.",
+        "O OmniFin agora está preparado para ser adicionado à Tela de Início do celular, oferecendo uma experiência mais próxima de um aplicativo.",
+        "Nova identidade de instalação mobile com nome e ícone próprios do OmniFin."
+      ],
+      improvements: [
+        "A competência selecionada permanece sincronizada entre Dashboard, Despesas e Assistente OmniFin.",
+        "A Gestão de Usuários agora possui paginação, exibindo até 10 usuários por página para facilitar a leitura e administração.",
+        "Navegação mobile aprimorada com acesso rápido aos módulos favoritos.",
+        "Os módulos que não estiverem entre os favoritos continuam disponíveis através do menu \"Mais\".",
+        "Melhor integração visual do OmniFin com dispositivos móveis quando adicionado à Tela de Início.",
+        "Melhor aproveitamento da área útil da tela em dispositivos móveis."
+      ],
+      fixes: [
+        "Correção de situações em que módulos não selecionados como favoritos podiam ficar inacessíveis na navegação mobile.",
+        "Ajustes na navegação mobile para garantir que todos os módulos disponíveis continuem acessíveis pelo menu \"Mais\".",
+        "Ajustes de compatibilidade da experiência instalada em ambientes onde o OmniFin é disponibilizado em um endereço interno do domínio."
+      ]
+    },
+    {
+      version: "3.5.0",
+      date: "31/08/2026",
+      tag: "",
+      isLatest: false,
       title: "Assistente OmniFin com IA e nova experiência mobile",
       summary: "Novo Assistente OmniFin integrado ao n8n e Gemini para consultas financeiras inteligentes, com contexto histórico por usuário, memória de conversa, nova navegação mobile personalizável e melhorias em relatórios.",
       news: [
