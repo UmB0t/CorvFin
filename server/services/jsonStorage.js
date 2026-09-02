@@ -42,6 +42,12 @@ function saveUsers(users) {
   return safeWriteJSON(config.USERS_FILE, users);
 }
 
+function getUserById(userId) {
+  if (!userId) return null;
+  const users = getUsers();
+  return users.find(u => u.id === userId) || null;
+}
+
 // Permissions Storage Helpers
 function getPermissions() {
   return safeReadJSON(config.PERMISSIONS_FILE, {});
@@ -407,6 +413,7 @@ function updateAiPendingAction(userId, conversationId, updateFields = {}) {
 
 module.exports = {
   getUsers,
+  getUserById,
   saveUsers,
   getPermissions,
   savePermissions,

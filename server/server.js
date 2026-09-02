@@ -1,6 +1,8 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
+const helmet = require('helmet');
+const { rateLimit } = require('express-rate-limit');
 const config = require('./config/config');
 const {
   validateStrongPassword,
@@ -38,10 +40,211 @@ const {
 
 const app = express();
 
-// Middlewares Globais
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Configuração de Trust Proxy (Topologia Nginx reverso: 1 hop de proxy confiável)
+const rawTrustProxy = config.TRUST_PROXY;
+const resolvedTrustProxy = !isNaN(Number(rawTrustProxy)) ? Number(rawTrustProxy) : rawTrustProxy;
+app.set('trust proxy', resolvedTrustProxy);
+
+// Middlewares Globais de Segurança HTTP (Helmet com CSP compatível com Vanilla JS / PWA)
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      styleSrcElem: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      styleSrcAttr: ["'unsafe-inline'"],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://fonts.googleapis.com', 'data:'],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      connectSrc: ["'self'", 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'],
+      workerSrc: ["'self'"],
+      manifestSrc: ["'self'"],
+      frameAncestors: ["'none'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      upgradeInsecureRequests: (config.NODE_ENV === 'production') ? [] : null
+    }
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  xContentTypeOptions: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  xFrameOptions: { action: 'deny' },
+  hsts: (config.NODE_ENV === 'production') ? {
+    maxAge: 15552000,
+    includeSubDomains: false,
+    preload: false
+  } : false
+}));
+
+// Configuração Controlada de CORS (Allowlist em produção, permissão same-origin e dev)
+const allowedOriginsList = config.CORS_ALLOWED_ORIGINS
+  ? config.CORS_ALLOWED_ORIGINS.split(',').map(o => o.trim().replace(/\/+$/, '')).filter(Boolean)
+  : [];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Permite requisições sem header Origin (same-origin, mobile apps, PWA interna, curl, healthcheck)
+    if (!origin) {
+      return callback(null, true);
+    }
+    const cleanOrigin = origin.trim().replace(/\/+$/, '');
+
+    // Em desenvolvimento/testes: aceita localhost, 127.0.0.1 e allowlist
+    if (config.NODE_ENV !== 'production') {
+      if (cleanOrigin.startsWith('http://localhost') || cleanOrigin.startsWith('http://127.0.0.1')) {
+        return callback(null, true);
+      }
+    }
+
+    if (allowedOriginsList.length === 0) {
+      if (config.NODE_ENV !== 'production') {
+        return callback(null, true);
+      }
+      return callback(new Error('Origem não permitida pela política de CORS.'));
+    }
+
+    if (allowedOriginsList.includes(cleanOrigin) || allowedOriginsList.includes('*')) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('Origem não permitida pela política de CORS.'));
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  maxAge: 86400
+};
+
+app.use(cors(corsOptions));
+
+// Limites de Payload para proteção contra estouro de memória (5MB conservador)
+app.use(express.json({ limit: config.BODY_LIMIT || '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: config.BODY_LIMIT || '5mb' }));
+
+// Middleware seguro de parsing de cookies sem dependência externa
+app.use((req, res, next) => {
+  req.cookies = {};
+  const cookieHeader = req.headers.cookie;
+  if (cookieHeader && typeof cookieHeader === 'string') {
+    const pairs = cookieHeader.split(';');
+    for (const pair of pairs) {
+      const idx = pair.indexOf('=');
+      if (idx > 0) {
+        const key = pair.substring(0, idx).trim();
+        const val = pair.substring(idx + 1).trim();
+        try {
+          req.cookies[key] = decodeURIComponent(val);
+        } catch (_) {
+          req.cookies[key] = val;
+        }
+      }
+    }
+  }
+  next();
+});
+
+// Middleware Anti-Cache para APIs Privadas e Dados Sensíveis
+app.use('/api', (req, res, next) => {
+  if (req.path === '/config') {
+    return next();
+  }
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
+// Middleware de Proteção Anti-CSRF em Profundidade para Métodos de Mutação
+app.use('/api', (req, res, next) => {
+  const method = req.method.toUpperCase();
+  const isMutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+
+  if (!isMutation) {
+    return next();
+  }
+
+  // Rotas públicas de autenticação inicial são tratadas compatibilizadas
+  const urlPath = req.originalUrl || req.url || '';
+  if (urlPath.includes('/auth/login') || urlPath.includes('/auth/register') || urlPath.includes('/auth/logout')) {
+    return next();
+  }
+
+  // Se a requisição está autenticada via cookie de sessão, exige o cabeçalho X-Requested-With
+  const sessionCookie = req.cookies && req.cookies[config.COOKIE_NAME || 'omnifin_session'];
+  if (sessionCookie) {
+    const xRequestedWith = req.headers['x-requested-with'];
+    if (!xRequestedWith || xRequestedWith.toLowerCase() !== 'xmlhttprequest') {
+      return res.status(403).json({
+        success: false,
+        error: 'CSRF_REJECTED',
+        message: 'Requisição rejeitada por política de segurança (cabeçalho anti-CSRF ausente).'
+      });
+    }
+  }
+
+  next();
+});
+
+// Limitador Geral da API (/api/*)
+const apiLimiter = rateLimit({
+  windowMs: config.API_RATE_LIMIT_WINDOW_MS,
+  max: config.API_RATE_LIMIT_MAX,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  validate: false,
+  message: {
+    success: false,
+    error: 'TOO_MANY_REQUESTS',
+    message: 'Muitas requisições enviadas à API. Tente novamente mais tarde.'
+  }
+});
+app.use('/api/', apiLimiter);
+
+// Limitador de Login (skipSuccessfulRequests: true evita consumo em logins legítimos)
+const authLoginLimiter = rateLimit({
+  windowMs: config.AUTH_RATE_LIMIT_WINDOW_MS,
+  max: config.AUTH_RATE_LIMIT_MAX,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  validate: false,
+  skipSuccessfulRequests: true,
+  message: {
+    success: false,
+    error: 'TOO_MANY_REQUESTS',
+    message: 'Muitas tentativas de login com erro. Tente novamente em alguns minutos.'
+  }
+});
+
+// Limitador de Registro Público
+const authRegisterLimiter = rateLimit({
+  windowMs: config.AUTH_RATE_LIMIT_WINDOW_MS,
+  max: config.AUTH_RATE_LIMIT_MAX,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  validate: false,
+  message: {
+    success: false,
+    error: 'TOO_MANY_REQUESTS',
+    message: 'Muitas tentativas de cadastro. Tente novamente em alguns minutos.'
+  }
+});
+
+// Limitador de IA (/api/ai/*) - Chave principal: req.user.id autenticado
+const aiLimiter = rateLimit({
+  windowMs: config.AI_RATE_LIMIT_WINDOW_MS,
+  max: config.AI_RATE_LIMIT_MAX,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  validate: false,
+  keyGenerator: (req) => (req.user && req.user.id) ? req.user.id : (req.ip || '127.0.0.1'),
+  message: {
+    success: false,
+    error: 'AI_RATE_LIMIT_EXCEEDED',
+    message: 'Muitas mensagens enviadas ao assistente de IA. Aguarde um instante antes de nova consulta.'
+  }
+});
 
 // Endpoint para fornecer BASE_PATH ao frontend dinamicamente
 app.get('/config.js', (req, res) => {
@@ -56,8 +259,18 @@ app.get('/api/config', (req, res) => {
   });
 });
 
-// Servir arquivos estáticos da pasta public
-app.use(express.static(path.join(__dirname, '..', 'public')));
+if (config.BASE_PATH) {
+  app.get(`${config.BASE_PATH}/config.js`, (req, res) => {
+    res.type('application/javascript');
+    res.send(`window.__BASE_PATH__ = ${JSON.stringify(config.BASE_PATH || '')};`);
+  });
+  app.get(`${config.BASE_PATH}/api/config`, (req, res) => {
+    res.json({
+      success: true,
+      basePath: config.BASE_PATH || ''
+    });
+  });
+}
 
 /* ==========================================================================
    HELPERS & REGRAS DE NEGÓCIO
@@ -72,12 +285,34 @@ function sanitizeUser(user) {
   return safe;
 }
 
+// Helpers seguros de Cookie HttpOnly para Sessão
+function setAuthSessionCookie(res, token) {
+  const isProd = config.NODE_ENV === 'production';
+  res.cookie(config.COOKIE_NAME || 'omnifin_session', token, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'Lax',
+    path: config.BASE_PATH || '/',
+    maxAge: config.COOKIE_MAX_AGE_MS || (7 * 24 * 60 * 60 * 1000)
+  });
+}
+
+function clearAuthSessionCookie(res) {
+  const isProd = config.NODE_ENV === 'production';
+  res.clearCookie(config.COOKIE_NAME || 'omnifin_session', {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'Lax',
+    path: config.BASE_PATH || '/'
+  });
+}
+
 /* ==========================================================================
    AUTH ROUTES
    ========================================================================== */
 
-// POST /api/auth/register - Cadastro público
-app.post('/api/auth/register', async (req, res) => {
+// POST /api/auth/register - Cadastro público com rate limit
+app.post('/api/auth/register', authRegisterLimiter, async (req, res) => {
   try {
     const { nome, login, email, senha } = req.body;
 
@@ -117,6 +352,7 @@ app.post('/api/auth/register', async (req, res) => {
       senha: hashedPassword,
       is_admin: isFirstUser, // Primeiro usuário vira admin automaticamente
       notificacoes_ativas: true,
+      tokenVersion: 0,
       createdAt: new Date().toISOString()
     };
 
@@ -135,11 +371,11 @@ app.post('/api/auth/register', async (req, res) => {
     await getUserFinances(newUser.id, newUser.nome, 0, true);
 
     const token = generateToken(newUser);
+    setAuthSessionCookie(res, token);
 
     return res.status(201).json({
       success: true,
       message: 'Conta criada com sucesso!',
-      token,
       user: {
         id: newUser.id,
         login: newUser.login,
@@ -156,8 +392,8 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// POST /api/auth/login - Autenticação
-app.post('/api/auth/login', async (req, res) => {
+// POST /api/auth/login - Autenticação com rate limit (skipSuccessfulRequests)
+app.post('/api/auth/login', authLoginLimiter, async (req, res) => {
   try {
     const { login, senha } = req.body;
 
@@ -172,21 +408,21 @@ app.post('/api/auth/login', async (req, res) => {
     const user = users.find(u => u.login.toLowerCase() === cleanLogin || u.email.toLowerCase() === cleanLogin);
 
     if (!user) {
-      return res.status(401).json({ success: false, message: 'Credenciais inválidas. Verifique seu usuário e senha.' });
+      return res.status(401).json({ success: false, error: 'INVALID_CREDENTIALS', message: 'Login ou senha inválidos. Verifique os dados e tente novamente.' });
     }
 
     const passwordMatch = await comparePassword(senha, user.senha);
     if (!passwordMatch) {
-      return res.status(401).json({ success: false, message: 'Credenciais inválidas. Verifique seu usuário e senha.' });
+      return res.status(401).json({ success: false, error: 'INVALID_CREDENTIALS', message: 'Login ou senha inválidos. Verifique os dados e tente novamente.' });
     }
 
     const token = generateToken(user);
     const permissions = await getUserPermissions(user.id);
+    setAuthSessionCookie(res, token);
 
     return res.json({
       success: true,
       message: 'Login realizado com sucesso!',
-      token,
       user: {
         id: user.id,
         login: user.login,
@@ -201,6 +437,15 @@ app.post('/api/auth/login', async (req, res) => {
     console.error('Erro no login:', err);
     return res.status(500).json({ success: false, message: 'Erro interno ao realizar login.' });
   }
+});
+
+// POST /api/auth/logout - Encerramento de sessão
+app.post('/api/auth/logout', (req, res) => {
+  clearAuthSessionCookie(res);
+  return res.json({
+    success: true,
+    message: 'Logout realizado com sucesso.'
+  });
 });
 
 // GET /api/auth/me - Obter dados do usuário logado
@@ -223,6 +468,7 @@ app.put('/api/auth/profile', authMiddleware, async (req, res) => {
     }
 
     const user = users[userIndex];
+    let passwordChanged = false;
 
     // Se informou nova senha, valida e atualiza
     if (novaSenha) {
@@ -238,6 +484,8 @@ app.put('/api/auth/profile', authMiddleware, async (req, res) => {
         return res.status(400).json({ success: false, message: pwdCheck.message });
       }
       user.senha = await hashPassword(novaSenha);
+      user.tokenVersion = (typeof user.tokenVersion === 'number' ? user.tokenVersion : 0) + 1;
+      passwordChanged = true;
     }
 
     if (nome && nome.trim()) user.nome = nome.trim();
@@ -260,12 +508,21 @@ app.put('/api/auth/profile', authMiddleware, async (req, res) => {
     users[userIndex] = user;
     await saveUsers(users);
 
+    if (passwordChanged) {
+      clearAuthSessionCookie(res);
+      return res.json({
+        success: true,
+        passwordChanged: true,
+        message: 'Senha alterada com sucesso! Faça login novamente com sua nova senha.'
+      });
+    }
+
     const token = generateToken(user);
+    setAuthSessionCookie(res, token);
 
     return res.json({
       success: true,
       message: 'Perfil atualizado com sucesso!',
-      token,
       user: {
         id: user.id,
         login: user.login,
@@ -331,6 +588,9 @@ app.put('/api/finances', authMiddleware, async (req, res) => {
 /* ==========================================================================
    AI ASSISTANT & N8N INTEGRATION ROUTES
    ========================================================================== */
+
+// Middleware de Rate Limiting para rotas de IA (aplica aiLimiter a todas as rotas /api/ai/*)
+app.use('/api/ai/', aiLimiter);
 
 // POST /api/ai/chat - Processar mensagem do usuário com o Agente de IA via n8n
 app.post('/api/ai/chat', authMiddleware, async (req, res) => {
@@ -823,6 +1083,7 @@ app.put('/api/admin/users/:userId', authMiddleware, adminOnlyMiddleware, async (
         return res.status(400).json({ success: false, message: pwdCheck.message });
       }
       user.senha = await hashPassword(novaSenha);
+      user.tokenVersion = (typeof user.tokenVersion === 'number' ? user.tokenVersion : 0) + 1;
     }
 
     if (nome && nome.trim()) user.nome = nome.trim();
@@ -908,6 +1169,7 @@ app.put('/api/admin/users/:userId/password', authMiddleware, adminOnlyMiddleware
     }
 
     user.senha = await hashPassword(novaSenha);
+    user.tokenVersion = (typeof user.tokenVersion === 'number' ? user.tokenVersion : 0) + 1;
     await saveUsers(users);
 
     return res.json({ success: true, message: `Senha do usuário "${user.nome}" redefinida com sucesso.` });
@@ -1080,14 +1342,116 @@ app.put('/api/admin/maintenance', authMiddleware, adminOnlyMiddleware, async (re
 });
 
 /* ==========================================================================
-   STATIC & FALLBACK ROUTES
+   3. HANDLER 404 EXCLUSIVO DA API
    ========================================================================== */
-app.get('/login', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'public', 'login.html'));
+
+// Intercepta qualquer requisição sob /api que não correspondeu a uma rota real
+app.use((req, res, next) => {
+  const urlPath = req.originalUrl || req.url || '';
+  const isApiRoute = urlPath.startsWith('/api') || urlPath.includes('/api/') || urlPath.endsWith('/api');
+  if (isApiRoute) {
+    return res.status(404).json({
+      success: false,
+      error: 'NOT_FOUND',
+      message: 'Rota da API não encontrada.'
+    });
+  }
+  next();
 });
 
-app.get('*', (req, res) => {
+/* ==========================================================================
+   4. ARQUIVOS ESTÁTICOS (PWA, CSS, JS, ASSETS)
+   ========================================================================== */
+const staticOptions = {
+  setHeaders: (res, filePath) => {
+    // Service Worker: NUNCA deve ser cacheado pelo navegador para permitir ciclo de update
+    if (filePath.endsWith('sw.js')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      return;
+    }
+    // HTML: sempre revalidar (Network-first / ETag)
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+      return;
+    }
+    // CSS e JS:
+    if (config.NODE_ENV === 'production') {
+      // Em produção, permite revalidação condicional (ETag / 304)
+      res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate');
+    } else {
+      // Em desenvolvimento, revalidação imediata
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+};
+
+if (config.BASE_PATH) {
+  app.use(config.BASE_PATH, express.static(path.join(__dirname, '..', 'public'), staticOptions));
+}
+app.use(express.static(path.join(__dirname, '..', 'public'), staticOptions));
+
+/* ==========================================================================
+   5. FALLBACK SPA (HTML)
+   ========================================================================== */
+const sendLoginPage = (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  res.sendFile(path.join(__dirname, '..', 'public', 'login.html'));
+};
+const sendIndexPage = (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+};
+
+if (config.BASE_PATH) {
+  app.get(`${config.BASE_PATH}/login`, sendLoginPage);
+  app.get(`${config.BASE_PATH}/*`, sendIndexPage);
+}
+
+app.get('/login', sendLoginPage);
+app.get('*', sendIndexPage);
+
+// Middleware Global Terminal de Tratamento e Sanitização de Erros
+app.use((err, req, res, next) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+
+  // 1. Erro de Payload Too Large (Express body-parser 413)
+  if (err.status === 413 || err.type === 'entity.too.large') {
+    return res.status(413).json({
+      success: false,
+      error: 'PAYLOAD_TOO_LARGE',
+      message: `O tamanho da requisição excede o limite máximo permitido (${config.BODY_LIMIT || '5mb'}).`
+    });
+  }
+
+  // 2. Erro de sintaxe JSON no body da requisição
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({
+      success: false,
+      error: 'BAD_REQUEST',
+      message: 'Formato de JSON inválido no corpo da requisição.'
+    });
+  }
+
+  // 3. Erro de política de CORS
+  if (err && err.message && err.message.includes('CORS')) {
+    return res.status(403).json({
+      success: false,
+      error: 'CORS_ERROR',
+      message: 'Acesso rejeitado por política de CORS.'
+    });
+  }
+
+  // 4. Erros internos não capturados (500)
+  const safeMsg = (err && err.message) ? String(err.message).replace(/\/\/[^@]+@/, '//***:***@') : 'Erro interno';
+  console.error('[Global Error Handler]', safeMsg);
+
+  return res.status(err.status || 500).json({
+    success: false,
+    error: 'INTERNAL_SERVER_ERROR',
+    message: 'Ocorreu um erro interno ao processar a solicitação.'
+  });
 });
 
 // Start Server conditionally

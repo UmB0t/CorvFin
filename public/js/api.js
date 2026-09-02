@@ -7,16 +7,29 @@
   const TOKEN_KEY = 'auth_token';
   const USER_KEY = 'user_data';
 
+  // Limpeza imediata e proativa de chaves legadas de JWT no localStorage
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem('token');
+    localStorage.removeItem('financas_pro_jwt_token');
+  } catch (_) {}
+
   function getToken() {
-    return localStorage.getItem(TOKEN_KEY) || localStorage.getItem('token') || localStorage.getItem('financas_pro_jwt_token');
+    // JWT agora reside exclusivamente em cookie HttpOnly gerenciado pelo navegador
+    return null;
   }
 
-  function setSession(token, user) {
-    if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
-      localStorage.setItem('token', token);
-      localStorage.setItem('financas_pro_jwt_token', token);
-    }
+  function setSession(arg1, arg2) {
+    // Suporta assinatura unificada setSession(user) ou legado transitório setSession(token, user)
+    const user = (arg2 !== undefined) ? arg2 : arg1;
+
+    // Garante que nenhum token JWT permaneça gravado no navegador
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem('token');
+      localStorage.removeItem('financas_pro_jwt_token');
+    } catch (_) {}
+
     if (user) {
       const userStr = typeof user === 'string' ? user : JSON.stringify(user);
       localStorage.setItem(USER_KEY, userStr);
@@ -35,17 +48,18 @@
   }
 
   function clearSession() {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem('token');
-    localStorage.removeItem('financas_pro_jwt_token');
-    localStorage.removeItem(USER_KEY);
-    localStorage.removeItem('user');
-    localStorage.removeItem('financas_pro_user_info');
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem('token');
+      localStorage.removeItem('financas_pro_jwt_token');
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem('user');
+      localStorage.removeItem('financas_pro_user_info');
+    } catch (_) {}
   }
 
   function isAuthenticated() {
-    const t = getToken();
-    return !!(t && t.length > 10);
+    return !!getUser();
   }
 
   function getBasePath() {
@@ -88,31 +102,50 @@
     return path;
   }
 
-  // Base HTTP Request Wrapper with JWT & 401 Interceptor
+  // Base HTTP Request Wrapper com credentials: same-origin, header anti-CSRF e interceptor 401
   async function request(endpoint, options = {}) {
-    const token = getToken();
     const headers = Object.assign(
-      { 'Content-Type': 'application/json' },
+      {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
       options.headers || {}
     );
 
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
     const resolvedUrl = resolveUrl(endpoint);
+    const fetchOptions = Object.assign(
+      { credentials: 'same-origin' },
+      options,
+      { headers }
+    );
 
     try {
-      const response = await fetch(resolvedUrl, Object.assign({}, options, { headers }));
+      const response = await fetch(resolvedUrl, fetchOptions);
 
       // 401 Unauthorized Interceptor
       if (response.status === 401) {
+        // Se for a rota de login (/api/auth/login), 401 representa credenciais inválidas, NÃO sessão expirada
+        const isLoginEndpoint = typeof endpoint === 'string' && endpoint.includes('/api/auth/login');
+        if (isLoginEndpoint) {
+          const errData = await response.json().catch(() => null);
+          return {
+            success: false,
+            status: 401,
+            error: (errData && errData.error) || 'INVALID_CREDENTIALS',
+            message: (errData && errData.message) || 'Login ou senha inválidos. Verifique os dados e tente novamente.'
+          };
+        }
+
+        // Para outras rotas autenticadas: sessão inexistente ou token/sessão expirada
         clearSession();
+        if (typeof window.notifyAuthChange === 'function') {
+          window.notifyAuthChange('SESSION_INVALIDATED');
+        }
         const currentPath = (window.location && window.location.pathname) ? window.location.pathname : '';
         if (!currentPath.endsWith('login.html') && !currentPath.endsWith('/login')) {
           window.location.href = resolveUrl('/login');
         }
-        return { success: false, message: 'Sessão expirada. Faça login novamente.' };
+        return { success: false, status: 401, error: 'SESSION_EXPIRED', message: 'Sessão expirada. Faça login novamente.' };
       }
 
       const data = await response.json().catch(() => null);
@@ -157,6 +190,16 @@
     // Auth endpoints
     login: (login, senha) => request('/api/auth/login', { method: 'POST', body: JSON.stringify({ login, senha }) }),
     register: (payload) => request('/api/auth/register', { method: 'POST', body: JSON.stringify(payload) }),
+    logout: async () => {
+      try {
+        await request('/api/auth/logout', { method: 'POST' }).catch(() => null);
+      } finally {
+        clearSession();
+        if (typeof window.notifyAuthChange === 'function') {
+          window.notifyAuthChange('LOGOUT');
+        }
+      }
+    },
     getMe: () => request('/api/auth/me', { method: 'GET' }),
     updateProfile: (data) => request('/api/auth/profile', { method: 'PUT', body: JSON.stringify(data) }),
 

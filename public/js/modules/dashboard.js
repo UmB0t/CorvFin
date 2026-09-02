@@ -531,7 +531,8 @@ function renderRibbon(explicitTabId) {
           totalBadge.textContent = `Renda Líquida Total: ${currency(totalIncome)}`;
         }
 
-        const curType = state.chartViewType || 'bar';
+        const isMobile = (typeof window !== 'undefined' && typeof window.innerWidth === 'number' && window.innerWidth <= 767);
+        const curType = resolveEffectiveChartType(state.chartViewType || 'bar', isMobile);
         $$('.chart-type-btn').forEach(b => {
           b.classList.toggle('active', b.dataset.chartType === curType);
         });
@@ -803,7 +804,8 @@ function renderRibbon(explicitTabId) {
         const totalBadge = $('#destChartTotal');
         if (totalBadge) totalBadge.textContent = `Total: ${currency(totalAll)}`;
 
-        const curType = state.destChartViewType || 'bar';
+        const isMobile = (typeof window !== 'undefined' && typeof window.innerWidth === 'number' && window.innerWidth <= 767);
+        const curType = resolveEffectiveChartType(state.destChartViewType || 'bar', isMobile);
         $$('.dest-chart-type-btn').forEach(b => {
           b.classList.toggle('active', b.dataset.destChartType === curType);
         });
@@ -865,12 +867,21 @@ function renderRibbon(explicitTabId) {
       $('#todayBtn')?.addEventListener('click', () => { const state = getState(); const t = todayYM(); state.year = t.year; state.month = t.month; if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('chart-toggle'); } render(); });
   }
 
+  // Resolve o tipo efetivo de gráfico respeitando fallback automático para mobile
+  function resolveEffectiveChartType(savedType, isMobileView) {
+    if (isMobileView && savedType === 'column') {
+      return 'bar';
+    }
+    return savedType || 'bar';
+  }
+
   // Bridges publicas autorizadas (consumidas pelo render() central)
   window.renderRibbon = renderRibbon;
   window.renderDashboardMetrics = renderDashboardMetrics;
   window.renderInsightsSection = renderInsightsSection;
   window.renderCategoryDistributionChart = renderCategoryDistributionChart;
   window.renderDestinationChart = renderDestinationChart;
+  window.resolveEffectiveChartType = resolveEffectiveChartType;
 
   // Execucao da inicializacao sincrona dos listeners
   try {

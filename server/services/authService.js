@@ -44,15 +44,11 @@ async function comparePassword(plainPassword, hashedPassword) {
   return bcrypt.compare(plainPassword, hashedPassword);
 }
 
-function generateToken(user, permissions) {
+function generateToken(user) {
+  const tokenVersion = typeof user.tokenVersion === 'number' ? user.tokenVersion : 0;
   const payload = {
     userId: user.id,
-    login: user.login,
-    nome: user.nome,
-    email: user.email,
-    is_admin: !!user.is_admin,
-    notificacoes_ativas: !!user.notificacoes_ativas,
-    permissions
+    tokenVersion
   };
   return jwt.sign(payload, config.JWT_SECRET, { expiresIn: config.JWT_EXPIRES_IN });
 }

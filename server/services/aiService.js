@@ -535,9 +535,27 @@ function normalizeSearchStr(s) {
   return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 }
 
+function isGenericIntentPhrase(text) {
+  if (!text) return false;
+  const raw = safeTrim(text);
+  if (!raw) return false;
+  const norm = normalizeSearchStr(raw).replace(/[!?,.]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const stripped = norm.replace(/^(?:blz|beleza|opa|oi|ola|ok|show|massa|fala|fala ai|e ai|e|aqui|por favor|pfv|valeu|partiu)\s+/, '');
+  const genericRegex = /^(?:quero|gostaria de|bora|vamos|partiu|preciso|tenho que|desejo|favor|bora la|vamos la)?\s*(?:cadastrar|registrar|lancar|anotar|adicionar|criar|fazer|novo|nova)\s+(?:uma\s+|um\s+|nova\s+|novo\s+)?(?:despesa|gasto|compra|lancamento|saida|beneficio)?(?:\s+(?:nova|novo|aqui|ai|pro mes|de hoje|rapida|rapido))?$/;
+  if (genericRegex.test(norm) || genericRegex.test(stripped)) return true;
+  if (/^(?:cadastrar|registrar|lancar|anotar|adicionar|nova|novo)?\s*(?:despesa|gasto|compra|beneficio)\s*(?:nova|novo|aqui|ai)?$/.test(norm) ||
+      /^(?:cadastrar|registrar|lancar|anotar|adicionar)\s*(?:nova|novo)?$/.test(norm)) {
+    return true;
+  }
+  return false;
+}
+
 function extractDescriptionFromMessage(text) {
   if (!text) return '';
   let str = safeTrim(text);
+  if (isGenericIntentPhrase(str)) {
+    return '';
+  }
   // Se for apenas comando genérico de cadastro, não é nome de item
   if (/^(quero cadastrar|gostaria de cadastrar|quero registrar|quero lançar|quero lancar|quero anotar|cadastrar|registrar|lançar|lancar|adicionar)\s+(?:uma\s+|um\s+)?(?:despesa|gasto|compra|beneficio|benefício)\b/i.test(str)) {
     return '';
@@ -864,7 +882,7 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
   }
 
   // Limpa pendingAction anterior se a mensagem atual for uma iniciação genérica explícita (ex: "Quero cadastrar uma despesa")
-  const isGenericInitiation = /^(quero cadastrar|gostaria de cadastrar|quero registrar|quero lançar|quero lancar|quero anotar|cadastrar|registrar|lançar|lancar|adicionar)\s+(?:uma\s+|um\s+)?(?:despesa|gasto|compra|beneficio|benefício)\b/i.test(cleanMessage);
+  const isGenericInitiation = isGenericIntentPhrase(cleanMessage) || /^(quero cadastrar|gostaria de cadastrar|quero registrar|quero lançar|quero lancar|quero anotar|cadastrar|registrar|lançar|lancar|adicionar)\s+(?:uma\s+|um\s+)?(?:despesa|gasto|compra|beneficio|benefício)\b/i.test(cleanMessage);
   if (isGenericInitiation && pendingAction) {
     await storageService.clearAiPendingAction(userId, conversationId).catch(() => null);
     pendingAction = null;
@@ -965,13 +983,17 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
 
     // Extração de Descrição
     let mergedDesc = null;
-    const msgDesc = extractDescriptionFromMessage(cleanMessage);
+    const isGenericMsg = isGenericIntentPhrase(cleanMessage);
     const n8nDesc = safeTrim(rawData.description);
-    if (n8nDesc && !['despesa', 'gasto', 'compra', 'beneficio'].includes(normalizeSearchStr(n8nDesc))) {
+    const isN8nDescGeneric = !n8nDesc || isGenericIntentPhrase(n8nDesc) || ['despesa', 'gasto', 'compra', 'beneficio', 'benefício', 'lancamento', 'lançamento'].includes(normalizeSearchStr(n8nDesc));
+    const msgDesc = extractDescriptionFromMessage(cleanMessage);
+    const isMsgDescGeneric = !msgDesc || isGenericIntentPhrase(msgDesc) || ['despesa', 'gasto', 'compra', 'beneficio', 'benefício'].includes(normalizeSearchStr(msgDesc));
+
+    if (!isN8nDescGeneric && !isGenericMsg) {
       mergedDesc = n8nDesc.toLocaleUpperCase('pt-BR');
-    } else if (msgDesc && !['despesa', 'gasto', 'compra', 'beneficio'].includes(normalizeSearchStr(msgDesc)) && !/^\d+/.test(msgDesc)) {
+    } else if (!isMsgDescGeneric && !isGenericMsg && !/^\d+/.test(msgDesc)) {
       mergedDesc = msgDesc.toLocaleUpperCase('pt-BR');
-    } else if (existingSlots.description) {
+    } else if (existingSlots.description && !isGenericIntentPhrase(existingSlots.description)) {
       mergedDesc = existingSlots.description;
     }
 
@@ -1110,19 +1132,25 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
       await storageService.saveAiPendingAction(pendingDoc);
       console.log(`[AI ACTION] pending updated id=${pendingDoc._id} intent=${activeIntent} missing=[${missingFields.join(',')}]`);
 
-      // Formulação de Pergunta Natural para o próximo slot que falta
+      // Formulação de Pergunta Natural para o próximo slot que falta (Ordem: description -> amount -> destination)
       let questionAnswer = '';
-      if (missingFields.includes('amount')) {
-        questionAnswer = 'Massa! Quanto foi?';
+      if (missingFields.includes('description')) {
+        questionAnswer = activeIntent === 'create_benefit'
+          ? 'Claro! O que você comprou com o benefício?'
+          : 'Claro. O que você comprou?';
+      } else if (missingFields.includes('amount')) {
+        questionAnswer = 'Quanto foi?';
       } else if (missingFields.includes('destination')) {
         questionAnswer = 'E pagou como?';
       } else if (missingFields.includes('benefitType')) {
         questionAnswer = 'Foi no VR, VA ou outro benefício?';
-      } else if (missingFields.includes('description')) {
-        questionAnswer = 'O que você comprou?';
       } else {
         questionAnswer = 'Me informe os dados que faltam para cadastrar.';
       }
+
+      const finalAnswer = (missingFields.includes('description') || !actionResult.answer)
+        ? questionAnswer
+        : actionResult.answer;
 
       return {
         success: true,
@@ -1130,14 +1158,29 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
         intent: activeIntent,
         slots: mergedSlots,
         missingFields,
-        answer: actionResult.answer || actionResult.message || questionAnswer,
+        answer: finalAnswer,
         duration: Date.now() - startTime
       };
     }
 
     // 11. FLUXO B: AÇÃO COMPLETA -> GERA PROPOSTA ESTRUTURADA (status: 'proposed')
-    let requiresReview = Boolean(actionResult.requiresReview);
-    const rawWarnings = Array.isArray(actionResult.warnings) ? [...actionResult.warnings] : [];
+    let rawWarnings = Array.isArray(actionResult.warnings) ? [...actionResult.warnings] : [];
+
+    // Limpa warnings de campos que já estão preenchidos e válidos no estado final
+    if (mergedAmount && mergedAmount > 0) {
+      rawWarnings = rawWarnings.filter(w => !/valor.*(informado|revisado|precisa|zerado)|sem valor/i.test(w));
+    }
+    if (mergedDesc) {
+      rawWarnings = rawWarnings.filter(w => !/descri[cç][aã]o.*(informada|revisada|precisa)|sem descri[cç][aã]o/i.test(w));
+    }
+    if (mergedDestination) {
+      rawWarnings = rawWarnings.filter(w => !/(destino|pagamento).*(informad|revisad|precisa)/i.test(w));
+    }
+    if (mergedBenefitType) {
+      rawWarnings = rawWarnings.filter(w => !/(benef[ií]cio|tipo).*(informad|revisad|precisa)/i.test(w));
+    }
+
+    let requiresReview = false;
 
     // Geração de proposalId único
     const proposalId = 'prop_' + crypto.randomBytes(16).toString('hex');
@@ -1246,13 +1289,17 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
     }
 
     if (!matchedCategory) {
-      requiresReview = true;
       if (catInput) {
         rawWarnings.push(`Categoria "${catInput}" não foi encontrada nas suas categorias.`);
       } else {
         rawWarnings.push('Categoria não identificada.');
       }
+    } else {
+      rawWarnings = rawWarnings.filter(w => !/categoria.*(n[aã]o identificada|n[aã]o encontrada|revisada)/i.test(w));
     }
+
+    // requiresReview deve refletir o estado real das pendências
+    requiresReview = !matchedCategory || rawWarnings.length > 0;
 
     // Resolução de Destino Canônico
     let finalDestination = mergedDestination;

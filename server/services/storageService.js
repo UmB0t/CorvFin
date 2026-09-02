@@ -15,6 +15,7 @@ function getActiveStorage() {
 module.exports = {
   // User Storage Helpers
   getUsers: (...args) => getActiveStorage().getUsers(...args),
+  getUserById: (...args) => getActiveStorage().getUserById(...args),
   saveUsers: (...args) => getActiveStorage().saveUsers(...args),
 
   // Permissions Storage Helpers

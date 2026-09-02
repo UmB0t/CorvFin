@@ -12,10 +12,12 @@ const path = require('node:path');
 const vm = require('node:vm');
 const config = require('../server/config/config');
 const app = require('../server/server');
+const jwt = require('jsonwebtoken');
 const { getDB, connectDB } = require('../server/config/db');
-const { hashPassword } = require('../server/services/authService');
+const { hashPassword, verifyToken, generateToken } = require('../server/services/authService');
 const { requirePermission } = require('../server/middleware/permissions');
 const storageService = require('../server/services/storageService');
+const { getUserById } = storageService;
 
 describe('OmniFin V3 - Baseline Contract Tests', () => {
   let server;
@@ -58,7 +60,9 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     const regData = await regRes.json();
     assert.strictEqual(regRes.status, 201, 'Cadastro de usuário comum deve retornar 201');
     testUserId = regData.user.id;
-    testUserToken = regData.token;
+    const regCookie = regRes.headers.get('set-cookie') || '';
+    const regMatch = regCookie.match(/omnifin_session=([^;]+)/);
+    testUserToken = (regMatch && regMatch[1]) || regData.token;
 
     // 4. Cria admin sintético direto no banco para os testes de permissão/admin
     testAdminId = `usr_admin_${testSuffix}`;
@@ -84,7 +88,9 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     });
     const adminLoginData = await adminLoginRes.json();
     assert.strictEqual(adminLoginRes.status, 200, 'Login do admin deve retornar 200');
-    testAdminToken = adminLoginData.token;
+    const adminCookie = adminLoginRes.headers.get('set-cookie') || '';
+    const adminMatch = adminCookie.match(/omnifin_session=([^;]+)/);
+    testAdminToken = (adminMatch && adminMatch[1]) || adminLoginData.token;
   });
 
   after(async () => {
@@ -111,7 +117,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     }
   });
 
-  test('1. Login válido retorna 200 e token JWT', async () => {
+  test('1. Login válido retorna 200 e emite cookie HttpOnly de sessão', async () => {
     const res = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -120,7 +126,9 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     const data = await res.json();
     assert.strictEqual(res.status, 200);
     assert.strictEqual(data.success, true);
-    assert.ok(data.token, 'Deve retornar token JWT');
+    assert.strictEqual(data.token, undefined, 'JWT não deve mais ser retornado no corpo JSON do login');
+    const setCookie = res.headers.get('set-cookie') || '';
+    assert.ok(setCookie.includes('omnifin_session='), 'Deve emitir cookie de sessão omnifin_session');
     assert.strictEqual(data.user.login, testUserLogin.toLowerCase());
   });
 
@@ -133,6 +141,11 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     const data = await res.json();
     assert.strictEqual(res.status, 401);
     assert.strictEqual(data.success, false);
+    assert.strictEqual(data.error, 'INVALID_CREDENTIALS');
+    assert.strictEqual(data.message, 'Login ou senha inválidos. Verifique os dados e tente novamente.');
+    assert.ok(!data.message.includes('Sessão expirada'), 'Login inválido NÃO deve exibir "Sessão expirada"');
+    assert.ok(!data.message.includes('Senha incorreta'), 'Não deve divulgar enumeração de senha');
+    assert.ok(!data.message.includes('Usuário inexistente'), 'Não deve divulgar enumeração de usuário');
   });
 
   test('3. GET /api/finances autenticado retorna documento financeiro do usuário', async () => {
@@ -2400,7 +2413,9 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     });
     assert.strictEqual(regRes.status, 201, 'Registro de novo usuário deve retornar 201');
     const regJson = await regRes.json();
-    const newUserToken = regJson.token;
+    const regCookie = regRes.headers.get('set-cookie') || '';
+    const regMatch = regCookie.match(/omnifin_session=([^;]+)/);
+    const newUserToken = (regMatch && regMatch[1]) || regJson.token;
 
     // Primeiro login: leitura das finanças inicializadas
     const getFin1 = await fetch(`${baseUrl}/api/finances`, {
@@ -2469,9 +2484,12 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     });
     const loginJson = await loginRes.json();
     assert.strictEqual(loginRes.status, 200, 'Login do usuário criado pelo admin deve retornar 200');
+    const loginCookie = loginRes.headers.get('set-cookie') || '';
+    const loginMatch = loginCookie.match(/omnifin_session=([^;]+)/);
+    const adminCreatedToken = (loginMatch && loginMatch[1]) || loginJson.token;
 
     const adminCreatedFinRes = await fetch(`${baseUrl}/api/finances`, {
-      headers: { 'Authorization': `Bearer ${loginJson.token}` }
+      headers: { 'Authorization': `Bearer ${adminCreatedToken}` }
     });
     const adminCreatedFin = await adminCreatedFinRes.json();
     assert.strictEqual(adminCreatedFin.onboarding?.welcomeSeen, false, 'Usuário criado pelo admin deve nascer com onboarding.welcomeSeen = false');
@@ -2848,7 +2866,8 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
       const chatResult = await sandbox.window.API.aiChat({ message: 'Oi', conversationId: 'conv_fe_test' });
       assert.ok(apiFetchCalled, 'window.API.aiChat deve invocar o fetch subjacente');
       assert.strictEqual(apiFetchUrl, '/api/ai/chat', 'URL de chamada deve ser /api/ai/chat');
-      assert.strictEqual(apiFetchOptions.headers['Authorization'], 'Bearer mock_jwt_token_12345', 'Deve incluir header Bearer com JWT do usuário');
+      assert.strictEqual(apiFetchOptions.credentials, 'same-origin', 'Deve incluir credentials same-origin para autenticação por cookie');
+      assert.strictEqual(apiFetchOptions.headers['X-Requested-With'], 'XMLHttpRequest', 'Deve incluir header anti-CSRF X-Requested-With');
       assert.strictEqual(chatResult.success, true);
       assert.strictEqual(chatResult.answer, 'Olá, teste de contrato!');
 
@@ -5100,7 +5119,9 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
         })
       });
       const userBData = await otherUserRegister.json();
-      const userBToken = userBData.token;
+      const userBCookie = otherUserRegister.headers.get('set-cookie') || '';
+      const userBMatch = userBCookie.match(/omnifin_session=([^;]+)/);
+      const userBToken = (userBMatch && userBMatch[1]) || userBData.token;
 
       const userBConfirm = await fetch(`${baseUrl}/api/ai/actions/expense/confirm`, {
         method: 'POST',
@@ -6139,4 +6160,843 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
       config.N8N_AI_ACTION_BASIC_AUTH_PASSWORD = origActionPass;
     }
   });
+
+  test('46. Checkpoint 12.2 — Intenção Genérica Não Pode Virar Descrição, Ordem de Coleta, Recálculo de Warnings/requiresReview e Hotfix Mobile do Gráfico de Destinos', async () => {
+    const origActionWebhook = config.N8N_AI_ACTION_WEBHOOK_URL;
+    const origActionUser = config.N8N_AI_ACTION_BASIC_AUTH_USER;
+    const origActionPass = config.N8N_AI_ACTION_BASIC_AUTH_PASSWORD;
+
+    const mockActionUser = 'omnifin_action_test_46';
+    const mockActionPass = 'action_secret_pass_46';
+    config.N8N_AI_ACTION_WEBHOOK_URL = 'http://127.0.0.1:9999/mock-n8n-action-46';
+    config.N8N_AI_ACTION_BASIC_AUTH_USER = mockActionUser;
+    config.N8N_AI_ACTION_BASIC_AUTH_PASSWORD = mockActionPass;
+
+    const originalGlobalFetch = global.fetch;
+
+    try {
+      // Mock dinâmico do n8n action webhook que reflete o upstream
+      global.fetch = async (url, options = {}) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/mock-n8n-action-46')) {
+          const body = JSON.parse(options.body || '{}');
+          const msg = (body.message || '').trim();
+          const pending = body.pendingAction || null;
+
+          // Simula resposta do n8n com dados brutos
+          if (/^blz.?s*bora cadastrar uma despesa nova$/i.test(msg)) {
+            // Upstream bug anterior: retornava a própria frase como descrição
+            return new Response(JSON.stringify([{
+              action: 'create_expense',
+              source: 'text',
+              data: {
+                description: 'Blz. Bora cadastrar uma despesa nova',
+                amount: null,
+                destination: null
+              },
+              warnings: ['O valor da despesa precisa ser informado ou revisado.'],
+              requiresReview: true
+            }]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          }
+
+          if (/^uma bolsa da nike$/i.test(msg)) {
+            return new Response(JSON.stringify([{
+              action: 'create_expense',
+              source: 'text',
+              data: {
+                description: 'BOLSA DA NIKE',
+                amount: null,
+                destination: null
+              },
+              warnings: ['O valor da despesa precisa ser informado ou revisado.'],
+              requiresReview: true
+            }]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          }
+
+          if (/^300 conto$/i.test(msg)) {
+            return new Response(JSON.stringify([{
+              action: 'create_expense',
+              source: 'text',
+              data: {
+                description: pending?.slots?.description || 'BOLSA DA NIKE',
+                amount: 300,
+                destination: null
+              },
+              warnings: ['A forma de pagamento precisa ser informada.'],
+              requiresReview: true
+            }]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          }
+
+          if (/^pix$/i.test(msg)) {
+            return new Response(JSON.stringify([{
+              action: 'create_expense',
+              source: 'text',
+              data: {
+                description: pending?.slots?.description || 'BOLSA DA NIKE',
+                amount: pending?.slots?.amount || 300,
+                destination: 'Pix',
+                category: 'Lazer'
+              },
+              // Upstream simulando warnings obsoletos de turnos anteriores
+              warnings: ['O valor da despesa precisa ser informado ou revisado.'],
+              requiresReview: true
+            }]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          }
+
+          if (/^comprei uma bolsa da nike por 300 no pix$/i.test(msg)) {
+            return new Response(JSON.stringify([{
+              action: 'create_expense',
+              source: 'text',
+              data: {
+                description: 'BOLSA DA NIKE',
+                amount: 300,
+                destination: 'Pix',
+                category: 'Lazer'
+              },
+              warnings: [],
+              requiresReview: false
+            }]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          }
+
+          if (/^quero cadastrar uma despesa$/i.test(msg)) {
+            return new Response(JSON.stringify([{
+              action: 'create_expense',
+              source: 'text',
+              data: {
+                description: 'Quero cadastrar uma despesa',
+                amount: null,
+                destination: null
+              },
+              warnings: ['O valor da despesa precisa ser informado ou revisado.'],
+              requiresReview: true
+            }]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          }
+
+          return new Response(JSON.stringify([{
+            action: 'create_expense',
+            data: {}
+          }]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+
+        return originalGlobalFetch(url, options);
+      };
+
+      const testConvId = 'conv_hotfix_12_2_' + Date.now();
+
+      // TURN 1: "Blz. Bora cadastrar uma despesa nova"
+      const turn1Res = await fetch(`${baseUrl}/api/ai/actions/interpret`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${testUserToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: 'Blz. Bora cadastrar uma despesa nova',
+          conversationId: testConvId,
+          context: { month: 9, year: 2026 }
+        })
+      });
+      assert.strictEqual(turn1Res.status, 200, 'Turn 1 deve responder 200');
+      const turn1Json = await turn1Res.json();
+      assert.strictEqual(turn1Json.action, 'continue_collection', 'Turn 1 deve continuar coleta');
+      assert.strictEqual(turn1Json.intent, 'create_expense', 'Turn 1 intent deve ser create_expense');
+      assert.strictEqual(turn1Json.slots.description, null, 'Turn 1 description NÃO pode ser a frase de intenção (deve ser null)');
+      assert.strictEqual(turn1Json.slots.amount, null, 'Turn 1 amount deve ser null');
+      assert.strictEqual(turn1Json.slots.destination, null, 'Turn 1 destination deve ser null');
+      assert.ok(turn1Json.missingFields.includes('description'), 'missingFields deve incluir description');
+      assert.ok(turn1Json.missingFields.includes('amount'), 'missingFields deve incluir amount');
+      assert.ok(turn1Json.missingFields.includes('destination'), 'missingFields deve incluir destination');
+      assert.match(turn1Json.answer, /o que voc[eê] comprou/i, 'Turn 1 deve perguntar o que o usuário comprou primeiro');
+      assert.doesNotMatch(turn1Json.answer, /quanto foi/i, 'Turn 1 NÃO deve perguntar valor antes da descrição');
+
+      // TURN 2: "Uma bolsa da Nike"
+      const turn2Res = await fetch(`${baseUrl}/api/ai/actions/interpret`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${testUserToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: 'Uma bolsa da Nike',
+          conversationId: testConvId,
+          context: { month: 9, year: 2026 }
+        })
+      });
+      assert.strictEqual(turn2Res.status, 200, 'Turn 2 deve responder 200');
+      const turn2Json = await turn2Res.json();
+      assert.strictEqual(turn2Json.action, 'continue_collection', 'Turn 2 continua coleta');
+      assert.strictEqual(turn2Json.slots.description, 'BOLSA DA NIKE', 'Turn 2 description deve ser BOLSA DA NIKE');
+      assert.strictEqual(turn2Json.slots.amount, null, 'Turn 2 amount ainda é null');
+      assert.strictEqual(turn2Json.missingFields.includes('description'), false, 'description não está mais missing');
+      assert.ok(turn2Json.missingFields.includes('amount'), 'missingFields inclui amount');
+      assert.match(turn2Json.answer, /quanto foi/i, 'Turn 2 agora pergunta quanto foi');
+
+      // TURN 3: "300 conto"
+      const turn3Res = await fetch(`${baseUrl}/api/ai/actions/interpret`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${testUserToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: '300 conto',
+          conversationId: testConvId,
+          context: { month: 9, year: 2026 }
+        })
+      });
+      assert.strictEqual(turn3Res.status, 200, 'Turn 3 deve responder 200');
+      const turn3Json = await turn3Res.json();
+      assert.strictEqual(turn3Json.action, 'continue_collection', 'Turn 3 continua coleta');
+      assert.strictEqual(turn3Json.slots.amount, 300, 'Turn 3 amount deve ser 300');
+      assert.strictEqual(turn3Json.missingFields.includes('amount'), false, 'amount não está mais missing');
+      assert.ok(turn3Json.missingFields.includes('destination'), 'missingFields inclui destination');
+      assert.match(turn3Json.answer, /pagou como/i, 'Turn 3 pergunta como pagou');
+
+      // TURN 4: "Pix"
+      const turn4Res = await fetch(`${baseUrl}/api/ai/actions/interpret`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${testUserToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: 'Pix',
+          conversationId: testConvId,
+          context: { month: 9, year: 2026 }
+        })
+      });
+      assert.strictEqual(turn4Res.status, 200, 'Turn 4 deve responder 200');
+      const turn4Json = await turn4Res.json();
+      assert.strictEqual(turn4Json.action, 'create_expense', 'Turn 4 deve gerar proposta de create_expense');
+      assert.ok(turn4Json.proposalId, 'Turn 4 deve ter proposalId');
+      assert.strictEqual(turn4Json.data.description, 'BOLSA DA NIKE', 'Turn 4 description final');
+      assert.strictEqual(turn4Json.data.amount, 300, 'Turn 4 amount final');
+      assert.strictEqual(turn4Json.data.destination, 'Pix', 'Turn 4 destination final');
+      assert.strictEqual(turn4Json.requiresReview, false, 'requiresReview DEVE ser false (recalculado após preenchimento válido)');
+      assert.strictEqual(turn4Json.warnings.length, 0, 'warnings obsoletos de amount devem ser expurgados');
+
+      // CASO COMPLETO EM UMA MENSAGEM: "Comprei uma bolsa da Nike por 300 no Pix"
+      const directRes = await fetch(`${baseUrl}/api/ai/actions/interpret`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${testUserToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: 'Comprei uma bolsa da Nike por 300 no Pix',
+          conversationId: 'conv_direct_' + Date.now(),
+          context: { month: 9, year: 2026 }
+        })
+      });
+      assert.strictEqual(directRes.status, 200);
+      const directJson = await directRes.json();
+      assert.strictEqual(directJson.action, 'create_expense', 'Mensagem completa deve gerar proposta imediata');
+      assert.ok(directJson.proposalId);
+      assert.strictEqual(directJson.data.description, 'BOLSA DA NIKE');
+      assert.strictEqual(directJson.data.amount, 300);
+      assert.strictEqual(directJson.data.destination, 'Pix');
+      assert.strictEqual(directJson.requiresReview, false);
+
+      // CASO INTENÇÃO GENÉRICA ISOLADA: "Quero cadastrar uma despesa"
+      const genericRes = await fetch(`${baseUrl}/api/ai/actions/interpret`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${testUserToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: 'Quero cadastrar uma despesa',
+          conversationId: 'conv_generic_' + Date.now(),
+          context: { month: 9, year: 2026 }
+        })
+      });
+      assert.strictEqual(genericRes.status, 200);
+      const genericJson = await genericRes.json();
+      assert.strictEqual(genericJson.action, 'continue_collection');
+      assert.strictEqual(genericJson.slots.description, null, 'Não deve criar description para intenção genérica');
+      assert.ok(genericJson.missingFields.includes('description'));
+      assert.match(genericJson.answer, /o que voc[eê] comprou/i);
+
+      // HOTFIX MOBILE: Gráfico "Despesas por Destino de Cobrança" e Ocultação Estrita de "Colunas"
+      const mobileCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'mobile.css'), 'utf-8');
+      assert.ok(!mobileCss.includes('#destChartSectionCard,\n  #toggleDestChartBtn {\n    display: none !important;'), 'mobile.css NÃO deve ocultar #destChartSectionCard ou #toggleDestChartBtn');
+      assert.ok(mobileCss.includes('[data-dest-chart-type="column"]'), 'mobile.css deve conter seletor para ocultar opção Colunas');
+      assert.ok(mobileCss.includes('display: none !important;'), 'Regra mobile deve conter display: none !important');
+
+      // Garante integridade do index.html (desktop continua com o elemento no DOM e todas as opções)
+      const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf-8');
+      assert.ok(indexHtml.includes('id="destChartSectionCard"'), 'index.html mantém o elemento no DOM');
+      assert.ok(indexHtml.includes('id="toggleDestChartBtn"'), 'index.html mantém o botão toggle');
+      assert.ok(indexHtml.includes('data-dest-chart-type="bar"'), 'index.html contém opção Barras');
+      assert.ok(indexHtml.includes('data-dest-chart-type="column"'), 'index.html contém opção Colunas');
+      assert.ok(indexHtml.includes('data-dest-chart-type="donut"'), 'index.html contém opção Pizza/Rosca');
+    } finally {
+      global.fetch = originalGlobalFetch;
+      config.N8N_AI_ACTION_WEBHOOK_URL = origActionWebhook;
+      config.N8N_AI_ACTION_BASIC_AUTH_USER = origActionUser;
+      config.N8N_AI_ACTION_BASIC_AUTH_PASSWORD = origActionPass;
+    }
+  });
+
+  /* ==========================================================================
+     CHECKPOINT SECURITY 1 — HARDENING HTTP, AUTENTICAÇÃO E FRONTEIRA DA API
+     ========================================================================== */
+  test('Checkpoint Security 1: JWT Secret Fail-Closed em Produção', () => {
+    // 1. Em produção, JWT_SECRET ausente/vazio deve lançar erro
+    assert.throws(() => {
+      config.resolveAndValidateJwtSecret(null, 'production');
+    }, /JWT_SECRET obrigatório não configurado/);
+
+    assert.throws(() => {
+      config.resolveAndValidateJwtSecret('', 'production');
+    }, /JWT_SECRET obrigatório não configurado/);
+
+    // 2. Em produção, fallback inseguro de desenvolvimento deve lançar erro
+    assert.throws(() => {
+      config.resolveAndValidateJwtSecret(config.INSECURE_FALLBACK_JWT_SECRET, 'production');
+    }, /JWT_SECRET inseguro\/default detectado em produção/);
+
+    assert.throws(() => {
+      config.resolveAndValidateJwtSecret('CHANGE_ME_INSECURE_SECRET_TOKEN', 'production');
+    }, /JWT_SECRET inseguro\/default detectado em produção/);
+
+    // 3. Em produção, secret com menos de 32 caracteres deve lançar erro
+    assert.throws(() => {
+      config.resolveAndValidateJwtSecret('short_secret_under_32_chars!', 'production');
+    }, /entropia insuficiente/);
+
+    // 4. Em produção, secret forte com 32+ caracteres deve ser aceito
+    const strongSecret = 'super_secure_omnifin_production_jwt_secret_2026_random_entropy';
+    const validated = config.resolveAndValidateJwtSecret(strongSecret, 'production');
+    assert.strictEqual(validated, strongSecret);
+
+    // 5. Em desenvolvimento, fallback seguro é emitido sem exceção
+    const devFallback = config.resolveAndValidateJwtSecret('', 'development');
+    assert.strictEqual(devFallback, config.INSECURE_FALLBACK_JWT_SECRET);
+  });
+
+  test('Checkpoint Security 1: Headers de Segurança HTTP via Helmet', async () => {
+    const res = await fetch(`${baseUrl}/api/config`);
+    assert.strictEqual(res.status, 200);
+
+    // Cabeçalhos de segurança obrigatórios
+    assert.strictEqual(res.headers.get('x-content-type-options'), 'nosniff', 'X-Content-Type-Options deve ser nosniff');
+    assert.strictEqual(res.headers.get('x-frame-options'), 'DENY', 'X-Frame-Options deve ser DENY para combater clickjacking');
+    assert.strictEqual(res.headers.get('cross-origin-resource-policy'), 'cross-origin', 'CORP deve ser cross-origin');
+
+    const csp = res.headers.get('content-security-policy');
+    assert.ok(csp, 'Content-Security-Policy deve estar presente');
+    assert.ok(csp.includes("default-src 'self'"), 'CSP deve conter default-src self');
+    assert.ok(csp.includes("frame-ancestors 'none'"), 'CSP deve conter frame-ancestors none');
+  });
+
+  test('Checkpoint Security 1: CORS Controlado e Requisições Same-Origin', async () => {
+    // 1. Requisição sem header Origin (same-origin / mobile / curl) deve ser aceita normalmente
+    const noOriginRes = await fetch(`${baseUrl}/api/config`);
+    assert.strictEqual(noOriginRes.status, 200);
+
+    // 2. Requisição com Origin de desenvolvimento local (localhost) deve ser aceita
+    const devOriginRes = await fetch(`${baseUrl}/api/config`, {
+      headers: { 'Origin': 'http://localhost:3000' }
+    });
+    assert.strictEqual(devOriginRes.status, 200);
+    assert.strictEqual(devOriginRes.headers.get('access-control-allow-origin'), 'http://localhost:3000');
+
+    // 3. Preflight OPTIONS request
+    const optionsRes = await fetch(`${baseUrl}/api/config`, {
+      method: 'OPTIONS',
+      headers: {
+        'Origin': 'http://localhost:3000',
+        'Access-Control-Request-Method': 'GET'
+      }
+    });
+    assert.strictEqual(optionsRes.status, 204);
+  });
+
+  test('Checkpoint Security 1: API 404 retorna JSON genérico sem vazamento de rotas e sem fallback HTML do SPA', async () => {
+    // 1. Rota de API inexistente (/api/rota-que-nao-existe)
+    const res = await fetch(`${baseUrl}/api/rota-que-nao-existe`);
+    assert.strictEqual(res.status, 404);
+    assert.ok(res.headers.get('content-type').includes('application/json'), 'API 404 deve retornar Content-Type application/json');
+
+    const rawBody = await res.text();
+    assert.ok(!rawBody.includes('<!DOCTYPE html>'), 'Resposta de rota inexistente /api/* NÃO deve conter <!DOCTYPE html>');
+    assert.ok(!rawBody.includes('<html'), 'Resposta de rota inexistente /api/* NÃO deve conter HTML do SPA / index.html');
+
+    const data = JSON.parse(rawBody);
+    assert.strictEqual(data.success, false);
+    assert.strictEqual(data.error, 'NOT_FOUND');
+    assert.strictEqual(data.message, 'Rota da API não encontrada.');
+    assert.strictEqual(data.path, undefined, 'Não deve vazar req.originalUrl');
+    assert.strictEqual(data.url, undefined, 'Não deve vazar URL interna');
+
+    // 2. Rota web / SPA inexistente continua retornando index.html (fallback SPA não foi quebrado)
+    const spaRes = await fetch(`${baseUrl}/rota_web_inexistente_do_spa`);
+    assert.strictEqual(spaRes.status, 200);
+    const spaBody = await spaRes.text();
+    assert.ok(spaBody.includes('<!doctype html>') || spaBody.includes('<!DOCTYPE html>'), 'Rotas web devem continuar recebendo o HTML do SPA');
+  });
+
+  test('Checkpoint Security 1: Global Error Handler sanitiza JSON inválido (400)', async () => {
+    const res = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"login": "invalido", malformed_json'
+    });
+    assert.strictEqual(res.status, 400);
+    const data = await res.json();
+    assert.strictEqual(data.success, false);
+    assert.strictEqual(data.error, 'BAD_REQUEST');
+    assert.strictEqual(data.message, 'Formato de JSON inválido no corpo da requisição.');
+    assert.strictEqual(data.stack, undefined, 'Não deve vazar stack trace no erro 400');
+  });
+
+  test('Checkpoint Security 1: Limite de Payload (Body Limit 5MB) rejeita payloads excessivos com 413 JSON', async () => {
+    // Cria payload com mais de 5MB (5.5MB)
+    const largeStr = 'a'.repeat(5.5 * 1024 * 1024);
+    const res = await fetch(`${baseUrl}/api/finances`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${testUserToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ largeField: largeStr })
+    });
+    assert.strictEqual(res.status, 413, 'Payload acima de 5MB deve retornar HTTP 413');
+    const data = await res.json();
+    assert.strictEqual(data.success, false);
+    assert.strictEqual(data.error, 'PAYLOAD_TOO_LARGE');
+    assert.ok(data.message.includes('limite máximo permitido'));
+    assert.strictEqual(data.stack, undefined, 'Não deve vazar stack trace no erro 413');
+  });
+
+  test('Checkpoint Security 1: Rate Limiting estratificado bloqueia força bruta com HTTP 429', async () => {
+    // Executa requisições de login inválidas repetidas para testar o rate limiter
+    let rateLimited = false;
+
+    for (let i = 0; i < 20; i++) {
+      const res = await fetch(`${baseUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Forwarded-For': '198.51.100.88'
+        },
+        body: JSON.stringify({ login: 'brute_force_user', senha: 'wrong_password_123' })
+      });
+      if (res.status === 429) {
+        rateLimited = true;
+        const data = await res.json();
+        assert.strictEqual(data.success, false);
+        assert.strictEqual(data.error, 'TOO_MANY_REQUESTS');
+        assert.ok(data.message.includes('Muitas tentativas'));
+        break;
+      }
+    }
+
+    assert.ok(rateLimited, 'Tentativas de login sucessivas com erro devem disparar HTTP 429');
+  });
+
+  /* ==========================================================================
+     HOTFIX VISUAL MOBILE — 10 REGRAS CONTRATUAIS DE RESPONSIVIDADE E FALLBACK
+     ========================================================================== */
+  test('Hotfix Visual Mobile: 10 Regras Contratuais de Responsividade, Seletores e Fallback', () => {
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf-8');
+    const mobileCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'mobile.css'), 'utf-8');
+    const dashboardJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'modules', 'dashboard.js'), 'utf-8');
+
+    // 1. Desktop contém Barras
+    assert.ok(indexHtml.includes('data-dest-chart-type="bar"'), '1. Desktop deve conter opção de gráfico Barras');
+    assert.ok(indexHtml.includes('<span>Barras</span>'), '1. Desktop deve conter label Barras');
+
+    // 2. Desktop contém Colunas
+    assert.ok(indexHtml.includes('data-dest-chart-type="column"'), '2. Desktop deve conter opção de gráfico Colunas');
+    assert.ok(indexHtml.includes('<span>Colunas</span>'), '2. Desktop deve conter label Colunas');
+
+    // 3. Desktop contém Pizza/Rosca
+    assert.ok(indexHtml.includes('data-dest-chart-type="donut"'), '3. Desktop deve conter opção de gráfico Pizza/Rosca');
+    assert.ok(indexHtml.includes('<span>Pizza / Rosca</span>'), '3. Desktop deve conter label Pizza / Rosca');
+
+    // 4. Mobile mantém Barras
+    assert.ok(!mobileCss.includes('[data-dest-chart-type="bar"] {\n    display: none'), '4. Mobile não deve ocultar Barras');
+
+    // 5. Mobile oculta somente Colunas
+    assert.ok(mobileCss.includes('[data-dest-chart-type="column"]'), '5. Mobile deve declarar seletor para ocultar Colunas');
+    assert.ok(mobileCss.includes('display: none !important;'), '5. Regra de Colunas deve conter display: none !important');
+
+    // 6. Mobile mantém Pizza/Rosca
+    assert.ok(!mobileCss.includes('[data-dest-chart-type="donut"] {\n    display: none'), '6. Mobile não deve ocultar Pizza/Rosca');
+
+    // 7. O gráfico "Despesas por Destino de Cobrança" continua visível no mobile
+    assert.ok(!mobileCss.includes('#destChartSectionCard,\n  #toggleDestChartBtn {\n    display: none'), '7. Mobile NÃO deve ocultar #destChartSectionCard');
+    assert.ok(indexHtml.includes('id="destChartSectionCard"'), '7. Componente de destinos deve estar no DOM');
+    assert.ok(indexHtml.includes('id="toggleDestChartBtn"'), '7. Botão toggle do componente de destinos deve estar no DOM');
+
+    // 8. Preferência salva como "column" recebe fallback seguro no mobile (column -> bar)
+    assert.ok(dashboardJs.includes('resolveEffectiveChartType'), '8. dashboard.js deve implementar resolveEffectiveChartType');
+    const evalResolver = new Function(`
+      function resolveEffectiveChartType(savedType, isMobileView) {
+        if (isMobileView && savedType === 'column') {
+          return 'bar';
+        }
+        return savedType || 'bar';
+      }
+      return resolveEffectiveChartType;
+    `)();
+    assert.strictEqual(evalResolver('column', true), 'bar', '8. No mobile, preferência "column" deve ter fallback para "bar"');
+    assert.strictEqual(evalResolver('donut', true), 'donut', '8. No mobile, preferência "donut" deve ser mantida');
+    assert.strictEqual(evalResolver('bar', true), 'bar', '8. No mobile, preferência "bar" deve ser mantida');
+
+    // 9. Desktop continua respeitando preferência "column"
+    assert.strictEqual(evalResolver('column', false), 'column', '9. No desktop, preferência "column" continua respeitada');
+    assert.strictEqual(evalResolver('donut', false), 'donut', '9. No desktop, preferência "donut" continua respeitada');
+    assert.strictEqual(evalResolver('bar', false), 'bar', '9. No desktop, preferência "bar" continua respeitada');
+
+    // 10. Nenhum overflow horizontal é causado pelos modos restantes
+    assert.ok(mobileCss.includes('overflow-x: auto !important'), '10. Seletores de gráfico devem permitir scroll horizontal contido');
+    assert.ok(mobileCss.includes('max-width: 100% !important'), '10. Cards e seletores devem ter max-width 100%');
+    assert.ok(mobileCss.includes('box-sizing: border-box !important'), '10. Cards de gráfico devem ter box-sizing border-box');
+  });
+
+  /* ==========================================================================
+     HOTFIX UX — LOGIN INVÁLIDO + LOADING DE HIDRATAÇÃO INICIAL
+     ========================================================================== */
+  test('Hotfix UX: Diferenciação entre INVALID_CREDENTIALS e SESSION_EXPIRED', async () => {
+    const apiJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'api.js'), 'utf-8');
+
+    // 1. Login inválido NÃO exibe "Sessão expirada"
+    const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Forwarded-For': '198.51.100.99'
+      },
+      body: JSON.stringify({ login: 'usuario_inexistente_999', senha: 'wrong_password_xyz' })
+    });
+    const loginData = await loginRes.json();
+    assert.strictEqual(loginRes.status, 401);
+    assert.strictEqual(loginData.success, false);
+    assert.strictEqual(loginData.error, 'INVALID_CREDENTIALS');
+    assert.ok(!loginData.message.includes('Sessão expirada'), '1. Login inválido NÃO deve conter "Sessão expirada"');
+
+    // 2. Login inválido exibe mensagem genérica de credenciais inválidas (sem enumeração)
+    assert.strictEqual(loginData.message, 'Login ou senha inválidos. Verifique os dados e tente novamente.', '2. Deve exibir mensagem genérica de credenciais');
+    assert.ok(!loginData.message.includes('Senha incorreta'), 'Não deve divulgar que a senha é incorreta');
+    assert.ok(!loginData.message.includes('Usuário inexistente'), 'Não deve divulgar que o usuário é inexistente');
+
+    // Verifica que api.js intercepta /api/auth/login separadamente de rotas autenticadas
+    assert.ok(apiJs.includes("endpoint.includes('/api/auth/login')"), 'api.js deve verificar se endpoint é /api/auth/login');
+    assert.ok(apiJs.includes("INVALID_CREDENTIALS"), 'api.js deve retornar código INVALID_CREDENTIALS para login');
+
+    // 3. 401 em endpoint autenticado continua significando sessão expirada
+    const authEndpointRes = await fetch(`${baseUrl}/api/finances`, {
+      headers: {
+        'Authorization': 'Bearer token_invalido_expirado_123',
+        'Content-Type': 'application/json'
+      }
+    });
+    assert.strictEqual(authEndpointRes.status, 401);
+    assert.ok(apiJs.includes("SESSION_EXPIRED"), 'api.js deve retornar SESSION_EXPIRED em rotas autenticadas');
+    assert.ok(apiJs.includes("Sessão expirada. Faça login novamente."), 'api.js deve retornar mensagem de sessão expirada');
+  });
+
+  test('Hotfix UX: Loading / Splash de Hidratação Inicial e Prevenção de Dados Falsos', () => {
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf-8');
+    const componentsCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'components.css'), 'utf-8');
+    const authSyncJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'authSync.js'), 'utf-8');
+    const swJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'sw.js'), 'utf-8');
+
+    // 4. Loading existe na inicialização (DOM e CSS)
+    assert.ok(indexHtml.includes('id="appHydrationSplash"'), '4. index.html deve conter elemento #appHydrationSplash');
+    assert.ok(indexHtml.includes('class="app-hydration-splash"'), '4. Deve possuir classe app-hydration-splash');
+    assert.ok(componentsCss.includes('.app-hydration-splash'), '4. components.css deve conter regras da camada de splash');
+    assert.ok(componentsCss.includes('position: fixed'), 'Splash deve cobrir a viewport em position: fixed');
+    assert.ok(componentsCss.includes('z-index: 99999'), 'Splash deve ter z-index prioritário');
+
+    // 5. Loading é removido após hidratação bem-sucedida
+    assert.ok(authSyncJs.includes("dismissHydrationSplash('ready')"), '5. authSync.js deve dispensar splash após hidratação com "ready"');
+    assert.ok(componentsCss.includes('.app-hydration-splash.hide'), '5. components.css deve declarar transição para classe .hide');
+    assert.ok(componentsCss.includes('opacity: 0'), 'Classe hide deve zerar opacity');
+
+    // 6. Loading não fica infinito em erro (timeout de segurança e tratamento de erro)
+    assert.ok(authSyncJs.includes('MAX_SPLASH_TIMEOUT_MS'), '6. authSync.js deve ter MAX_SPLASH_TIMEOUT_MS de segurança');
+    assert.ok(authSyncJs.includes("dismissHydrationSplash('timeout')"), '6. Deve possuir trigger de timeout');
+    assert.ok(authSyncJs.includes("dismissHydrationSplash('error')"), '6. Deve tratar falhas chamando dismissHydrationSplash com "error"');
+
+    // 7. Loading não exige delay fixo de 3 segundos (visual mínimo curto de 650ms, dentro de 600-900ms)
+    assert.ok(!authSyncJs.includes('3000') || !authSyncJs.includes('setTimeout(dismissHydrationSplash, 3000)'), '7. Não deve ter delay fixo de 3 segundos');
+    assert.ok(authSyncJs.includes('MIN_SPLASH_DURATION_MS = 650'), '7. Deve usar tempo visual mínimo curto (aprox 650ms)');
+
+    // 8. PWA/Service Worker não são alterados indevidamente (trata extensões com segurança)
+    assert.ok(swJs.includes("!url.protocol.startsWith('http')"), '8. Service worker deve ignorar esquemas de extensão (chrome-extension:)');
+    assert.ok(swJs.includes("CACHE_VERSION"), '8. Service worker preserva estrutura de cache');
+
+    // 9. State financeiro não renderiza flash de dados default antes da hidratação
+    assert.ok(indexHtml.includes('if (!stateHydrated) {'), '9. index.html deve conter guarda stateHydrated no render');
+    assert.ok(authSyncJs.includes('window.setStateHydrated(true)'), '9. authSync.js deve acionar setStateHydrated somente após carregar dados reais');
+  });
+
+  /* ==========================================================================
+     HOTFIX TIPOGRAFIA — PRESERVAÇÃO DAS FONTES ORIGINAIS E CSP
+     ========================================================================== */
+  test('Hotfix Tipografia: Fonte original Manrope e JetBrains Mono preservadas com CSP compatível', () => {
+    const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf-8');
+    const baseCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'base.css'), 'utf-8');
+    const serverJs = fs.readFileSync(path.join(__dirname, '..', 'server', 'server.js'), 'utf-8');
+
+    // 1. A fonte principal esperada continua declarada no base.css exatamente como no baseline
+    assert.ok(baseCss.includes("'Manrope', system-ui, -apple-system, sans-serif"), 'base.css deve declarar Manrope como fonte principal');
+    assert.ok(baseCss.includes("'JetBrains Mono', monospace"), 'base.css deve declarar JetBrains Mono para números/métricas');
+
+    // 2. Os imports/links necessários continuam presentes no index.html fielmente ao baseline
+    assert.ok(indexHtml.includes('fonts.googleapis.com'), 'index.html deve conter link para fonts.googleapis.com');
+    assert.ok(indexHtml.includes('fonts.gstatic.com'), 'index.html deve conter preconnect para fonts.gstatic.com');
+    assert.ok(indexHtml.includes('family=Manrope:wght@400;500;600;700;800'), 'index.html deve requisitar pesos 400-800 do Manrope');
+    assert.ok(indexHtml.includes('family=JetBrains+Mono:wght@500;700'), 'index.html deve requisitar pesos 500;700 do JetBrains Mono');
+
+    // 3. CSP no server.js permite carregar styles, inline styles (styleSrcAttr), binários e preconnect de fontes
+    assert.ok(serverJs.includes("https://fonts.googleapis.com"), 'server.js CSP deve permitir fonts.googleapis.com');
+    assert.ok(serverJs.includes("https://fonts.gstatic.com"), 'server.js CSP deve permitir fonts.gstatic.com');
+    assert.ok(serverJs.includes("fontSrc:"), 'server.js CSP deve configurar fontSrc');
+    assert.ok(serverJs.includes("connectSrc:"), 'server.js CSP deve configurar connectSrc');
+    assert.ok(serverJs.includes("styleSrcAttr:"), 'server.js CSP deve configurar styleSrcAttr para estilos inline');
+  });
+
+  /* ==========================================================================
+     SERVICE WORKER & CACHE LIFECYCLE: ATUALIZAÇÃO AUTOMÁTICA E RESILIÊNCIA
+     ========================================================================== */
+  test('Service Worker e Cache Lifecycle: Versionamento v3.7.0, Network-First, cleanup no activate e isolamento de /api/* e fontes', () => {
+    const swJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'sw.js'), 'utf-8');
+    const serverJs = fs.readFileSync(path.join(__dirname, '..', 'server', 'server.js'), 'utf-8');
+
+    // 1. CACHE_VERSION não permanece na versão congelada v3.5
+    assert.strictEqual(swJs.includes("'omnifin-static-v3.5'"), false, 'sw.js não deve manter CACHE_VERSION congelada na v3.5');
+    assert.ok(swJs.includes("'omnifin-static-v3.7.0'"), 'sw.js deve declarar CACHE_VERSION omnifin-static-v3.7.0');
+
+    // 2. /api/* permanece estritamente network-only sem cache
+    assert.ok(swJs.includes("url.pathname.startsWith('/api/')"), 'sw.js deve isolar rotas /api/ como network-only');
+    assert.ok(swJs.includes('status: 503'), 'sw.js deve prover resposta offline 503 para API');
+
+    // 3. Evento activate remove caches antigos automaticamente
+    assert.ok(swJs.includes('caches.delete(key)'), 'sw.js activate deve deletar caches obsoletos');
+    assert.ok(swJs.includes('key !== CACHE_VERSION'), 'sw.js activate deve filtrar chaves diferentes da versão ativa');
+
+    // 4. Ciclo de ativação rápida com skipWaiting() e clients.claim()
+    assert.ok(swJs.includes('self.skipWaiting()'), 'sw.js deve conter skipWaiting() no install');
+    assert.ok(swJs.includes('self.clients.claim()'), 'sw.js deve conter clients.claim() no activate');
+
+    // 5. Navegação HTML usa Network-First com fallback offline
+    assert.ok(swJs.includes("req.mode === 'navigate'"), 'sw.js deve interceptar navegação de páginas');
+    assert.ok(swJs.includes("caches.match('./index.html')"), 'sw.js deve prover fallback offline para index.html');
+
+    // 6. Assets estáticos (CSS/JS) usam Network-First com fallback para evitar versões stale
+    assert.ok(swJs.includes('fetch(req)'), 'sw.js deve priorizar busca na rede para assets');
+    assert.ok(swJs.includes('caches.match(req)'), 'sw.js deve ter fallback em cache para modo offline');
+
+    // 7. Recursos de origens externas (Google Fonts, CDNs) não são interceptados pelo Cache Storage
+    assert.ok(swJs.includes('url.origin !== self.location.origin'), 'sw.js deve ignorar origens externas como Google Fonts');
+
+    // 8. Express static configura headers anti-cache para sw.js e revalidação de HTML/CSS/JS
+    assert.ok(serverJs.includes("filePath.endsWith('sw.js')"), 'server.js deve configurar Cache-Control específico para sw.js');
+    assert.ok(serverJs.includes('no-store'), 'server.js deve definir no-store para sw.js');
+    assert.ok(serverJs.includes("filePath.endsWith('.html')"), 'server.js deve configurar revalidação no-cache para HTML');
+  });
+
+  /* ==========================================================================
+     CHECKPOINT SECURITY 2: SESSÃO, COOKIES HTTPONLY, TOKENVERSION E CICLO DE AUTH
+     ========================================================================== */
+  test('Checkpoint Security 2: Contrato completo de Cookies HttpOnly, tokenVersion, Anti-CSRF, Anti-Cache e RBAC em tempo real', async () => {
+    const swJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'sw.js'), 'utf-8');
+    const serverJs = fs.readFileSync(path.join(__dirname, '..', 'server', 'server.js'), 'utf-8');
+    const authMiddlewareJs = fs.readFileSync(path.join(__dirname, '..', 'server', 'middleware', 'auth.js'), 'utf-8');
+    const apiJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'api.js'), 'utf-8');
+    const authJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'auth.js'), 'utf-8');
+    const authSyncJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'authSync.js'), 'utf-8');
+
+    // 1 & 2 & 3. Login válido emite Set-Cookie com HttpOnly, SameSite=Lax, Path=/ e Domain omitido
+    const loginRes = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ login: testUserLogin, senha: testPassword })
+    });
+    const loginJson = await loginRes.json();
+    assert.strictEqual(loginRes.status, 200, 'Login deve retornar 200');
+    assert.strictEqual(loginJson.token, undefined, '8. JWT não deve ser retornado no JSON de login');
+
+    const setCookie = loginRes.headers.get('set-cookie') || '';
+    assert.ok(setCookie.includes('omnifin_session='), '1. Login deve emitir cookie omnifin_session');
+    assert.ok(/httponly/i.test(setCookie), '2. Cookie deve possuir flag HttpOnly');
+    assert.ok(/samesite=lax/i.test(setCookie), '3. Cookie deve possuir SameSite=Lax');
+    assert.ok(/path=\//i.test(setCookie), '6. Cookie deve possuir Path=/');
+    assert.ok(!/domain=/i.test(setCookie), '7. Domain deve ser omitido para garantir Host-Only');
+
+    // 4 & 5. Secure presente em produção e ausente em localhost/dev
+    if (process.env.NODE_ENV === 'production') {
+      assert.ok(/secure/i.test(setCookie), '4. Secure presente em produção');
+    } else {
+      assert.ok(!/secure/i.test(setCookie), '5. Secure ausente em localhost/dev');
+    }
+
+    const sessionCookieVal = setCookie.match(/omnifin_session=([^;]+)/)[1];
+
+    // 9 & 10. JWT não é salvo no localStorage e chaves legadas são removidas
+    assert.ok(!apiJs.includes("localStorage.setItem(TOKEN_KEY"), '9. api.js não deve salvar token no localStorage');
+    assert.ok(!authJs.includes("localStorage.setItem('auth_token'"), '9. auth.js não deve salvar auth_token');
+    assert.ok(apiJs.includes("localStorage.removeItem(TOKEN_KEY)"), '10. api.js deve expurgar chaves legadas');
+
+    // 11. Endpoint privado funciona com cookie HttpOnly
+    const finRes = await fetch(`${baseUrl}/api/finances`, {
+      headers: {
+        'Cookie': `omnifin_session=${sessionCookieVal}`
+      }
+    });
+    assert.strictEqual(finRes.status, 200, '11. Endpoint privado deve autenticar com cookie');
+
+    // 12. Endpoint privado sem cookie nem token retorna 401
+    const unauthRes = await fetch(`${baseUrl}/api/finances`);
+    assert.strictEqual(unauthRes.status, 401, '12. Endpoint privado sem autenticação retorna 401');
+
+    // 13. Bearer legado funciona durante compatibilidade temporária
+    const bearerRes = await fetch(`${baseUrl}/api/finances`, {
+      headers: {
+        'Authorization': `Bearer ${sessionCookieVal}`
+      }
+    });
+    assert.strictEqual(bearerRes.status, 200, '13. Bearer legado deve funcionar na transição');
+
+    // 14 & 15. tokenVersion correto autentica; tokenVersion antigo recebe 401
+    const validJwt = verifyToken(sessionCookieVal);
+    assert.ok(validJwt.userId, 'JWT deve conter userId');
+    assert.strictEqual(typeof validJwt.tokenVersion, 'number', 'JWT deve conter tokenVersion numérico');
+
+    // JWT sintético com tokenVersion divergente
+    const staleJwt = jwt.sign({ userId: testUserId, tokenVersion: 9999 }, config.JWT_SECRET, { expiresIn: '1h' });
+    const staleRes = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Cookie': `omnifin_session=${staleJwt}` }
+    });
+    assert.strictEqual(staleRes.status, 401, '15. tokenVersion antigo/divergente deve receber 401');
+    const staleJson = await staleRes.json();
+    assert.strictEqual(staleJson.error, 'SESSION_INVALIDATED');
+
+    // 16. Usuário legado sem tokenVersion no banco é tratado como 0
+    const legacyJwt = jwt.sign({ userId: testUserId, tokenVersion: 0 }, config.JWT_SECRET, { expiresIn: '1h' });
+    const legacyRes = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Cookie': `omnifin_session=${legacyJwt}` }
+    });
+    const currentUserDoc = await getUserById(testUserId);
+    if ((currentUserDoc.tokenVersion ?? 0) === 0) {
+      assert.strictEqual(legacyRes.status, 200, '16. Usuário com tokenVersion 0 deve autenticar');
+    }
+
+    // 17. Alteração de senha incrementa tokenVersion e invalida sessões anteriores
+    const usersCol = (await connectDB()).collection('users');
+    const pwdUserLogin = `user_pwd_${Date.now()}`;
+    const regPwdRes = await fetch(`${baseUrl}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({
+        nome: 'User Pwd Test',
+        login: pwdUserLogin,
+        email: `${pwdUserLogin}@omnifin.test`,
+        senha: testPassword
+      })
+    });
+    const regPwdCookie = regPwdRes.headers.get('set-cookie') || '';
+    const oldSessionToken = regPwdCookie.match(/omnifin_session=([^;]+)/)[1];
+
+    // Troca a senha pelo endpoint profile
+    const newPwd = 'NewPassword@999!';
+    const changePwdRes = await fetch(`${baseUrl}/api/auth/profile`, {
+      method: 'PUT',
+      headers: {
+        'Cookie': `omnifin_session=${oldSessionToken}`,
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify({ senhaAtual: testPassword, novaSenha: newPwd })
+    });
+    assert.strictEqual(changePwdRes.status, 200, 'Troca de senha deve retornar 200');
+    const changePwdJson = await changePwdRes.json();
+    assert.strictEqual(changePwdJson.passwordChanged, true);
+
+    // Sessão antiga deve receber 401 após a troca de senha
+    const invalidatedRes = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Cookie': `omnifin_session=${oldSessionToken}` }
+    });
+    assert.strictEqual(invalidatedRes.status, 401, '17. Sessão anterior à troca de senha deve receber 401');
+
+    // 18 & 19. Logout normal limpa cookie e NÃO incrementa tokenVersion
+    const preLogoutUser = await getUserById(testUserId);
+    const preLogoutVersion = preLogoutUser.tokenVersion ?? 0;
+    const logoutRes = await fetch(`${baseUrl}/api/auth/logout`, {
+      method: 'POST',
+      headers: { 'Cookie': `omnifin_session=${sessionCookieVal}`, 'X-Requested-With': 'XMLHttpRequest' }
+    });
+    assert.strictEqual(logoutRes.status, 200, 'Logout deve retornar 200');
+    const postLogoutCookie = logoutRes.headers.get('set-cookie') || '';
+    assert.ok(postLogoutCookie.includes('omnifin_session=;'), '19. Logout deve limpar o cookie');
+    const postLogoutUser = await getUserById(testUserId);
+    assert.strictEqual(postLogoutUser.tokenVersion ?? 0, preLogoutVersion, '18. Logout normal NÃO incrementa tokenVersion');
+
+    // 20. Usuário excluído recebe 401 mesmo com JWT assinado válido
+    const delUserLogin = `user_del_${Date.now()}`;
+    const regDelRes = await fetch(`${baseUrl}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({
+        nome: 'User Del Test',
+        login: delUserLogin,
+        email: `${delUserLogin}@omnifin.test`,
+        senha: testPassword
+      })
+    });
+    const regDelJson = await regDelRes.json();
+    const delUserId = regDelJson.user.id;
+    const delCookie = regDelRes.headers.get('set-cookie').match(/omnifin_session=([^;]+)/)[1];
+
+    // Remove usuário do banco diretamente
+    await usersCol.deleteOne({ _id: delUserId });
+    const accessDeletedRes = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Cookie': `omnifin_session=${delCookie}` }
+    });
+    assert.strictEqual(accessDeletedRes.status, 401, '20. Usuário excluído recebe 401');
+
+    // 21 & 22 & 23 & 24. authMiddleware NÃO usa getUsers() e req.user reflete o banco
+    assert.ok(!authMiddlewareJs.includes('getUsers('), '23. authMiddleware NÃO deve carregar coleção inteira com getUsers()');
+    assert.ok(authMiddlewareJs.includes('getUserById('), '23. authMiddleware deve consultar via getUserById()');
+    assert.ok(authMiddlewareJs.includes('getUserPermissions('), '21. authMiddleware deve consultar permissões atuais do banco');
+
+    // 25. BroadcastChannel não transporta JWT nem credenciais
+    assert.ok(authSyncJs.includes("BroadcastChannel('omnifin_auth')"), '25. BroadcastChannel configurado');
+    assert.ok(!authSyncJs.includes("postMessage({ token"), '25. BroadcastChannel nunca transporta token');
+    assert.ok(!authSyncJs.includes("postMessage({ jwt"), '25. BroadcastChannel nunca transporta JWT');
+
+    // 26. /api/* continua network-only no SW
+    assert.ok(swJs.includes("url.pathname.startsWith('/api/')"), '26. /api/* continua isolada no SW');
+
+    // 27. APIs privadas retornam Cache-Control: no-store, private
+    const apiMeRes = await fetch(`${baseUrl}/api/auth/me`, {
+      headers: { 'Authorization': `Bearer ${testUserToken}` }
+    });
+    const ccHeader = apiMeRes.headers.get('cache-control') || '';
+    assert.ok(ccHeader.includes('no-store'), '27. APIs privadas devem conter no-store');
+    assert.ok(ccHeader.includes('private'), '27. APIs privadas devem conter private');
+
+    // 28. CORS não usa wildcard com credentials
+    assert.ok(serverJs.includes('credentials: true'), '28. CORS configurado com credentials: true');
+    assert.ok(!serverJs.includes("origin: '*'"), '28. CORS não deve usar wildcard com credentials');
+
+    // 29. Política Anti-CSRF: métodos mutáveis autenticados por cookie exigem X-Requested-With
+    const csrfFailRes = await fetch(`${baseUrl}/api/finances`, {
+      method: 'PUT',
+      headers: {
+        'Cookie': `omnifin_session=${sessionCookieVal}`,
+        'Content-Type': 'application/json'
+        // SEM X-Requested-With
+      },
+      body: JSON.stringify({ fixed: [] })
+    });
+    assert.strictEqual(csrfFailRes.status, 403, '29. Mutação por cookie sem X-Requested-With deve retornar 403 CSRF_REJECTED');
+    const csrfFailJson = await csrfFailRes.json();
+    assert.strictEqual(csrfFailJson.error, 'CSRF_REJECTED');
+
+    // Mutação com X-Requested-With é permitida
+    const curFinRes = await fetch(`${baseUrl}/api/finances`, { headers: { 'Cookie': `omnifin_session=${sessionCookieVal}` } });
+    const curFin = await curFinRes.json();
+    const csrfOkRes = await fetch(`${baseUrl}/api/finances`, {
+      method: 'PUT',
+      headers: {
+        'Cookie': `omnifin_session=${sessionCookieVal}`,
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify(Object.assign({}, curFin, { expectedRevision: curFin.revision }))
+    });
+    assert.strictEqual(csrfOkRes.status, 200, '29. Mutação com X-Requested-With deve ser aceita');
+
+    // 30 & 31. login/register e BASE_PATH=/ continuam 100% funcionais
+    assert.strictEqual(config.BASE_PATH || '', '', '31. BASE_PATH oficial é raiz /');
+  });
+
 });

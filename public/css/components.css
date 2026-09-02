@@ -1679,4 +1679,93 @@
       font-size: 0.82rem;
       font-weight: 700;
       border-radius: 8px;
-    }
+    }
+
+/* ==========================================================================
+   CAMADA DE LOADING / SPLASH DE HIDRATAÇÃO INICIAL
+   ========================================================================== */
+.app-hydration-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: var(--bg, #0f172a);
+  color: var(--text, #f8fafc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.22s ease;
+  pointer-events: all;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-hydration-splash {
+    transition: none !important;
+  }
+  .hydration-splash-spinner {
+    animation: none !important;
+  }
+}
+
+.app-hydration-splash.hide {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.hydration-splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  text-align: center;
+}
+
+.hydration-splash-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.splash-logo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.splash-logo {
+  width: 2.4rem;
+  height: 2.4rem;
+  stroke: var(--brand, #10b981);
+  fill: none;
+  stroke-width: 2.2;
+}
+
+.splash-title {
+  font-size: 1.4rem;
+  font-weight: 850;
+  letter-spacing: -0.02em;
+  color: var(--text, #f8fafc);
+}
+
+.hydration-splash-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid var(--line, rgba(255, 255, 255, 0.15));
+  border-top-color: var(--brand, #10b981);
+  border-radius: 50%;
+  animation: splashSpinner 0.8s linear infinite;
+}
+
+@keyframes splashSpinner {
+  to { transform: rotate(360deg); }
+}
+
+.hydration-splash-text {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--muted, #94a3b8);
+  margin: 0;
+}

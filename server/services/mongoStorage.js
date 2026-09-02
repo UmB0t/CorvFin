@@ -55,6 +55,18 @@ async function getUsers() {
 }
 
 /**
+ * Consulta individual e eficiente de usuário pelo identificador via findOne (evita carregar coleção inteira).
+ */
+async function getUserById(userId) {
+  if (!userId) return null;
+  const col = await getCollection('users');
+  const doc = await col.findOne({ $or: [{ _id: userId }, { id: userId }] });
+  if (!doc) return null;
+  const { _id, ...rest } = doc;
+  return { id: doc.id || _id, ...rest };
+}
+
+/**
  * Salva a lista completa de usuários (reproduzindo semanticamente replace exato do JSON).
  * Remove qualquer usuário que não esteja no array fornecido.
  */
@@ -669,6 +681,7 @@ async function updateAiPendingAction(userId, conversationId, updateFields = {}) 
 
 module.exports = {
   getUsers,
+  getUserById,
   saveUsers,
   getPermissions,
   savePermissions,

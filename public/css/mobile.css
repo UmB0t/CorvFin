@@ -1012,6 +1012,74 @@
   }
 
   /* 3.13 GRÁFICOS & BARRAS */
+  /* Hotfix Visual Mobile: Ocultar APENAS a opção 'Colunas' no mobile, mantendo o gráfico e os modos Barras e Pizza/Rosca */
+  .dest-chart-type-btn[data-dest-chart-type="column"],
+  .chart-type-btn[data-chart-type="column"],
+  [data-dest-chart-type="column"],
+  [data-chart-type="column"] {
+    display: none !important;
+  }
+
+  /* O componente de destinos continua visível normalmente no mobile */
+  #destChartSectionCard {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Preservação explícita de controles e seletores de visualização de gráficos no mobile */
+  .chart-type-selector,
+  .chart-type-buttons {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+    padding: 3px !important;
+    background: var(--surface-2) !important;
+    border-radius: 8px !important;
+    border: 1px solid var(--line) !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    max-width: 100% !important;
+  }
+  .chart-type-selector::-webkit-scrollbar,
+  .chart-type-buttons::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .chart-type-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 5px 8px !important;
+    font-size: 0.76rem !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Sobrescreve regra restritiva de responsive.css para manter visíveis as seleções: Barras, Colunas, Pizza/Rosca */
+  .chart-type-btn span {
+    display: inline !important;
+    font-size: 0.74rem !important;
+  }
+
+  /* Gráficos restantes (Categorias, Insights) e controles mantidos 100% operantes e responsivos */
+  #categoryChartSectionCard,
+  #insightsSectionCard,
+  #categoryUnifiedChartContent {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  #expensesChartControlsWrap {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+  }
+
   .dest-bar-item {
     grid-template-columns: 85px 1fr 75px auto !important;
     gap: 6px !important;

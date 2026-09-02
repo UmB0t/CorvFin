@@ -155,15 +155,24 @@ document.addEventListener('DOMContentLoaded', () => {
           result = await response.json();
         }
 
-        if (result && result.success && result.token) {
-          // Unified Session Storage
+        if (result && result.success) {
+          // Unified Session Storage (sem armazenar JWT no cliente)
           if (typeof API !== 'undefined' && API.setSession) {
-            API.setSession(result.token, result.user);
+            API.setSession(result.user);
           } else {
-            localStorage.setItem('auth_token', result.token);
-            localStorage.setItem('token', result.token);
             localStorage.setItem('user_data', JSON.stringify(result.user));
             localStorage.setItem('user', JSON.stringify(result.user));
+          }
+
+          // Limpeza ativa de tokens legados residuais
+          try {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('token');
+            localStorage.removeItem('financas_pro_jwt_token');
+          } catch (_) {}
+
+          if (typeof window.notifyAuthChange === 'function') {
+            window.notifyAuthChange('LOGIN');
           }
 
           showToast(result.message || 'Login efetuado com sucesso!');
@@ -178,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.href = redirectPath;
           }, 500);
         } else {
-          showToast(result.message || 'Credenciais inválidas. Verifique os dados.', true);
+          showToast(result.message || 'Login ou senha inválidos. Verifique os dados e tente novamente.', true);
           btnSubmit.disabled = false;
           btnSubmit.innerHTML = originalText;
         }
@@ -221,16 +230,23 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (senha !== confirmaSenha) {
-        showToast('A confirmação de senha não confere.', true);
+        showToast('As senhas digitadas não coincidem. Verifique e tente novamente.', true);
         return;
       }
 
       btnSubmit.disabled = true;
       const originalText = btnSubmit.innerHTML;
-      btnSubmit.innerHTML = '<span>Criando conta...</span>';
+      btnSubmit.innerHTML = '<span>Cadastrando...</span>';
+
+      const payload = {
+        nome,
+        login,
+        email,
+        senha,
+        notificacoes_ativas
+      };
 
       try {
-        const payload = { nome, login, email, senha, notificacoes_ativas };
         let result;
         if (typeof API !== 'undefined' && API.register) {
           result = await API.register(payload);
@@ -238,21 +254,34 @@ document.addEventListener('DOMContentLoaded', () => {
           const endpoint = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/api/auth/register') : '/api/auth/register';
           const response = await fetch(endpoint, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest'
+            },
             body: JSON.stringify(payload)
           });
           result = await response.json();
         }
 
-        if (result && result.success && result.token) {
-          // Unified Session Storage
+        if (result && result.success) {
+          // Unified Session Storage (sem armazenar JWT no cliente)
           if (typeof API !== 'undefined' && API.setSession) {
-            API.setSession(result.token, result.user);
+            API.setSession(result.user);
           } else {
-            localStorage.setItem('auth_token', result.token);
-            localStorage.setItem('token', result.token);
             localStorage.setItem('user_data', JSON.stringify(result.user));
             localStorage.setItem('user', JSON.stringify(result.user));
+          }
+
+          // Limpeza ativa de tokens legados residuais
+          try {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('token');
+            localStorage.removeItem('financas_pro_jwt_token');
+          } catch (_) {}
+
+          if (typeof window.notifyAuthChange === 'function') {
+            window.notifyAuthChange('LOGIN');
           }
 
           showToast(result.message || 'Cadastro realizado com sucesso!');
@@ -278,9 +307,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // If already authenticated with valid token, redirect to app
-  const currentToken = localStorage.getItem('auth_token') || localStorage.getItem('token');
-  if (currentToken && currentToken.length > 20) {
-    // Optionally check if token is valid or let user re-authenticate
-  }
+  // Limpeza preventiva de chaves legadas de autenticação ao carregar a página de login
+  try {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('token');
+    localStorage.removeItem('financas_pro_jwt_token');
+  } catch (_) {}
 });

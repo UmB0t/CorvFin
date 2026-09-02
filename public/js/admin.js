@@ -740,10 +740,10 @@ const AdminModule = (() => {
           perms = res.permissions;
         }
       } else {
-        const token = localStorage.getItem('token') || localStorage.getItem('fp_token');
         const endpoint = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/api/admin/default-permissions') : '/api/admin/default-permissions';
         const res = await fetch(endpoint, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
         const data = await res.json();
         if (data && data.success && data.permissions) {
@@ -796,13 +796,13 @@ const AdminModule = (() => {
       if (typeof API !== 'undefined' && API.saveDefaultPermissions) {
         res = await API.saveDefaultPermissions(permissions);
       } else {
-        const token = localStorage.getItem('token') || localStorage.getItem('fp_token');
         const endpoint = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/api/admin/default-permissions') : '/api/admin/default-permissions';
         const resp = await fetch(endpoint, {
           method: 'POST',
+          credentials: 'same-origin',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            'X-Requested-With': 'XMLHttpRequest'
           },
           body: JSON.stringify({ permissions })
         });
@@ -874,10 +874,10 @@ const AdminModule = (() => {
           showFeedback(res.message || 'Erro ao buscar status de manutenção.', 'error');
         }
       } else {
-        const token = localStorage.getItem('token') || localStorage.getItem('fp_token');
         const endpoint = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/api/admin/maintenance') : '/api/admin/maintenance';
         const resp = await fetch(endpoint, {
-          headers: { 'Authorization': `Bearer ${token}` }
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
         const res = await resp.json();
         if (res && res.success && res.maintenance) {
@@ -980,13 +980,13 @@ const AdminModule = (() => {
       if (typeof API !== 'undefined' && API.saveMaintenanceConfig) {
         res = await API.saveMaintenanceConfig(payload);
       } else {
-        const token = localStorage.getItem('token') || localStorage.getItem('fp_token');
         const endpoint = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/api/admin/maintenance') : '/api/admin/maintenance';
         const resp = await fetch(endpoint, {
           method: 'PUT',
+          credentials: 'same-origin',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            'X-Requested-With': 'XMLHttpRequest'
           },
           body: JSON.stringify({ maintenance: payload })
         });

@@ -10,11 +10,73 @@ if (!ALLOWED_STORAGE_DRIVERS.includes(rawStorageDriver)) {
   );
 }
 
+const INSECURE_FALLBACK_JWT_SECRET = 'financas_pro_secret_key_jwt_2026_super_safe';
+
+/**
+ * Valida JWT_SECRET com comportamento Fail-Closed para produção.
+ * Em produção: recusa iniciar se ausente, vazio, padrão fraco ou menor que 32 caracteres.
+ * Em desenvolvimento/testes: permite fallback com emissão de warning.
+ */
+function resolveAndValidateJwtSecret(secret, nodeEnv) {
+  const env = (nodeEnv || process.env.NODE_ENV || 'development').trim().toLowerCase();
+  const rawSecret = secret !== undefined ? secret : process.env.JWT_SECRET;
+  const cleanSecret = typeof rawSecret === 'string' ? rawSecret.trim() : '';
+
+  if (env === 'production') {
+    if (!cleanSecret) {
+      throw new Error(
+        '[Security Config Error] JWT_SECRET obrigatório não configurado para ambiente de produção. O servidor se recusa a iniciar.'
+      );
+    }
+    if (cleanSecret === INSECURE_FALLBACK_JWT_SECRET || cleanSecret.toLowerCase().includes('change_me')) {
+      throw new Error(
+        '[Security Config Error] JWT_SECRET inseguro/default detectado em produção. O servidor se recusa a iniciar.'
+      );
+    }
+    if (cleanSecret.length < 32) {
+      throw new Error(
+        `[Security Config Error] JWT_SECRET possui entropia insuficiente (${cleanSecret.length} caracteres). Em produção o secret deve ter no mínimo 32 caracteres.`
+      );
+    }
+    return cleanSecret;
+  }
+
+  if (cleanSecret) {
+    return cleanSecret;
+  }
+
+  console.warn('[SECURITY WARNING] Usando JWT_SECRET padrão de desenvolvimento. Defina um JWT_SECRET seguro antes de publicar em produção.');
+  return INSECURE_FALLBACK_JWT_SECRET;
+}
+
+const activeJwtSecret = resolveAndValidateJwtSecret();
+
 module.exports = {
+  NODE_ENV: (process.env.NODE_ENV || 'development').trim(),
   PORT: process.env.PORT || 3000,
   BASE_PATH: (process.env.BASE_PATH || '').trim().replace(/\/+$/, ''),
-  JWT_SECRET: process.env.JWT_SECRET || 'financas_pro_secret_key_jwt_2026_super_safe',
+  JWT_SECRET: activeJwtSecret,
   JWT_EXPIRES_IN: '7d',
+  COOKIE_NAME: 'omnifin_session',
+  COOKIE_MAX_AGE_MS: 7 * 24 * 60 * 60 * 1000, // 7 dias
+  resolveAndValidateJwtSecret,
+  INSECURE_FALLBACK_JWT_SECRET,
+
+  // Configurações de Rede, Proxy e CORS
+  TRUST_PROXY: process.env.TRUST_PROXY || (process.env.NODE_ENV === 'production' ? '1' : 'loopback'),
+  CORS_ALLOWED_ORIGINS: (process.env.CORS_ALLOWED_ORIGINS || '').trim(),
+
+  // Limite de Payload (Padrão conservador de 5MB)
+  BODY_LIMIT: (process.env.BODY_LIMIT || '5mb').trim(),
+
+  // Configurações de Rate Limiting
+  AUTH_RATE_LIMIT_WINDOW_MS: parseInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS, 10) || (15 * 60 * 1000), // 15 min
+  AUTH_RATE_LIMIT_MAX: parseInt(process.env.AUTH_RATE_LIMIT_MAX, 10) || 15,
+  AI_RATE_LIMIT_WINDOW_MS: parseInt(process.env.AI_RATE_LIMIT_WINDOW_MS, 10) || (60 * 1000), // 1 min
+  AI_RATE_LIMIT_MAX: parseInt(process.env.AI_RATE_LIMIT_MAX, 10) || (process.env.NODE_ENV === 'production' ? 30 : 200),
+  API_RATE_LIMIT_WINDOW_MS: parseInt(process.env.API_RATE_LIMIT_WINDOW_MS, 10) || (15 * 60 * 1000), // 15 min
+  API_RATE_LIMIT_MAX: parseInt(process.env.API_RATE_LIMIT_MAX, 10) || 300,
+
   STORAGE_DRIVER: rawStorageDriver,
   MONGODB_URI: process.env.MONGODB_URI || '',
   MONGODB_DB_NAME: process.env.MONGODB_DB_NAME || 'financas_pro',

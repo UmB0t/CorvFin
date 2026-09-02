@@ -53,23 +53,16 @@
       if (window.API && typeof API.saveFinances === 'function') {
         response = await API.saveFinances(payload);
       } else {
-        const token = (window.API && typeof API.getToken === 'function')
-          ? API.getToken()
-          : (typeof localStorage !== 'undefined' ? (localStorage.getItem('auth_token') || localStorage.getItem('token') || localStorage.getItem('financas_pro_jwt_token')) : null);
-
-        if (!token) {
-          // Se não há token nem API (ambiente mock/offline), aplica no state local
-          response = { success: true, revision: activeRevision + 1 };
-        } else {
-          const endpoint = (window.API && typeof API.resolveUrl === 'function') ? API.resolveUrl('/api/finances') : '/api/finances';
-          const res = await fetch(endpoint, {
-            method: 'PUT',
-            headers: {
-              'Authorization': 'Bearer ' + token,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-          });
+        const endpoint = (window.API && typeof API.resolveUrl === 'function') ? API.resolveUrl('/api/finances') : '/api/finances';
+        const res = await fetch(endpoint, {
+          method: 'PUT',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: JSON.stringify(payload)
+        });
           if (res.status === 409) {
             const conflictData = await res.json();
             if (typeof handleConcurrencyConflict === 'function') {

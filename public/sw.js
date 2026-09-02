@@ -2,7 +2,7 @@
  * OmniFin V3 - Service Worker (PWA Shell Caching & Security Isolation)
  */
 
-const CACHE_VERSION = 'omnifin-static-v3.5';
+const CACHE_VERSION = 'omnifin-static-v3.7.0';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -63,18 +63,29 @@ const STATIC_ASSETS = [
   './icons/apple-touch-icon-120x120.png'
 ];
 
-// Install: Cache Shell & Static Assets
+// Install: Cache Shell & Static Assets com resiliência a falhas individuais
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_VERSION).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch((err) => {
-        console.warn('[SW] Warning: Some assets failed to precache:', err);
-      });
+    caches.open(CACHE_VERSION).then(async (cache) => {
+      const results = await Promise.allSettled(
+        STATIC_ASSETS.map((asset) =>
+          fetch(asset, { cache: 'no-cache' }).then((res) => {
+            if (res.ok) {
+              return cache.put(asset, res);
+            }
+            throw new Error(`Failed to fetch ${asset} (status: ${res.status})`);
+          })
+        )
+      );
+      const failed = results.filter((r) => r.status === 'rejected');
+      if (failed.length > 0) {
+        console.warn(`[SW] Precache concluído com ${failed.length} alertas não-bloqueantes.`);
+      }
     }).then(() => self.skipWaiting())
   );
 });
 
-// Activate: Remove Old Caches
+// Activate: Remove Old Caches imediatamente ao atualizar versão
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -92,6 +103,16 @@ self.addEventListener('fetch', (event) => {
 
   // 1. Non-GET requests: Network Only
   if (req.method !== 'GET') {
+    return;
+  }
+
+  // 1.1 Ignora requisições de extensões do navegador (chrome-extension://, moz-extension://) ou esquemas locais
+  if (!url.protocol.startsWith('http')) {
+    return;
+  }
+
+  // 1.2 Recursos de origens externas (Google Fonts, CDNs): Não intercepta pelo Cache Storage
+  if (url.origin !== self.location.origin) {
     return;
   }
 
@@ -116,7 +137,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Navigation Requests (HTML / Page Shell)
+  // 3. Navigation Requests (HTML / Page Shell): Network-First com fallback para o index.html offline
   if (req.mode === 'navigate') {
     event.respondWith(
       fetch(req).catch(() => {
@@ -128,22 +149,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 4. Static Assets: Stale-While-Revalidate / Cache-First
+  // 4. Static Assets (CSS, JS, Shell Assets): Network-First com Fallback em Cache
+  // Previne entrega de versão stale após nova release e atualiza o Cache Storage automaticamente
   event.respondWith(
-    caches.match(req).then((cachedResponse) => {
-      const fetchPromise = fetch(req)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_VERSION).then((cache) => {
-              cache.put(req, responseToCache);
-            });
-          }
-          return networkResponse;
-        })
-        .catch(() => cachedResponse);
-
-      return cachedResponse || fetchPromise;
-    })
+    fetch(req)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_VERSION).then((cache) => {
+            cache.put(req, responseToCache);
+          });
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        // Fallback offline: se estiver sem conexão, serve do Cache Storage
+        return caches.match(req);
+      })
   );
 });
