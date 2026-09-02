@@ -1,3 +1,4 @@
+const config = require('../config/config');
 const { getDB, connectDB } = require('../config/db');
 
 // Maintenance Default Configuration Constants
@@ -519,6 +520,153 @@ async function ensureMongoIndexes() {
   await financesCol.createIndex({ userId: 1 }, { unique: true });
 }
 
+/* ==========================================================================
+   AI PROPOSALS REPOSITORY (Collection: ai_proposals)
+   ========================================================================== */
+
+let ttlIndexEnsured = false;
+async function ensureAiProposalTTLIndex(col) {
+  if (ttlIndexEnsured) return;
+  try {
+    await col.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    ttlIndexEnsured = true;
+  } catch (err) {
+    // TTL index can already exist
+  }
+}
+
+async function saveAiProposal(proposalDoc) {
+  if (!proposalDoc || !proposalDoc._id) return null;
+  const col = await getCollection('ai_proposals');
+  await ensureAiProposalTTLIndex(col);
+  const docToSave = {
+    ...proposalDoc,
+    expiresAt: proposalDoc.expiresAt instanceof Date ? proposalDoc.expiresAt : new Date(proposalDoc.expiresAt),
+    createdAt: proposalDoc.createdAt instanceof Date ? proposalDoc.createdAt : new Date(proposalDoc.createdAt || Date.now())
+  };
+  await col.updateOne(
+    { _id: proposalDoc._id },
+    { $set: docToSave },
+    { upsert: true }
+  );
+  return proposalDoc;
+}
+
+async function getAiProposal(proposalId) {
+  if (!proposalId) return null;
+  const col = await getCollection('ai_proposals');
+  const doc = await col.findOne({ _id: proposalId });
+  if (!doc) return null;
+  const { _id, ...rest } = doc;
+  // Checagem de expiração em tempo de execução
+  const exp = doc.expiresAt instanceof Date ? doc.expiresAt.getTime() : new Date(doc.expiresAt).getTime();
+  if (exp < Date.now()) {
+    await col.deleteOne({ _id: proposalId });
+    return null;
+  }
+  return { _id, id: _id, ...rest };
+}
+
+async function updateAiProposalStatus(proposalId, status, extraFields = {}) {
+  if (!proposalId) return null;
+  const col = await getCollection('ai_proposals');
+  const updatePayload = {
+    status,
+    ...extraFields,
+    updatedAt: new Date()
+  };
+  const res = await col.findOneAndUpdate(
+    { _id: proposalId },
+    { $set: updatePayload },
+    { returnDocument: 'after' }
+  );
+  const updatedDoc = res?.value || res;
+  if (!updatedDoc) return null;
+  const { _id, ...rest } = updatedDoc;
+  return { _id, id: _id, ...rest };
+}
+
+async function deleteAiProposal(proposalId) {
+  if (!proposalId) return false;
+  const col = await getCollection('ai_proposals');
+  const res = await col.deleteOne({ _id: proposalId });
+  return res.deletedCount > 0;
+}
+
+let pendingActionTTLIndexEnsured = false;
+async function ensureAiPendingActionTTLIndex(col) {
+  if (pendingActionTTLIndexEnsured) return;
+  try {
+    await col.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    await col.createIndex({ userId: 1, conversationId: 1 });
+    pendingActionTTLIndexEnsured = true;
+  } catch (err) {
+    // TTL index can already exist
+  }
+}
+
+async function saveAiPendingAction(pendingActionDoc) {
+  if (!pendingActionDoc || !pendingActionDoc.userId || !pendingActionDoc.conversationId) return null;
+  const col = await getCollection('ai_pending_actions');
+  await ensureAiPendingActionTTLIndex(col);
+  const actionId = pendingActionDoc._id || `pa_${pendingActionDoc.userId}_${pendingActionDoc.conversationId}`;
+  const now = new Date();
+  const defaultTtlMs = config.AI_PENDING_ACTION_TTL_MS || (30 * 60 * 1000);
+  const docToSave = {
+    ...pendingActionDoc,
+    _id: actionId,
+    createdAt: pendingActionDoc.createdAt instanceof Date ? pendingActionDoc.createdAt : new Date(pendingActionDoc.createdAt || now),
+    updatedAt: now,
+    expiresAt: pendingActionDoc.expiresAt instanceof Date ? pendingActionDoc.expiresAt : new Date(pendingActionDoc.expiresAt || (Date.now() + defaultTtlMs))
+  };
+  await col.updateOne(
+    { userId: pendingActionDoc.userId, conversationId: pendingActionDoc.conversationId },
+    { $set: docToSave },
+    { upsert: true }
+  );
+  return { ...docToSave, id: actionId };
+}
+
+async function getAiPendingAction(userId, conversationId) {
+  if (!userId || !conversationId) return null;
+  const col = await getCollection('ai_pending_actions');
+  const doc = await col.findOne({ userId, conversationId });
+  if (!doc) return null;
+  const exp = doc.expiresAt instanceof Date ? doc.expiresAt.getTime() : new Date(doc.expiresAt).getTime();
+  if (exp < Date.now() || doc.status === 'expired') {
+    await col.deleteOne({ userId, conversationId });
+    return null;
+  }
+  const { _id, ...rest } = doc;
+  return { _id, id: _id, ...rest };
+}
+
+async function clearAiPendingAction(userId, conversationId) {
+  if (!userId || !conversationId) return false;
+  const col = await getCollection('ai_pending_actions');
+  const res = await col.deleteOne({ userId, conversationId });
+  return res.deletedCount > 0;
+}
+
+async function updateAiPendingAction(userId, conversationId, updateFields = {}) {
+  if (!userId || !conversationId) return null;
+  const col = await getCollection('ai_pending_actions');
+  const now = new Date();
+  const updatePayload = {
+    ...updateFields,
+    updatedAt: now
+  };
+  const res = await col.findOneAndUpdate(
+    { userId, conversationId },
+    { $set: updatePayload },
+    { returnDocument: 'after' }
+  );
+  const updatedDoc = res?.value || res;
+  if (!updatedDoc) return null;
+  const { _id, ...rest } = updatedDoc;
+  return { _id, id: _id, ...rest };
+}
+
 module.exports = {
   getUsers,
   saveUsers,
@@ -535,5 +683,13 @@ module.exports = {
   getUserFinances,
   saveUserFinances,
   getDefaultUserFinances,
-  ensureMongoIndexes
+  ensureMongoIndexes,
+  saveAiProposal,
+  getAiProposal,
+  updateAiProposalStatus,
+  deleteAiProposal,
+  saveAiPendingAction,
+  getAiPendingAction,
+  clearAiPendingAction,
+  updateAiPendingAction
 };

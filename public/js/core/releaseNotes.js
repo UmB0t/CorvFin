@@ -16,6 +16,7 @@
       title: "v3.7 — Lançamentos mais rápidos e flexíveis",
       summary: "Esta atualização deixa o dia a dia no OmniFin mais rápido, organizado e preciso, principalmente na hora de cadastrar lançamentos e acompanhar pagamentos e recebimentos.",
       news: [
+        "Assistente com memória transacional: agora é possível informar uma compra ou benefício naturalmente ao longo da conversa. O OmniFin mantém o contexto, pergunta apenas os dados que faltam e monta o lançamento para confirmação.",
         "Cadastro rápido de despesas: agora é possível registrar uma despesa de forma simplificada, utilizando apenas as informações essenciais. O cadastro completo continua disponível quando forem necessários mais detalhes.",
         "Pagamentos parciais: despesas podem ser pagas parcialmente, e o OmniFin passa a acompanhar o valor já pago e o saldo restante até a quitação.",
         "Recebimentos parciais: valores de Devedores e Rendas Extras podem ser recebidos parcialmente, com acompanhamento de quanto já foi recebido e quanto ainda está pendente. No caso de cobranças parceladas de devedores, cada parcela mantém seu próprio acompanhamento.",

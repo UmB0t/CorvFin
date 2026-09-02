@@ -344,6 +344,11 @@ body {
     gap: 12px !important;
   }
 
+  .field input {
+    font-size: 16px !important;
+    min-height: 42px !important;
+  }
+
   /* Register Mode: Altura dinâmica com scroll vertical suave */
   body.register-mode {
     height: auto !important;

@@ -278,6 +278,133 @@ function saveUserFinances(userId, data) {
   return finances[userId];
 }
 
+// AI Proposals Storage Helpers (File: ai_proposals.json)
+function getAiProposalsFile() {
+  return config.AI_PROPOSALS_FILE || path.join(config.DATA_DIR, 'ai_proposals.json');
+}
+
+function getAllAiProposals() {
+  return safeReadJSON(getAiProposalsFile(), {});
+}
+
+function saveAllAiProposals(proposals) {
+  return safeWriteJSON(getAiProposalsFile(), proposals);
+}
+
+function saveAiProposal(proposalDoc) {
+  if (!proposalDoc || !proposalDoc._id) return false;
+  const proposals = getAllAiProposals();
+  proposals[proposalDoc._id] = proposalDoc;
+  saveAllAiProposals(proposals);
+  return proposalDoc;
+}
+
+function getAiProposal(proposalId) {
+  if (!proposalId) return null;
+  const proposals = getAllAiProposals();
+  const doc = proposals[proposalId];
+  if (!doc) return null;
+  // Verifica expiração em tempo de leitura
+  if (doc.expiresAt && new Date(doc.expiresAt).getTime() < Date.now()) {
+    delete proposals[proposalId];
+    saveAllAiProposals(proposals);
+    return null;
+  }
+  return doc;
+}
+
+function updateAiProposalStatus(proposalId, status, extraFields = {}) {
+  if (!proposalId) return null;
+  const proposals = getAllAiProposals();
+  const doc = proposals[proposalId];
+  if (!doc) return null;
+  doc.status = status;
+  Object.assign(doc, extraFields);
+  doc.updatedAt = new Date().toISOString();
+  saveAllAiProposals(proposals);
+  return doc;
+}
+
+function deleteAiProposal(proposalId) {
+  if (!proposalId) return false;
+  const proposals = getAllAiProposals();
+  if (proposals[proposalId]) {
+    delete proposals[proposalId];
+    saveAllAiProposals(proposals);
+    return true;
+  }
+  return false;
+}
+
+function getAiPendingActionsFile() {
+  return config.AI_PENDING_ACTIONS_FILE || path.join(config.DATA_DIR, 'ai_pending_actions.json');
+}
+
+function getAllAiPendingActions() {
+  return safeReadJSON(getAiPendingActionsFile(), {});
+}
+
+function saveAllAiPendingActions(actions) {
+  return safeWriteJSON(getAiPendingActionsFile(), actions);
+}
+
+function saveAiPendingAction(pendingActionDoc) {
+  if (!pendingActionDoc || !pendingActionDoc.userId || !pendingActionDoc.conversationId) return null;
+  const actions = getAllAiPendingActions();
+  const key = `${pendingActionDoc.userId}_${pendingActionDoc.conversationId}`;
+  const now = new Date();
+  const defaultTtlMs = config.AI_PENDING_ACTION_TTL_MS || (30 * 60 * 1000);
+  const actionId = pendingActionDoc._id || `pa_${key}`;
+  const docToSave = {
+    ...pendingActionDoc,
+    _id: actionId,
+    id: actionId,
+    createdAt: pendingActionDoc.createdAt || now.toISOString(),
+    updatedAt: now.toISOString(),
+    expiresAt: pendingActionDoc.expiresAt || new Date(Date.now() + defaultTtlMs).toISOString()
+  };
+  actions[key] = docToSave;
+  saveAllAiPendingActions(actions);
+  return docToSave;
+}
+
+function getAiPendingAction(userId, conversationId) {
+  if (!userId || !conversationId) return null;
+  const actions = getAllAiPendingActions();
+  const key = `${userId}_${conversationId}`;
+  const doc = actions[key];
+  if (!doc) return null;
+  if ((doc.expiresAt && new Date(doc.expiresAt).getTime() < Date.now()) || doc.status === 'expired') {
+    delete actions[key];
+    saveAllAiPendingActions(actions);
+    return null;
+  }
+  return doc;
+}
+
+function clearAiPendingAction(userId, conversationId) {
+  if (!userId || !conversationId) return false;
+  const actions = getAllAiPendingActions();
+  const key = `${userId}_${conversationId}`;
+  if (actions[key]) {
+    delete actions[key];
+    saveAllAiPendingActions(actions);
+    return true;
+  }
+  return false;
+}
+
+function updateAiPendingAction(userId, conversationId, updateFields = {}) {
+  if (!userId || !conversationId) return null;
+  const actions = getAllAiPendingActions();
+  const key = `${userId}_${conversationId}`;
+  const doc = actions[key];
+  if (!doc) return null;
+  Object.assign(doc, updateFields, { updatedAt: new Date().toISOString() });
+  saveAllAiPendingActions(actions);
+  return doc;
+}
+
 module.exports = {
   getUsers,
   saveUsers,
@@ -293,5 +420,13 @@ module.exports = {
   saveAllFinances,
   getUserFinances,
   saveUserFinances,
-  getDefaultUserFinances
+  getDefaultUserFinances,
+  saveAiProposal,
+  getAiProposal,
+  updateAiProposalStatus,
+  deleteAiProposal,
+  saveAiPendingAction,
+  getAiPendingAction,
+  clearAiPendingAction,
+  updateAiPendingAction
 };

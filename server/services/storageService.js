@@ -36,6 +36,18 @@ module.exports = {
   saveUserFinances: (...args) => getActiveStorage().saveUserFinances(...args),
   getDefaultUserFinances: (...args) => getActiveStorage().getDefaultUserFinances(...args),
 
+  // AI Proposals Storage Helpers
+  saveAiProposal: (...args) => getActiveStorage().saveAiProposal(...args),
+  getAiProposal: (...args) => getActiveStorage().getAiProposal(...args),
+  updateAiProposalStatus: (...args) => getActiveStorage().updateAiProposalStatus(...args),
+  deleteAiProposal: (...args) => getActiveStorage().deleteAiProposal(...args),
+
+  // AI Multi-Turn Pending Actions Storage Helpers
+  saveAiPendingAction: (...args) => getActiveStorage().saveAiPendingAction(...args),
+  getAiPendingAction: (...args) => getActiveStorage().getAiPendingAction(...args),
+  clearAiPendingAction: (...args) => getActiveStorage().clearAiPendingAction(...args),
+  updateAiPendingAction: (...args) => getActiveStorage().updateAiPendingAction(...args),
+
   // Utilitários de auditoria e inspeção
   getDriver: () => config.STORAGE_DRIVER,
   jsonStorage,

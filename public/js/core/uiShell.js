@@ -872,102 +872,115 @@
   }
   window.openQuickActionSheet = openQuickActionSheet;
 
+  function handleQuickActionItemClick(actionId) {
+    const quickOverlay = document.getElementById('mobileQuickActionOverlay') || $('#mobileQuickActionOverlay');
+    if (quickOverlay) quickOverlay.classList.remove('open');
+
+    if (actionId === 'quickActionFastExpense') {
+      if (typeof window.openQuickExpenseDialog === 'function') {
+        window.openQuickExpenseDialog();
+      } else if (typeof activateTab === 'function') {
+        activateTab('tab-expenses', true);
+      }
+    } else if (actionId === 'quickActionNewExpense' || actionId === 'quickActionWizardExpense') {
+      if (typeof window.openEntryDialog === 'function') {
+        window.openEntryDialog({ mode: 'new', type: 'cash' });
+      } else {
+        const addBtn = document.getElementById('expensesAddBtn');
+        if (addBtn) addBtn.click();
+        else if (typeof activateTab === 'function') activateTab('tab-expenses', true);
+      }
+    } else if (actionId === 'quickActionNewDebtor') {
+      if (typeof window.openDebtorDialog === 'function') {
+        window.openDebtorDialog('new');
+      } else if (typeof activateTab === 'function') {
+        activateTab('tab-debtors', true);
+      }
+    } else if (actionId === 'quickActionNewExtra') {
+      if (typeof window.openExtraDialog === 'function') {
+        window.openExtraDialog('new');
+      } else if (typeof activateTab === 'function') {
+        activateTab('tab-extras', true);
+      }
+    } else if (actionId === 'quickActionNewBenefit') {
+      if (typeof window.openBenefitDialog === 'function') {
+        window.openBenefitDialog('new');
+      } else if (typeof activateTab === 'function') {
+        activateTab('tab-benefits', true);
+      }
+    }
+  }
+  window.handleQuickActionItemClick = handleQuickActionItemClick;
+
   function initQuickActionListeners() {
     const quickOverlay = document.getElementById('mobileQuickActionOverlay') || $('#mobileQuickActionOverlay');
     const closeBtn = document.getElementById('closeMobileQuickActionBtn') || $('#closeMobileQuickActionBtn');
 
     if (closeBtn && quickOverlay) {
-      closeBtn.addEventListener('click', () => {
+      closeBtn.onclick = () => {
         quickOverlay.classList.remove('open');
-      });
+      };
     }
 
     if (quickOverlay) {
-      quickOverlay.addEventListener('click', (e) => {
+      quickOverlay.onclick = (e) => {
         if (e.target === quickOverlay) {
           quickOverlay.classList.remove('open');
         }
-      });
+      };
     }
 
-    // Ação: Despesa Rápida (4 campos)
+    // Ação 1: Despesa Rápida (4 campos mínimos)
     const btnFastExp = document.getElementById('quickActionFastExpense') || $('#quickActionFastExpense');
     if (btnFastExp) {
-      btnFastExp.addEventListener('click', () => {
-        quickOverlay?.classList.remove('open');
-        if (typeof window.openQuickExpenseDialog === 'function') {
-          window.openQuickExpenseDialog();
-        } else if (typeof window.openEntryDialog === 'function') {
-          window.openEntryDialog({ mode: 'new', type: 'cash' });
-        } else {
-          activateTab('tab-expenses', true);
-        }
-      });
+      btnFastExp.onclick = (e) => {
+        e.preventDefault();
+        handleQuickActionItemClick('quickActionFastExpense');
+      };
     }
 
-    // Ação: Despesa Completa (Wizard)
+    // Ação 2: Despesa Completa (Wizard Completo - idêntico ao botão + Novo Lançamento)
     const btnWizExp = document.getElementById('quickActionWizardExpense') || $('#quickActionWizardExpense');
     if (btnWizExp) {
-      btnWizExp.addEventListener('click', () => {
-        quickOverlay?.classList.remove('open');
-        if (typeof window.openEntryDialog === 'function') {
-          window.openEntryDialog({ mode: 'new', type: 'cash' });
-        } else {
-          activateTab('tab-expenses', true);
-        }
-      });
+      btnWizExp.onclick = (e) => {
+        e.preventDefault();
+        handleQuickActionItemClick('quickActionWizardExpense');
+      };
     }
 
-    // Ação: Despesa Completa (Wizard / quickActionNewExpense)
     const btnExpLegacy = document.getElementById('quickActionNewExpense') || $('#quickActionNewExpense');
     if (btnExpLegacy) {
-      btnExpLegacy.addEventListener('click', () => {
-        quickOverlay?.classList.remove('open');
-        if (typeof window.openEntryDialog === 'function') {
-          window.openEntryDialog({ mode: 'new', type: 'cash' });
-        } else {
-          activateTab('tab-expenses', true);
-        }
-      });
+      btnExpLegacy.onclick = (e) => {
+        e.preventDefault();
+        handleQuickActionItemClick('quickActionNewExpense');
+      };
     }
 
-    // Ação: Novo Devedor
+    // Ação 3: Novo Devedor
     const btnDeb = document.getElementById('quickActionNewDebtor') || $('#quickActionNewDebtor');
     if (btnDeb) {
-      btnDeb.addEventListener('click', () => {
-        quickOverlay?.classList.remove('open');
-        if (typeof window.openDebtorDialog === 'function') {
-          window.openDebtorDialog('new');
-        } else {
-          activateTab('tab-debtors', true);
-        }
-      });
+      btnDeb.onclick = (e) => {
+        e.preventDefault();
+        handleQuickActionItemClick('quickActionNewDebtor');
+      };
     }
 
-    // Ação: Nova Renda Extra
+    // Ação 4: Nova Renda Extra
     const btnExt = document.getElementById('quickActionNewExtra') || $('#quickActionNewExtra');
     if (btnExt) {
-      btnExt.addEventListener('click', () => {
-        quickOverlay?.classList.remove('open');
-        if (typeof window.openExtraDialog === 'function') {
-          window.openExtraDialog('new');
-        } else {
-          activateTab('tab-extras', true);
-        }
-      });
+      btnExt.onclick = (e) => {
+        e.preventDefault();
+        handleQuickActionItemClick('quickActionNewExtra');
+      };
     }
 
-    // Ação: Novo Benefício
+    // Ação 5: Novo Benefício
     const btnBen = document.getElementById('quickActionNewBenefit') || $('#quickActionNewBenefit');
     if (btnBen) {
-      btnBen.addEventListener('click', () => {
-        quickOverlay?.classList.remove('open');
-        if (typeof window.openBenefitDialog === 'function') {
-          window.openBenefitDialog('new');
-        } else {
-          activateTab('tab-benefits', true);
-        }
-      });
+      btnBen.onclick = (e) => {
+        e.preventDefault();
+        handleQuickActionItemClick('quickActionNewBenefit');
+      };
     }
   }
   window.initQuickActionListeners = initQuickActionListeners;

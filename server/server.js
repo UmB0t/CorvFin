@@ -26,7 +26,15 @@ const {
   saveAllFinances
 } = require('./services/storageService');
 const { authMiddleware, adminOnlyMiddleware } = require('./middleware/auth');
-const { buildFinancialContext, SYSTEM_GUIDE_CONTEXT, sendToN8nWebhook } = require('./services/aiService');
+const {
+  buildFinancialContext,
+  SYSTEM_GUIDE_CONTEXT,
+  sendToN8nWebhook,
+  interpretExpenseAction,
+  confirmExpenseProposal,
+  confirmBenefitProposal,
+  cancelExpenseProposal
+} = require('./services/aiService');
 
 const app = express();
 
@@ -420,6 +428,261 @@ app.post('/api/ai/chat', authMiddleware, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Erro interno ao processar pergunta com o assistente.'
+    });
+  }
+});
+
+// POST /api/ai/actions/interpret - Interpretar intenção de despesa via n8n e gerar proposta segura
+app.post('/api/ai/actions/interpret', authMiddleware, async (req, res) => {
+  try {
+    const { message, conversationId, context, type } = req.body || {};
+
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'A mensagem do usuário é obrigatória para gerar uma proposta de lançamento.'
+      });
+    }
+
+    const proposalResult = await interpretExpenseAction({
+      message,
+      userId: req.user.id,
+      userName: req.user.nome,
+      conversationId,
+      context,
+      type: type || 'text'
+    });
+
+    return res.json(proposalResult);
+  } catch (err) {
+    if (err.status === 503) {
+      return res.status(503).json({
+        success: false,
+        unavailable: true,
+        message: 'O serviço de Ações do Assistente não está configurado no servidor.'
+      });
+    }
+    if (err.status === 504 || err.code === 'AI_TIMEOUT') {
+      return res.status(504).json({
+        success: false,
+        message: 'Tempo limite esgotado ao interpretar a despesa. Tente novamente em instantes.'
+      });
+    }
+    if (err.status === 404 || err.code === 'FINANCIAL_CONTEXT_NOT_FOUND') {
+      return res.status(404).json({
+        success: false,
+        message: 'Contexto financeiro não encontrado no servidor para esta ação.'
+      });
+    }
+    if (err.status === 502 || err.code === 'N8N_UPSTREAM_ERROR') {
+      return res.status(502).json({
+        success: false,
+        message: 'O serviço de interpretação encontrou uma instabilidade temporária. Tente novamente.'
+      });
+    }
+    if (err.status === 422 || err.code === 'UNSUPPORTED_ACTION') {
+      return res.status(422).json({
+        success: false,
+        message: err.message || 'Ação não suportada pelo assistente.'
+      });
+    }
+    if (err.status === 400) {
+      return res.status(400).json({
+        success: false,
+        message: err.message
+      });
+    }
+
+    console.error('[AI ACTION] interpret error:', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno ao processar proposta de lançamento.'
+    });
+  }
+});
+
+// POST /api/ai/actions/expense/confirm - Confirmar e persistir proposta de despesa
+app.post('/api/ai/actions/expense/confirm', authMiddleware, async (req, res) => {
+  try {
+    const { proposalId, data } = req.body || {};
+
+    if (!proposalId || typeof proposalId !== 'string' || !proposalId.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de proposta (proposalId) obrigatório.'
+      });
+    }
+
+    const confirmResult = await confirmExpenseProposal({
+      userId: req.user.id,
+      proposalId: proposalId.trim(),
+      data: (data && typeof data === 'object') ? data : {}
+    });
+
+    return res.json(confirmResult);
+  } catch (err) {
+    if (err.status === 404 || err.code === 'PROPOSAL_NOT_FOUND_OR_EXPIRED') {
+      return res.status(404).json({
+        success: false,
+        message: err.message || 'Proposta não encontrada ou expirada.'
+      });
+    }
+    if (err.status === 403 || err.code === 'FORBIDDEN_PROPOSAL' || err.code === 'MODULE_FORBIDDEN') {
+      return res.status(403).json({
+        success: false,
+        message: err.message || 'Acesso negado para confirmar este lançamento.'
+      });
+    }
+    if (err.status === 503 || err.code === 'MODULE_MAINTENANCE') {
+      return res.status(503).json({
+        success: false,
+        message: err.message || 'O módulo de Despesas está temporariamente em manutenção.'
+      });
+    }
+    if (err.status === 409 || err.code === 'CONCURRENCY_CONFLICT') {
+      return res.status(409).json({
+        success: false,
+        conflict: true,
+        message: 'Conflito de concorrência ao salvar despesa. Tente novamente.'
+      });
+    }
+    if (err.status === 400 || err.code === 'INVALID_CATEGORY' || err.code === 'INVALID_DESTINATION' || err.code === 'PROPOSAL_ALREADY_CANCELLED') {
+      return res.status(400).json({
+        success: false,
+        message: err.message
+      });
+    }
+
+    console.error('[AI ACTION] confirm error:', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno ao confirmar despesa.'
+    });
+  }
+});
+
+// POST /api/ai/actions/expense/cancel - Cancelar proposta de despesa
+app.post('/api/ai/actions/expense/cancel', authMiddleware, async (req, res) => {
+  try {
+    const { proposalId } = req.body || {};
+
+    if (!proposalId || typeof proposalId !== 'string' || !proposalId.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de proposta (proposalId) obrigatório.'
+      });
+    }
+
+    const cancelResult = await cancelExpenseProposal({
+      userId: req.user.id,
+      proposalId: proposalId.trim()
+    });
+
+    return res.json(cancelResult);
+  } catch (err) {
+    if (err.status === 403) {
+      return res.status(403).json({
+        success: false,
+        message: err.message || 'Acesso negado.'
+      });
+    }
+    console.error('[AI ACTION] cancel error:', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno ao cancelar proposta.'
+    });
+  }
+});
+
+// POST /api/ai/actions/benefit/confirm - Confirmar e persistir proposta de benefício
+app.post('/api/ai/actions/benefit/confirm', authMiddleware, async (req, res) => {
+  try {
+    const { proposalId, data } = req.body || {};
+
+    if (!proposalId || typeof proposalId !== 'string' || !proposalId.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de proposta (proposalId) obrigatório.'
+      });
+    }
+
+    const confirmResult = await confirmBenefitProposal({
+      userId: req.user.id,
+      proposalId: proposalId.trim(),
+      data: (data && typeof data === 'object') ? data : {}
+    });
+
+    return res.json(confirmResult);
+  } catch (err) {
+    if (err.status === 404 || err.code === 'PROPOSAL_NOT_FOUND_OR_EXPIRED') {
+      return res.status(404).json({
+        success: false,
+        message: err.message || 'Proposta não encontrada ou expirada.'
+      });
+    }
+    if (err.status === 403 || err.code === 'FORBIDDEN_PROPOSAL' || err.code === 'MODULE_FORBIDDEN') {
+      return res.status(403).json({
+        success: false,
+        message: err.message || 'Acesso negado para confirmar este lançamento.'
+      });
+    }
+    if (err.status === 503 || err.code === 'MODULE_MAINTENANCE') {
+      return res.status(503).json({
+        success: false,
+        message: err.message || 'O módulo de Benefícios está temporariamente em manutenção.'
+      });
+    }
+    if (err.status === 409 || err.code === 'CONCURRENCY_CONFLICT') {
+      return res.status(409).json({
+        success: false,
+        conflict: true,
+        message: 'Conflito de concorrência ao salvar benefício. Tente novamente.'
+      });
+    }
+    if (err.status === 400 || err.code === 'INVALID_BENEFIT_TYPE' || err.code === 'INVALID_PROPOSAL_TYPE' || err.code === 'PROPOSAL_ALREADY_CANCELLED') {
+      return res.status(400).json({
+        success: false,
+        message: err.message
+      });
+    }
+
+    console.error('[AI ACTION] confirm benefit error:', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno ao confirmar benefício.'
+    });
+  }
+});
+
+// POST /api/ai/actions/benefit/cancel - Cancelar proposta de benefício
+app.post('/api/ai/actions/benefit/cancel', authMiddleware, async (req, res) => {
+  try {
+    const { proposalId } = req.body || {};
+
+    if (!proposalId || typeof proposalId !== 'string' || !proposalId.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de proposta (proposalId) obrigatório.'
+      });
+    }
+
+    const cancelResult = await cancelExpenseProposal({
+      userId: req.user.id,
+      proposalId: proposalId.trim()
+    });
+
+    return res.json(cancelResult);
+  } catch (err) {
+    if (err.status === 403) {
+      return res.status(403).json({
+        success: false,
+        message: err.message || 'Acesso negado.'
+      });
+    }
+    console.error('[AI ACTION] cancel benefit error:', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno ao cancelar proposta de benefício.'
     });
   }
 });

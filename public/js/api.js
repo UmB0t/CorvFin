@@ -146,8 +146,13 @@
     put: (url, body) => request(url, { method: 'PUT', body: JSON.stringify(body) }),
     delete: (url) => request(url, { method: 'DELETE' }),
 
-    // AI Assistant endpoint
+    // AI Assistant & Controlled Actions endpoints
     aiChat: (payload) => request('/api/ai/chat', { method: 'POST', body: JSON.stringify(payload) }),
+    aiInterpretAction: (payload) => request('/api/ai/actions/interpret', { method: 'POST', body: JSON.stringify(payload) }),
+    aiConfirmExpense: (payload) => request('/api/ai/actions/expense/confirm', { method: 'POST', body: JSON.stringify(payload) }),
+    aiCancelExpense: (payload) => request('/api/ai/actions/expense/cancel', { method: 'POST', body: JSON.stringify(payload) }),
+    aiConfirmBenefit: (payload) => request('/api/ai/actions/benefit/confirm', { method: 'POST', body: JSON.stringify(payload) }),
+    aiCancelBenefit: (payload) => request('/api/ai/actions/benefit/cancel', { method: 'POST', body: JSON.stringify(payload) }),
 
     // Auth endpoints
     login: (login, senha) => request('/api/auth/login', { method: 'POST', body: JSON.stringify({ login, senha }) }),
