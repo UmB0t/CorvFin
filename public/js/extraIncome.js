@@ -132,7 +132,7 @@ const ExtraIncomeModule = (() => {
             const isCur = d.month === m;
             const h = d.total > 0 ? Math.max(8, Math.round((d.total / maxMonthVal) * 90)) : 4;
             return `
-              <div style="flex:1; display:flex; flex-direction:column; align-items:center; height:100%; justify-content:flex-end; cursor:pointer;" onclick="window.FP_STATE.month=${d.month}; window.saveFinanceState(); ExtraIncomeModule.render();">
+              <div class="extra-income-month-col" data-month="${d.month}" style="flex:1; display:flex; flex-direction:column; align-items:center; height:100%; justify-content:flex-end; cursor:pointer;">
                 <div style="width:100%; max-width:16px; height:${h}px; background:${isCur ? 'var(--brand)' : 'var(--surface-2)'}; border-radius:3px 3px 0 0;" title="${window.MONTH_NAMES[d.month - 1]}: ${currency(d.total)}"></div>
                 <small style="font-size:0.65rem; color:${isCur ? 'var(--brand)' : 'var(--muted)'}; font-weight:${isCur ? '800' : '600'}; margin-top:4px;">${window.MONTH_ABBR[d.month - 1]}</small>
               </div>
@@ -141,6 +141,17 @@ const ExtraIncomeModule = (() => {
         </div>
       </div>
     `;
+
+    container.querySelectorAll('.extra-income-month-col').forEach(col => {
+      col.addEventListener('click', () => {
+        const selM = Number(col.getAttribute('data-month'));
+        if (selM && window.FP_STATE) {
+          window.FP_STATE.month = selM;
+          if (typeof window.saveFinanceState === 'function') window.saveFinanceState();
+          if (window.ExtraIncomeModule && typeof window.ExtraIncomeModule.render === 'function') window.ExtraIncomeModule.render();
+        }
+      });
+    });
   }
 
   // Render Table / List

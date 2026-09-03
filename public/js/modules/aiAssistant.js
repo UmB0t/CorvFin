@@ -134,20 +134,46 @@
   }
 
   function escapeHtmlText(str) {
-    if (!str) return '';
+    if (str === null || str === undefined) return '';
+    if (typeof str === 'object') {
+      if (typeof str.message === 'string') {
+        str = str.message;
+      } else if (typeof str.warning === 'string') {
+        str = str.warning;
+      } else if (typeof str.text === 'string') {
+        str = str.text;
+      } else {
+        try {
+          str = JSON.stringify(str);
+        } catch (_) {
+          str = '';
+        }
+      }
+    }
     return String(str)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   function formatAiMessageContent(str) {
-    if (!str) return '';
+    if (str === null || str === undefined) return '';
+    if (typeof str === 'object') {
+      if (typeof str.message === 'string') str = str.message;
+      else if (typeof str.text === 'string') str = str.text;
+      else {
+        try { str = JSON.stringify(str); } catch (_) { str = ''; }
+      }
+    }
     // 1. Escapa tags HTML para garantir segurança absoluta contra XSS
     let clean = String(str)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
 
     // 2. Converte negrito Markdown (**texto** ou __texto__) em <strong>texto</strong>
     clean = clean.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -170,9 +196,14 @@
   }
 
   function escapeHtmlAttr(str) {
-    if (!str) return '';
+    if (str === null || str === undefined) return '';
+    if (typeof str === 'object') {
+      try { str = JSON.stringify(str); } catch (_) { str = ''; }
+    }
     return String(str)
       .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
   }
@@ -455,18 +486,18 @@
       let alertHtml = '';
       if (isReviewRequired || (Array.isArray(proposal.warnings) && proposal.warnings.length > 0)) {
         const warningsList = Array.isArray(proposal.warnings) && proposal.warnings.length > 0 ? [...proposal.warnings] : [];
-        if (!isBenefit && !hasValidCat && !warningsList.some(w => w.toLowerCase().includes('categoria'))) {
+        if (!isBenefit && !hasValidCat && !warningsList.some(w => String(w).toLowerCase().includes('categoria'))) {
           warningsList.push('Informe ou selecione uma categoria válida.');
         }
-        if (!isBenefit && !hasValidDest && !warningsList.some(w => w.toLowerCase().includes('destino') || w.toLowerCase().includes('conta'))) {
+        if (!isBenefit && !hasValidDest && !warningsList.some(w => String(w).toLowerCase().includes('destino') || String(w).toLowerCase().includes('conta'))) {
           warningsList.push('Informe ou selecione um destino de pagamento.');
         }
-        if (isBenefit && !hasValidType && !warningsList.some(w => w.toLowerCase().includes('tipo'))) {
+        if (isBenefit && !hasValidType && !warningsList.some(w => String(w).toLowerCase().includes('tipo'))) {
           warningsList.push('Selecione um tipo de benefício válido (VR, VA, Saúde, etc.).');
         }
         alertHtml = `
           <div class="ai-proposal-alert">
-            ${warningsList.join('<br>')}
+            ${warningsList.map(w => escapeHtmlText(w)).filter(Boolean).join('<br>')}
           </div>
         `;
       }
@@ -1037,6 +1068,9 @@
   window.toggleAiAssistant = toggleAiAssistant;
   window.sendAiMessage = sendAiMessage;
   window.formatAiMessageContent = formatAiMessageContent;
+  window.renderProposalCardHtml = renderProposalCardHtml;
+  window.escapeHtmlText = escapeHtmlText;
+  window.escapeHtmlAttr = escapeHtmlAttr;
   window.confirmExpenseProposal = confirmExpenseProposal;
   window.confirmBenefitProposal = confirmBenefitProposal;
   window.cancelExpenseProposal = cancelExpenseProposal;

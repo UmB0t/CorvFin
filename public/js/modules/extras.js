@@ -208,7 +208,7 @@ function renderExtraIncomeCharts() {
       const barColor = isCur ? 'var(--c-extra)' : (item.total > 0 ? 'var(--brand)' : 'var(--line)');
       const tip = `${MONTH_NAMES[item.month - 1]}/${state.year}: ${currency(item.total)}`;
       return `
-        <div style="display:flex; flex-direction:column; align-items:center; flex:1; min-width:20px; height:100%; justify-content:flex-end; cursor:pointer;" data-tooltip="${tip}" onclick="window.selectMonth && window.selectMonth(${item.month})">
+        <div class="extra-year-bar-item" data-month="${item.month}" style="display:flex; flex-direction:column; align-items:center; flex:1; min-width:20px; height:100%; justify-content:flex-end; cursor:pointer;" data-tooltip="${tip}">
           ${item.total > 0 ? `<span style="font-size:.62rem; font-weight:800; color:var(--brand); margin-bottom:2px;" class="num">${Math.round(item.total)}</span>` : ''}
           <div style="width:100%; max-width:18px; height:${h}px; border-radius:4px 4px 0 0; background:${barColor}; transition:height .2s ease; ${isCur ? 'box-shadow: 0 0 8px var(--c-extra);' : ''}"></div>
           <span style="font-size:.65rem; color:${isCur ? 'var(--brand-strong)' : 'var(--muted)'}; font-weight:${isCur ? '800' : '700'}; margin-top:4px;">${MONTH_ABBR[item.month - 1]}</span>
@@ -293,6 +293,19 @@ function toggleExtraStatus(id) {
     function initExtrasListeners() {
     $('#extrasSearchInput')?.addEventListener('input', renderExtrasTab);
     $('#extrasStatusFilter')?.addEventListener('change', renderExtrasTab);
+
+    const yearBars = $('#extrasYearBars');
+    if (yearBars) {
+      yearBars.addEventListener('click', (e) => {
+        const itemEl = e.target.closest('[data-month]');
+        if (itemEl) {
+          const m = Number(itemEl.getAttribute('data-month'));
+          if (m >= 1 && m <= 12 && typeof window.selectMonth === 'function') {
+            window.selectMonth(m);
+          }
+        }
+      });
+    }
 
     const toggleExtrasChartsBtn = $('#toggleExtrasChartsBtn');
     if (toggleExtrasChartsBtn) {

@@ -313,9 +313,10 @@
             const tip = `${MONTH_NAMES[d.month - 1]}: Despesas Reais ${currency(d.realTotalExp)} -> Com Simulação ${currency(d.simTotalExp)} | Sobra: ${currency(d.simSobra)}`;
 
             return `
-              <div style="flex:1; min-width:34px; display:flex; flex-direction:column; align-items:center; height:100%; justify-content:flex-end; cursor:pointer; padding:2px; border-radius:6px; background:${isCurMonth ? 'var(--brand-soft, rgba(31, 122, 92, 0.15))' : 'transparent'};"
-                   data-tooltip="${tip}"
-                   onclick="if (window.state) { window.state.month = ${d.month}; } if (typeof window.render === 'function') { window.render(); } else { window.initSimulation(); }">
+              <div class="sim-month-bar-item"
+                   data-month="${d.month}"
+                   style="flex:1; min-width:34px; display:flex; flex-direction:column; align-items:center; height:100%; justify-content:flex-end; cursor:pointer; padding:2px; border-radius:6px; background:${isCurMonth ? 'var(--brand-soft, rgba(31, 122, 92, 0.15))' : 'transparent'};"
+                   data-tooltip="${tip}">
                 <div style="display:flex; align-items:flex-end; gap:4px; width:100%; justify-content:center;">
                   <div style="width:10px; height:${hReal}px; background:var(--brand, #1F7A5C); border-radius:3px 3px 0 0;" title="Real: ${currency(d.realTotalExp)}"></div>
                   <div style="width:10px; height:${hSim}px; background:${d.isSimDeficit ? 'var(--danger, #EF4444)' : 'var(--warning, #D97706)'}; border-radius:3px 3px 0 0;" title="Simulado: ${currency(d.simTotalExp)}"></div>
@@ -470,6 +471,25 @@
   }
 
   function initSimulationEvents() {
+    const barsContainer = document.getElementById('simMonthlyBarsContainer');
+    if (barsContainer && !barsContainer.dataset.clickInit) {
+      barsContainer.dataset.clickInit = 'true';
+      barsContainer.addEventListener('click', (e) => {
+        const itemEl = e.target.closest('[data-month]');
+        if (itemEl) {
+          const m = Number(itemEl.getAttribute('data-month'));
+          if (m >= 1 && m <= 12) {
+            if (window.state) { window.state.month = m; }
+            if (typeof window.render === 'function') {
+              window.render();
+            } else {
+              window.initSimulation();
+            }
+          }
+        }
+      });
+    }
+
     const simForm = document.getElementById('simForm');
     if (simForm && !simForm.dataset.simulationInit) {
       simForm.dataset.simulationInit = 'true';

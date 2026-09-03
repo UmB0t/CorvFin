@@ -2,7 +2,7 @@
  * OmniFin V3 - Service Worker (PWA Shell Caching & Security Isolation)
  */
 
-const CACHE_VERSION = 'omnifin-static-v3.7.0';
+const CACHE_VERSION = 'omnifin-static-v3.8.0';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -23,7 +23,9 @@ const STATIC_ASSETS = [
   './js/api.js',
   './js/admin.js',
   './js/auth.js',
+  './js/loginInit.js',
   './js/router.js',
+  './js/core/splash.js',
   './js/core/constants.js',
   './js/core/utils.js',
   './js/core/state.js',
@@ -34,6 +36,7 @@ const STATIC_ASSETS = [
   './js/core/dragDrop.js',
   './js/core/authSync.js',
   './js/core/releaseNotes.js',
+  './js/core/app.js',
   './js/modules/benefits.js',
   './js/modules/shopping.js',
   './js/modules/extras.js',
@@ -140,10 +143,23 @@ self.addEventListener('fetch', (event) => {
   // 3. Navigation Requests (HTML / Page Shell): Network-First com fallback para o index.html offline
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req).catch(() => {
-        return caches.match('./index.html').then((cached) => {
-          return cached || caches.match('/index.html');
-        });
+      fetch(req).catch(async () => {
+        const cachedIndex = await caches.match('./index.html')
+          || await caches.match('/index.html')
+          || await caches.match('index.html')
+          || await caches.match('./')
+          || await caches.match('/');
+        if (cachedIndex) {
+          return cachedIndex;
+        }
+        return new Response(
+          '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>OmniFin Offline</title><style>body{font-family:sans-serif;background:#0f172a;color:#f8fafc;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:20px;}</style></head><body><div><h2>OmniFin — Conexão Offline</h2><p>Você está sem conexão com a internet e a versão em cache ainda não está disponível.</p><a href="." style="display:inline-block;padding:10px 18px;border-radius:8px;text-decoration:none;background:#2563eb;color:#fff;font-weight:700;margin-top:12px;">Tentar Novamente</a></div></body></html>',
+          {
+            status: 503,
+            statusText: 'Service Unavailable',
+            headers: { 'Content-Type': 'text/html; charset=utf-8' }
+          }
+        );
       })
     );
     return;
@@ -158,13 +174,20 @@ self.addEventListener('fetch', (event) => {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_VERSION).then((cache) => {
             cache.put(req, responseToCache);
-          });
+          }).catch(() => {});
         }
         return networkResponse;
       })
-      .catch(() => {
+      .catch(async () => {
         // Fallback offline: se estiver sem conexão, serve do Cache Storage
-        return caches.match(req);
+        const cached = await caches.match(req);
+        if (cached) {
+          return cached;
+        }
+        return new Response('', {
+          status: 504,
+          statusText: 'Gateway Timeout / Asset Offline Unavailable'
+        });
       })
   );
 });

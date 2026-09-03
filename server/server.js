@@ -50,7 +50,9 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      scriptSrcElem: ["'self'"],
+      scriptSrcAttr: ["'none'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       styleSrcElem: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       styleSrcAttr: ["'unsafe-inline'"],
@@ -62,6 +64,7 @@ app.use(helmet({
       frameAncestors: ["'none'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
+      formAction: ["'self'"],
       upgradeInsecureRequests: (config.NODE_ENV === 'production') ? [] : null
     }
   },

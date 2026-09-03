@@ -63,16 +63,15 @@
           },
           body: JSON.stringify(payload)
         });
-          if (res.status === 409) {
-            const conflictData = await res.json();
-            if (typeof handleConcurrencyConflict === 'function') {
-              await handleConcurrencyConflict(conflictData);
-            }
-            notify('Conflito de versão detectado. Sincronize com o servidor e tente novamente.', 'warning');
-            return false;
+        if (res.status === 409) {
+          const conflictData = await res.json();
+          if (typeof handleConcurrencyConflict === 'function') {
+            await handleConcurrencyConflict(conflictData);
           }
-          response = await res.json();
+          notify('Conflito de versão detectado. Sincronize com o servidor e tente novamente.', 'warning');
+          return false;
         }
+        response = await res.json();
       }
 
       if (response && response.conflict) {

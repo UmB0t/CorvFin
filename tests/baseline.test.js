@@ -678,14 +678,15 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
   test('19. Concorrência: Fila de serialização de saves, visualOnly sem PUT e proteção anti-flood', async () => {
     // 1. Validações estáticas nos arquivos-fonte
     const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf-8');
+    const appJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'app.js'), 'utf-8');
     const authSyncJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'authSync.js'), 'utf-8');
     const simJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'modules', 'simulation.js'), 'utf-8');
 
-    // Verifica fila de saves em index.html
-    assert.ok(indexHtml.includes('saveQueue ='), 'index.html deve implementar fila/promessa de serialização saveQueue');
-    assert.ok(indexHtml.includes('isRevalidatingConflict'), 'index.html deve conter flag de proteção isRevalidatingConflict');
-    assert.ok(indexHtml.includes('lastConflictToastTime'), 'index.html deve conter debounce anti-flood lastConflictToastTime');
-    assert.ok(indexHtml.includes("'month-select'"), 'visualOnly deve conter month-select');
+    // Verifica fila de saves em app.js (externalizado do index.html no Security 3B)
+    assert.ok(appJs.includes('saveQueue ='), 'app.js deve implementar fila/promessa de serialização saveQueue');
+    assert.ok(appJs.includes('isRevalidatingConflict'), 'app.js deve conter flag de proteção isRevalidatingConflict');
+    assert.ok(appJs.includes('lastConflictToastTime'), 'app.js deve conter debounce anti-flood lastConflictToastTime');
+    assert.ok(appJs.includes("'month-select'"), 'visualOnly deve conter month-select');
 
     // Verifica que simulação não dispara saveState() no click de mês
     assert.ok(simJs.includes("saveLocalState();"), 'simulation.js deve usar saveLocalState ao selecionar mês');
@@ -6713,7 +6714,9 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.ok(swJs.includes("CACHE_VERSION"), '8. Service worker preserva estrutura de cache');
 
     // 9. State financeiro não renderiza flash de dados default antes da hidratação
-    assert.ok(indexHtml.includes('if (!stateHydrated) {'), '9. index.html deve conter guarda stateHydrated no render');
+    const appJsPath = path.join(__dirname, '..', 'public', 'js', 'core', 'app.js');
+    const appJsContent = fs.existsSync(appJsPath) ? fs.readFileSync(appJsPath, 'utf-8') : '';
+    assert.ok(indexHtml.includes('if (!stateHydrated) {') || appJsContent.includes('if (!stateHydrated) {'), '9. Frontend (index.html ou app.js) deve conter guarda stateHydrated no render');
     assert.ok(authSyncJs.includes('window.setStateHydrated(true)'), '9. authSync.js deve acionar setStateHydrated somente após carregar dados reais');
   });
 
@@ -6752,7 +6755,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
 
     // 1. CACHE_VERSION não permanece na versão congelada v3.5
     assert.strictEqual(swJs.includes("'omnifin-static-v3.5'"), false, 'sw.js não deve manter CACHE_VERSION congelada na v3.5');
-    assert.ok(swJs.includes("'omnifin-static-v3.7.0'"), 'sw.js deve declarar CACHE_VERSION omnifin-static-v3.7.0');
+    assert.ok(swJs.includes("'omnifin-static-v3.8.0'") || swJs.includes("'omnifin-static-v3.7.0'"), 'sw.js deve declarar CACHE_VERSION da release corrente (v3.7.0 ou v3.8.0)');
 
     // 2. /api/* permanece estritamente network-only sem cache
     assert.ok(swJs.includes("url.pathname.startsWith('/api/')"), 'sw.js deve isolar rotas /api/ como network-only');
@@ -6997,6 +7000,459 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
 
     // 30 & 31. login/register e BASE_PATH=/ continuam 100% funcionais
     assert.strictEqual(config.BASE_PATH || '', '', '31. BASE_PATH oficial é raiz /');
+  });
+
+  /* ==========================================================================
+     CHECKPOINT SECURITY 3A: NEUTRALIZAÇÃO DE XSS, ESCAPING E EVENT HANDLERS
+     ========================================================================== */
+  test('Checkpoint Security 3A: Neutralização de Sinks XSS, Hardening da IA e Proteção contra Stored XSS', async () => {
+    const aiAssistantPath = path.join(process.cwd(), 'public', 'js', 'modules', 'aiAssistant.js');
+    const aiAssistantCode = fs.readFileSync(aiAssistantPath, 'utf-8');
+
+    // 1. Simulação do módulo aiAssistant no VM para execução real dos renderers
+    const sandboxAi = {
+      window: {
+        API: { isAuthenticated: () => false },
+        formatCurrency: (v) => `R$ ${Number(v).toFixed(2).replace('.', ',')}`
+      },
+      document: {
+        getElementById: () => null,
+        querySelector: () => null,
+        querySelectorAll: () => [],
+        createElement: () => ({ setAttribute: () => {}, classList: { add: () => {}, remove: () => {} }, appendChild: () => {} }),
+        body: { appendChild: () => {} },
+        addEventListener: () => {}
+      }
+    };
+    const vmAi = await import('vm');
+    vmAi.createContext(sandboxAi);
+    vmAi.runInContext(aiAssistantCode, sandboxAi);
+
+    const renderProposalCardHtml = sandboxAi.window.renderProposalCardHtml;
+    const formatAiMessageContent = sandboxAi.window.formatAiMessageContent;
+    const escapeHtmlText = sandboxAi.window.escapeHtmlText;
+    const escapeHtmlAttr = sandboxAi.window.escapeHtmlAttr;
+
+    assert.strictEqual(typeof renderProposalCardHtml, 'function', 'renderProposalCardHtml deve ser exposta');
+    assert.strictEqual(typeof formatAiMessageContent, 'function', 'formatAiMessageContent deve ser exposta');
+    assert.strictEqual(typeof escapeHtmlText, 'function', 'escapeHtmlText deve ser exposta');
+    assert.strictEqual(typeof escapeHtmlAttr, 'function', 'escapeHtmlAttr deve ser exposta');
+
+    const xssPayloads = [
+      '<script>alert(1)</script>',
+      '<img src=x onerror=alert(1)>',
+      '<svg onload=alert(1)>',
+      '"><img src=x onerror=alert(1)>',
+      'javascript:alert(1)',
+      '"><script>alert(document.cookie)</script>',
+      '<b onmouseover=alert(1)>Alerta</b>'
+    ];
+
+    // 2. VULNERABILIDADE XSS CONFIRMADA: Neutralização de proposal.warnings
+    for (const payload of xssPayloads) {
+      const mockProposal = {
+        proposalId: 'prop_test_xss_warnings',
+        action: 'create_expense',
+        status: 'pending',
+        requiresReview: false,
+        warnings: [payload, `Aviso com injeção: ${payload}`],
+        data: {
+          description: 'Despesa Teste',
+          amount: 50.00,
+          category: 'Alimentação',
+          destination: 'Nubank',
+          installments: 1
+        }
+      };
+
+      const cardHtml = renderProposalCardHtml(mockProposal);
+
+      // Confirma que tags maliciosas NUNCA são renderizadas de forma bruta
+      assert.ok(!cardHtml.includes('<script>'), `Warnings não devem conter tag <script> aberta para payload: ${payload}`);
+      assert.ok(!cardHtml.includes('<img src=x onerror'), `Warnings não devem conter <img onerror para payload: ${payload}`);
+      assert.ok(!cardHtml.includes('<svg onload'), `Warnings não devem conter <svg onload para payload: ${payload}`);
+      assert.ok(!cardHtml.includes('<b onmouseover'), `Warnings não devem conter <b onmouseover para payload: ${payload}`);
+
+      // Confirma que entidades escapadas estão presentes
+      if (payload.includes('<')) {
+        assert.ok(cardHtml.includes('&lt;'), `Warnings devem conter entidade &lt; para payload: ${payload}`);
+      }
+      if (payload.includes('>')) {
+        assert.ok(cardHtml.includes('&gt;'), `Warnings devem conter entidade &gt; para payload: ${payload}`);
+      }
+
+      // Confirma integridade estrutural do card
+      assert.ok(cardHtml.includes('class="ai-proposal-card"'), 'Estrutura do card deve permanecer íntegra');
+      assert.ok(cardHtml.includes('class="ai-proposal-alert"'), 'Container de alerta deve permanecer presente');
+    }
+
+    // 3. Defesa em Profundidade: Tipos Inesperados em Warnings e escapeHtmlText
+    const edgeCaseProposal = {
+      proposalId: 'prop_test_edge_warnings',
+      action: 'create_expense',
+      status: 'pending',
+      warnings: [null, undefined, 12345, { warning: '<img src=x onerror=1>' }, { code: 'ERR', message: '<script>alert(2)</script>' }],
+      data: { description: 'Teste Edge', amount: 10, category: 'Outros', destination: 'Carteira' }
+    };
+    const edgeCardHtml = renderProposalCardHtml(edgeCaseProposal);
+    assert.ok(!edgeCardHtml.includes('<img src=x onerror=1>'), 'Objeto warning com payload deve ser escapado');
+    assert.ok(!edgeCardHtml.includes('<script>alert(2)</script>'), 'Objeto message com payload deve ser escapado');
+    assert.ok(edgeCardHtml.includes('12345'), 'Número em warning deve ser preservado e convertido');
+    assert.ok(!edgeCardHtml.includes('[object Object]'), 'Não deve renderizar [object Object] desnecessariamente');
+
+    // 4. Auditoria de Campos do Card: description, category, destination, notes, errorMessage
+    for (const payload of xssPayloads) {
+      const fieldProposal = {
+        proposalId: `prop_test_fields_${payload.slice(0, 5)}`,
+        action: 'create_expense',
+        status: 'error',
+        errorMessage: `Erro com ${payload}`,
+        data: {
+          description: `Supermercado ${payload}`,
+          amount: 99.90,
+          category: `Categoria ${payload}`,
+          destination: `Destino ${payload}`,
+          notes: `Notas com ${payload}`,
+          installments: 1
+        }
+      };
+
+      const fieldHtml = renderProposalCardHtml(fieldProposal);
+      assert.ok(!fieldHtml.includes('<script>'), `Campos da despesa não devem conter tag <script> aberta para payload: ${payload}`);
+      assert.ok(!fieldHtml.includes('<img src=x onerror'), `Campos da despesa não devem conter <img onerror para payload: ${payload}`);
+      assert.ok(!fieldHtml.includes('<svg onload'), `Campos da despesa não devem conter <svg onload para payload: ${payload}`);
+      assert.ok(fieldHtml.includes('SUPERMERCADO'), 'Texto da descrição deve permanecer legível');
+      assert.ok(fieldHtml.includes('class="ai-proposal-card"'), 'Card estrutural deve permanecer intacto');
+    }
+
+    // 5. Auditoria de Campos de Proposta de Benefício
+    for (const payload of xssPayloads) {
+      const benefitProposal = {
+        proposalId: 'prop_test_benefit',
+        action: 'create_benefit',
+        status: 'pending',
+        warnings: [payload],
+        data: {
+          description: `Vale Alimentação ${payload}`,
+          amount: 650.00,
+          benefitType: 'va',
+          day: 5,
+          notes: `Observação ${payload}`
+        }
+      };
+
+      const benHtml = renderProposalCardHtml(benefitProposal);
+      assert.ok(!benHtml.includes('<script>'), `Benefício não deve conter <script> para payload: ${payload}`);
+      assert.ok(!benHtml.includes('<img src=x onerror'), `Benefício não deve conter <img onerror para payload: ${payload}`);
+      assert.ok(benHtml.includes('VALE ALIMENTAÇÃO'), 'Texto do benefício deve permanecer legível');
+      assert.ok(benHtml.includes('Benefício Identificado'), 'Tag de benefício deve ser renderizada');
+    }
+
+    // 6. Formatação de Mensagens de Chat da IA (formatAiMessageContent)
+    const chatInputWithMarkdownAndXss = 'Olá! Veja sua **despesa confirmada**: <script>alert("xss")</script> e <img src=x onerror=alert(1)>';
+    const formattedChat = formatAiMessageContent(chatInputWithMarkdownAndXss);
+    assert.ok(formattedChat.includes('<strong>despesa confirmada</strong>'), 'Markdown bold deve ser convertido para <strong>');
+    assert.ok(!formattedChat.includes('<script>'), 'Script malicioso deve ser neutralizado no chat');
+    assert.ok(!formattedChat.includes('<img src=x onerror'), 'Img onerror deve ser neutralizado no chat');
+    assert.ok(formattedChat.includes('&lt;script&gt;'), 'Entidade &lt;script&gt; deve estar presente no chat');
+    assert.ok(formattedChat.includes('&lt;img'), 'Entidade &lt;img deve estar presente no chat');
+
+    // 7. STORED XSS: Persistência mantém valor lógico e renderização realiza escaping contextual
+    const xssTitle = '<img src=x onerror=alert("stored-title")>';
+    const xssCat = '"><script>alert("stored-cat")</script>';
+    const xssDest = '<svg onload=alert("stored-dest")>';
+
+    // A. Obter estado atual autenticado
+    const curStateRes = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Authorization': `Bearer ${testUserToken}` }
+    });
+    const curState = await curStateRes.json();
+
+    // B. Injetar lançamento com strings perigosas via PUT (persistência lógica)
+    const testFixedExpense = {
+      id: `xss_fix_${Date.now()}`,
+      name: xssTitle,
+      group: xssCat,
+      destination: xssDest,
+      amount: 120.50,
+      dueDay: 10,
+      type: 'fixed',
+      status: 'pendente'
+    };
+
+    const nextFixed = Array.isArray(curState.fixed) ? [...curState.fixed, testFixedExpense] : [testFixedExpense];
+    const putPayload = Object.assign({}, curState, {
+      fixed: nextFixed,
+      expectedRevision: curState.revision
+    });
+
+    const putRes = await fetch(`${baseUrl}/api/finances`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${testUserToken}`,
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify(putPayload)
+    });
+    assert.strictEqual(putRes.status, 200, 'PUT /api/finances com payload financeiro deve ser persistido');
+
+    // C. Leitura: o banco armazena o valor lógico puro sem double-escaping prematuro
+    const readStateRes = await fetch(`${baseUrl}/api/finances`, {
+      headers: { 'Authorization': `Bearer ${testUserToken}` }
+    });
+    const readState = await readStateRes.json();
+    const persistedItem = (readState.fixed || []).find(f => f.id === testFixedExpense.id);
+    assert.ok(persistedItem, 'Item salvo deve ser retornado pelo backend');
+    assert.strictEqual(persistedItem.name, xssTitle, 'Persistência deve manter valor lógico original sem mutilação');
+    assert.strictEqual(persistedItem.group, xssCat, 'Categoria deve manter valor original no banco');
+
+    // D. Simulação da renderização no frontend (como em expenses.js / utils.js escapeHtml)
+    const utilsJsPath = path.join(process.cwd(), 'public', 'js', 'core', 'utils.js');
+    const utilsJsCode = fs.readFileSync(utilsJsPath, 'utf-8');
+    const sandboxUtils = { window: {} };
+    vmAi.createContext(sandboxUtils);
+    vmAi.runInContext(utilsJsCode, sandboxUtils);
+    const escapeHtml = sandboxUtils.window.escapeHtml;
+
+    assert.strictEqual(typeof escapeHtml, 'function', 'utils.js deve expor escapeHtml');
+    const renderedTitle = escapeHtml(persistedItem.name);
+    const renderedCat = escapeHtml(persistedItem.group);
+    const renderedDest = escapeHtml(persistedItem.destination);
+
+    // Confirma que nenhuma tag executável atinge o DOM
+    assert.ok(!renderedTitle.includes('<img'), 'Renderização do título persistido não deve gerar tag <img>');
+    assert.ok(renderedTitle.includes('&lt;img'), 'Renderização do título persistido deve conter &lt;img');
+    assert.ok(!renderedCat.includes('<script>'), 'Renderização da categoria não deve gerar <script>');
+    assert.ok(renderedCat.includes('&lt;script&gt;'), 'Renderização da categoria deve conter &lt;script&gt;');
+    assert.ok(!renderedDest.includes('<svg'), 'Renderização do destino não deve gerar <svg>');
+    assert.ok(renderedDest.includes('&lt;svg'), 'Renderização do destino deve conter &lt;svg');
+
+    // Limpeza: remover o item de teste do banco
+    const cleanedFixed = readState.fixed.filter(f => f.id !== testFixedExpense.id);
+    await fetch(`${baseUrl}/api/finances`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${testUserToken}`,
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify(Object.assign({}, readState, { fixed: cleanedFixed, expectedRevision: readState.revision }))
+    });
+
+    // 8. CONTRATO DE EVENT HANDLERS INLINE: Zero atributos on*="..." em todo o frontend
+    const publicDir = path.join(process.cwd(), 'public');
+    function scanFilesForInlineHandlers(dir) {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      const violations = [];
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          violations.push(...scanFilesForInlineHandlers(fullPath));
+        } else if (entry.isFile() && (entry.name.endsWith('.html') || entry.name.endsWith('.js'))) {
+          const content = fs.readFileSync(fullPath, 'utf-8');
+          // Procura atributos HTML inline on<evento>=" ou on<evento>='
+          const matches = content.match(/\bon[a-z]{3,12}\s*=\s*\\?["']/gi);
+          if (matches && matches.length > 0) {
+            violations.push({ file: entry.name, matches });
+          }
+        }
+      }
+      return violations;
+    }
+
+    const inlineHandlerViolations = scanFilesForInlineHandlers(publicDir);
+    assert.deepStrictEqual(inlineHandlerViolations, [], 'Não deve existir nenhum atributo de evento inline (on*="") em arquivos HTML ou JS do frontend');
+  });
+
+  /* ==========================================================================
+     CHECKPOINT SECURITY 3B: CSP ESTRITA, EXTERNALIZAÇÃO DE SCRIPTS E CACHE
+     ========================================================================== */
+  test('Checkpoint Security 3B: Strict CSP, External Scripts e Isolamento de Cache PWA', async () => {
+    const publicDir = path.join(process.cwd(), 'public');
+    const indexHtmlPath = path.join(publicDir, 'index.html');
+    const loginHtmlPath = path.join(publicDir, 'login.html');
+    const swPath = path.join(publicDir, 'sw.js');
+    const serverJsPath = path.join(process.cwd(), 'server', 'server.js');
+
+    const indexHtml = fs.readFileSync(indexHtmlPath, 'utf-8');
+    const loginHtml = fs.readFileSync(loginHtmlPath, 'utf-8');
+    const swContent = fs.readFileSync(swPath, 'utf-8');
+    const serverJs = fs.readFileSync(serverJsPath, 'utf-8');
+
+    // 1. public/index.html contém ZERO <script> inline executável
+    const inlineScriptsIndex = indexHtml.match(/<\s*script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/gi) || [];
+    assert.strictEqual(inlineScriptsIndex.length, 0, '1. public/index.html não deve conter nenhum script inline executável');
+
+    // 2. public/login.html contém ZERO <script> inline executável
+    const inlineScriptsLogin = loginHtml.match(/<\s*script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/gi) || [];
+    assert.strictEqual(inlineScriptsLogin.length, 0, '2. public/login.html não deve conter nenhum script inline executável');
+
+    // 3. public/ contém ZERO atributos inline on*=
+    function scanFilesForInlineHandlers(dir) {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      const violations = [];
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          violations.push(...scanFilesForInlineHandlers(fullPath));
+        } else if (entry.isFile() && (entry.name.endsWith('.html') || entry.name.endsWith('.js'))) {
+          const content = fs.readFileSync(fullPath, 'utf-8');
+          const matches = content.match(/\bon[a-z]{3,12}\s*=\s*\\?["']/gi);
+          if (matches && matches.length > 0) {
+            violations.push({ file: entry.name, matches });
+          }
+        }
+      }
+      return violations;
+    }
+    const inlineHandlerViolations = scanFilesForInlineHandlers(publicDir);
+    assert.deepStrictEqual(inlineHandlerViolations, [], '3. public/ não deve conter nenhum atributo inline on*=');
+
+    // Consulta aos headers HTTP da API para validação da CSP ativa
+    const res = await fetch(`${baseUrl}/api/config`);
+    assert.strictEqual(res.status, 200);
+    const csp = res.headers.get('content-security-policy') || '';
+    assert.ok(csp, 'Header Content-Security-Policy deve ser retornado pelo servidor');
+
+    // Extrai diretiva script-src
+    const scriptSrcMatch = csp.match(/script-src\s+([^;]+)/i);
+    assert.ok(scriptSrcMatch, 'CSP deve conter a diretiva script-src');
+    const scriptSrcValue = scriptSrcMatch[1];
+
+    // 4. CSP NÃO contém 'unsafe-inline' em script-src
+    assert.ok(!scriptSrcValue.includes("'unsafe-inline'"), "4. script-src NÃO deve conter 'unsafe-inline'");
+
+    // 5. CSP contém script-src 'self'
+    assert.ok(scriptSrcValue.includes("'self'"), "5. script-src deve conter 'self'");
+
+    // 6. CSP contém script-src-attr 'none'
+    assert.ok(csp.includes("script-src-attr 'none'"), "6. CSP deve conter explicitamente script-src-attr 'none'");
+
+    // 7. CSP contém form-action 'self'
+    assert.ok(csp.includes("form-action 'self'"), "7. CSP deve conter explicitamente form-action 'self'");
+
+    // 8. style-src continua compatível com a arquitetura atual
+    assert.ok(csp.includes("style-src"), "8. CSP deve conter style-src");
+    assert.ok(csp.includes("style-src-attr 'unsafe-inline'"), "8. style-src-attr deve manter 'unsafe-inline' para 2.100+ estilos do layout");
+
+    // 9. Google Fonts continuam autorizadas
+    assert.ok(csp.includes("https://fonts.googleapis.com"), "9. fonts.googleapis.com deve estar autorizada na CSP");
+    assert.ok(csp.includes("https://fonts.gstatic.com"), "9. fonts.gstatic.com deve estar autorizada na CSP");
+
+    // 10. app.js existe e está referenciado por index.html
+    const appJsPath = path.join(publicDir, 'js', 'core', 'app.js');
+    assert.ok(fs.existsSync(appJsPath), '10. js/core/app.js deve existir no disco');
+    assert.ok(indexHtml.includes('src="js/core/app.js"'), '10. index.html deve referenciar js/core/app.js');
+
+    // 11. splash.js existe e está corretamente referenciado
+    const splashJsPath = path.join(publicDir, 'js', 'core', 'splash.js');
+    assert.ok(fs.existsSync(splashJsPath), '11. js/core/splash.js deve existir no disco');
+    assert.ok(indexHtml.includes('src="js/core/splash.js"'), '11. index.html deve referenciar js/core/splash.js');
+
+    // 12. loginInit.js existe e está referenciado por login.html
+    const loginInitPath = path.join(publicDir, 'js', 'loginInit.js');
+    assert.ok(fs.existsSync(loginInitPath), '12. js/loginInit.js deve existir no disco');
+    assert.ok(loginHtml.includes('src="js/loginInit.js"'), '12. login.html deve referenciar js/loginInit.js');
+
+    // 13. Novos arquivos estão presentes em STATIC_ASSETS
+    assert.ok(swContent.includes("'./js/core/app.js'"), "13. STATIC_ASSETS deve conter './js/core/app.js'");
+    assert.ok(swContent.includes("'./js/core/splash.js'"), "13. STATIC_ASSETS deve conter './js/core/splash.js'");
+    assert.ok(swContent.includes("'./js/loginInit.js'"), "13. STATIC_ASSETS deve conter './js/loginInit.js'");
+
+    // 14. CACHE_VERSION foi incrementado
+    assert.ok(swContent.includes("CACHE_VERSION = 'omnifin-static-v3.8.0'"), "14. CACHE_VERSION deve ser incrementado para omnifin-static-v3.8.0");
+    assert.ok(!swContent.includes("CACHE_VERSION = 'omnifin-static-v3.7.0'"), "14. Versão anterior v3.7.0 não deve ser a CACHE_VERSION ativa");
+
+    // 15. /api/* continua não sendo servido pelo cache do Service Worker
+    assert.ok(swContent.includes("url.pathname.startsWith('/api/')"), "15. sw.js deve isolar rotas de API");
+    assert.ok(swContent.includes("status: 503"), "15. sw.js deve manter isolamento de rede");
+
+    // 16. HTML navigation continua Network-First
+    assert.ok(swContent.includes("req.mode === 'navigate'"), "16. sw.js deve tratar requisições de navegação");
+    assert.ok(swContent.includes("fetch(req).catch("), "16. sw.js deve tentar rede primeiro (Network-First)");
+
+    // 19. Varredura para sinks perigosos no código estático
+    function scanForDangerousSinks(dir) {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      const dangerous = [];
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          dangerous.push(...scanForDangerousSinks(fullPath));
+        } else if (entry.isFile() && entry.name.endsWith('.js')) {
+          const content = fs.readFileSync(fullPath, 'utf-8');
+          if (/\beval\s*\(/.test(content)) dangerous.push({ file: entry.name, sink: 'eval' });
+          if (/new\s+Function\s*\(/.test(content)) dangerous.push({ file: entry.name, sink: 'new Function' });
+          if (/document\.write\s*\(/.test(content)) dangerous.push({ file: entry.name, sink: 'document.write' });
+          if (/javascript\s*:/.test(content)) dangerous.push({ file: entry.name, sink: 'javascript:' });
+          if (/setTimeout\s*\(\s*["']/.test(content)) dangerous.push({ file: entry.name, sink: 'setTimeout string' });
+          if (/setInterval\s*\(\s*["']/.test(content)) dangerous.push({ file: entry.name, sink: 'setInterval string' });
+          if (/\bsrcdoc\s*=/.test(content)) dangerous.push({ file: entry.name, sink: 'srcdoc' });
+        }
+      }
+      return dangerous;
+    }
+    const dangerousSinks = scanForDangerousSinks(path.join(publicDir, 'js'));
+    assert.deepStrictEqual(dangerousSinks, [], '19. Nenhum sink perigoso executável deve existir nos arquivos JS do frontend');
+  });
+
+  /* ==========================================================================
+     CHECKPOINT SECURITY 3B HOTFIX: MÓDULO DE BACKUP & RESILIÊNCIA DO SERVICE WORKER
+     ========================================================================== */
+  test('Checkpoint Security 3B Hotfix: Integridade do Módulo de Backup e Resiliência do Service Worker', async () => {
+    const publicDir = path.join(process.cwd(), 'public');
+    const backupJsPath = path.join(publicDir, 'js', 'modules', 'backup.js');
+    const indexHtmlPath = path.join(publicDir, 'index.html');
+    const swPath = path.join(publicDir, 'sw.js');
+
+    const backupJs = fs.readFileSync(backupJsPath, 'utf-8');
+    const indexHtml = fs.readFileSync(indexHtmlPath, 'utf-8');
+    const swContent = fs.readFileSync(swPath, 'utf-8');
+
+    // 1. backup.js possui sintaxe JavaScript válida (sem erro de Missing catch or finally after try)
+    assert.doesNotThrow(() => {
+      new vm.Script(backupJs, { filename: 'backup.js' });
+    }, '1. backup.js deve possuir sintaxe JavaScript válida sem erros de parsing ou try/catch');
+
+    // 2. Elementos de interface e listeners do botão de Backup continuam presentes
+    assert.ok(indexHtml.includes('id="backupBtn"'), '2. index.html deve conter botão #backupBtn na toolbar');
+    assert.ok(indexHtml.includes('id="backupDialog"'), '2. index.html deve conter modal #backupDialog');
+    assert.ok(indexHtml.includes('id="exportBtn"'), '2. index.html deve conter botão de exportação #exportBtn');
+    assert.ok(indexHtml.includes('id="importBtn"'), '2. index.html deve conter botão de importação #importBtn');
+    assert.ok(indexHtml.includes('id="drawerBackupBtn"'), '2. index.html deve conter botão #drawerBackupBtn no menu mobile');
+
+    assert.ok(backupJs.includes("$('#backupBtn')?.addEventListener('click', openBackup)"), '2. backup.js deve registrar listener em #backupBtn');
+    assert.ok(backupJs.includes("$('#exportBtn')?.addEventListener('click'"), '2. backup.js deve registrar listener em #exportBtn');
+    assert.ok(backupJs.includes("window.openBackup = openBackup"), '2. backup.js deve expor window.openBackup como bridge global');
+    assert.ok(backupJs.includes("window.persistImportedState = persistImportedState"), '2. backup.js deve expor persistImportedState');
+
+    // 3. Não existe leitura de JWT/token legado em localStorage no fluxo de Backup
+    assert.strictEqual(backupJs.includes("localStorage.getItem('token')"), false, '3. backup.js não deve ler token legado em localStorage');
+    assert.strictEqual(backupJs.includes("localStorage.getItem('auth_token')"), false, '3. backup.js não deve ler auth_token legado');
+    assert.strictEqual(backupJs.includes("localStorage.getItem('financas_pro_jwt_token')"), false, '3. backup.js não deve ler financas_pro_jwt_token');
+
+    // 4. Não existe Authorization Bearer construído a partir de token legado
+    assert.strictEqual(backupJs.includes("Authorization"), false, '4. backup.js não deve construir header Authorization legado');
+    assert.strictEqual(backupJs.includes("Bearer"), false, '4. backup.js não deve utilizar esquema Bearer manual');
+
+    // 5. O fluxo utiliza a autenticação oficial atual (cookie HttpOnly via same-origin e X-Requested-With)
+    assert.ok(backupJs.includes("credentials: 'same-origin'"), "5. backup.js deve utilizar credentials: 'same-origin'");
+    assert.ok(backupJs.includes("'X-Requested-With': 'XMLHttpRequest'"), "5. backup.js deve enviar header anti-CSRF 'X-Requested-With'");
+    assert.ok(backupJs.includes("API.saveFinances"), "5. backup.js deve delegar persistência preferencialmente para API client oficial");
+
+    // 6. Erros de requisição são tratados sem gerar Promise rejection não capturada
+    assert.ok(backupJs.includes("} catch (err) {"), "6. backup.js deve capturar exceções de rede em bloco catch");
+    assert.ok(backupJs.includes("console.error('Erro na persistência do backup:', err)"), "6. backup.js deve logar erro sem quebrar o runtime");
+
+    // 7. O Service Worker sempre produz um resultado válido em seus caminhos de respondWith()
+    // Prevenção do erro TypeError: Failed to convert value to 'Response'
+    assert.ok(swContent.includes("status: 503"), "7. sw.js deve fornecer Response 503 explícita para navegação offline sem cache");
+    assert.ok(swContent.includes("status: 504"), "7. sw.js deve fornecer Response 504 explícita para assets offline sem cache");
+
+    // 8. /api/* não passa a ser armazenado em Cache Storage
+    assert.ok(swContent.includes("url.pathname.startsWith('/api/')"), "8. sw.js deve manter isolamento de rotas de API");
+    assert.ok(swContent.includes("status: 503"), "8. sw.js deve retornar 503 se offline para requisições de API");
   });
 
 });
