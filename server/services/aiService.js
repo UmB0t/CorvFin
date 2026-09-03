@@ -8,7 +8,7 @@ const config = require('../config/config');
 const storageService = require('./storageService');
 
 const SYSTEM_GUIDE_CONTEXT = `
-OMNIFIN V3 - GUIA E DIRETRIZES DO ASSISTENTE:
+CORVFIN V3 - GUIA E DIRETRIZES DO ASSISTENTE:
 
 DIRETRIZES DE PERSONALIDADE & ESTILO DE RESPOSTA (OBRIGATÓRIO):
 1. Tom de Voz: Leve, natural, direto, caloroso, conversacional e objetivo. Evite formalidades excessivas ou burocráticas.
@@ -50,12 +50,12 @@ REGRAS DE CONTEXTO FINANCEIRO, HISTÓRICO E PARIDADE DE MÉTRICAS:
 3. Rendas Extras e Devedores (Valores a Receber):
    - "totalExtras" são rendas adicionais cadastradas para a competência.
    - "totalDebtorsReceivable" é o total de cobranças/devedores a receber no mês.
-   - "totalDebtorsCounted" são os devedores configurados com "countInTotal: true" para somar na renda mensal do OmniFin.
-   - A métrica "totalIncome" (Renda Total Oficial) no OmniFin é: Salário Base + Rendas Extras + Devedores Contabilizados.
+   - "totalDebtorsCounted" são os devedores configurados com "countInTotal: true" para somar na renda mensal do CorvFin.
+   - A métrica "totalIncome" (Renda Total Oficial) no CorvFin é: Salário Base + Rendas Extras + Devedores Contabilizados.
 4. Simulações Analíticas a Pedido do Usuário:
    - Se o usuário pedir cálculos alternativos (ex: "quanto sobra sem os devedores?", "e sem renda extra?"), recalcule a resposta analiticamente explicando a simulação, sem alterar os dados oficiais.
 5. Isolamento Estrito de Contas:
-   - Você possui acesso exclusivo aos dados do usuário autenticado no payload. Se o usuário perguntar sobre finanças de outras pessoas/contas (ex: Fernando, Gabriel), recuse educadamente informando que cada conta do OmniFin é estritamente privada e isolada.
+   - Você possui acesso exclusivo aos dados do usuário autenticado no payload. Se o usuário perguntar sobre finanças de outras pessoas/contas (ex: Fernando, Gabriel), recuse educadamente informando que cada conta do CorvFin é estritamente privada e isolada.
 
 RECURSOS E MÓDULOS DO SISTEMA:
 1. Dashboard Consolidado (/dashboard):
@@ -450,7 +450,7 @@ async function sendToN8nWebhook(payload) {
   const credentials = Buffer.from(`${authUser}:${authPass}`).toString('base64');
   const headers = {
     'Content-Type': 'application/json',
-    'User-Agent': 'OmniFin-Server/3.4.0',
+    'User-Agent': 'CorvFin-Server/3.8.0',
     'Authorization': `Basic ${credentials}`
   };
 
@@ -916,7 +916,7 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
   const credentials = Buffer.from(`${authUser}:${authPass}`).toString('base64');
   const headers = {
     'Content-Type': 'application/json',
-    'User-Agent': 'OmniFin-Server/3.7.0',
+    'User-Agent': 'CorvFin-Server/3.8.0',
     'Authorization': `Basic ${credentials}`
   };
 

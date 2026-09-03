@@ -121,7 +121,7 @@
         const genDateStr = `${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
 
         if (type === 'consolidated_annual') {
-          if (titleEl) titleEl.textContent = `OmniFin • Relatório Consolidado Anual`;
+          if (titleEl) titleEl.textContent = `CorvFin • Relatório Consolidado Anual`;
           if (subtitleEl) subtitleEl.textContent = `Ano Base: ${year} • Gerado em ${genDateStr}`;
 
           if (thead) {
@@ -201,8 +201,8 @@
             `;
           }
         } else if (type === 'detailed_monthly') {
-          const monthName = MONTH_NAMES[month - 1];
-          if (titleEl) titleEl.textContent = `OmniFin • Relatório Detalhado de ${monthName}/${year}`;
+          const monthName = MONTH_NAMES[month - 1] || `Mês ${month}`;
+          if (titleEl) titleEl.textContent = `CorvFin • Relatório Detalhado de ${monthName}/${year}`;
           if (subtitleEl) subtitleEl.textContent = `Mês de Referência: ${monthName} de ${year} • Status: ${statusFilter === 'all' ? 'Todos' : (statusFilter === 'pago' ? 'Quitados' : 'Pendentes')} • Gerado em ${genDateStr}`;
 
           if (thead) {
@@ -344,7 +344,7 @@
           }
         } else if (type === 'debtors_report') {
           const monthName = MONTH_NAMES[month - 1];
-          if (titleEl) titleEl.textContent = `OmniFin • Relatório de Devedores`;
+          if (titleEl) titleEl.textContent = `CorvFin • Relatório de Devedores`;
           if (subtitleEl) subtitleEl.textContent = `Referência: ${monthName}/${year} • Filtro: ${debtorFilter === 'all' ? 'Todos os Devedores' : debtorFilter} • Gerado em ${genDateStr}`;
 
           if (thead) {
@@ -429,7 +429,7 @@
           }
         } else if (type === 'benefits_report') {
           const monthName = MONTH_NAMES[month - 1];
-          if (titleEl) titleEl.textContent = `OmniFin • Relatório de Benefícios`;
+          if (titleEl) titleEl.textContent = `CorvFin • Relatório de Benefícios`;
           if (subtitleEl) subtitleEl.textContent = `Período: ${monthName} de ${year} • Gastos com VA, VR, Saúde, Transporte e Outros • Gerado em ${genDateStr}`;
 
           if (thead) {
@@ -523,7 +523,7 @@
             const t = monthTotals(year, m);
             csv += `"${MONTH_NAMES[m - 1]}",${t.baseSalary.toFixed(2)},${t.sumExt.toFixed(2)},${t.sumFixed.toFixed(2)},${t.sumVar.toFixed(2)},${t.totalExpenses.toFixed(2)},${(t.totalIncome - t.totalExpenses).toFixed(2)}\n`;
           }
-          filename = `omnifin-relatorio-anual-${year}.csv`;
+          filename = `corvfin-relatorio-anual-${year}.csv`;
         } else if (type === 'detailed_monthly') {
           csv = `Tipo,Descricao,Categoria,Destino,Vencimento,Status,Valor\n`;
           const fixedActive = activeFixedForMonth(year, month);
@@ -548,7 +548,7 @@
               csv += `"Renda Extra","${e.title}","${e.source || ''}","${e.sender || ''}","","${isPaid ? 'Recebido' : 'Pendente'}",${e.amount.toFixed(2)}\n`;
             }
           });
-          filename = `omnifin-relatorio-detalhado-${year}-${String(month).padStart(2, '0')}.csv`;
+          filename = `corvfin-relatorio-detalhado-${year}-${String(month).padStart(2, '0')}.csv`;
         } else if (type === 'debtors_report') {
           csv = `Devedor,Descricao,Destino,Inicio,Fim,Status,Parcela,Parcelamento\n`;
           const activeDebtors = activeDebtorsForMonth(year, month);
@@ -562,14 +562,14 @@
             const endStr = d.endMonth && d.endYear ? `${MONTH_NAMES[d.endMonth - 1] || d.endMonth}/${d.endYear}` : startStr;
             csv += `"${d.debtorName}","${d.title}","${d.destination || ''}","${startStr}","${endStr}","${d.status === 'pago' ? 'Quitado' : 'Pendente'}",${Number(d.amount || 0).toFixed(2)},"${parcelamento}"\n`;
           });
-          filename = `omnifin-relatorio-devedores-${year}-${String(month).padStart(2, '0')}.csv`;
+          filename = `corvfin-relatorio-devedores-${year}-${String(month).padStart(2, '0')}.csv`;
         } else if (type === 'benefits_report') {
           csv = `Data,Tipo,Descricao,Observacao,Valor\n`;
           const txs = (state.benefitTransactions || []).filter(t => t.year === year && t.month === month);
           txs.forEach(t => {
             csv += `"${String(t.day || 1).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}","${t.type}","${t.description}","${t.note || ''}",${Number(t.amount || 0).toFixed(2)}\n`;
           });
-          filename = `omnifin-relatorio-beneficios-${year}-${String(month).padStart(2, '0')}.csv`;
+          filename = `corvfin-relatorio-beneficios-${year}-${String(month).padStart(2, '0')}.csv`;
         }
 
         const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });

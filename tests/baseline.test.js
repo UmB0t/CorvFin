@@ -2736,7 +2736,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
       assert.ok(interceptedWebhookCall.body.financialContext, 'Contexto financeiro deve ser construído');
       assert.strictEqual(interceptedWebhookCall.body.financialContext.period.month, 8);
       assert.strictEqual(interceptedWebhookCall.body.financialContext.period.year, 2026);
-      assert.ok(interceptedWebhookCall.body.systemDocumentation.includes('OMNIFIN V3 - GUIA'), 'Documentação do sistema deve ser incluída');
+      assert.ok(interceptedWebhookCall.body.systemDocumentation.includes('CORVFIN V3 - GUIA') || interceptedWebhookCall.body.systemDocumentation.includes('OMNIFIN V3 - GUIA'), 'Documentação do sistema deve ser incluída');
 
       // 6. Teste de Falha HTTP 401 / 500 do n8n
       global.fetch = async (url, options = {}) => {
@@ -3725,12 +3725,12 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.ok(fs.existsSync(manifestPath), 'manifest.webmanifest deve existir na pasta public');
 
     const manifestContent = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-    assert.strictEqual(manifestContent.name, 'OmniFin', 'Nome no manifest deve ser OmniFin');
-    assert.strictEqual(manifestContent.short_name, 'OmniFin', 'Nome curto no manifest deve ser OmniFin');
+    assert.ok(manifestContent.name === 'CorvFin' || manifestContent.name === 'OmniFin', 'Nome no manifest deve ser CorvFin');
+    assert.ok(manifestContent.short_name === 'CorvFin' || manifestContent.short_name === 'OmniFin', 'Nome curto no manifest deve ser CorvFin');
     assert.strictEqual(manifestContent.display, 'standalone', 'display no manifest deve ser standalone');
     assert.strictEqual(manifestContent.start_url, './dashboard', 'start_url deve ser relativo (./dashboard) para suportar tanto subpath (/omnifin) quanto raiz (/)');
     assert.strictEqual(manifestContent.scope, './', 'scope deve ser relativo (./) para suportar subpath (/omnifin) e raiz (/)');
-    assert.strictEqual(manifestContent.theme_color, '#1F7A5C', 'theme_color deve ser o verde oficial OmniFin');
+    assert.strictEqual(manifestContent.theme_color, '#1F7A5C', 'theme_color deve ser o verde oficial');
     assert.ok(Array.isArray(manifestContent.icons) && manifestContent.icons.length >= 3, 'Manifest deve conter array de ícones');
 
     const icon192 = manifestContent.icons.find(i => i.sizes === '192x192');
@@ -3782,7 +3782,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
       assert.ok(html.includes('rel="apple-touch-icon" href="icons/apple-touch-icon.png"'), `${name} deve referenciar apple-touch-icon relativo`);
       assert.ok(html.includes('name="apple-mobile-web-app-capable" content="yes"'), `${name} deve conter apple-mobile-web-app-capable`);
       assert.ok(html.includes('name="apple-mobile-web-app-status-bar-style"'), `${name} deve conter apple-mobile-web-app-status-bar-style`);
-      assert.ok(html.includes('name="apple-mobile-web-app-title" content="OmniFin"'), `${name} deve conter apple-mobile-web-app-title`);
+      assert.ok(html.includes('name="apple-mobile-web-app-title" content="CorvFin"') || html.includes('name="apple-mobile-web-app-title" content="OmniFin"'), `${name} deve conter apple-mobile-web-app-title`);
       assert.ok(html.includes('name="theme-color" content="#1F7A5C"'), `${name} deve conter theme-color #1F7A5C`);
     }
 
@@ -6757,7 +6757,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     // 1. CACHE_VERSION não permanece na versão congelada v3.5 nem v3.7.0
     assert.strictEqual(swJs.includes("'omnifin-static-v3.5'"), false, 'sw.js não deve manter CACHE_VERSION congelada na v3.5');
     assert.strictEqual(swJs.includes("'omnifin-static-v3.7.0'"), false, 'sw.js não deve manter CACHE_VERSION v3.7.0');
-    assert.ok(swJs.includes("'omnifin-static-v3.8.0'"), 'sw.js deve declarar CACHE_VERSION omnifin-static-v3.8.0');
+    assert.ok(swJs.includes("'corvfin-static-v1.0.0'") || swJs.includes("'omnifin-static-v3.8.0'"), 'sw.js deve declarar CACHE_VERSION válida');
 
     // 2. /api/* permanece estritamente network-only sem cache
     assert.ok(swJs.includes("url.pathname.startsWith('/api/')"), 'sw.js deve isolar rotas /api/ como network-only');
@@ -7363,7 +7363,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.ok(swContent.includes("'./js/loginInit.js'"), "13. STATIC_ASSETS deve conter './js/loginInit.js'");
 
     // 14. CACHE_VERSION foi incrementado
-    assert.ok(swContent.includes("CACHE_VERSION = 'omnifin-static-v3.8.0'"), "14. CACHE_VERSION deve ser incrementado para omnifin-static-v3.8.0");
+    assert.ok(swContent.includes("CACHE_VERSION = 'corvfin-static-v1.0.0'") || swContent.includes("CACHE_VERSION = 'omnifin-static-v3.8.0'"), "14. CACHE_VERSION deve ser incrementado");
     assert.ok(!swContent.includes("CACHE_VERSION = 'omnifin-static-v3.7.0'"), "14. Versão anterior v3.7.0 não deve ser a CACHE_VERSION ativa");
 
     // 15. /api/* continua não sendo servido pelo cache do Service Worker
@@ -7458,18 +7458,22 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
   });
 
   /* ==========================================================================
-     HOTFIX COLD START: SERVICE WORKER RESILIÊNCIA, VERSÃO v3.8.0 E DEFENSE-IN-DEPTH
+     HOTFIX COLD START: SERVICE WORKER RESILIÊNCIA, VERSÃO corvfin-static-v1.0.0 E DEFENSE-IN-DEPTH
      ========================================================================== */
-  test('Hotfix Cold Start: Bump v3.8.0, expurgo de v3.7.0, fallback defensivo no render() e resiliência de registro do SW', () => {
+  test('Hotfix Cold Start: Bump corvfin-static-v1.0.0, expurgo de caches legados, fallback defensivo no render() e resiliência de registro do SW', () => {
     const swJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'sw.js'), 'utf-8');
     const appJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'app.js'), 'utf-8');
     const uiShellJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'uiShell.js'), 'utf-8');
 
-    // 1. CACHE_VERSION == omnifin-static-v3.8.0
-    assert.ok(swJs.includes("const CACHE_VERSION = 'omnifin-static-v3.8.0';"), '1. CACHE_VERSION deve ser estritamente omnifin-static-v3.8.0');
+    // 1. CACHE_VERSION == corvfin-static-v1.0.0
+    assert.ok(swJs.includes("const CACHE_VERSION = 'corvfin-static-v1.0.0';"), '1. CACHE_VERSION deve ser estritamente corvfin-static-v1.0.0');
 
-    // 2. Cache v3.7.0 não é tratado como versão atual
+    // 2. Caches legados omnifin-static-* não são tratados como versão atual
     assert.strictEqual(swJs.includes("'omnifin-static-v3.7.0'"), false, '2. Cache v3.7.0 não deve ser tratado como versão atual');
+    assert.strictEqual(swJs.includes("const CACHE_VERSION = 'omnifin-static-v3.8.0';"), false, '2. Cache antigo omnifin-static-v3.8.0 não deve ser tratado como versão atual');
+    assert.ok(swJs.includes("'./js/core/app.js'"), 'STATIC_ASSETS deve conter app.js');
+    assert.ok(swJs.includes("'./js/core/splash.js'"), 'STATIC_ASSETS deve conter splash.js');
+    assert.ok(swJs.includes("'./js/loginInit.js'"), 'STATIC_ASSETS deve conter loginInit.js');
 
     // 3. Activate continua removendo caches antigos
     assert.ok(swJs.includes('keys.filter((key) => key !== CACHE_VERSION)'), '3. Activate deve filtrar chaves diferentes de CACHE_VERSION');
@@ -8016,6 +8020,106 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
         await db.collection('ai_proposals').deleteMany({ userId: testUser5BId });
       } catch (_) {}
     }
+  });
+
+  /* ==========================================================================
+     CHECKPOINT BRAND 1 — CORVFIN IDENTITY MIGRATION
+     ========================================================================== */
+  test('Checkpoint Brand 1: CorvFin Identity Migration & Brand Contract', async () => {
+    const publicDir = path.join(process.cwd(), 'public');
+    const indexHtml = fs.readFileSync(path.join(publicDir, 'index.html'), 'utf-8');
+    const loginHtml = fs.readFileSync(path.join(publicDir, 'login.html'), 'utf-8');
+    const manifestPath = path.join(publicDir, 'manifest.webmanifest');
+    const manifestJsonPath = path.join(publicDir, 'manifest.json');
+    const swPath = path.join(publicDir, 'sw.js');
+    const swContent = fs.readFileSync(swPath, 'utf-8');
+    const aiAssistantJs = fs.readFileSync(path.join(publicDir, 'js', 'modules', 'aiAssistant.js'), 'utf-8');
+    const backupJs = fs.readFileSync(path.join(publicDir, 'js', 'modules', 'backup.js'), 'utf-8');
+    const variablesCss = fs.readFileSync(path.join(publicDir, 'css', 'variables.css'), 'utf-8');
+    const themesCss = fs.readFileSync(path.join(publicDir, 'css', 'themes.css'), 'utf-8');
+
+    // 1. index.html contém CorvFin
+    assert.ok(indexHtml.includes('<title>CorvFin</title>'), '1. index.html deve conter <title>CorvFin</title>');
+    assert.ok(indexHtml.includes('content="CorvFin"'), '1. index.html deve declarar apple-mobile-web-app-title CorvFin');
+    assert.ok(indexHtml.includes('class="splash-title">CorvFin</span>'), '1. index.html splash deve exibir CorvFin');
+    assert.ok(indexHtml.includes('class="brand-text">CorvFin</span>'), '1. index.html sidebar deve exibir CorvFin');
+
+    // 2. login.html contém CorvFin
+    assert.ok(loginHtml.includes('<title>CorvFin - Autenticação</title>'), '2. login.html deve conter título CorvFin');
+    assert.ok(loginHtml.includes('<h1 class="auth-title">CorvFin</h1>'), '2. login.html deve conter h1 CorvFin');
+    assert.ok(loginHtml.includes('content="CorvFin"'), '2. login.html deve declarar meta tags CorvFin');
+
+    // 3. OmniFin não aparece em superfícies visíveis principais (título, headers, splash)
+    assert.strictEqual(indexHtml.includes('<title>OmniFin</title>'), false, '3. index.html não deve conter <title>OmniFin</title>');
+    assert.strictEqual(loginHtml.includes('<title>OmniFin - Autenticação</title>'), false, '3. login.html não deve conter título OmniFin');
+    assert.strictEqual(indexHtml.includes('class="brand-text">OmniFin</span>'), false, '3. sidebar não deve exibir OmniFin');
+    assert.strictEqual(loginHtml.includes('<h1 class="auth-title">OmniFin</h1>'), false, '3. login não deve exibir OmniFin no título');
+
+    // 4. manifest identifica CorvFin
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+    assert.strictEqual(manifest.name, 'CorvFin', '4. manifest.webmanifest deve ter name CorvFin');
+    assert.strictEqual(manifest.short_name, 'CorvFin', '4. manifest.webmanifest deve ter short_name CorvFin');
+    assert.strictEqual(manifest.background_color, '#0D1B16', '4. manifest deve usar background_color #0D1B16');
+    assert.strictEqual(manifest.theme_color, '#1F7A5C', '4. manifest deve usar theme_color #1F7A5C');
+
+    const manifestJson = JSON.parse(fs.readFileSync(manifestJsonPath, 'utf-8'));
+    assert.strictEqual(manifestJson.name, 'CorvFin', '4. manifest.json deve ter name CorvFin');
+    assert.strictEqual(manifestJson.short_name, 'CorvFin', '4. manifest.json deve ter short_name CorvFin');
+
+    // 5. PWA icons existem
+    const iconsDir = path.join(publicDir, 'icons');
+    const pwaIcons = ['icon-192x192.png', 'icon-512x512.png', 'apple-touch-icon.png', 'favicon.svg'];
+    for (const icon of pwaIcons) {
+      assert.ok(fs.existsSync(path.join(iconsDir, icon)), `5. Ícone PWA ${icon} deve existir`);
+    }
+
+    // 6. Paleta oficial e tokens CSS aplicados
+    assert.ok(variablesCss.includes('--brand: #1F7A5C'), '6. variables.css deve definir --brand #1F7A5C');
+    assert.ok(variablesCss.includes('--brand-strong: #146B57'), '6. variables.css deve definir --brand-strong #146B57');
+    assert.ok(variablesCss.includes('--info: #2D7FF9'), '6. variables.css deve definir --info #2D7FF9');
+    assert.ok(themesCss.includes('--bg: #0D1B16'), '6. themes.css dark mode deve usar --bg #0D1B16');
+
+    // 7. Assistente usa CorvFin
+    assert.ok(aiAssistantJs.includes("data-tooltip', 'Assistente CorvFin'"), '7. Assistente deve ter tooltip Assistente CorvFin');
+    assert.ok(aiAssistantJs.includes("aria-label', 'Abrir Assistente CorvFin'"), '7. Assistente deve ter aria-label Assistente CorvFin');
+    assert.ok(aiAssistantJs.includes("Olá! Sou o Assistente CorvFin"), '7. Assistente deve ter mensagem inicial do CorvFin');
+
+    // 8. Schema financeiro permanece inalterado
+    const { ALLOWED_TOP_LEVEL_FIELDS, SERVER_CONTROLLED_FIELDS } = require('../server/services/financeValidation');
+    assert.ok(ALLOWED_TOP_LEVEL_FIELDS.has('fixed'), '8. Schema financeiro: chave fixed preservada');
+    assert.ok(ALLOWED_TOP_LEVEL_FIELDS.has('variable'), '8. Schema financeiro: chave variable preservada');
+    assert.ok(ALLOWED_TOP_LEVEL_FIELDS.has('benefitTransactions'), '8. Schema financeiro: benefitTransactions preservada');
+    assert.ok(SERVER_CONTROLLED_FIELDS.has('revision'), '8. Schema financeiro: revision CAS preservada');
+
+    // 9. Banco não foi renomeado (preservação de infraestrutura)
+    assert.strictEqual(config.STORAGE_DRIVER, 'mongodb', '9. STORAGE_DRIVER deve permanecer mongodb');
+    assert.strictEqual(config.MONGODB_DB_NAME, 'omnifin_v3_hml', '9. MONGODB_DB_NAME de homologação não deve ser alterado');
+
+    // 10. Backup legado permanece compatível
+    assert.ok(backupJs.includes("app: 'CorvFin'"), '10. backup.js deve exportar com app CorvFin');
+    assert.ok(backupJs.includes("corvfin-backup-"), '10. backup.js deve gerar arquivo com prefixo corvfin-backup-');
+
+    // 11. CSP continua estrita
+    const res = await fetch(`${baseUrl}/login.html`);
+    const csp = res.headers.get('content-security-policy') || '';
+    assert.ok(csp.includes("script-src 'self'"), '11. CSP continua bloqueando inline scripts perigosos');
+    assert.ok(csp.includes("object-src 'none'"), '11. CSP bloqueia object-src');
+
+    // 12. Service Worker continua válido com CACHE_VERSION corvfin
+    assert.ok(swContent.includes("CACHE_VERSION = 'corvfin-static-v1.0.0'"), '12. Service Worker deve versionar cache com corvfin');
+
+    // 13. Cache antigo possui estratégia de limpeza no activate
+    assert.ok(swContent.includes('key !== CACHE_VERSION'), '13. Service Worker activate deve expurgar caches com nomes antigos');
+    assert.ok(swContent.includes('caches.delete(key)'), '13. Service Worker activate deve invocar caches.delete');
+
+    // 14. Scripts continuam externos (sem regressão de arquitetura)
+    assert.ok(!indexHtml.includes('<script>('), '14. index.html não deve ter scripts inline IIFE');
+    assert.ok(indexHtml.includes('src="js/core/app.js"'), '14. index.html deve carregar app.js como script externo');
+
+    // 15. Security 5B permanece íntegro (validação semântica e limites de recursos)
+    const { validateFinanceSemantics, MAX_DEPTH } = require('../server/services/financeValidation');
+    assert.strictEqual(MAX_DEPTH, 8, '15. MAX_DEPTH deve continuar 8');
+    assert.throws(() => validateFinanceSemantics({ variable: [{ id: 'v1', amount: NaN }] }), /INVALID_FINANCE_PAYLOAD/, '15. Security 5B: rejeita NaN');
   });
 
 });

@@ -1,6 +1,6 @@
 /**
  * ==============================================================================
- * OmniFin V3 - AI Assistant Frontend Module (aiAssistant.js)
+ * CorvFin V3 - AI Assistant Frontend Module (aiAssistant.js)
  * ==============================================================================
  */
 
@@ -74,8 +74,8 @@
     fab.type = 'button';
     fab.id = 'aiAssistantFloatingBtn';
     fab.className = 'ai-assistant-fab';
-    fab.setAttribute('data-tooltip', 'Assistente OmniFin');
-    fab.setAttribute('aria-label', 'Abrir Assistente OmniFin');
+    fab.setAttribute('data-tooltip', 'Assistente CorvFin');
+    fab.setAttribute('aria-label', 'Abrir Assistente CorvFin');
     fab.innerHTML = getAiIconSvg();
     document.body.appendChild(fab);
 
@@ -86,14 +86,14 @@
     panel.setAttribute('hidden', '');
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-modal', 'false');
-    panel.setAttribute('aria-label', 'Painel do Assistente OmniFin');
+    panel.setAttribute('aria-label', 'Painel do Assistente CorvFin');
 
     panel.innerHTML = `
       <div class="ai-chat-header">
         <div style="overflow:hidden;">
           <div class="ai-chat-header-title">
             <span style="display:inline-flex; color:var(--brand);">${getAiIconSvg()}</span>
-            <span>Assistente OmniFin</span>
+            <span>Assistente CorvFin</span>
             <span class="ai-badge">IA</span>
           </div>
           <div class="ai-chat-header-sub">Pergunte sobre suas finanças ou sobre o sistema.</div>
@@ -389,7 +389,7 @@
       {
         id: 'msg_welcome',
         sender: 'assistant',
-        text: 'Olá! Sou o Assistente OmniFin. Como posso ajudar você hoje com seus gastos, benefícios, orçamentos ou recursos do sistema?',
+        text: 'Olá! Sou o Assistente CorvFin. Como posso ajudar você hoje com seus gastos, benefícios, orçamentos ou recursos do sistema?',
         time: formatTime()
       }
     ];
@@ -685,7 +685,7 @@
       if (res && res.success) {
         msg.proposal.status = 'confirmed';
 
-        // Atualiza o estado local do OmniFin de forma reativa sem F5
+        // Atualiza o estado local do CorvFin de forma reativa sem F5
         if (res.data && typeof window.migrateState === 'function') {
           window.FP_STATE = window.migrateState(res.data);
         } else if (res.expense) {
@@ -1004,7 +1004,7 @@
           }
         } catch (actionErr) {
           if (actionErr && actionErr.status !== 503 && actionErr.status !== 504) {
-            console.warn('[OmniFin AI] Action interpretation fallback to conversational chat:', actionErr.message);
+            console.warn('[CorvFin AI] Action interpretation fallback to conversational chat:', actionErr.message);
           } else {
             throw actionErr;
           }
@@ -1035,7 +1035,7 @@
         }
       }
     } catch (err) {
-      console.error('[OmniFin AI]', {
+      console.error('[CorvFin AI]', {
         status: err?.status,
         message: err?.message
       });

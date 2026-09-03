@@ -1,8 +1,8 @@
 /**
- * OmniFin V3 - Service Worker (PWA Shell Caching & Security Isolation)
+ * CorvFin V3 - Service Worker (PWA Shell Caching & Security Isolation)
  */
 
-const CACHE_VERSION = 'omnifin-static-v3.8.0';
+const CACHE_VERSION = 'corvfin-static-v1.0.0';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -88,12 +88,15 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate: Remove Old Caches imediatamente ao atualizar versão
+// Activate: Remove Old Caches imediatamente ao atualizar versão (expurgo de omnifin-static-* e legados)
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
-        keys.filter((key) => key !== CACHE_VERSION).map((key) => caches.delete(key))
+        keys.filter((key) => key !== CACHE_VERSION).map((key) => {
+          console.log('[SW] Expurgo de cache legado/anterior:', key);
+          return caches.delete(key);
+        })
       );
     }).then(() => self.clients.claim())
   );
@@ -140,20 +143,30 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Navigation Requests (HTML / Page Shell): Network-First com fallback para o index.html offline
+  // 3. Navigation Requests (HTML Documents): Network-First com Fallback do Cache Shell
+  // Garante que novas releases HTML/SPA sejam entregues imediatamente quando online
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req).catch(async () => {
+      fetch(req).then((res) => {
+        if (res.ok) {
+          const resClone = res.clone();
+          caches.open(CACHE_VERSION).then((cache) => cache.put(req, resClone));
+        }
+        return res;
+      }).catch(async () => {
+        const cached = await caches.match(req);
+        if (cached) {
+          return cached;
+        }
         const cachedIndex = await caches.match('./index.html')
           || await caches.match('/index.html')
-          || await caches.match('index.html')
           || await caches.match('./')
           || await caches.match('/');
         if (cachedIndex) {
           return cachedIndex;
         }
         return new Response(
-          '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>OmniFin Offline</title><style>body{font-family:sans-serif;background:#0f172a;color:#f8fafc;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:20px;}</style></head><body><div><h2>OmniFin — Conexão Offline</h2><p>Você está sem conexão com a internet e a versão em cache ainda não está disponível.</p><a href="." style="display:inline-block;padding:10px 18px;border-radius:8px;text-decoration:none;background:#2563eb;color:#fff;font-weight:700;margin-top:12px;">Tentar Novamente</a></div></body></html>',
+          '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>CorvFin Offline</title><style>body{font-family:sans-serif;background:#0d1b16;color:#f8fafc;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;padding:20px;}</style></head><body><div><h2>CorvFin — Conexão Offline</h2><p>Você está sem conexão com a internet e a versão em cache ainda não está disponível.</p><a href="." style="display:inline-block;padding:10px 18px;border-radius:8px;text-decoration:none;background:#1F7A5C;color:#fff;font-weight:700;margin-top:12px;">Tentar Novamente</a></div></body></html>',
           {
             status: 503,
             statusText: 'Service Unavailable',

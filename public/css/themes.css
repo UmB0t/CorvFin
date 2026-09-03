@@ -1,40 +1,40 @@
 /* ==========================================================================
-   THEMES SYSTEM — OMNIFIN V3
-   Dark Mode: Refinamento Visual Grafite / Matte Charcoal / Neutral Black
+   THEMES SYSTEM — CORVFIN V3
+   Dark Mode: Refinamento Visual Verde/Preto Profundo (#0D1B16) & Superfícies Premium
    Light Mode: Preservado 100% via variables.css
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
-   1. TOKENS DO DARK MODE (GRAFITE / NEUTRAL CHARCOAL)
+   1. TOKENS DO DARK MODE (VERDE/PRETO PROFUNDO & SUPERFÍCIES PREMIUM)
    -------------------------------------------------------------------------- */
 html[data-theme="dark"],
 [data-theme="dark"] {
   color-scheme: dark;
 
-  /* Superfícies Estruturais Neutras */
-  --bg: #111315;
-  --surface: #1D2023;
-  --surface-2: #23272A;
-  --surface-3: #292D30;
-  --surface-sidebar: #171A1C;
+  /* Superfícies Estruturais Premium CorvFin */
+  --bg: #0D1B16;
+  --surface: #13241F;
+  --surface-2: #192E27;
+  --surface-3: #203930;
+  --surface-sidebar: #0F1F19;
 
-  /* Tipografia Neutra */
-  --text: #F1F3F2;
-  --text-secondary: #AAB2AE;
-  --muted: #7F8984;
+  /* Tipografia Neutra / Cinza Secundário */
+  --text: #F1F5F3;
+  --text-secondary: #9AA5B1;
+  --muted: #9AA5B1;
 
   /* Linhas e Bordas */
-  --line: #343A3E;
-  --line-subtle: #2A2F32;
+  --line: #274037;
+  --line-subtle: #1E332C;
 
   /* Sombras Neutras */
-  --shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 20px 45px rgba(0, 0, 0, 0.65);
+  --shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 20px 45px rgba(0, 0, 0, 0.7);
 
-  /* Accent e Cores da Marca OmniFin */
+  /* Accent e Cores da Marca CorvFin */
   --brand: #1F7A5C;
-  --brand-strong: #145C45;
-  --brand-soft: rgba(31, 122, 92, 0.22);
+  --brand-strong: #146B57;
+  --brand-soft: rgba(31, 122, 92, 0.25);
 
   /* Cores Semânticas de Estado */
   --danger: #EF4444;
@@ -43,16 +43,16 @@ html[data-theme="dark"],
   --warning-soft: rgba(245, 158, 11, 0.18);
   --success: #10B981;
   --success-soft: rgba(16, 185, 129, 0.18);
-  --info: #3B82F6;
-  --info-soft: rgba(59, 130, 246, 0.18);
+  --info: #2D7FF9;
+  --info-soft: rgba(45, 127, 249, 0.2);
 
   /* Cores Semânticas para Categorias / Gráficos / Lançamentos */
   --c-fixed: #818CF8;
   --c-fixed-soft: rgba(129, 140, 248, 0.2);
   --c-variable: #F59E0B;
   --c-variable-soft: rgba(245, 158, 11, 0.2);
-  --c-invest: #10B981;
-  --c-invest-soft: rgba(16, 185, 129, 0.22);
+  --c-invest: #1F7A5C;
+  --c-invest-soft: rgba(31, 122, 92, 0.25);
   --c-extra: #34D399;
   --c-extra-soft: rgba(52, 211, 153, 0.2);
   --c-debt: #EF4444;

@@ -1,6 +1,6 @@
 /* ==========================================================================
-   MÓDULO DE ONBOARDING & WELCOME TOUR (welcomeTour.js)
-   OmniFin V3 - Vanilla JS Architecture
+   MÓDULO DE GUIA DO SISTEMA / ONBOARDING (welcomeTour.js)
+   CorvFin V3 - Vanilla JS Architecture
    ========================================================================== */
 
 (function () {

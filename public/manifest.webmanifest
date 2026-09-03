@@ -1,12 +1,12 @@
 {
-  "name": "OmniFin",
-  "short_name": "OmniFin",
-  "description": "Gestão Financeira Pessoal Inteligente",
+  "name": "CorvFin",
+  "short_name": "CorvFin",
+  "description": "Inteligência para suas finanças.",
   "start_url": "./dashboard",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#0F172A",
+  "background_color": "#0D1B16",
   "theme_color": "#1F7A5C",
   "icons": [
     {

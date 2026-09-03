@@ -1,4 +1,5 @@
-# Finanças Pro - Sistema Modular de Gestão Financeira
+# CorvFin - Sistema Inteligente de Gestão Financeira
+> "Inteligência para suas finanças."
 
 Aplicação moderna, escalável e modular para gestão financeira pessoal, controle de despesas, devedores, rendas extras, benefícios corporativos, investimentos e simulação sandbox de cenários.
 
