@@ -6749,13 +6749,14 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
   /* ==========================================================================
      SERVICE WORKER & CACHE LIFECYCLE: ATUALIZAÇÃO AUTOMÁTICA E RESILIÊNCIA
      ========================================================================== */
-  test('Service Worker e Cache Lifecycle: Versionamento v3.7.0, Network-First, cleanup no activate e isolamento de /api/* e fontes', () => {
+  test('Service Worker e Cache Lifecycle: Versionamento v3.8.0, Network-First, cleanup no activate e isolamento de /api/* e fontes', () => {
     const swJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'sw.js'), 'utf-8');
     const serverJs = fs.readFileSync(path.join(__dirname, '..', 'server', 'server.js'), 'utf-8');
 
-    // 1. CACHE_VERSION não permanece na versão congelada v3.5
+    // 1. CACHE_VERSION não permanece na versão congelada v3.5 nem v3.7.0
     assert.strictEqual(swJs.includes("'omnifin-static-v3.5'"), false, 'sw.js não deve manter CACHE_VERSION congelada na v3.5');
-    assert.ok(swJs.includes("'omnifin-static-v3.8.0'") || swJs.includes("'omnifin-static-v3.7.0'"), 'sw.js deve declarar CACHE_VERSION da release corrente (v3.7.0 ou v3.8.0)');
+    assert.strictEqual(swJs.includes("'omnifin-static-v3.7.0'"), false, 'sw.js não deve manter CACHE_VERSION v3.7.0');
+    assert.ok(swJs.includes("'omnifin-static-v3.8.0'"), 'sw.js deve declarar CACHE_VERSION omnifin-static-v3.8.0');
 
     // 2. /api/* permanece estritamente network-only sem cache
     assert.ok(swJs.includes("url.pathname.startsWith('/api/')"), 'sw.js deve isolar rotas /api/ como network-only');
@@ -7453,6 +7454,385 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     // 8. /api/* não passa a ser armazenado em Cache Storage
     assert.ok(swContent.includes("url.pathname.startsWith('/api/')"), "8. sw.js deve manter isolamento de rotas de API");
     assert.ok(swContent.includes("status: 503"), "8. sw.js deve retornar 503 se offline para requisições de API");
+  });
+
+  /* ==========================================================================
+     HOTFIX COLD START: SERVICE WORKER RESILIÊNCIA, VERSÃO v3.8.0 E DEFENSE-IN-DEPTH
+     ========================================================================== */
+  test('Hotfix Cold Start: Bump v3.8.0, expurgo de v3.7.0, fallback defensivo no render() e resiliência de registro do SW', () => {
+    const swJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'sw.js'), 'utf-8');
+    const appJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'app.js'), 'utf-8');
+    const uiShellJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'uiShell.js'), 'utf-8');
+
+    // 1. CACHE_VERSION == omnifin-static-v3.8.0
+    assert.ok(swJs.includes("const CACHE_VERSION = 'omnifin-static-v3.8.0';"), '1. CACHE_VERSION deve ser estritamente omnifin-static-v3.8.0');
+
+    // 2. Cache v3.7.0 não é tratado como versão atual
+    assert.strictEqual(swJs.includes("'omnifin-static-v3.7.0'"), false, '2. Cache v3.7.0 não deve ser tratado como versão atual');
+
+    // 3. Activate continua removendo caches antigos
+    assert.ok(swJs.includes('keys.filter((key) => key !== CACHE_VERSION)'), '3. Activate deve filtrar chaves diferentes de CACHE_VERSION');
+    assert.ok(swJs.includes('caches.delete(key)'), '3. Activate deve deletar caches obsoletos');
+
+    // 4. /api/* permanece Network-Only
+    assert.ok(swJs.includes("url.pathname.startsWith('/api/')"), '4. /api/* deve permanecer Network-Only');
+    assert.ok(swJs.includes('status: 503'), '4. /api/* deve responder com fallback offline 503');
+
+    // 5. render() possui fallback defensivo de remoção do #appHydrationSplash
+    assert.ok(appJs.includes("document.getElementById('appHydrationSplash')"), '5. render() deve buscar #appHydrationSplash');
+    assert.ok(appJs.includes("splash.classList.add('hide')"), '5. render() deve adicionar classe .hide');
+    assert.ok(appJs.includes("splash.style.display = 'none'"), '5. render() deve setar display none');
+
+    // 6. Fallback só é executado após stateHydrated=true
+    const renderDef = appJs.substring(appJs.indexOf('function render('), appJs.indexOf('renderRibbon();'));
+    assert.ok(renderDef.includes('if (!stateHydrated)'), '6. render() deve verificar guarda de hidratação');
+    assert.ok(renderDef.indexOf('if (!stateHydrated)') < renderDef.indexOf("document.getElementById('appHydrationSplash')"), '6. Fallback só pode executar após a guarda if (!stateHydrated)');
+
+    // 7 & 8. Registro do SW funciona quando document.readyState === 'complete' ou pelo evento load
+    assert.ok(uiShellJs.includes("document.readyState === 'complete'"), '7. initPwaSupport deve verificar se document.readyState já está complete');
+    assert.ok(uiShellJs.includes("registerServiceWorker()"), '7. Deve registrar imediatamente se complete');
+    assert.ok(uiShellJs.includes("window.addEventListener('load', registerServiceWorker"), '8. Deve aguardar evento load se readyState não for complete');
+    assert.ok(uiShellJs.includes("{ once: true }"), '8. Listener de load deve ter { once: true } para evitar registros duplicados');
+
+    // 9 & 10. skipWaiting() e clients.claim() permanecem presentes
+    assert.ok(swJs.includes('self.skipWaiting()'), '9. skipWaiting() deve estar presente no install');
+    assert.ok(swJs.includes('self.clients.claim()'), '10. clients.claim() deve estar presente no activate');
+  });
+
+  /* ==========================================================================
+     CHECKPOINT SECURITY 4B: AUTORIZAÇÃO, CROSS-TYPE, INTEGRIDADE E RBAC EM PROFUNDIDADE
+     ========================================================================== */
+  test('Checkpoint Security 4B: Contrato completo de Autorização, Cross-Type, Sanitização de Payload e Preservação RBAC', async () => {
+    // Registra Usuário A isolado dedicado para o teste Security 4B
+    const suffixA = 'sec4b_user_a_' + Date.now();
+    const regARes = await fetch(`${baseUrl}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome: 'Usuário A Sec4B',
+        login: suffixA,
+        email: `${suffixA}@omnifin.test`,
+        senha: testPassword
+      })
+    });
+    assert.strictEqual(regARes.status, 201);
+    const regAData = await regARes.json();
+    const userAId = regAData.user.id;
+    const cookieA = regARes.headers.get('set-cookie') || '';
+    const matchA = cookieA.match(/omnifin_session=([^;]+)/);
+    const userAToken = (matchA && matchA[1]) || regAData.token;
+
+    // Registra Usuário B isolado para testes cruzados de autorização e ownership
+    const suffixB = 'sec4b_user_b_' + (Date.now() + 1);
+    const regBRes = await fetch(`${baseUrl}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome: 'Usuário B Sec4B',
+        login: suffixB,
+        email: `${suffixB}@omnifin.test`,
+        senha: testPassword
+      })
+    });
+    assert.strictEqual(regBRes.status, 201);
+    const regBData = await regBRes.json();
+    const userBId = regBData.user.id;
+    const cookieB = regBRes.headers.get('set-cookie') || '';
+    const matchB = cookieB.match(/omnifin_session=([^;]+)/);
+    const userBToken = (matchB && matchB[1]) || regBData.token;
+
+    try {
+      // 1 & 2. Usuário B não confirma e não cancela proposal do Usuário A (403 Forbidden)
+      const propAId = 'prop_sec4b_a_' + Date.now();
+      await storageService.saveAiProposal({
+        _id: propAId,
+        userId: userAId,
+        action: 'create_expense',
+        status: 'pending',
+        proposal: {
+          description: 'GASOLINA',
+          amount: 150,
+          category: 'Transporte',
+          destination: 'Pix',
+          competence: { month: 9, year: 2026 }
+        },
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+      });
+
+      const userBConfirmRes = await fetch(`${baseUrl}/api/ai/actions/expense/confirm`, {
+        method: 'POST',
+        headers: {
+          'Cookie': `omnifin_session=${userBToken}`,
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ proposalId: propAId })
+      });
+      assert.strictEqual(userBConfirmRes.status, 403, '1. Usuário B não pode confirmar proposal de A (403)');
+
+      const userBCancelRes = await fetch(`${baseUrl}/api/ai/actions/expense/cancel`, {
+        method: 'POST',
+        headers: {
+          'Cookie': `omnifin_session=${userBToken}`,
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ proposalId: propAId })
+      });
+      assert.strictEqual(userBCancelRes.status, 403, '2. Usuário B não pode cancelar proposal de A (403)');
+
+      // 3. Replay de proposal confirmada pelo dono não duplica lançamento (idempotência)
+      const curFinBefore = await storageService.getUserFinances(userAId);
+      const varCountBefore = (curFinBefore.variable || []).length;
+
+      const userAConfirm1 = await fetch(`${baseUrl}/api/ai/actions/expense/confirm`, {
+        method: 'POST',
+        headers: {
+          'Cookie': `omnifin_session=${userAToken}`,
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ proposalId: propAId })
+      });
+      assert.strictEqual(userAConfirm1.status, 200, 'Confirmação pelo dono deve retornar 200');
+
+      const userAConfirm2 = await fetch(`${baseUrl}/api/ai/actions/expense/confirm`, {
+        method: 'POST',
+        headers: {
+          'Cookie': `omnifin_session=${userAToken}`,
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ proposalId: propAId })
+      });
+      assert.strictEqual(userAConfirm2.status, 200, 'Segunda confirmação retorna 200 idempotente');
+      const confirm2Json = await userAConfirm2.json();
+      assert.strictEqual(confirm2Json.alreadyProcessed, true, '3. Segunda confirmação deve indicar alreadyProcessed');
+
+      const curFinAfter = await storageService.getUserFinances(userAId);
+      assert.strictEqual((curFinAfter.variable || []).length, varCountBefore + 1, '3. Replay não pode duplicar lançamento');
+
+      // 4. Proposal cancelada não pode ser confirmada
+      const propToCancelId = 'prop_sec4b_cancel_' + Date.now();
+      await storageService.saveAiProposal({
+        _id: propToCancelId,
+        userId: userAId,
+        action: 'create_expense',
+        status: 'pending',
+        proposal: { description: 'LIVRO', amount: 50, category: 'Educação', destination: 'Pix', competence: { month: 9, year: 2026 } },
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+      });
+      const cancelRes = await fetch(`${baseUrl}/api/ai/actions/expense/cancel`, {
+        method: 'POST',
+        headers: { 'Cookie': `omnifin_session=${userAToken}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ proposalId: propToCancelId })
+      });
+      assert.strictEqual(cancelRes.status, 200);
+
+      const confirmCancelledRes = await fetch(`${baseUrl}/api/ai/actions/expense/confirm`, {
+        method: 'POST',
+        headers: { 'Cookie': `omnifin_session=${userAToken}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ proposalId: propToCancelId })
+      });
+      assert.strictEqual(confirmCancelledRes.status, 400, '4. Proposal cancelada não pode ser confirmada (400)');
+
+      // 5. Expense proposal no endpoint benefit -> 400 INVALID_PROPOSAL_TYPE
+      const expensePropId = 'prop_sec4b_exp_for_ben_' + Date.now();
+      await storageService.saveAiProposal({
+        _id: expensePropId,
+        userId: userAId,
+        action: 'create_expense',
+        status: 'pending',
+        proposal: { description: 'FARMACIA', amount: 80, category: 'Saúde', destination: 'Pix', competence: { month: 9, year: 2026 } },
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+      });
+      const expOnBenRes = await fetch(`${baseUrl}/api/ai/actions/benefit/confirm`, {
+        method: 'POST',
+        headers: { 'Cookie': `omnifin_session=${userAToken}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ proposalId: expensePropId })
+      });
+      assert.strictEqual(expOnBenRes.status, 400, '5. Expense proposal em endpoint de benefício deve retornar 400');
+
+      // 6. Benefit proposal no endpoint expense -> 400 INVALID_PROPOSAL_TYPE (Guarda cross-type)
+      const benefitPropId = 'prop_sec4b_ben_for_exp_' + Date.now();
+      await storageService.saveAiProposal({
+        _id: benefitPropId,
+        userId: userAId,
+        action: 'create_benefit',
+        status: 'pending',
+        proposal: { description: 'REFEICAO', amount: 45, benefitType: 'vr', day: 10, competence: { month: 9, year: 2026 } },
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+      });
+      const benOnExpRes = await fetch(`${baseUrl}/api/ai/actions/expense/confirm`, {
+        method: 'POST',
+        headers: { 'Cookie': `omnifin_session=${userAToken}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ proposalId: benefitPropId, data: { description: 'REFEICAO', category: 'Alimentação', destination: 'Pix' } })
+      });
+      assert.strictEqual(benOnExpRes.status, 400, '6. Benefit proposal em endpoint de despesa deve retornar 400');
+      const benOnExpJson = await benOnExpRes.json();
+      assert.ok(benOnExpJson.message.includes('não é de despesa'), '6. Mensagem deve indicar incompatibilidade de tipo');
+
+      // 7 & 8. userId e _id enviados pelo cliente não alteram ownership no PUT /api/finances
+      const curFinForOwnership = await storageService.getUserFinances(userAId);
+      const curRev = Number(curFinForOwnership.revision || 0);
+
+      const tamperRes = await fetch(`${baseUrl}/api/finances`, {
+        method: 'PUT',
+        headers: { 'Cookie': `omnifin_session=${userAToken}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify(Object.assign({}, curFinForOwnership, {
+          userId: 'usr_hacked_other_person',
+          _id: 'usr_hacked_other_person',
+          expectedRevision: curRev
+        }))
+      });
+      assert.strictEqual(tamperRes.status, 200, 'Save com tentativa de adulterar userId deve ter sucesso mas neutralizar o spoofing');
+      const verifiedFin = await storageService.getUserFinances(userAId);
+      assert.strictEqual(verifiedFin.userId, userAId, '7. userId deve permanecer estritamente o do usuário autenticado');
+      const spoofDoc = await (await connectDB()).collection('finances').findOne({ _id: 'usr_hacked_other_person' });
+      assert.strictEqual(spoofDoc, null, '8. _id arbitrário não pode criar ou afetar outro documento');
+
+      // 9 & 22. revision / expectedRevision respeitam CAS (409 em revision stale)
+      const staleRes = await fetch(`${baseUrl}/api/finances`, {
+        method: 'PUT',
+        headers: { 'Cookie': `omnifin_session=${userAToken}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify(Object.assign({}, verifiedFin, { expectedRevision: 999999 }))
+      });
+      assert.strictEqual(staleRes.status, 409, '9 & 22. Stale revision deve retornar 409 CONCURRENCY_CONFLICT');
+
+      // 10. Chave __proto__ -> 400 INVALID_FINANCE_PAYLOAD
+      const protoRes = await fetch(`${baseUrl}/api/finances`, {
+        method: 'PUT',
+        headers: { 'Cookie': `omnifin_session=${userAToken}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify(JSON.parse(`{"version": 5, "__proto__": {"polluted": true}, "expectedRevision": ${verifiedFin.revision}}`))
+      });
+      assert.strictEqual(protoRes.status, 400, '10. Chave __proto__ deve retornar 400');
+      const protoJson = await protoRes.json();
+      assert.strictEqual(protoJson.error, 'INVALID_FINANCE_PAYLOAD');
+
+      // 11. Chave constructor/prototype perigosa -> 400
+      const constrRes = await fetch(`${baseUrl}/api/finances`, {
+        method: 'PUT',
+        headers: { 'Cookie': `omnifin_session=${userAToken}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({
+          version: 5,
+          constructor: { prototype: { admin: true } },
+          expectedRevision: verifiedFin.revision
+        })
+      });
+      assert.strictEqual(constrRes.status, 400, '11. Chave constructor deve retornar 400');
+
+      // 12. Chave começando com $ -> 400
+      const dollarRes = await fetch(`${baseUrl}/api/finances`, {
+        method: 'PUT',
+        headers: { 'Cookie': `omnifin_session=${userAToken}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({
+          version: 5,
+          $where: 'sleep(1000)',
+          expectedRevision: verifiedFin.revision
+        })
+      });
+      assert.strictEqual(dollarRes.status, 400, '12. Chave iniciada com $ deve retornar 400');
+
+      // 13. Chave contendo . -> 400
+      const dotRes = await fetch(`${baseUrl}/api/finances`, {
+        method: 'PUT',
+        headers: { 'Cookie': `omnifin_session=${userAToken}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({
+          version: 5,
+          'nested.dot.key': 'val',
+          expectedRevision: verifiedFin.revision
+        })
+      });
+      assert.strictEqual(dotRes.status, 400, '13. Chave contendo ponto deve retornar 400');
+
+      // 14. Campo top-level desconhecido não é persistido (Allowlist)
+      const curFinFresh = await storageService.getUserFinances(userAId);
+      const allowlistRes = await fetch(`${baseUrl}/api/finances`, {
+        method: 'PUT',
+        headers: { 'Cookie': `omnifin_session=${userAToken}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify(Object.assign({}, curFinFresh, {
+          malicious_unknown_field: 'should_not_persist',
+          expectedRevision: curFinFresh.revision
+        }))
+      });
+      assert.strictEqual(allowlistRes.status, 200, 'Save com campo extra deve ter sucesso');
+      const docAfterAllowlist = await storageService.getUserFinances(userAId);
+      assert.strictEqual(docAfterAllowlist.malicious_unknown_field, undefined, '14. Campo desconhecido deve ser descartado pela allowlist');
+
+      // 15 & 16. Categorias e Destinations legadas continuam aceitas e funcionando
+      const curFinLeg = await storageService.getUserFinances(userAId);
+      const legacySaveRes = await fetch(`${baseUrl}/api/finances`, {
+        method: 'PUT',
+        headers: { 'Cookie': `omnifin_session=${userAToken}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify(Object.assign({}, curFinLeg, {
+          categories: ['Moradia', 'Lazer', 'Gerais'], // Formato string legado
+          destinations: [{ name: 'Pix', color: '#10B981', icon: 'dollar' }, 'Dinheiro'], // Formato híbrido
+          expectedRevision: curFinLeg.revision
+        }))
+      });
+      assert.strictEqual(legacySaveRes.status, 200, '15 & 16. Formatos legados de categorias e destinos devem ser aceitos');
+
+      // 17, 18, 19, 20, 21. RBAC com Preservação Server-Side de Módulos Não Autorizados
+      // Define permissão: despesas = true, devedores = false, dashboard = false
+      await storageService.setUserPermissions(userAId, {
+        dashboard: false, // 21. Dashboard false não bloqueia save financeiro
+        despesas: true,   // 17. Módulo autorizado pode ser alterado
+        devedores: false  // 18. Módulo devedores proibido
+      });
+
+      // Grava um devedor legítimo pré-existente no banco
+      const curPreRBAC = await storageService.getUserFinances(userAId);
+      curPreRBAC.debtors = [{ id: 'deb_original_1', debtorName: 'Devedor Legítimo', amount: 300, paid: false }];
+      await (await connectDB()).collection('finances').updateOne({ _id: userAId }, { $set: { debtors: curPreRBAC.debtors } });
+
+      // Usuário (com devedores: false) envia PUT alterando despesas (permitido) e tentando adicionar um devedor (proibido)
+      const curWithDebtor = await storageService.getUserFinances(userAId);
+      const rbacSaveRes = await fetch(`${baseUrl}/api/finances`, {
+        method: 'PUT',
+        headers: { 'Cookie': `omnifin_session=${userAToken}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify(Object.assign({}, curWithDebtor, {
+          fixed: [...(curWithDebtor.fixed || []), { id: 'fix_sec4b_new', description: 'INTERNET FIBRA', amount: 120 }],
+          debtors: [
+            ...curWithDebtor.debtors,
+            { id: 'deb_injected_evil', debtorName: 'Devedor Injetado Não Autorizado', amount: 9999 }
+          ],
+          expectedRevision: curWithDebtor.revision
+        }))
+      });
+
+      assert.strictEqual(rbacSaveRes.status, 200, '20 & 21. Usuário com permissão parcial deve salvar com sucesso');
+      const docAfterRBAC = await storageService.getUserFinances(userAId);
+
+      // 17. Módulo autorizado (despesas) foi alterado
+      assert.ok(docAfterRBAC.fixed.some(f => f.id === 'fix_sec4b_new'), '17. Módulo autorizado (fixed) deve ser salvo');
+
+      // 18. Módulo não autorizado (devedores) NÃO foi alterado com o novo devedor
+      assert.strictEqual(docAfterRBAC.debtors.some(d => d.id === 'deb_injected_evil'), false, '18. Novo devedor não autorizado NÃO pode ser persistido');
+
+      // 19. Devedor original foi PRESERVADO
+      assert.strictEqual(docAfterRBAC.debtors.length, 1, '19. Devedor original deve ser preservado intacto');
+      assert.strictEqual(docAfterRBAC.debtors[0].id, 'deb_original_1', '19. Dados originais de devedores permanecem');
+
+      // 23 & 24. Sanitização e Allowlist equivalentes no JSON Storage e Mongo Storage
+      const { sanitizeFinancePayload, filterAllowedFields } = require('../server/services/financeValidation');
+      assert.throws(() => sanitizeFinancePayload({ '$injection': true }), /INVALID_FINANCE_PAYLOAD/, '23 & 24. Chave $ é rejeitada pelo validador central');
+      assert.throws(() => sanitizeFinancePayload(JSON.parse('{"nested": {"__proto__": {}}}')), /INVALID_FINANCE_PAYLOAD/, '23 & 24. __proto__ é rejeitado pelo validador central');
+      assert.strictEqual(filterAllowedFields({ version: 5, extra_bogus: 'x' }).extra_bogus, undefined, '23 & 24. Allowlist descarta campos desconhecidos em ambos os drivers');
+
+    } finally {
+      // Cleanup dos usuários A e B
+      try {
+        const db = getDB();
+        await db.collection('users').deleteMany({ _id: { $in: [userAId, userBId] } });
+        await db.collection('permissions').deleteMany({ _id: { $in: [userAId, userBId] } });
+        await db.collection('finances').deleteMany({ _id: { $in: [userAId, userBId] } });
+        await db.collection('ai_proposals').deleteMany({ userId: { $in: [userAId, userBId] } });
+      } catch (_) {}
+    }
   });
 
 });

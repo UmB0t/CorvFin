@@ -1406,6 +1406,13 @@ async function confirmExpenseProposal({ userId, proposalId, data: userEdits = {}
     throw err;
   }
 
+  if (proposal.action !== 'create_expense') {
+    const err = new Error('Esta proposta não é de despesa.');
+    err.status = 400;
+    err.code = 'INVALID_PROPOSAL_TYPE';
+    throw err;
+  }
+
   // Idempotência: Se já foi confirmada anteriormente, retorna sucesso sem duplicar
   if (proposal.status === 'confirmed' || proposal.status === 'consumed') {
     return {

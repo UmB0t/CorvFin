@@ -1,5 +1,6 @@
 const config = require('../config/config');
 const { getDB, connectDB } = require('../config/db');
+const { filterAllowedFields } = require('./financeValidation');
 
 // Maintenance Default Configuration Constants
 const DEFAULT_MAINTENANCE_CONFIG = {
@@ -463,7 +464,8 @@ async function saveUserFinances(userId, data) {
   if (!currentDoc) {
     const defaults = getDefaultUserFinances(userId);
     const { _id, userId: _u, expectedRevision: _er, revision: _r, ...cleanData } = data;
-    const newDoc = Object.assign({}, defaults, cleanData, {
+    const filteredClean = filterAllowedFields(cleanData);
+    const newDoc = Object.assign({}, defaults, filteredClean, {
       _id: userId,
       userId,
       revision: 1,
@@ -487,7 +489,8 @@ async function saveUserFinances(userId, data) {
   };
 
   const { _id, userId: _u, expectedRevision: _er, revision: _r, ...cleanData } = data;
-  const updatePayload = Object.assign({}, cleanData, {
+  const filteredClean = filterAllowedFields(cleanData);
+  const updatePayload = Object.assign({}, filteredClean, {
     userId,
     lastModified: new Date().toISOString()
   });

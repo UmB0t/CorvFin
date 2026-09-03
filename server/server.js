@@ -28,6 +28,7 @@ const {
   saveAllFinances
 } = require('./services/storageService');
 const { authMiddleware, adminOnlyMiddleware } = require('./middleware/auth');
+const { sanitizeFinancePayload, applyRbacModulePreservation } = require('./services/financeValidation');
 const {
   buildFinancialContext,
   SYSTEM_GUIDE_CONTEXT,
@@ -557,15 +558,35 @@ app.get('/api/finances', authMiddleware, async (req, res) => {
   }
 });
 
-// PUT /api/finances - Salvar dados financeiros do usuário logado
+// PUT /api/finances - Salvar dados financeiros do usuário logado com validação e preservação RBAC
 app.put('/api/finances', authMiddleware, async (req, res) => {
   try {
-    const updatedData = req.body;
-    if (!updatedData || typeof updatedData !== 'object') {
-      return res.status(400).json({ success: false, message: 'Payload inválido.' });
+    const rawData = req.body;
+    if (!rawData || typeof rawData !== 'object' || Array.isArray(rawData)) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_FINANCE_PAYLOAD',
+        message: 'Payload financeiro inválido: esperado um objeto JSON.'
+      });
     }
 
-    const saved = await saveUserFinances(req.user.id, updatedData);
+    // 1. Extração da expectedRevision para CAS antes da sanitização
+    const expectedRevision = Number(rawData.expectedRevision ?? rawData.revision ?? 0);
+
+    // 2. Sanitização estrutural central (Allowlist e detecção recursiva de chaves perigosas)
+    const sanitized = sanitizeFinancePayload(rawData);
+
+    // 3. Carregamento do estado atual e permissões para preservação server-side de módulos
+    const currentFinances = await getUserFinances(req.user.id);
+    const userPerms = req.user.permissions || (await getUserPermissions(req.user.id));
+
+    // 4. Aplicação de RBAC com preservação de módulos não autorizados
+    const finalData = applyRbacModulePreservation(sanitized, currentFinances, userPerms);
+
+    // 5. Restaura expectedRevision no payload para garantir o CAS no storage
+    finalData.expectedRevision = expectedRevision;
+
+    const saved = await saveUserFinances(req.user.id, finalData);
     return res.json({
       success: true,
       message: 'Dados salvos com sucesso!',
@@ -574,6 +595,13 @@ app.put('/api/finances', authMiddleware, async (req, res) => {
       data: saved
     });
   } catch (err) {
+    if (err.status === 400 || err.code === 'INVALID_FINANCE_PAYLOAD') {
+      return res.status(400).json({
+        success: false,
+        error: err.code || 'INVALID_FINANCE_PAYLOAD',
+        message: err.message || 'Payload financeiro inválido.'
+      });
+    }
     if (err.status === 409 || err.code === 'CONCURRENCY_CONFLICT') {
       return res.status(409).json({
         success: false,

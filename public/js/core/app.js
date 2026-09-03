@@ -293,6 +293,13 @@
       return;
     }
 
+    // FALLBACK DEFENSIVO: Garante que o splash inicial seja removido após o estado estar hidratado
+    const splash = document.getElementById('appHydrationSplash');
+    if (splash) {
+      splash.classList.add('hide');
+      splash.style.display = 'none';
+    }
+
     renderRibbon();
     fillMonthSelects();
     updateDestinationSelects();

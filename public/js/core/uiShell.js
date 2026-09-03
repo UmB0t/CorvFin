@@ -1417,13 +1417,19 @@
   // PWA Service Worker Registration & iOS Standalone Navigation Handler
   function initPwaSupport() {
     if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
+      function registerServiceWorker() {
         const swUrl = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/sw.js') : 'sw.js';
         const swScope = (typeof API !== 'undefined' && API.resolveUrl) ? API.resolveUrl('/') : './';
         navigator.serviceWorker.register(swUrl, { scope: swScope }).catch(err => {
           console.warn('[PWA] Service Worker registration failed:', err);
         });
-      });
+      }
+
+      if (document.readyState === 'complete') {
+        registerServiceWorker();
+      } else {
+        window.addEventListener('load', registerServiceWorker, { once: true });
+      }
     }
 
     if (typeof navigator !== 'undefined' && ('standalone' in navigator) && navigator.standalone) {

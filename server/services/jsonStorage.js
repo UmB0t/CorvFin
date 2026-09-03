@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const config = require('../config/config');
+const { filterAllowedFields } = require('./financeValidation');
 
 // Ensure data directory exists
 if (!fs.existsSync(config.DATA_DIR)) {
@@ -275,7 +276,8 @@ function saveUserFinances(userId, data) {
 
   const newRevision = currentRev + 1;
   const { _id, userId: _u, expectedRevision: _er, revision: _r, ...cleanData } = data;
-  finances[userId] = Object.assign({}, current, cleanData, {
+  const filteredClean = filterAllowedFields(cleanData);
+  finances[userId] = Object.assign({}, current, filteredClean, {
     userId,
     revision: newRevision,
     lastModified: new Date().toISOString()
