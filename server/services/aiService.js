@@ -984,7 +984,8 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
     // Extração de Descrição
     let mergedDesc = null;
     const isGenericMsg = isGenericIntentPhrase(cleanMessage);
-    const n8nDesc = safeTrim(rawData.description);
+    const rawN8nDesc = safeTrim(rawData.description);
+    const n8nDesc = (typeof rawN8nDesc === 'string' && rawN8nDesc.length <= 150) ? rawN8nDesc : (rawN8nDesc ? rawN8nDesc.slice(0, 150) : '');
     const isN8nDescGeneric = !n8nDesc || isGenericIntentPhrase(n8nDesc) || ['despesa', 'gasto', 'compra', 'beneficio', 'benefício', 'lancamento', 'lançamento'].includes(normalizeSearchStr(n8nDesc));
     const msgDesc = extractDescriptionFromMessage(cleanMessage);
     const isMsgDescGeneric = !msgDesc || isGenericIntentPhrase(msgDesc) || ['despesa', 'gasto', 'compra', 'beneficio', 'benefício'].includes(normalizeSearchStr(msgDesc));
@@ -1001,11 +1002,11 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
     let mergedAmount = null;
     const msgAmount = extractAmountFromMessage(cleanMessage);
     const n8nAmount = Number(rawData.amount);
-    if (!isNaN(n8nAmount) && n8nAmount > 0) {
+    if (Number.isFinite(n8nAmount) && n8nAmount > 0 && n8nAmount <= 100000000) {
       mergedAmount = n8nAmount;
-    } else if (msgAmount && msgAmount > 0) {
+    } else if (msgAmount && Number.isFinite(msgAmount) && msgAmount > 0) {
       mergedAmount = msgAmount;
-    } else if (existingSlots.amount && existingSlots.amount > 0) {
+    } else if (existingSlots.amount && Number.isFinite(existingSlots.amount) && existingSlots.amount > 0) {
       mergedAmount = existingSlots.amount;
     }
 
@@ -1470,12 +1471,27 @@ async function confirmExpenseProposal({ userId, proposalId, data: userEdits = {}
     err.status = 400;
     throw err;
   }
-  if (isNaN(amount) || amount <= 0) {
+  if (description.length > 150) {
+    const err = new Error('A descrição da despesa excede o limite de 150 caracteres.');
+    err.status = 400;
+    throw err;
+  }
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) {
     const err = new Error('O valor da despesa deve ser um número positivo maior que zero.');
     err.status = 400;
     throw err;
   }
-  if (isNaN(compMonth) || compMonth < 1 || compMonth > 12 || isNaN(compYear) || compYear < 2000) {
+  if (notes && notes.length > 2000) {
+    const err = new Error('As observações da despesa excedem o limite de 2000 caracteres.');
+    err.status = 400;
+    throw err;
+  }
+  if (!Number.isInteger(installments) || installments < 1 || installments > 240) {
+    const err = new Error('O número de parcelas deve ser um inteiro entre 1 e 240.');
+    err.status = 400;
+    throw err;
+  }
+  if (!Number.isInteger(compMonth) || compMonth < 1 || compMonth > 12 || !Number.isInteger(compYear) || compYear < 2000 || compYear > 2100) {
     const err = new Error('Competência (mês/ano) inválida.');
     err.status = 400;
     throw err;
@@ -1671,8 +1687,18 @@ async function confirmBenefitProposal({ userId, proposalId, data: userEdits = {}
     err.status = 400;
     throw err;
   }
-  if (isNaN(amount) || amount <= 0) {
+  if (description.length > 150) {
+    const err = new Error('A descrição do benefício excede o limite de 150 caracteres.');
+    err.status = 400;
+    throw err;
+  }
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 100000000) {
     const err = new Error('O valor do benefício deve ser um número positivo maior que zero.');
+    err.status = 400;
+    throw err;
+  }
+  if (notes && notes.length > 2000) {
+    const err = new Error('As observações do benefício excedem o limite de 2000 caracteres.');
     err.status = 400;
     throw err;
   }
@@ -1683,7 +1709,7 @@ async function confirmBenefitProposal({ userId, proposalId, data: userEdits = {}
     err.code = 'INVALID_BENEFIT_TYPE';
     throw err;
   }
-  if (isNaN(compMonth) || compMonth < 1 || compMonth > 12 || isNaN(compYear) || compYear < 2000) {
+  if (!Number.isInteger(compMonth) || compMonth < 1 || compMonth > 12 || !Number.isInteger(compYear) || compYear < 2000 || compYear > 2100) {
     const err = new Error('Competência (mês/ano) inválida.');
     err.status = 400;
     throw err;

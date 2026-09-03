@@ -62,20 +62,59 @@ const PERMISSION_MODULE_FIELDS_MAP = {
   compras: ['shoppingLists', 'shoppingItemSuggestions']
 };
 
+const MAX_DEPTH = 8;
+const MAX_ARRAY_ITEMS = 1000;
+const MAX_INSTALLMENTS = 240;
+const MIN_YEAR = 2000;
+const MAX_YEAR = 2100;
+
+const STRING_LIMITS = {
+  NAME_MAX: 150,
+  DESCRIPTION_MAX: 500,
+  NOTES_MAX: 2000,
+  GENERIC_STRING_MAX: 4000
+};
+
+const TRACKED_ARRAY_COLLECTIONS = [
+  'fixed',
+  'variable',
+  'extras',
+  'debtors',
+  'benefitTransactions',
+  'assets',
+  'aportes',
+  'shoppingLists',
+  'shoppingItemSuggestions',
+  'savedSimulations',
+  'readNotifications',
+  'readReleases',
+  'customExpensesOrder',
+  'destinations',
+  'categories'
+];
+
 /**
  * Varre recursivamente um objeto ou array procurando chaves perigosas:
  * - __proto__, constructor, prototype
  * - Chaves que iniciam com $ (operadores de injeção MongoDB)
  * - Chaves contendo . (injeção de path/dot-notation)
+ * E rejeita profundidade excessiva (> MAX_DEPTH) para mitigar DoS de recursão.
  */
-function hasDangerousKeys(value) {
+function hasDangerousKeys(value, depth = 0) {
+  if (depth > MAX_DEPTH) {
+    const err = new Error('INVALID_FINANCE_PAYLOAD: profundidade de dados excessiva.');
+    err.status = 400;
+    err.code = 'INVALID_FINANCE_PAYLOAD';
+    throw err;
+  }
+
   if (value === null || typeof value !== 'object') {
     return false;
   }
 
   if (Array.isArray(value)) {
     for (let i = 0; i < value.length; i++) {
-      if (hasDangerousKeys(value[i])) {
+      if (hasDangerousKeys(value[i], depth + 1)) {
         return true;
       }
     }
@@ -94,12 +133,322 @@ function hasDangerousKeys(value) {
     if (k.includes('.')) {
       return true;
     }
-    if (hasDangerousKeys(value[k])) {
+    if (hasDangerousKeys(value[k], depth + 1)) {
       return true;
     }
   }
 
   return false;
+}
+
+/**
+ * Validação semântica e limites de recursos para dados financeiros (Checkpoint Security 5B):
+ * - Limites de contagem de coleções (max 1000 itens)
+ * - Unicidade de IDs dentro da mesma coleção
+ * - Rejeição de números não finitos (NaN, Infinity, -Infinity)
+ * - Validação de competências e anos (1..12 e 2000..2100)
+ * - Validação de parcelas (1..240)
+ * - Validação de dueDay (1..31 ou null)
+ * - Limites de comprimento de strings (nomes, descrições, notas)
+ * - Tolerância legada completa para formatos históricos de paidHistory
+ */
+function validateFinanceSemantics(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return;
+  }
+
+  function checkString(str, maxLen, fieldName) {
+    if (typeof str === 'string' && str.length > maxLen) {
+      const err = new Error(`INVALID_FINANCE_PAYLOAD: o campo "${fieldName}" excede o limite de ${maxLen} caracteres.`);
+      err.status = 400;
+      err.code = 'INVALID_FINANCE_PAYLOAD';
+      throw err;
+    }
+  }
+
+  function checkFiniteNumber(num, fieldName, mustBePositive = false, allowZero = true) {
+    if (num === undefined || num === null) return;
+    if (typeof num === 'number') {
+      if (!Number.isFinite(num)) {
+        const err = new Error(`INVALID_FINANCE_PAYLOAD: valor numérico não finito detectado em "${fieldName}".`);
+        err.status = 400;
+        err.code = 'INVALID_FINANCE_PAYLOAD';
+        throw err;
+      }
+      if (mustBePositive) {
+        if (allowZero ? num < 0 : num <= 0) {
+          const err = new Error(`INVALID_FINANCE_PAYLOAD: o valor de "${fieldName}" deve ser ${allowZero ? 'não negativo' : 'maior que zero'}.`);
+          err.status = 400;
+          err.code = 'INVALID_FINANCE_PAYLOAD';
+          throw err;
+        }
+      }
+    } else if (typeof num === 'string') {
+      const parsed = Number(num);
+      if (Number.isNaN(parsed) || !Number.isFinite(parsed)) {
+        const err = new Error(`INVALID_FINANCE_PAYLOAD: valor numérico inválido em "${fieldName}".`);
+        err.status = 400;
+        err.code = 'INVALID_FINANCE_PAYLOAD';
+        throw err;
+      }
+    }
+  }
+
+  function checkMonth(m, fieldName) {
+    if (m === undefined || m === null) return;
+    const num = Number(m);
+    if (!Number.isInteger(num) || num < 1 || num > 12) {
+      const err = new Error(`INVALID_FINANCE_PAYLOAD: mês inválido (${m}) em "${fieldName}". Deve ser um inteiro entre 1 e 12.`);
+      err.status = 400;
+      err.code = 'INVALID_FINANCE_PAYLOAD';
+      throw err;
+    }
+  }
+
+  function checkYear(y, fieldName) {
+    if (y === undefined || y === null) return;
+    const num = Number(y);
+    if (!Number.isInteger(num) || num < MIN_YEAR || num > MAX_YEAR) {
+      const err = new Error(`INVALID_FINANCE_PAYLOAD: ano inválido (${y}) em "${fieldName}". Deve estar entre ${MIN_YEAR} e ${MAX_YEAR}.`);
+      err.status = 400;
+      err.code = 'INVALID_FINANCE_PAYLOAD';
+      throw err;
+    }
+  }
+
+  function checkDueDay(d, fieldName) {
+    if (d === undefined || d === null) return;
+    const num = Number(d);
+    if (!Number.isInteger(num) || num < 1 || num > 31) {
+      const err = new Error(`INVALID_FINANCE_PAYLOAD: dia de vencimento inválido (${d}) em "${fieldName}". Deve estar entre 1 e 31 ou ser nulo.`);
+      err.status = 400;
+      err.code = 'INVALID_FINANCE_PAYLOAD';
+      throw err;
+    }
+  }
+
+  function checkPaidHistory(hist, parentName) {
+    if (!hist || typeof hist !== 'object' || Array.isArray(hist)) return;
+    const ymRegex = /^\d{4}-(0?[1-9]|1[0-2])$/;
+    for (const k of Object.keys(hist)) {
+      if (k.length > 50) {
+        const err = new Error(`INVALID_FINANCE_PAYLOAD: chave de competência inválida em "${parentName}.paidHistory".`);
+        err.status = 400;
+        err.code = 'INVALID_FINANCE_PAYLOAD';
+        throw err;
+      }
+      if (!ymRegex.test(k)) {
+        const err = new Error(`INVALID_FINANCE_PAYLOAD: formato de competência inválido "${k}" em "${parentName}.paidHistory". Esperado YYYY-MM.`);
+        err.status = 400;
+        err.code = 'INVALID_FINANCE_PAYLOAD';
+        throw err;
+      }
+      const val = hist[k];
+      if (val === true || val === false) {
+        // Formato legado booleano (A) - permitido
+        continue;
+      }
+      if (typeof val === 'number') {
+        // Formato legado numérico (B) - permitido se finito e >= 0
+        checkFiniteNumber(val, `${parentName}.paidHistory[${k}]`, true, true);
+      } else if (typeof val === 'object' && val !== null) {
+        // Formato canônico (C)
+        if (val.paidAmount !== undefined) {
+          checkFiniteNumber(val.paidAmount, `${parentName}.paidHistory[${k}].paidAmount`, true, true);
+        }
+        if (val.amount !== undefined) {
+          checkFiniteNumber(val.amount, `${parentName}.paidHistory[${k}].amount`, true, true);
+        }
+      }
+    }
+  }
+
+  // 1. Validação de coleções de arrays e unicidade de IDs por coleção
+  for (const colName of TRACKED_ARRAY_COLLECTIONS) {
+    const arr = payload[colName];
+    if (arr !== undefined && arr !== null) {
+      if (!Array.isArray(arr)) {
+        const err = new Error(`INVALID_FINANCE_PAYLOAD: "${colName}" deve ser um array.`);
+        err.status = 400;
+        err.code = 'INVALID_FINANCE_PAYLOAD';
+        throw err;
+      }
+      if (arr.length > MAX_ARRAY_ITEMS) {
+        const err = new Error(`INVALID_FINANCE_PAYLOAD: a coleção "${colName}" excede o limite máximo de ${MAX_ARRAY_ITEMS} itens.`);
+        err.status = 400;
+        err.code = 'INVALID_FINANCE_PAYLOAD';
+        throw err;
+      }
+
+      // Checagem de ID duplicado dentro da MESMA coleção
+      const seenIds = new Set();
+      for (let i = 0; i < arr.length; i++) {
+        const item = arr[i];
+        if (item && typeof item === 'object' && !Array.isArray(item)) {
+          if (item.id != null) {
+            const idStr = String(item.id).trim();
+            if (idStr !== '') {
+              if (seenIds.has(idStr)) {
+                const err = new Error(`INVALID_FINANCE_PAYLOAD: ID duplicado "${idStr}" detectado na coleção "${colName}".`);
+                err.status = 400;
+                err.code = 'INVALID_FINANCE_PAYLOAD';
+                throw err;
+              }
+              seenIds.add(idStr);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Validação semântica de fixed
+  if (Array.isArray(payload.fixed)) {
+    for (const f of payload.fixed) {
+      if (!f || typeof f !== 'object') continue;
+      checkString(f.name, STRING_LIMITS.NAME_MAX, 'fixed.name');
+      checkString(f.note, STRING_LIMITS.NOTES_MAX, 'fixed.note');
+      checkDueDay(f.dueDay, 'fixed.dueDay');
+      checkPaidHistory(f.paidHistory, 'fixed');
+
+      if (Array.isArray(f.versions)) {
+        if (f.versions.length > MAX_ARRAY_ITEMS) {
+          const err = new Error(`INVALID_FINANCE_PAYLOAD: fixed.versions excede o limite de ${MAX_ARRAY_ITEMS} itens.`);
+          err.status = 400;
+          err.code = 'INVALID_FINANCE_PAYLOAD';
+          throw err;
+        }
+        for (const v of f.versions) {
+          if (!v || typeof v !== 'object') continue;
+          checkMonth(v.month, 'fixed.versions.month');
+          checkMonth(v.startMonth, 'fixed.versions.startMonth');
+          checkYear(v.year, 'fixed.versions.year');
+          checkYear(v.startYear, 'fixed.versions.startYear');
+          checkFiniteNumber(v.amount, 'fixed.versions.amount', true, true);
+        }
+      }
+    }
+  }
+
+  // 3. Validação semântica de variable
+  if (Array.isArray(payload.variable)) {
+    for (const v of payload.variable) {
+      if (!v || typeof v !== 'object') continue;
+      checkString(v.name, STRING_LIMITS.NAME_MAX, 'variable.name');
+      checkString(v.note, STRING_LIMITS.NOTES_MAX, 'variable.note');
+      checkDueDay(v.dueDay, 'variable.dueDay');
+      checkFiniteNumber(v.amount, 'variable.amount', true, true);
+      checkMonth(v.startMonth, 'variable.startMonth');
+      checkMonth(v.endMonth, 'variable.endMonth');
+      checkYear(v.startYear, 'variable.startYear');
+      checkYear(v.endYear, 'variable.endYear');
+      checkPaidHistory(v.paidHistory, 'variable');
+
+      if (v.installments !== undefined && v.installments !== null) {
+        const inst = Number(v.installments);
+        if (!Number.isInteger(inst) || inst < 1 || inst > MAX_INSTALLMENTS) {
+          const err = new Error(`INVALID_FINANCE_PAYLOAD: número de parcelas inválido (${v.installments}). Deve ser um inteiro entre 1 e ${MAX_INSTALLMENTS}.`);
+          err.status = 400;
+          err.code = 'INVALID_FINANCE_PAYLOAD';
+          throw err;
+        }
+      }
+    }
+  }
+
+  // 4. Validação semântica de debtors
+  if (Array.isArray(payload.debtors)) {
+    for (const d of payload.debtors) {
+      if (!d || typeof d !== 'object') continue;
+      checkString(d.title, STRING_LIMITS.NAME_MAX, 'debtors.title');
+      checkString(d.debtorName || d.name, STRING_LIMITS.NAME_MAX, 'debtors.debtorName');
+      checkString(d.description, STRING_LIMITS.DESCRIPTION_MAX, 'debtors.description');
+      checkFiniteNumber(d.amount, 'debtors.amount', true, true);
+      checkMonth(d.startMonth, 'debtors.startMonth');
+      checkMonth(d.endMonth, 'debtors.endMonth');
+      checkYear(d.startYear, 'debtors.startYear');
+      checkYear(d.endYear, 'debtors.endYear');
+      checkPaidHistory(d.paidHistory, 'debtors');
+    }
+  }
+
+  // 5. Validação semântica de extras
+  if (Array.isArray(payload.extras)) {
+    for (const e of payload.extras) {
+      if (!e || typeof e !== 'object') continue;
+      checkString(e.title, STRING_LIMITS.NAME_MAX, 'extras.title');
+      checkString(e.source || e.sender, STRING_LIMITS.NAME_MAX, 'extras.source');
+      checkString(e.description, STRING_LIMITS.DESCRIPTION_MAX, 'extras.description');
+      checkFiniteNumber(e.amount, 'extras.amount', true, true);
+      checkMonth(e.startMonth, 'extras.startMonth');
+      checkMonth(e.endMonth, 'extras.endMonth');
+      checkYear(e.startYear, 'extras.startYear');
+      checkYear(e.endYear, 'extras.endYear');
+    }
+  }
+
+  // 6. Validação semântica de benefitsConfig e benefitTransactions
+  if (payload.benefitsConfig && typeof payload.benefitsConfig === 'object') {
+    checkFiniteNumber(payload.benefitsConfig.amount, 'benefitsConfig.amount', true, true);
+    checkFiniteNumber(payload.benefitsConfig.va, 'benefitsConfig.va', true, true);
+    checkFiniteNumber(payload.benefitsConfig.vr, 'benefitsConfig.vr', true, true);
+  }
+
+  if (Array.isArray(payload.benefitTransactions)) {
+    for (const b of payload.benefitTransactions) {
+      if (!b || typeof b !== 'object') continue;
+      checkString(b.description, STRING_LIMITS.DESCRIPTION_MAX, 'benefitTransactions.description');
+      checkString(b.note, STRING_LIMITS.NOTES_MAX, 'benefitTransactions.note');
+      checkDueDay(b.day, 'benefitTransactions.day');
+      checkMonth(b.month, 'benefitTransactions.month');
+      checkYear(b.year, 'benefitTransactions.year');
+      // Cada nova transação de gasto deve ter valor positivo finito > 0
+      checkFiniteNumber(b.amount, 'benefitTransactions.amount', true, false);
+    }
+  }
+
+  // 7. Validação semântica de assets e aportes
+  if (Array.isArray(payload.assets)) {
+    for (const a of payload.assets) {
+      if (!a || typeof a !== 'object') continue;
+      checkString(a.name, STRING_LIMITS.NAME_MAX, 'assets.name');
+      checkString(a.note, STRING_LIMITS.NOTES_MAX, 'assets.note');
+      checkFiniteNumber(a.currentAmount, 'assets.currentAmount');
+      checkFiniteNumber(a.goalAmount, 'assets.goalAmount', true, true);
+    }
+  }
+
+  if (Array.isArray(payload.aportes)) {
+    for (const ap of payload.aportes) {
+      if (!ap || typeof ap !== 'object') continue;
+      checkString(ap.note, STRING_LIMITS.NOTES_MAX, 'aportes.note');
+      checkMonth(ap.month, 'aportes.month');
+      checkYear(ap.year, 'aportes.year');
+      checkFiniteNumber(ap.amount, 'aportes.amount', true, false);
+    }
+  }
+
+  // 8. Validação de escalares de topo
+  checkMonth(payload.month, 'month');
+  checkYear(payload.year, 'year');
+
+  if (payload.profile && typeof payload.profile === 'object') {
+    checkString(payload.profile.name, STRING_LIMITS.NAME_MAX, 'profile.name');
+    checkFiniteNumber(payload.profile.baseSalary, 'profile.baseSalary', true, true);
+  }
+
+  if (payload.incomes && typeof payload.incomes === 'object' && !Array.isArray(payload.incomes)) {
+    const ymRegex = /^\d{4}-(0?[1-9]|1[0-2])$/;
+    for (const k of Object.keys(payload.incomes)) {
+      if (!ymRegex.test(k)) {
+        const err = new Error(`INVALID_FINANCE_PAYLOAD: competência inválida "${k}" em incomes.`);
+        err.status = 400;
+        err.code = 'INVALID_FINANCE_PAYLOAD';
+        throw err;
+      }
+      checkFiniteNumber(payload.incomes[k], `incomes[${k}]`, true, true);
+    }
+  }
 }
 
 /**
@@ -126,6 +475,8 @@ function filterAllowedFields(payload) {
  * Sanitiza estruturalmente o payload financeiro recebido do cliente na fronteira HTTP:
  * - Rejeita payloads inválidos ou não-objetos (400)
  * - Rejeita recursivamente chaves maliciosas (__proto__, constructor, prototype, $, .) com 400
+ * - Rejeita profundidade excessiva > 8 com 400 (Anti-DoS)
+ * - Valida semântica de coleções, números finitos, competências, parcelas e unicidade de IDs (Security 5B)
  * - Filtra campos top-level pela allowlist oficial
  * - Remove campos controlados pelo servidor (_id, userId, revision, etc.)
  */
@@ -137,12 +488,14 @@ function sanitizeFinancePayload(payload) {
     throw err;
   }
 
-  if (hasDangerousKeys(payload)) {
+  if (hasDangerousKeys(payload, 0)) {
     const err = new Error('INVALID_FINANCE_PAYLOAD: chaves não permitidas ou formato inválido.');
     err.status = 400;
     err.code = 'INVALID_FINANCE_PAYLOAD';
     throw err;
   }
+
+  validateFinanceSemantics(payload);
 
   return filterAllowedFields(payload);
 }
@@ -181,8 +534,12 @@ module.exports = {
   ALLOWED_TOP_LEVEL_FIELDS,
   SERVER_CONTROLLED_FIELDS,
   PERMISSION_MODULE_FIELDS_MAP,
+  MAX_DEPTH,
+  MAX_ARRAY_ITEMS,
+  STRING_LIMITS,
   hasDangerousKeys,
   filterAllowedFields,
+  validateFinanceSemantics,
   sanitizeFinancePayload,
   applyRbacModulePreservation
 };

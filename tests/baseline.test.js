@@ -13,7 +13,7 @@ const vm = require('node:vm');
 const config = require('../server/config/config');
 const app = require('../server/server');
 const jwt = require('jsonwebtoken');
-const { getDB, connectDB } = require('../server/config/db');
+const { getDB, connectDB, closeDB } = require('../server/config/db');
 const { hashPassword, verifyToken, generateToken } = require('../server/services/authService');
 const { requirePermission } = require('../server/middleware/permissions');
 const storageService = require('../server/services/storageService');
@@ -111,10 +111,11 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
       console.warn('Erro no cleanup de dados sintéticos:', e);
     }
 
-    // Fecha servidor HTTP de teste
+    // Fecha servidor HTTP de teste e conexão MongoDB
     if (server) {
       await new Promise((resolve) => server.close(resolve));
     }
+    await closeDB();
   });
 
   test('1. Login válido retorna 200 e emite cookie HttpOnly de sessão', async () => {
@@ -7831,6 +7832,188 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
         await db.collection('permissions').deleteMany({ _id: { $in: [userAId, userBId] } });
         await db.collection('finances').deleteMany({ _id: { $in: [userAId, userBId] } });
         await db.collection('ai_proposals').deleteMany({ userId: { $in: [userAId, userBId] } });
+      } catch (_) {}
+    }
+  });
+
+  /* ==========================================================================
+     CHECKPOINT SECURITY 5B: HARDENING DE INTEGRIDADE SEMÂNTICA E ANTI-DoS
+     ========================================================================== */
+  test('Checkpoint Security 5B: Semantic Integrity & Resource Limits', async () => {
+    const {
+      hasDangerousKeys,
+      validateFinanceSemantics,
+      sanitizeFinancePayload,
+      MAX_DEPTH,
+      MAX_ARRAY_ITEMS
+    } = require('../server/services/financeValidation');
+    const vm = require('node:vm');
+    const financeQueriesCode = fs.readFileSync(path.join(process.cwd(), 'public', 'js', 'core', 'financeQueries.js'), 'utf-8');
+    const vmCtx = { window: {}, mk: (y, m) => (y * 12 + m), ymKey: (y, m) => `${y}-${String(m).padStart(2, '0')}` };
+    vmCtx.window = vmCtx;
+    vm.createContext(vmCtx);
+    vm.runInContext(financeQueriesCode, vmCtx);
+    const getExpensePaymentInfo = vmCtx.window.getExpensePaymentInfo;
+
+    // 1. depth <= 8 permitido
+    let depth8Obj = { val: 'leaf' };
+    for (let i = 0; i < 7; i++) {
+      depth8Obj = { nested: depth8Obj };
+    }
+    assert.strictEqual(hasDangerousKeys(depth8Obj, 0), false, '1. Objeto com profundidade <= 8 deve ser permitido');
+
+    // 2. depth > 8 rejeitado
+    let depth9Obj = { val: 'leaf' };
+    for (let i = 0; i < 9; i++) {
+      depth9Obj = { nested: depth9Obj };
+    }
+    assert.throws(() => hasDangerousKeys(depth9Obj, 0), /INVALID_FINANCE_PAYLOAD.*profundidade/, '2. Objeto com profundidade > 8 deve ser rejeitado');
+
+    // 3. dangerous keys continuam rejeitadas
+    assert.strictEqual(hasDangerousKeys({ '$where': '1' }), true, '3. Chave $ é rejeitada');
+    assert.strictEqual(hasDangerousKeys({ 'a.b': '1' }), true, '3. Chave com ponto é rejeitada');
+
+    // 4. array <= limite permitido (1000)
+    const validArr = Array.from({ length: 50 }, (_, i) => ({ id: `f_${i}` }));
+    assert.doesNotThrow(() => validateFinanceSemantics({ fixed: validArr }), '4. Coleção <= 1000 permitida');
+
+    // 5. array > 1000 rejeitado
+    const giantArr = Array.from({ length: 1001 }, (_, i) => ({ id: `f_${i}` }));
+    assert.throws(() => validateFinanceSemantics({ fixed: giantArr }), /INVALID_FINANCE_PAYLOAD.*excede o limite/, '5. Coleção > 1000 rejeitada');
+
+    // 6. número finito válido permitido
+    assert.doesNotThrow(() => validateFinanceSemantics({ variable: [{ id: 'v_ok', amount: 150.50 }] }), '6. Número finito permitido');
+
+    // 7. NaN rejeitado na função de validação
+    assert.throws(() => validateFinanceSemantics({ variable: [{ id: 'v_nan', amount: NaN }] }), /INVALID_FINANCE_PAYLOAD.*não finito/, '7. NaN rejeitado');
+
+    // 8. Infinity rejeitado
+    assert.throws(() => validateFinanceSemantics({ variable: [{ id: 'v_inf', amount: Infinity }] }), /INVALID_FINANCE_PAYLOAD.*não finito/, '8. Infinity rejeitado');
+
+    // 9. mês 0 rejeitado
+    assert.throws(() => validateFinanceSemantics({ variable: [{ id: 'v_m0', startMonth: 0 }] }), /INVALID_FINANCE_PAYLOAD.*mês inválido/, '9. Mês 0 rejeitado');
+
+    // 10. mês 13 rejeitado
+    assert.throws(() => validateFinanceSemantics({ variable: [{ id: 'v_m13', startMonth: 13 }] }), /INVALID_FINANCE_PAYLOAD.*mês inválido/, '10. Mês 13 rejeitado');
+
+    // 11. mês válido permitido
+    assert.doesNotThrow(() => validateFinanceSemantics({ variable: [{ id: 'v_m11', startMonth: 11 }] }), '11. Mês 11 permitido');
+
+    // 12. installments 0 rejeitado
+    assert.throws(() => validateFinanceSemantics({ variable: [{ id: 'v_inst0', installments: 0 }] }), /INVALID_FINANCE_PAYLOAD.*número de parcelas inválido/, '12. Installments 0 rejeitado');
+
+    // 13. installments negativo rejeitado
+    assert.throws(() => validateFinanceSemantics({ variable: [{ id: 'v_inst_neg', installments: -5 }] }), /INVALID_FINANCE_PAYLOAD.*número de parcelas inválido/, '13. Installments negativo rejeitado');
+
+    // 14. installments > 240 rejeitado
+    assert.throws(() => validateFinanceSemantics({ variable: [{ id: 'v_inst_huge', installments: 241 }] }), /INVALID_FINANCE_PAYLOAD.*número de parcelas inválido/, '14. Installments > 240 rejeitado');
+
+    // 15. installments válido permitido
+    assert.doesNotThrow(() => validateFinanceSemantics({ variable: [{ id: 'v_inst_ok', installments: 12 }] }), '15. Installments 12 permitido');
+
+    // 16. ID duplicado na mesma coleção rejeitado
+    assert.throws(() => validateFinanceSemantics({ fixed: [{ id: 'dup_1' }, { id: 'dup_1' }] }), /INVALID_FINANCE_PAYLOAD.*ID duplicado/, '16. ID duplicado na mesma coleção rejeitado');
+
+    // 17. mesmo ID em coleções diferentes não é automaticamente rejeitado
+    assert.doesNotThrow(() => validateFinanceSemantics({ fixed: [{ id: 'cross_id' }], variable: [{ id: 'cross_id' }] }), '17. Mesmo ID em coleções distintas permitido');
+
+    // 18. string excessiva rejeitada
+    assert.throws(() => validateFinanceSemantics({ fixed: [{ id: 'f_str', name: 'A'.repeat(151) }] }), /INVALID_FINANCE_PAYLOAD.*excede o limite/, '18. Nome com > 150 caracteres rejeitado');
+
+    // 19. paidHistory boolean legado continua legível
+    const payA = getExpensePaymentInfo({ amount: 100, paidHistory: { '2026-03': true } }, 2026, 3);
+    assert.strictEqual(payA.paidAmount, 100, '19. Formato legado A (booleano) retorna valor integral');
+    assert.strictEqual(payA.status, 'pago');
+
+    // 20. paidHistory numérico legado continua legível
+    const payB = getExpensePaymentInfo({ amount: 100, paidHistory: { '2026-03': 40 } }, 2026, 3);
+    assert.strictEqual(payB.paidAmount, 40, '20. Formato legado B (numérico) retorna valor pago');
+    assert.strictEqual(payB.status, 'parcial');
+
+    // 21. paidHistory objeto continua legível
+    const payC = getExpensePaymentInfo({ amount: 100, paidHistory: { '2026-03': { paidAmount: 100, updatedAt: '2026-03-01' } } }, 2026, 3);
+    assert.strictEqual(payC.paidAmount, 100, '21. Formato canônico C retorna valor pago');
+    assert.strictEqual(payC.status, 'pago');
+
+    // 22. gasto de benefício acima do saldo não é bloqueado
+    assert.doesNotThrow(() => validateFinanceSemantics({
+      benefitsConfig: { amount: 100, va: 100, vr: 0 },
+      benefitTransactions: [{ id: 'b_over', amount: 350, month: 3, year: 2026 }]
+    }), '22. Gasto de benefício maior que cota/saldo não é bloqueado');
+
+    // Isolamento HTTP para cenários 23, 24 e 25
+    const suffix5B = 'sec5b_user_' + Date.now();
+    const regRes = await fetch(`${baseUrl}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome: 'Usuário Sec5B',
+        login: suffix5B,
+        email: `${suffix5B}@omnifin.test`,
+        senha: testPassword
+      })
+    });
+    assert.strictEqual(regRes.status, 201);
+    const regData = await regRes.json();
+    const testUser5BId = regData.user.id;
+    const cookie5B = regRes.headers.get('set-cookie') || '';
+    const match5B = cookie5B.match(/omnifin_session=([^;]+)/);
+    const testUser5BToken = (match5B && match5B[1]) || regData.token;
+
+    try {
+      // 23. Resposta com amount não-finito em proposal não persiste / rejeitada na confirmação
+      const propBadAmountId = 'prop_bad_amount_' + Date.now();
+      await storageService.saveAiProposal({
+        _id: propBadAmountId,
+        userId: testUser5BId,
+        action: 'create_expense',
+        status: 'pending',
+        proposal: { description: 'TESTE VALOR', amount: 100, category: 'Gerais', destination: 'Pix', competence: { month: 9, year: 2026 } },
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+      });
+      const confirmBadAmount = await fetch(`${baseUrl}/api/ai/actions/expense/confirm`, {
+        method: 'POST',
+        headers: { 'Cookie': `omnifin_session=${testUser5BToken}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ proposalId: propBadAmountId, data: { amount: -50 } })
+      });
+      assert.strictEqual(confirmBadAmount.status, 400, '23. Amount negativo na confirmação deve retornar 400');
+
+      // 24. userEdits excessivo rejeitado (> 150 chars em description ou > 2000 em notes)
+      const propUserEditsId = 'prop_user_edits_' + Date.now();
+      await storageService.saveAiProposal({
+        _id: propUserEditsId,
+        userId: testUser5BId,
+        action: 'create_expense',
+        status: 'pending',
+        proposal: { description: 'TESTE EDITS', amount: 50, category: 'Gerais', destination: 'Pix', competence: { month: 9, year: 2026 } },
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+      });
+      const confirmExcessiveEdits = await fetch(`${baseUrl}/api/ai/actions/expense/confirm`, {
+        method: 'POST',
+        headers: { 'Cookie': `omnifin_session=${testUser5BToken}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ proposalId: propUserEditsId, data: { description: 'A'.repeat(151) } })
+      });
+      assert.strictEqual(confirmExcessiveEdits.status, 400, '24. userEdits com description > 150 chars deve retornar 400');
+
+      // 25. mensagem actions > 2000 rejeitada
+      const actionOverRes = await fetch(`${baseUrl}/api/ai/actions/interpret`, {
+        method: 'POST',
+        headers: { 'Cookie': `omnifin_session=${testUser5BToken}`, 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify({ message: 'X'.repeat(2001) })
+      });
+      assert.strictEqual(actionOverRes.status, 400, '25. Mensagem > 2000 caracteres em /api/ai/actions/interpret deve retornar 400');
+      const actionOverJson = await actionOverRes.json();
+      assert.strictEqual(actionOverJson.success, false);
+      assert.ok(actionOverJson.message.includes('2000 caracteres'), '25. Mensagem de erro apropriada');
+    } finally {
+      try {
+        const db = getDB();
+        await db.collection('users').deleteOne({ _id: testUser5BId });
+        await db.collection('permissions').deleteOne({ _id: testUser5BId });
+        await db.collection('finances').deleteOne({ _id: testUser5BId });
+        await db.collection('ai_proposals').deleteMany({ userId: testUser5BId });
       } catch (_) {}
     }
   });

@@ -735,8 +735,16 @@ app.post('/api/ai/actions/interpret', authMiddleware, async (req, res) => {
       });
     }
 
+    const cleanMessage = message.trim();
+    if (cleanMessage.length > 2000) {
+      return res.status(400).json({
+        success: false,
+        message: 'A mensagem excede o limite máximo permitido de 2000 caracteres.'
+      });
+    }
+
     const proposalResult = await interpretExpenseAction({
-      message,
+      message: cleanMessage,
       userId: req.user.id,
       userName: req.user.nome,
       conversationId,
