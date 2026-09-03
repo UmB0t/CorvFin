@@ -8077,7 +8077,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.ok(variablesCss.includes('--brand: #1F7A5C'), '6. variables.css deve definir --brand #1F7A5C');
     assert.ok(variablesCss.includes('--brand-strong: #146B57'), '6. variables.css deve definir --brand-strong #146B57');
     assert.ok(variablesCss.includes('--info: #2D7FF9'), '6. variables.css deve definir --info #2D7FF9');
-    assert.ok(themesCss.includes('--bg: #0D1B16'), '6. themes.css dark mode deve usar --bg #0D1B16');
+    assert.ok(themesCss.includes('--bg: #111315') || themesCss.includes('--bg: #0D1B16'), '6. themes.css dark mode deve usar background escuro neutro');
 
     // 7. Assistente usa CorvFin
     assert.ok(aiAssistantJs.includes("data-tooltip', 'Assistente CorvFin'"), '7. Assistente deve ter tooltip Assistente CorvFin');
@@ -8120,6 +8120,66 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     const { validateFinanceSemantics, MAX_DEPTH } = require('../server/services/financeValidation');
     assert.strictEqual(MAX_DEPTH, 8, '15. MAX_DEPTH deve continuar 8');
     assert.throws(() => validateFinanceSemantics({ variable: [{ id: 'v1', amount: NaN }] }), /INVALID_FINANCE_PAYLOAD/, '15. Security 5B: rejeita NaN');
+  });
+
+  /* ==========================================================================
+     CHECKPOINT BRAND 2A — CORVFIN COLOR SYSTEM
+     ========================================================================== */
+  test('Checkpoint Brand 2A: CorvFin Color System & Design Tokens Contract', async () => {
+    const publicDir = path.join(process.cwd(), 'public');
+    const variablesCss = fs.readFileSync(path.join(publicDir, 'css', 'variables.css'), 'utf-8');
+    const themesCss = fs.readFileSync(path.join(publicDir, 'css', 'themes.css'), 'utf-8');
+    const authCss = fs.readFileSync(path.join(publicDir, 'css', 'auth.css'), 'utf-8');
+    const manifestPath = path.join(publicDir, 'manifest.webmanifest');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+
+    // 1. Tokens principais existem e não estão vazios
+    const criticalTokens = [
+      '--bg', '--surface', '--surface-2', '--surface-3', '--surface-sidebar',
+      '--text', '--text-secondary', '--muted', '--line',
+      '--brand', '--brand-strong', '--danger', '--warning', '--success', '--info'
+    ];
+    for (const token of criticalTokens) {
+      assert.ok(variablesCss.includes(`${token}:`), `1. variables.css deve definir ${token}`);
+      assert.ok(themesCss.includes(`${token}:`), `1. themes.css deve definir ${token}`);
+    }
+
+    // 2. Dark Mode usa superfícies neutras (grafite/preto)
+    assert.ok(themesCss.includes('--bg: #111315;'), '2. themes.css dark mode deve usar --bg: #111315');
+    assert.ok(themesCss.includes('--surface: #171A1C;'), '2. themes.css dark mode deve usar --surface: #171A1C');
+    assert.ok(themesCss.includes('--surface-2: #1D2124;'), '2. themes.css dark mode deve usar --surface-2: #1D2124');
+    assert.ok(themesCss.includes('--surface-3: #24292C;'), '2. themes.css dark mode deve usar --surface-3: #24292C');
+    assert.ok(themesCss.includes('--surface-sidebar: #121516;'), '2. themes.css dark mode deve usar --surface-sidebar: #121516');
+
+    // 3. Brand principal correto (#1F7A5C) e Brand Strong (#146B57)
+    assert.ok(variablesCss.includes('--brand: #1F7A5C;'), '3. variables.css deve definir --brand: #1F7A5C');
+    assert.ok(variablesCss.includes('--brand-strong: #146B57;'), '3. variables.css deve definir --brand-strong: #146B57');
+    assert.ok(themesCss.includes('--brand: #1F7A5C;'), '3. themes.css deve definir --brand: #1F7A5C');
+    assert.ok(themesCss.includes('--brand-strong: #146B57;'), '3. themes.css deve definir --brand-strong: #146B57');
+    assert.ok(authCss.includes('--brand: #1F7A5C;'), '3. auth.css deve definir --brand: #1F7A5C');
+    assert.ok(authCss.includes('--brand-strong: #146B57;'), '3. auth.css deve definir --brand-strong: #146B57');
+
+    // 4. Information Blue oficial (#2D7FF9)
+    assert.ok(variablesCss.includes('--info: #2D7FF9;'), '4. variables.css deve definir --info: #2D7FF9');
+    assert.ok(themesCss.includes('--info: #2D7FF9;'), '4. themes.css deve definir --info: #2D7FF9');
+    assert.ok(authCss.includes('--info: #2D7FF9;'), '4. auth.css deve definir --info: #2D7FF9');
+
+    // 5. Cores semânticas funcionais preservadas (danger, warning, success)
+    assert.ok(variablesCss.includes('--danger: #EF4444;'), '5. variables.css deve preservar --danger: #EF4444');
+    assert.ok(variablesCss.includes('--warning: #F59E0B;'), '5. variables.css deve preservar --warning: #F59E0B');
+    assert.ok(variablesCss.includes('--success: #10B981;'), '5. variables.css deve preservar --success: #10B981');
+
+    assert.ok(themesCss.includes('--danger: #EF4444;'), '5. themes.css deve preservar --danger: #EF4444');
+    assert.ok(themesCss.includes('--warning: #F59E0B;'), '5. themes.css deve preservar --warning: #F59E0B');
+    assert.ok(themesCss.includes('--success: #10B981;'), '5. themes.css deve preservar --success: #10B981');
+
+    // 6. Manifests coerentes com a identidade
+    assert.strictEqual(manifest.theme_color, '#1F7A5C', '6. manifest theme_color deve ser #1F7A5C');
+    assert.strictEqual(manifest.background_color, '#0D1B16', '6. manifest background_color deve ser #0D1B16');
+
+    // 7. Ausência de superfícies verdes estruturais no tema Dark
+    assert.strictEqual(themesCss.includes('--bg: #0D1B16;'), false, '7. themes.css dark mode não deve usar verde como background');
+    assert.strictEqual(themesCss.includes('--surface: #13241F;'), false, '7. themes.css dark mode não deve usar verde como surface');
   });
 
 });

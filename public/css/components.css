@@ -140,7 +140,7 @@
       justify-content: center;
       text-align: center;
       color: #FFF;
-      background: #e53e3e;
+      background: var(--danger, #EF4444);
       border: 2px solid #FFF;
       pointer-events: none;
       z-index: 10;
@@ -696,7 +696,7 @@
     .toast-item.toast-success,
     .toast.success,
     #toast.success {
-      background: var(--brand-strong, #1F7A5C) !important;
+      background: var(--brand-strong, #146B57) !important;
       color: #ffffff !important;
       border: 1px solid rgba(255, 255, 255, 0.25) !important;
     }
@@ -704,7 +704,7 @@
     .toast-item.toast-error,
     .toast.error,
     #toast.error {
-      background: #dc2626 !important;
+      background: var(--danger, #EF4444) !important;
       color: #ffffff !important;
       border: 1px solid rgba(255, 255, 255, 0.25) !important;
     }
@@ -712,7 +712,7 @@
     .toast-item.toast-warning,
     .toast.warning,
     #toast.warning {
-      background: #d97706 !important;
+      background: var(--warning, #F59E0B) !important;
       color: #ffffff !important;
       border: 1px solid rgba(255, 255, 255, 0.25) !important;
     }
@@ -1067,7 +1067,7 @@
     .ai-assistant-fab:hover {
       transform: scale(1.08) translateY(-2px);
       box-shadow: 0 8px 24px rgba(31, 122, 92, 0.45);
-      background: var(--brand-strong, #165b44);
+      background: var(--brand-strong, #146B57);
     }
 
     .ai-assistant-fab:active {
@@ -1357,7 +1357,7 @@
     }
 
     .ai-chat-send-btn:hover:not(:disabled) {
-      background: var(--brand-strong, #165b44);
+      background: var(--brand-strong, #146B57);
       transform: translateY(-1px);
     }
 
@@ -1688,8 +1688,8 @@
   position: fixed;
   inset: 0;
   z-index: 99999;
-  background: var(--bg, #0f172a);
-  color: var(--text, #f8fafc);
+  background: var(--bg, #0D1B16);
+  color: var(--text, #F1F5F3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1738,7 +1738,7 @@
 .splash-logo {
   width: 2.4rem;
   height: 2.4rem;
-  stroke: var(--brand, #10b981);
+  stroke: var(--brand, #1F7A5C);
   fill: none;
   stroke-width: 2.2;
 }
@@ -1747,14 +1747,14 @@
   font-size: 1.4rem;
   font-weight: 850;
   letter-spacing: -0.02em;
-  color: var(--text, #f8fafc);
+  color: var(--text, #F1F5F3);
 }
 
 .hydration-splash-spinner {
   width: 28px;
   height: 28px;
   border: 2.5px solid var(--line, rgba(255, 255, 255, 0.15));
-  border-top-color: var(--brand, #10b981);
+  border-top-color: var(--brand, #1F7A5C);
   border-radius: 50%;
   animation: splashSpinner 0.8s linear infinite;
 }
@@ -1766,6 +1766,6 @@
 .hydration-splash-text {
   font-size: 0.9rem;
   font-weight: 500;
-  color: var(--muted, #94a3b8);
+  color: var(--muted, #9AA5B1);
   margin: 0;
 }

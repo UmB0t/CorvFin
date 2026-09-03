@@ -1,69 +1,85 @@
 /* ==========================================================================
    THEMES SYSTEM — CORVFIN V3
-   Dark Mode: Refinamento Visual Verde/Preto Profundo (#0D1B16) & Superfícies Premium
+   Dark Mode: Superfícies Neutras (Grafite / Matte Charcoal) & Accent CorvFin (#1F7A5C)
    Light Mode: Preservado 100% via variables.css
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
-   1. TOKENS DO DARK MODE (VERDE/PRETO PROFUNDO & SUPERFÍCIES PREMIUM)
+   1. TOKENS DO DARK MODE (GRAFITE / NEUTRAL CHARCOAL)
    -------------------------------------------------------------------------- */
 html[data-theme="dark"],
 [data-theme="dark"] {
   color-scheme: dark;
 
-  /* Superfícies Estruturais Premium CorvFin */
-  --bg: #0D1B16;
-  --surface: #13241F;
-  --surface-2: #192E27;
-  --surface-3: #203930;
-  --surface-sidebar: #0F1F19;
+  /* Superfícies Estruturais Neutras (Preto / Grafite) */
+  --bg: #111315;
+  --surface: #171A1C;
+  --surface-2: #1D2124;
+  --surface-3: #24292C;
+  --surface-elevated: #202427;
+  --surface-sidebar: #121516;
 
-  /* Tipografia Neutra / Cinza Secundário */
-  --text: #F1F5F3;
-  --text-secondary: #9AA5B1;
-  --muted: #9AA5B1;
+  /* Tipografia Neutra */
+  --text: #F1F3F2;
+  --text-secondary: #AAB2AE;
+  --text-muted: #7F8984;
+  --text-inverse: #111315;
+  --muted: #7F8984;
 
   /* Linhas e Bordas */
-  --line: #274037;
-  --line-subtle: #1E332C;
+  --line: #2B3134;
+  --line-subtle: #202427;
+  --border: #2B3134;
+  --border-strong: #3A4246;
 
   /* Sombras Neutras */
-  --shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 20px 45px rgba(0, 0, 0, 0.7);
+  --shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 20px 45px rgba(0, 0, 0, 0.65);
 
   /* Accent e Cores da Marca CorvFin */
   --brand: #1F7A5C;
   --brand-strong: #146B57;
-  --brand-soft: rgba(31, 122, 92, 0.25);
+  --brand-hover: #26916E;
+  --brand-active: #146B57;
+  --brand-soft: rgba(31, 122, 92, 0.22);
+  --brand-border: rgba(31, 122, 92, 0.45);
 
   /* Cores Semânticas de Estado */
   --danger: #EF4444;
   --danger-soft: rgba(239, 68, 68, 0.18);
+  --danger-border: rgba(239, 68, 68, 0.35);
   --warning: #F59E0B;
   --warning-soft: rgba(245, 158, 11, 0.18);
+  --warning-border: rgba(245, 158, 11, 0.35);
   --success: #10B981;
   --success-soft: rgba(16, 185, 129, 0.18);
+  --success-border: rgba(16, 185, 129, 0.35);
   --info: #2D7FF9;
-  --info-soft: rgba(45, 127, 249, 0.2);
+  --info-soft: rgba(45, 127, 249, 0.20);
+  --info-border: rgba(45, 127, 249, 0.40);
 
   /* Cores Semânticas para Categorias / Gráficos / Lançamentos */
   --c-fixed: #818CF8;
-  --c-fixed-soft: rgba(129, 140, 248, 0.2);
+  --c-fixed-soft: rgba(129, 140, 248, 0.20);
   --c-variable: #F59E0B;
-  --c-variable-soft: rgba(245, 158, 11, 0.2);
+  --c-variable-soft: rgba(245, 158, 11, 0.20);
   --c-invest: #1F7A5C;
   --c-invest-soft: rgba(31, 122, 92, 0.25);
   --c-extra: #34D399;
-  --c-extra-soft: rgba(52, 211, 153, 0.2);
+  --c-extra-soft: rgba(52, 211, 153, 0.20);
   --c-debt: #EF4444;
-  --c-debt-soft: rgba(239, 68, 68, 0.2);
+  --c-debt-soft: rgba(239, 68, 68, 0.20);
+  --c-benefit: #F472B6;
+  --c-benefit-soft: rgba(244, 114, 182, 0.20);
+  --c-sim: #22D3EE;
+  --c-sim-soft: rgba(34, 211, 238, 0.20);
 }
 
 /* --------------------------------------------------------------------------
    2. HIERARQUIA ESTRUTURAL — SIDEBAR & HEADER
    -------------------------------------------------------------------------- */
 [data-theme="dark"] .sidebar {
-  background: var(--surface-sidebar, #171A1C) !important;
+  background: var(--surface-sidebar, #121516) !important;
   border-right-color: var(--line) !important;
 }
 
@@ -96,7 +112,7 @@ html[data-theme="dark"],
    3. BARRA SUPERIOR E TOOLBAR
    -------------------------------------------------------------------------- */
 [data-theme="dark"] .pill-toolbar {
-  background: var(--surface-sidebar, #171A1C) !important;
+  background: var(--surface-sidebar, #121516) !important;
   border-color: var(--line) !important;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
 }
@@ -132,7 +148,7 @@ html[data-theme="dark"],
 }
 
 [data-theme="dark"] .section-head {
-  background: var(--surface-sidebar, #171A1C) !important;
+  background: var(--surface-sidebar, #121516) !important;
   border-color: var(--line) !important;
 }
 
@@ -251,12 +267,12 @@ html[data-theme="dark"],
 }
 
 [data-theme="dark"] .dialog-head {
-  background: var(--surface-sidebar, #171A1C) !important;
+  background: var(--surface-sidebar, #121516) !important;
   border-color: var(--line) !important;
 }
 
 [data-theme="dark"] .dialog-foot {
-  background: var(--surface-sidebar, #171A1C) !important;
+  background: var(--surface-sidebar, #121516) !important;
   border-color: var(--line) !important;
 }
 
@@ -264,7 +280,7 @@ html[data-theme="dark"],
    8. COMPONENTES MÓVEIS (DRAWER E BOTTOM BAR)
    -------------------------------------------------------------------------- */
 [data-theme="dark"] .bottom-nav-bar {
-  background: var(--surface-sidebar, #171A1C) !important;
+  background: var(--surface-sidebar, #121516) !important;
   border-color: var(--line) !important;
 }
 
@@ -305,12 +321,12 @@ html[data-theme="dark"],
 }
 
 [data-theme="dark"] .notification-badge {
-  border-color: var(--surface-sidebar, #171A1C) !important;
+  border-color: var(--surface-sidebar, #121516) !important;
 }
 
 [data-theme="dark"] .notification-badge.unread-dot {
   background: var(--brand) !important;
-  border-color: var(--surface-sidebar, #171A1C) !important;
+  border-color: var(--surface-sidebar, #121516) !important;
 }
 
 [data-theme="dark"] .chart-type-btn.active {

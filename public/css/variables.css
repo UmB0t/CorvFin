@@ -1,38 +1,69 @@
-    :root {
-      color-scheme: light;
-      --bg: #F3F7F5;
-      --surface: #FFFFFF;
-      --surface-2: #E8F0EC;
-      --surface-3: #DDE8E2;
-      --text: #14221D;
-      --muted: #5C7067;
-      --line: #D3E0D8;
-      --shadow: 0 14px 34px rgba(20, 48, 38, 0.07);
-      --shadow-lg: 0 20px 45px rgba(20, 48, 38, 0.12);
-      --radius: 18px;
-      --radius-sm: 12px;
-      --mobile-bottom-nav-height: 62px;
+:root {
+  color-scheme: light;
 
-      --brand: #1F7A5C;
-      --brand-strong: #146B57;
-      --brand-soft: #DEF1E7;
-      --danger: #C0392B;
-      --danger-soft: #FCEAE8;
-      --warning: #D97706;
-      --warning-soft: #FEF3C7;
-      --success: #16A34A;
-      --success-soft: #DCFCE7;
-      --info: #2D7FF9;
-      --info-soft: #DBEAFE;
+  /* Superfícies Neutras & Estrutura Base */
+  --bg: #F4F7F5;
+  --surface: #FFFFFF;
+  --surface-2: #E8F0EC;
+  --surface-3: #DDE8E2;
+  --surface-elevated: #FFFFFF;
+  --surface-sidebar: #FFFFFF;
 
-      --c-fixed: #4F46E5;
-      --c-fixed-soft: #EEF2FF;
-      --c-variable: #D97706;
-      --c-variable-soft: #FEF3C7;
-      --c-invest: #1F7A5C;
-      --c-invest-soft: #DEF1E7;
-      --c-extra: #059669;
-      --c-extra-soft: #D1FAE5;
-      --c-debt: #DC2626;
-      --c-debt-soft: #FEE2E2;
-    }
+  /* Tipografia */
+  --text: #14221D;
+  --text-secondary: #5C7067;
+  --text-muted: #7A8E85;
+  --text-inverse: #FFFFFF;
+  --muted: #5C7067;
+
+  /* Linhas e Bordas */
+  --line: #D3E0D8;
+  --line-subtle: #E2ECE6;
+  --border: #D3E0D8;
+  --border-strong: #B8CCC1;
+
+  /* Sombras & Elevações */
+  --shadow: 0 14px 34px rgba(20, 48, 38, 0.07);
+  --shadow-lg: 0 20px 45px rgba(20, 48, 38, 0.12);
+  --radius: 18px;
+  --radius-sm: 12px;
+  --mobile-bottom-nav-height: 62px;
+
+  /* Paleta Oficial CorvFin */
+  --brand: #1F7A5C;
+  --brand-strong: #146B57;
+  --brand-hover: #146B57;
+  --brand-active: #0E4E3F;
+  --brand-soft: #DEF1E7;
+  --brand-border: #97CEBA;
+
+  /* Cores Semânticas de Estado */
+  --danger: #EF4444;
+  --danger-soft: #FEE2E2;
+  --danger-border: #FCA5A5;
+  --warning: #F59E0B;
+  --warning-soft: #FEF3C7;
+  --warning-border: #FCD34D;
+  --success: #10B981;
+  --success-soft: #DCFCE7;
+  --success-border: #6EE7B7;
+  --info: #2D7FF9;
+  --info-soft: #DBEAFE;
+  --info-border: #93C5FD;
+
+  /* Categorias / Lançamentos / Gráficos */
+  --c-fixed: #4F46E5;
+  --c-fixed-soft: #EEF2FF;
+  --c-variable: #F59E0B;
+  --c-variable-soft: #FEF3C7;
+  --c-invest: #1F7A5C;
+  --c-invest-soft: #DEF1E7;
+  --c-extra: #10B981;
+  --c-extra-soft: #D1FAE5;
+  --c-debt: #DC2626;
+  --c-debt-soft: #FEE2E2;
+  --c-benefit: #EC4899;
+  --c-benefit-soft: #FCE7F3;
+  --c-sim: #06B6D4;
+  --c-sim-soft: #CFFAFE;
+}
