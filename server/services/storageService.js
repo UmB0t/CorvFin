@@ -30,6 +30,10 @@ module.exports = {
   getMaintenanceConfig: (...args) => getActiveStorage().getMaintenanceConfig(...args),
   saveMaintenanceConfig: (...args) => getActiveStorage().saveMaintenanceConfig(...args),
 
+  // Global Email Settings Storage Helpers (Security 6A)
+  getEmailSettings: (...args) => getActiveStorage().getEmailSettings(...args),
+  saveEmailSettings: (...args) => getActiveStorage().saveEmailSettings(...args),
+
   // Finances Storage Helpers
   getAllFinances: (...args) => getActiveStorage().getAllFinances(...args),
   saveAllFinances: (...args) => getActiveStorage().saveAllFinances(...args),

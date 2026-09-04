@@ -682,6 +682,46 @@ async function updateAiPendingAction(userId, conversationId, updateFields = {}) 
   return { _id, id: _id, ...rest };
 }
 
+/* ==========================================================================
+   GLOBAL SETTINGS REPOSITORY (Collection 'settings': _id = 'email_settings', etc.)
+   ========================================================================== */
+
+const DEFAULT_EMAIL_SETTINGS = {
+  enabled: false,
+  host: 'smtp.hostinger.com',
+  port: 465,
+  secure: true,
+  username: 'no-reply@corvfin.com.br',
+  encryptedPassword: null,
+  fromName: 'CorvFin',
+  fromEmail: 'no-reply@corvfin.com.br'
+};
+
+async function getEmailSettings() {
+  const col = await getCollection('settings');
+  const doc = await col.findOne({ _id: 'email_settings' });
+  if (!doc) {
+    return Object.assign({}, DEFAULT_EMAIL_SETTINGS);
+  }
+  const { _id, ...rest } = doc;
+  return Object.assign({}, DEFAULT_EMAIL_SETTINGS, rest);
+}
+
+async function saveEmailSettings(newSettings) {
+  const col = await getCollection('settings');
+  const current = await getEmailSettings();
+  const merged = Object.assign({}, current, newSettings || {}, {
+    updatedAt: new Date().toISOString()
+  });
+
+  await col.updateOne(
+    { _id: 'email_settings' },
+    { $set: { _id: 'email_settings', ...merged } },
+    { upsert: true }
+  );
+  return merged;
+}
+
 module.exports = {
   getUsers,
   getUserById,
@@ -692,6 +732,8 @@ module.exports = {
   saveDefaultPermissions,
   getMaintenanceConfig,
   saveMaintenanceConfig,
+  getEmailSettings,
+  saveEmailSettings,
   getUserPermissions,
   setUserPermissions,
   getAllFinances,

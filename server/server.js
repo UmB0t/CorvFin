@@ -20,6 +20,8 @@ const {
   saveDefaultPermissions,
   getMaintenanceConfig,
   saveMaintenanceConfig,
+  getEmailSettings,
+  saveEmailSettings,
   getUserPermissions,
   setUserPermissions,
   getUserFinances,
@@ -29,6 +31,8 @@ const {
 } = require('./services/storageService');
 const { authMiddleware, adminOnlyMiddleware } = require('./middleware/auth');
 const { sanitizeFinancePayload, applyRbacModulePreservation } = require('./services/financeValidation');
+const cryptoService = require('./services/cryptoService');
+const mailService = require('./services/mailService');
 const {
   buildFinancialContext,
   SYSTEM_GUIDE_CONTEXT,
@@ -247,6 +251,20 @@ const aiLimiter = rateLimit({
     success: false,
     error: 'AI_RATE_LIMIT_EXCEEDED',
     message: 'Muitas mensagens enviadas ao assistente de IA. Aguarde um instante antes de nova consulta.'
+  }
+});
+
+// Limitador de Testes SMTP (/api/admin/email-settings/test)
+const emailTestLimiter = rateLimit({
+  windowMs: config.EMAIL_TEST_RATE_LIMIT_WINDOW_MS || (15 * 60 * 1000),
+  max: config.EMAIL_TEST_RATE_LIMIT_MAX || 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  validate: false,
+  message: {
+    success: false,
+    error: 'TOO_MANY_REQUESTS',
+    message: 'Muitas tentativas de teste de e-mail. Aguarde 15 minutos antes de tentar novamente.'
   }
 });
 
@@ -1377,6 +1395,231 @@ app.put('/api/admin/maintenance', authMiddleware, adminOnlyMiddleware, async (re
   } catch (err) {
     console.error('Erro ao salvar configuração de manutenção:', err);
     return res.status(500).json({ success: false, message: 'Erro ao salvar configuração de manutenção.' });
+  }
+});
+
+/* ==========================================================================
+   ADMIN EMAIL & SMTP SETTINGS (Checkpoint Security 6A)
+   ========================================================================== */
+
+// GET /api/admin/email-settings - Consulta configuração SMTP sanitizada (sem senha)
+app.get('/api/admin/email-settings', authMiddleware, adminOnlyMiddleware, async (req, res) => {
+  try {
+    const settings = await getEmailSettings();
+    return res.json({
+      success: true,
+      settings: {
+        enabled: Boolean(settings.enabled),
+        host: settings.host || '',
+        port: Number(settings.port) || 465,
+        secure: Boolean(settings.secure),
+        username: settings.username || '',
+        passwordConfigured: Boolean(settings.encryptedPassword),
+        fromName: settings.fromName || '',
+        fromEmail: settings.fromEmail || '',
+        updatedAt: settings.updatedAt || null
+      }
+    });
+  } catch (err) {
+    console.error('Erro ao consultar configurações de e-mail:', err);
+    return res.status(500).json({ success: false, message: 'Erro ao consultar configurações de e-mail.' });
+  }
+});
+
+// PUT /api/admin/email-settings - Atualiza configuração SMTP com validação estrita e criptografia
+app.put('/api/admin/email-settings', authMiddleware, adminOnlyMiddleware, async (req, res) => {
+  try {
+    const { enabled, host, port, secure, username, password, fromName, fromEmail } = req.body || {};
+
+    // 1. Validação de campos obrigatórios básicos
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'Campo "enabled" deve ser booleano.' });
+    }
+
+    if (typeof host !== 'string' || !host.trim() || host.trim().length > 255) {
+      return res.status(400).json({ success: false, message: 'Campo "host" é obrigatório e deve ter até 255 caracteres.' });
+    }
+
+    const cleanHost = host.trim();
+
+    // 2. Validação Anti-SSRF e Higienização de Host
+    // Bloqueia esquemas de protocolo (http://, https://, smtp://, etc.), barras, caracteres de controle e espaços
+    if (cleanHost.includes('://') || cleanHost.includes('/') || cleanHost.includes('\\') || cleanHost.includes('@') || cleanHost.includes(' ') || /[\r\n\t]/.test(cleanHost)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Host SMTP inválido. Informe apenas o hostname ou endereço IP, sem protocolos (http://, smtp://), barras ou espaços.'
+      });
+    }
+
+    // Valida formato de hostname/FQDN ou IP (caracteres alfanuméricos, pontos e hífens)
+    if (!/^[a-zA-Z0-9.-]+$/.test(cleanHost)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Host SMTP contém caracteres inválidos.'
+      });
+    }
+
+    // Em produção: proteção explícita contra SSRF para loopback e metadata AWS
+    if (config.NODE_ENV === 'production') {
+      const lowerHost = cleanHost.toLowerCase();
+      if (
+        lowerHost === 'localhost' ||
+        lowerHost === '127.0.0.1' ||
+        lowerHost === '0.0.0.0' ||
+        lowerHost.startsWith('127.') ||
+        lowerHost === '169.254.169.254'
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: 'Host SMTP não pode apontar para endereços de loopback ou metadados em ambiente de produção.'
+        });
+      }
+    }
+
+    // 3. Validação de Porta
+    const parsedPort = parseInt(port, 10);
+    if (isNaN(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
+      return res.status(400).json({ success: false, message: 'Campo "port" deve ser um número inteiro entre 1 e 65535.' });
+    }
+
+    // 4. Validação de Conexão Segura
+    if (typeof secure !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'Campo "secure" deve ser booleano.' });
+    }
+
+    // 5. Validação de Usuário
+    if (typeof username !== 'string' || !username.trim() || username.trim().length > 255) {
+      return res.status(400).json({ success: false, message: 'Campo "username" é obrigatório e deve ter até 255 caracteres.' });
+    }
+
+    // 6. Validação de Nome e E-mail do Remetente
+    const cleanFromName = (typeof fromName === 'string' ? fromName.trim() : 'CorvFin').slice(0, 100);
+    if (/[\r\n]/.test(cleanFromName)) {
+      return res.status(400).json({ success: false, message: 'Nome do remetente não pode conter quebras de linha.' });
+    }
+
+    const cleanFromEmail = typeof fromEmail === 'string' ? fromEmail.trim() : '';
+    const fromEmailCheck = validateEmail(cleanFromEmail);
+    if (!cleanFromEmail || !fromEmailCheck.valid) {
+      return res.status(400).json({ success: false, message: 'E-mail do remetente inválido.' });
+    }
+
+    // 7. Gerenciamento Seguro da Senha SMTP
+    const currentSettings = await getEmailSettings();
+    let encryptedPassword = currentSettings.encryptedPassword;
+
+    // Se nova senha foi fornecida (não vazia)
+    if (password !== undefined && password !== null && String(password).trim().length > 0) {
+      const cleanPassword = String(password).trim();
+      if (cleanPassword.length > 500) {
+        return res.status(400).json({ success: false, message: 'Senha SMTP excede o limite máximo permitido (500 caracteres).' });
+      }
+
+      if (!cryptoService.isEncryptionConfigured()) {
+        return res.status(500).json({
+          success: false,
+          message: 'Não é possível criptografar a senha SMTP: MAIL_CONFIG_ENCRYPTION_KEY não configurada no ambiente do servidor.'
+        });
+      }
+
+      encryptedPassword = cryptoService.encrypt(cleanPassword);
+    }
+
+    // Se ativado, exige que uma senha esteja configurada
+    if (enabled && !encryptedPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Senha SMTP é obrigatória para ativar o serviço de e-mails.'
+      });
+    }
+
+    // 8. Salvar Configuração
+    const saved = await saveEmailSettings({
+      enabled,
+      host: cleanHost,
+      port: parsedPort,
+      secure,
+      username: username.trim(),
+      encryptedPassword,
+      fromName: cleanFromName,
+      fromEmail: cleanFromEmail,
+      updatedBy: req.user.id
+    });
+
+    // Invalida transporter em memória imediatamente para aplicar novas configurações
+    mailService.invalidateTransporter();
+
+    console.log(`[Audit] SMTP_CONFIG_UPDATED: Configuração de e-mail atualizada por admin "${req.user.login}" (${req.user.id}). Status: ${enabled ? 'Ativado' : 'Desativado'}.`);
+
+    return res.json({
+      success: true,
+      message: 'Configurações de e-mail atualizadas com sucesso!',
+      settings: {
+        enabled: Boolean(saved.enabled),
+        host: saved.host,
+        port: saved.port,
+        secure: Boolean(saved.secure),
+        username: saved.username,
+        passwordConfigured: Boolean(saved.encryptedPassword),
+        fromName: saved.fromName,
+        fromEmail: saved.fromEmail,
+        updatedAt: saved.updatedAt
+      }
+    });
+  } catch (err) {
+    console.error('Erro ao salvar configurações de e-mail:', err);
+    return res.status(500).json({ success: false, message: 'Erro interno ao salvar configurações de e-mail.' });
+  }
+});
+
+// POST /api/admin/email-settings/test - Teste controlado de conectividade ou envio
+app.post('/api/admin/email-settings/test', authMiddleware, adminOnlyMiddleware, emailTestLimiter, async (req, res) => {
+  try {
+    const { action } = req.body || {};
+    const effectiveAction = (typeof action === 'string' ? action.trim().toLowerCase() : 'verify');
+
+    if (!['verify', 'send'].includes(effectiveAction)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ação de teste inválida. Use "verify" para testar conexão ou "send" para enviar e-mail de teste.'
+      });
+    }
+
+    if (effectiveAction === 'verify') {
+      await mailService.verifyConnection();
+      console.log(`[Audit] SMTP_CONNECTION_TESTED: Conexão testada com sucesso por admin "${req.user.login}" (${req.user.id}).`);
+      return res.json({
+        success: true,
+        message: 'Conexão e autenticação com o servidor SMTP estabelecidas com sucesso!'
+      });
+    }
+
+    // effectiveAction === 'send'
+    // O envio de teste é restrito estritamente ao e-mail cadastrado do administrador autenticado
+    const recipientEmail = (req.user.email || '').trim();
+    const recipientCheck = validateEmail(recipientEmail);
+    if (!recipientEmail || !recipientCheck.valid) {
+      return res.status(400).json({
+        success: false,
+        message: 'O administrador autenticado não possui um e-mail válido cadastrado para receber o teste.'
+      });
+    }
+
+    const result = await mailService.sendTestEmail(recipientEmail, req.user.nome);
+    console.log(`[Audit] SMTP_TEST_EMAIL_SENT: E-mail de teste enviado para "${recipientEmail}" por admin "${req.user.login}" (${req.user.id}). MessageId: ${result.messageId}`);
+
+    return res.json({
+      success: true,
+      message: `E-mail de teste enviado com sucesso para ${recipientEmail}!`,
+      messageId: result.messageId
+    });
+  } catch (err) {
+    console.error('[Audit] SMTP_TEST_FAILED: Falha no teste SMTP executado por admin:', err.message);
+    return res.status(400).json({
+      success: false,
+      error: err.code || 'SMTP_TEST_FAILED',
+      message: err.message || 'Falha ao executar teste SMTP.'
+    });
   }
 });
 

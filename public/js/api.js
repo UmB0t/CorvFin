@@ -221,7 +221,12 @@
     // System & Maintenance endpoints
     getSystemMaintenance: () => request('/api/system/maintenance', { method: 'GET' }),
     getMaintenanceConfig: () => request('/api/admin/maintenance', { method: 'GET' }),
-    saveMaintenanceConfig: (maintenance) => request('/api/admin/maintenance', { method: 'PUT', body: JSON.stringify({ maintenance }) })
+    saveMaintenanceConfig: (maintenance) => request('/api/admin/maintenance', { method: 'PUT', body: JSON.stringify({ maintenance }) }),
+
+    // Email & SMTP endpoints (Security 6A)
+    getEmailSettings: () => request('/api/admin/email-settings', { method: 'GET' }),
+    saveEmailSettings: (settings) => request('/api/admin/email-settings', { method: 'PUT', body: JSON.stringify(settings) }),
+    testEmailSettings: (payload) => request('/api/admin/email-settings/test', { method: 'POST', body: JSON.stringify(payload || {}) })
   };
 
   // Garante disponibilidade global irrestrita

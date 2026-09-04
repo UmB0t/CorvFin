@@ -98,5 +98,11 @@ module.exports = {
   N8N_AI_ACTION_WEBHOOK_URL: (process.env.N8N_AI_ACTION_WEBHOOK_URL || process.env.N8N_ACTION_WEBHOOK_URL || process.env.N8N_AI_ACTION_URL || '').trim(),
   N8N_AI_ACTION_BASIC_AUTH_USER: (process.env.N8N_AI_ACTION_BASIC_AUTH_USER || process.env.N8N_ACTION_BASIC_AUTH_USER || process.env.N8N_AI_BASIC_AUTH_USER || process.env.N8N_BASIC_AUTH_USER || '').trim(),
   N8N_AI_ACTION_BASIC_AUTH_PASSWORD: (process.env.N8N_AI_ACTION_BASIC_AUTH_PASSWORD || process.env.N8N_ACTION_BASIC_AUTH_PASSWORD || process.env.N8N_AI_BASIC_AUTH_PASSWORD || process.env.N8N_BASIC_AUTH_PASSWORD || '').trim(),
-  AI_ACTION_REQUEST_TIMEOUT_MS: parseInt(process.env.AI_ACTION_REQUEST_TIMEOUT_MS || process.env.AI_REQUEST_TIMEOUT_MS, 10) || 30000
+  AI_ACTION_REQUEST_TIMEOUT_MS: parseInt(process.env.AI_ACTION_REQUEST_TIMEOUT_MS || process.env.AI_REQUEST_TIMEOUT_MS, 10) || 30000,
+
+  // SMTP Transacional & Criptografia (Checkpoint Security 6A)
+  MAIL_CONFIG_ENCRYPTION_KEY: (process.env.MAIL_CONFIG_ENCRYPTION_KEY || '').trim(),
+  EMAIL_SETTINGS_FILE: path.join(__dirname, '..', 'data', 'email_settings.json'),
+  EMAIL_TEST_RATE_LIMIT_WINDOW_MS: parseInt(process.env.EMAIL_TEST_RATE_LIMIT_WINDOW_MS, 10) || (15 * 60 * 1000), // 15 min
+  EMAIL_TEST_RATE_LIMIT_MAX: parseInt(process.env.EMAIL_TEST_RATE_LIMIT_MAX, 10) || 5
 };

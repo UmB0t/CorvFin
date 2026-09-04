@@ -726,8 +726,24 @@ const AdminModule = (() => {
       btnSaveMaint.onclick = (e) => saveMaintenanceConfig(e);
     }
 
+    const btnSaveSmtp = document.getElementById('btn-save-smtp');
+    if (btnSaveSmtp) {
+      btnSaveSmtp.onclick = (e) => saveEmailSettings(e);
+    }
+
+    const btnTestSmtp = document.getElementById('btn-test-smtp-conn');
+    if (btnTestSmtp) {
+      btnTestSmtp.onclick = (e) => testEmailConnection(e);
+    }
+
+    const btnSendTest = document.getElementById('btn-send-test-email');
+    if (btnSendTest) {
+      btnSendTest.onclick = (e) => sendTestEmail(e);
+    }
+
     await loadDefaultPermissions();
     await loadMaintenanceConfig();
+    await loadEmailSettings();
   }
 
   // Load Default Permissions for new users
@@ -1013,6 +1029,203 @@ const AdminModule = (() => {
     }
   }
 
+  /* ==========================================================================
+     EMAIL & SMTP SETTINGS METHODS (SECURITY 6A)
+     ========================================================================== */
+
+  let currentEmailSettings = null;
+
+  function updateSmtpBadge(enabled, configured) {
+    const badge = document.getElementById('smtpStatusBadge');
+    if (!badge) return;
+
+    if (!configured) {
+      badge.textContent = 'Não configurado';
+      badge.style.background = 'rgba(239, 68, 68, 0.15)';
+      badge.style.color = '#EF4444';
+      badge.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+    } else if (enabled) {
+      badge.textContent = 'Ativado e operacional';
+      badge.style.background = 'rgba(16, 185, 129, 0.15)';
+      badge.style.color = '#10B981';
+      badge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+    } else {
+      badge.textContent = 'Configurado (Desativado)';
+      badge.style.background = 'rgba(245, 158, 11, 0.15)';
+      badge.style.color = '#F59E0B';
+      badge.style.border = '1px solid rgba(245, 158, 11, 0.3)';
+    }
+  }
+
+  function showSmtpActionFeedback(msg, isSuccess = true) {
+    const box = document.getElementById('smtp-action-feedback');
+    if (!box) return;
+    box.style.display = 'block';
+    box.textContent = msg;
+    if (isSuccess) {
+      box.style.background = 'rgba(16, 185, 129, 0.15)';
+      box.style.color = '#10B981';
+      box.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+    } else {
+      box.style.background = 'rgba(239, 68, 68, 0.15)';
+      box.style.color = '#EF4444';
+      box.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+    }
+  }
+
+  async function loadEmailSettings() {
+    if (typeof API === 'undefined' || !API.getEmailSettings) return;
+
+    try {
+      const res = await API.getEmailSettings();
+      if (res && res.success && res.settings) {
+        currentEmailSettings = res.settings;
+
+        const elEnabled = document.getElementById('smtp-enabled');
+        const elHost = document.getElementById('smtp-host');
+        const elPort = document.getElementById('smtp-port');
+        const elSecure = document.getElementById('smtp-secure');
+        const elUsername = document.getElementById('smtp-username');
+        const elPassword = document.getElementById('smtp-password');
+        const elFromName = document.getElementById('smtp-from-name');
+        const elFromEmail = document.getElementById('smtp-from-email');
+        const elPassInd = document.getElementById('smtp-password-indicator');
+
+        if (elEnabled) elEnabled.checked = Boolean(res.settings.enabled);
+        if (elHost) elHost.value = res.settings.host || '';
+        if (elPort) elPort.value = res.settings.port || 465;
+        if (elSecure) elSecure.value = String(res.settings.secure);
+        if (elUsername) elUsername.value = res.settings.username || '';
+        if (elFromName) elFromName.value = res.settings.fromName || '';
+        if (elFromEmail) elFromEmail.value = res.settings.fromEmail || '';
+        if (elPassword) elPassword.value = '';
+
+        if (elPassInd) {
+          elPassInd.textContent = res.settings.passwordConfigured ? '(Senha salva e protegida)' : '(Nenhuma senha configurada)';
+          elPassInd.style.color = res.settings.passwordConfigured ? '#10B981' : '#F59E0B';
+        }
+
+        updateSmtpBadge(res.settings.enabled, res.settings.passwordConfigured && Boolean(res.settings.host));
+      }
+    } catch (err) {
+      console.error('Erro ao carregar configurações SMTP:', err);
+    }
+  }
+
+  async function saveEmailSettings(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const btn = document.getElementById('btn-save-smtp');
+    const origText = btn ? btn.innerHTML : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = 'Salvando...';
+    }
+
+    try {
+      const enabled = Boolean(document.getElementById('smtp-enabled')?.checked);
+      const host = (document.getElementById('smtp-host')?.value || '').trim();
+      const port = parseInt(document.getElementById('smtp-port')?.value, 10);
+      const secure = document.getElementById('smtp-secure')?.value === 'true';
+      const username = (document.getElementById('smtp-username')?.value || '').trim();
+      const password = document.getElementById('smtp-password')?.value;
+      const fromName = (document.getElementById('smtp-from-name')?.value || '').trim();
+      const fromEmail = (document.getElementById('smtp-from-email')?.value || '').trim();
+
+      const payload = {
+        enabled,
+        host,
+        port,
+        secure,
+        username,
+        fromName,
+        fromEmail
+      };
+
+      if (password && password.trim().length > 0) {
+        payload.password = password.trim();
+      }
+
+      const res = await API.saveEmailSettings(payload);
+      if (res && res.success) {
+        showFeedback(res.message || 'Configurações de e-mail salvas com sucesso!', 'success');
+        showSmtpActionFeedback('Configurações salvas com sucesso!', true);
+        await loadEmailSettings();
+      } else {
+        showFeedback(res?.message || 'Falha ao salvar configurações de e-mail.', 'error');
+        showSmtpActionFeedback(res?.message || 'Falha ao salvar configurações de e-mail.', false);
+      }
+    } catch (err) {
+      console.error('Erro ao salvar configurações de e-mail:', err);
+      showFeedback('Erro de comunicação ao salvar configurações SMTP.', 'error');
+      showSmtpActionFeedback('Erro de comunicação ao salvar configurações SMTP.', false);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = origText;
+      }
+    }
+  }
+
+  async function testEmailConnection(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const btn = document.getElementById('btn-test-smtp-conn');
+    const origText = btn ? btn.innerHTML : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = 'Testando...';
+    }
+
+    try {
+      const res = await API.testEmailSettings({ action: 'verify' });
+      if (res && res.success) {
+        showFeedback(res.message || 'Conexão SMTP validada com sucesso!', 'success');
+        showSmtpActionFeedback(res.message || 'Conexão SMTP validada com sucesso!', true);
+      } else {
+        showFeedback(res?.message || 'Falha ao conectar ao servidor SMTP.', 'error');
+        showSmtpActionFeedback(res?.message || 'Falha ao conectar ao servidor SMTP.', false);
+      }
+    } catch (err) {
+      console.error('Erro ao testar conexão SMTP:', err);
+      showFeedback('Erro ao testar conexão SMTP.', 'error');
+      showSmtpActionFeedback('Erro de rede ou timeout ao testar conexão SMTP.', false);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = origText;
+      }
+    }
+  }
+
+  async function sendTestEmail(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const btn = document.getElementById('btn-send-test-email');
+    const origText = btn ? btn.innerHTML : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = 'Enviando...';
+    }
+
+    try {
+      const res = await API.testEmailSettings({ action: 'send' });
+      if (res && res.success) {
+        showFeedback(res.message || 'E-mail de teste enviado!', 'success');
+        showSmtpActionFeedback(res.message || 'E-mail de teste enviado!', true);
+      } else {
+        showFeedback(res?.message || 'Falha no envio do e-mail de teste.', 'error');
+        showSmtpActionFeedback(res?.message || 'Falha no envio do e-mail de teste.', false);
+      }
+    } catch (err) {
+      console.error('Erro ao enviar e-mail de teste:', err);
+      showFeedback('Erro ao enviar e-mail de teste.', 'error');
+      showSmtpActionFeedback('Erro de rede ou timeout ao enviar e-mail de teste.', false);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = origText;
+      }
+    }
+  }
+
   document.addEventListener('tabChanged', (e) => {
     if (e.detail && (e.detail.tabId === 'tab-admin' || e.detail.tabId === 'tab-config')) {
       render();
@@ -1026,6 +1239,10 @@ const AdminModule = (() => {
     saveDefaultPermissions,
     loadMaintenanceConfig,
     saveMaintenanceConfig,
+    loadEmailSettings,
+    saveEmailSettings,
+    testEmailConnection,
+    sendTestEmail,
     openCreateUserModal,
     openEditUserModal,
     openManageModulesModal,

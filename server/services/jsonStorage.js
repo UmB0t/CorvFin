@@ -413,6 +413,34 @@ function updateAiPendingAction(userId, conversationId, updateFields = {}) {
   return doc;
 }
 
+const DEFAULT_EMAIL_SETTINGS = {
+  enabled: false,
+  host: 'smtp.hostinger.com',
+  port: 465,
+  secure: true,
+  username: 'no-reply@corvfin.com.br',
+  encryptedPassword: null,
+  fromName: 'CorvFin',
+  fromEmail: 'no-reply@corvfin.com.br'
+};
+
+function getEmailSettings() {
+  const filePath = config.EMAIL_SETTINGS_FILE || path.join(config.DATA_DIR, 'email_settings.json');
+  const saved = safeReadJSON(filePath, DEFAULT_EMAIL_SETTINGS);
+  return Object.assign({}, DEFAULT_EMAIL_SETTINGS, saved || {});
+}
+
+function saveEmailSettings(newSettings) {
+  const filePath = config.EMAIL_SETTINGS_FILE || path.join(config.DATA_DIR, 'email_settings.json');
+  const current = getEmailSettings();
+  const merged = Object.assign({}, current, newSettings || {}, {
+    updatedAt: new Date().toISOString()
+  });
+
+  safeWriteJSON(filePath, merged);
+  return merged;
+}
+
 module.exports = {
   getUsers,
   getUserById,
@@ -423,6 +451,8 @@ module.exports = {
   saveDefaultPermissions,
   getMaintenanceConfig,
   saveMaintenanceConfig,
+  getEmailSettings,
+  saveEmailSettings,
   getUserPermissions,
   setUserPermissions,
   getAllFinances,

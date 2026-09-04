@@ -1810,6 +1810,102 @@
             <!-- Renderizado dinamicamente por AdminModule.loadMaintenanceConfig() -->
           </div>
         </div>
+
+        <!-- SEÇÃO: CONFIGURAÇÃO DE E-MAIL / SMTP TRANSACIONAL (SECURITY 6A) -->
+        <div class="card section-card full-width" style="padding: 20px 24px; margin-top: 20px; border-radius: 14px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+            <div>
+              <h3 style="margin:0; font-size:1.1rem; font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px;">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:20px; height:20px;">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                  <polyline points="22,6 12,13 2,6"></polyline>
+                </svg>
+                Configuração de E-mail / SMTP Transacional
+              </h3>
+              <p style="margin:4px 0 0; color:var(--muted); font-size:0.84rem;">
+                Configure as credenciais e parâmetros do servidor SMTP para envio nativo de e-mails transacionais (ativação de contas, recuperação de senha e avisos).
+              </p>
+            </div>
+            <div id="smtpStatusBadgeContainer" style="display:flex; align-items:center; gap:8px;">
+              <span id="smtpStatusBadge" style="padding:4px 10px; border-radius:8px; font-weight:800; font-size:0.78rem; background:var(--surface-2); color:var(--muted); border:1px solid var(--line);">Carregando...</span>
+            </div>
+          </div>
+
+          <form id="formAdminEmailSettings" style="display:flex; flex-direction:column; gap:16px;">
+            <!-- Switch de Ativação -->
+            <div style="display:flex; align-items:center; gap:12px; padding:12px 16px; background:var(--surface-2); border-radius:10px; border:1px solid var(--line);">
+              <input type="checkbox" id="smtp-enabled" style="width:20px; height:20px; accent-color:var(--brand); cursor:pointer;">
+              <label for="smtp-enabled" style="font-size:0.92rem; font-weight:700; color:var(--text); cursor:pointer;">
+                Ativar serviço de e-mails transacionais
+              </label>
+              <span style="font-size:0.8rem; color:var(--muted); margin-left:auto;">
+                Quando desativado, o sistema rejeita chamadas de envio sem conectar ao servidor.
+              </span>
+            </div>
+
+            <!-- Grid de Campos SMTP -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">
+              <div class="form-group">
+                <label for="smtp-host" style="display:block; font-size:0.84rem; font-weight:700; color:var(--text); margin-bottom:6px;">Servidor SMTP (Host)</label>
+                <input type="text" id="smtp-host" class="input" placeholder="smtp.hostinger.com" style="width:100%; border-radius:8px;" required>
+              </div>
+
+              <div class="form-group">
+                <label for="smtp-port" style="display:block; font-size:0.84rem; font-weight:700; color:var(--text); margin-bottom:6px;">Porta</label>
+                <input type="number" id="smtp-port" class="input" placeholder="465" min="1" max="65535" style="width:100%; border-radius:8px;" required>
+              </div>
+
+              <div class="form-group">
+                <label for="smtp-secure" style="display:block; font-size:0.84rem; font-weight:700; color:var(--text); margin-bottom:6px;">Segurança da Conexão</label>
+                <select id="smtp-secure" class="input" style="width:100%; border-radius:8px;">
+                  <option value="true">SSL / TLS (Recomendado para Porta 465)</option>
+                  <option value="false">STARTTLS / Padrão (Porta 587 ou 25)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="smtp-username" style="display:block; font-size:0.84rem; font-weight:700; color:var(--text); margin-bottom:6px;">Usuário / Conta de Envio</label>
+                <input type="text" id="smtp-username" class="input" placeholder="no-reply@corvfin.com.br" style="width:100%; border-radius:8px;" required>
+              </div>
+
+              <div class="form-group">
+                <label for="smtp-password" style="display:block; font-size:0.84rem; font-weight:700; color:var(--text); margin-bottom:6px;">
+                  Senha SMTP
+                  <span id="smtp-password-indicator" style="font-size:0.75rem; font-weight:600; color:var(--muted); margin-left:6px;"></span>
+                </label>
+                <input type="password" id="smtp-password" class="input" placeholder="Digite para definir ou substituir" autocomplete="new-password" style="width:100%; border-radius:8px;">
+                <small style="display:block; font-size:0.75rem; color:var(--muted); margin-top:4px;">Deixe em branco para manter a credencial salva anteriormente.</small>
+              </div>
+
+              <div class="form-group">
+                <label for="smtp-from-name" style="display:block; font-size:0.84rem; font-weight:700; color:var(--text); margin-bottom:6px;">Nome do Remetente</label>
+                <input type="text" id="smtp-from-name" class="input" placeholder="CorvFin" style="width:100%; border-radius:8px;" required>
+              </div>
+
+              <div class="form-group">
+                <label for="smtp-from-email" style="display:block; font-size:0.84rem; font-weight:700; color:var(--text); margin-bottom:6px;">E-mail do Remetente</label>
+                <input type="email" id="smtp-from-email" class="input" placeholder="no-reply@corvfin.com.br" style="width:100%; border-radius:8px;" required>
+              </div>
+            </div>
+
+            <!-- Botões de Ação e Feedback -->
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-top:8px; padding-top:16px; border-top:1px solid var(--line);">
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <button type="button" id="btn-save-smtp" class="btn primary btn-primary" style="border-radius:10px; font-weight:800; display:flex; align-items:center; gap:6px;">
+                  Salvar Configurações
+                </button>
+                <button type="button" id="btn-test-smtp-conn" class="btn secondary btn-secondary" style="border-radius:10px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                  Testar Conexão
+                </button>
+                <button type="button" id="btn-send-test-email" class="btn secondary btn-secondary" style="border-radius:10px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                  Enviar E-mail de Teste
+                </button>
+              </div>
+            </div>
+
+            <div id="smtp-action-feedback" style="display:none; padding:12px 16px; border-radius:10px; font-size:0.88rem; font-weight:600;"></div>
+          </form>
+        </div>
       </main>
 
       <footer class="foot">
