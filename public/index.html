@@ -2698,6 +2698,19 @@
             <small id="entryDestHint" style="font-size:0.78rem; color:var(--muted); font-weight:600; margin-top:2px;"></small>
           </div>
 
+          <div class="field entry-recurrence-wrap" id="entryRecurrenceWrap">
+            <label>Recorrência *</label>
+            <div class="entry-recurrence-selector" id="entryRecurrenceSelector" role="group" aria-label="Recorrência do Lançamento">
+              <button type="button" class="btn small entry-rec-btn active" data-rec="single" id="entryRecSingleBtn" aria-pressed="true">
+                Despesa única
+              </button>
+              <button type="button" class="btn small entry-rec-btn" data-rec="recurring" id="entryRecRecurringBtn" aria-pressed="false">
+                Despesa recorrente (mensal)
+              </button>
+            </div>
+            <input type="hidden" id="entryRecurrence" value="single">
+          </div>
+
           <div class="field" id="entryNoteStep1Wrap" style="display:none;">
             <label>Observações / Anotações</label>
             <textarea id="entryNoteStep1" rows="2" placeholder="Opcional (ex: detalhes da compra, notas, etc.)"></textarea>

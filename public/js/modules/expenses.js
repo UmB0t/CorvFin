@@ -1094,7 +1094,11 @@ function renderExpensesLists() {
     entryDlgState.step = stepNumber;
 
     const destName = $('#entryDestination')?.value || '';
-    const isPixOrCash = (destName.toLowerCase() === 'pix' || destName.toLowerCase() === 'dinheiro');
+    const state = getState();
+    const dest = (state.destinations || []).find(d => d.name === destName);
+    const isPixOrCash = dest && (dest.name.toLowerCase() === 'pix' || dest.name.toLowerCase() === 'dinheiro');
+    const isRecurring = (entryDlgState.recurrence === 'recurring' || entryDlgState.type === 'fixed');
+    const simplifiedFlow = isPixOrCash && !isRecurring;
 
     // Visual indicators
     [1, 2, 3].forEach(s => {
@@ -1142,7 +1146,7 @@ function renderExpensesLists() {
     if (cancel1) cancel1.style.display = (stepNumber === 1 ? 'inline-flex' : 'none');
 
     if (stepNumber === 1) {
-      if (isPixOrCash) {
+      if (simplifiedFlow) {
         if (next1) next1.style.display = 'none';
         if (submitBtn) {
           submitBtn.style.display = 'inline-flex';
@@ -1173,10 +1177,52 @@ function renderExpensesLists() {
     }
   }
 
+  function setEntryRecurrence(rec) {
+    const isRecurring = (rec === 'recurring');
+    entryDlgState.recurrence = isRecurring ? 'recurring' : 'single';
+    if ($('#entryRecurrence')) $('#entryRecurrence').value = entryDlgState.recurrence;
+
+    const singleBtn = $('#entryRecSingleBtn');
+    const recBtn = $('#entryRecRecurringBtn');
+    if (singleBtn) {
+      singleBtn.classList.toggle('active', !isRecurring);
+      singleBtn.setAttribute('aria-pressed', String(!isRecurring));
+    }
+    if (recBtn) {
+      recBtn.classList.toggle('active', isRecurring);
+      recBtn.setAttribute('aria-pressed', String(isRecurring));
+    }
+
+    if (isRecurring) {
+      setEntryExpenseType('fixed');
+    } else {
+      if (entryDlgState.type === 'fixed') {
+        setEntryExpenseType('cash');
+      }
+    }
+
+    syncDestinationRules();
+  }
+
   function setEntryExpenseType(expType) {
     entryDlgState.type = expType;
     if ($('#entryType')) $('#entryType').value = expType;
     if ($('#entryPaymentType')) $('#entryPaymentType').value = expType;
+
+    const isRec = (expType === 'fixed');
+    entryDlgState.recurrence = isRec ? 'recurring' : 'single';
+    if ($('#entryRecurrence')) $('#entryRecurrence').value = entryDlgState.recurrence;
+
+    const singleBtn = $('#entryRecSingleBtn');
+    const recBtn = $('#entryRecRecurringBtn');
+    if (singleBtn) {
+      singleBtn.classList.toggle('active', !isRec);
+      singleBtn.setAttribute('aria-pressed', String(!isRec));
+    }
+    if (recBtn) {
+      recBtn.classList.toggle('active', isRec);
+      recBtn.setAttribute('aria-pressed', String(isRec));
+    }
 
     $$('.entry-type-btn').forEach(btn => {
       const active = btn.dataset.expType === expType;
@@ -1199,6 +1245,8 @@ function renderExpensesLists() {
     const destName = $('#entryDestination')?.value;
     const dest = (state.destinations || []).find(d => d.name === destName);
     const isPixOrCash = dest && (dest.name.toLowerCase() === 'pix' || dest.name.toLowerCase() === 'dinheiro');
+    const isRecurring = (entryDlgState.recurrence === 'recurring' || entryDlgState.type === 'fixed');
+    const simplifiedFlow = isPixOrCash && !isRecurring;
 
     const destHint = $('#entryDestHint');
     const dueWrap = $('#dueDayWrap');
@@ -1210,12 +1258,13 @@ function renderExpensesLists() {
     const stepLines = $$('.wizard-line');
     const btnNext1 = $('#btnNextStep1');
     const submitBtn = $('#entrySubmitBtn');
+    const typeSelectorWrap = $('#typeSelectorWrap');
 
     // Keep notes synced between fields
     setEntryNote(getEntryNote());
 
-    if (isPixOrCash) {
-      if (destHint) destHint.textContent = '⚡ Forma de pagamento à vista com quitação automática.';
+    if (simplifiedFlow) {
+      if (destHint) destHint.textContent = '⚡ Pagamento à vista. Este lançamento será quitado automaticamente.';
       if (dueWrap) dueWrap.style.display = 'none';
       if ($('#entryDueDay')) $('#entryDueDay').value = '';
       if (inheritedHint) inheritedHint.style.display = 'none';
@@ -1241,16 +1290,50 @@ function renderExpensesLists() {
           submitBtn.textContent = '✓ Salvar Lançamento';
         }
       }
-    } else {
+    } else if (isPixOrCash && isRecurring) {
+      if (destHint) destHint.textContent = '⚡ O lançamento atual será quitado automaticamente. Os próximos lançamentos da recorrência permanecerão pendentes até o pagamento.';
       if (noteStep1Wrap) noteStep1Wrap.style.display = 'none';
       if (dueWrap) dueWrap.style.display = 'grid';
+      if (inheritedHint) inheritedHint.style.display = 'none';
+
+      // Ensure type is fixed
+      setEntryExpenseType('fixed');
+
+      // Hide type selector in step 2 (no installment options for cash/pix)
+      if (typeSelectorWrap) typeSelectorWrap.style.display = 'none';
 
       // Restore 3-step wizard stepper
       if (stepInd1) {
         const span = stepInd1.querySelector('span:not(.wizard-dot)');
         if (span) span.textContent = 'Identificação';
       }
-      if (stepInd2) stepInd2.style.display = 'flex';
+      if (stepInd2) {
+        stepInd2.style.display = 'flex';
+        const span2 = stepInd2.querySelector('span:not(.wizard-dot)');
+        if (span2) span2.textContent = 'Recorrência';
+      }
+      if (stepInd3) stepInd3.style.display = 'flex';
+      stepLines.forEach(l => l.style.display = 'block');
+
+      if (entryDlgState.step === 1) {
+        if (btnNext1) btnNext1.style.display = 'inline-flex';
+        if (submitBtn) submitBtn.style.display = 'none';
+      }
+    } else {
+      if (noteStep1Wrap) noteStep1Wrap.style.display = 'none';
+      if (dueWrap) dueWrap.style.display = 'grid';
+      if (typeSelectorWrap) typeSelectorWrap.style.display = 'grid';
+
+      // Restore 3-step wizard stepper
+      if (stepInd1) {
+        const span = stepInd1.querySelector('span:not(.wizard-dot)');
+        if (span) span.textContent = 'Identificação';
+      }
+      if (stepInd2) {
+        stepInd2.style.display = 'flex';
+        const span2 = stepInd2.querySelector('span:not(.wizard-dot)');
+        if (span2) span2.textContent = 'Pagamento';
+      }
       if (stepInd3) stepInd3.style.display = 'flex';
       stepLines.forEach(l => l.style.display = 'block');
 
@@ -1283,6 +1366,7 @@ function renderExpensesLists() {
     const destName = $('#entryDestination')?.value || 'Nubank';
     const expType = entryDlgState.type || 'cash';
     const isPixOrCash = (destName.toLowerCase() === 'pix' || destName.toLowerCase() === 'dinheiro');
+    const isRecurring = (entryDlgState.recurrence === 'recurring' || expType === 'fixed');
 
     if ($('#summaryName')) $('#summaryName').textContent = name;
     if ($('#summaryAmount')) $('#summaryAmount').textContent = currency(amount);
@@ -1311,11 +1395,19 @@ function renderExpensesLists() {
       }
     }
 
+    const pixCashHint = $('#pixCashStatusHint');
     if (isPixOrCash) {
       if ($('#entryStatus')) $('#entryStatus').value = 'pago';
-      if ($('#pixCashStatusHint')) $('#pixCashStatusHint').style.display = 'block';
+      if (pixCashHint) {
+        if (isRecurring) {
+          pixCashHint.textContent = '✓ O lançamento atual será quitado automaticamente. Os próximos lançamentos da recorrência permanecerão pendentes até o pagamento.';
+        } else {
+          pixCashHint.textContent = '✓ Pagamento à vista. Este lançamento será quitado automaticamente.';
+        }
+        pixCashHint.style.display = 'block';
+      }
     } else {
-      if ($('#pixCashStatusHint')) $('#pixCashStatusHint').style.display = 'none';
+      if (pixCashHint) pixCashHint.style.display = 'none';
     }
   }
 
@@ -1451,13 +1543,22 @@ function renderExpensesLists() {
     if ($('#entryGroup')) $('#entryGroup').value = firstCatName;
 
     if (mode === 'new') {
-      entryDlgState = { mode: 'new', step: 1, type: (type === 'fixed' ? 'fixed' : 'cash'), id: null, fixedId: null };
-      $('#entryDialogTitle').textContent = 'Nova Despesa';
+      const isFixedInit = (type === 'fixed');
+      entryDlgState = {
+        mode: 'new',
+        step: 1,
+        type: isFixedInit ? 'fixed' : (type === 'installment' ? 'installment' : 'cash'),
+        recurrence: isFixedInit ? 'recurring' : 'single',
+        id: null,
+        fixedId: null
+      };
+      $('#entryDialogTitle').textContent = isFixedInit ? 'Nova Despesa Fixa' : 'Nova Despesa';
 
       const defaultDest = sortedDests[0]?.name || 'Pix';
       $('#entryDestination').value = defaultDest;
-      syncDestinationRules();
+      setEntryRecurrence(entryDlgState.recurrence);
       setEntryExpenseType(entryDlgState.type);
+      syncDestinationRules();
       setWizardStep(1);
     } else if (type === 'fixed') {
       const fixed = state.fixed.find(f => f.id === fixedId || f.id === id);
@@ -1469,6 +1570,7 @@ function renderExpensesLists() {
         mode: 'edit',
         step: 1,
         type: 'fixed',
+        recurrence: 'recurring',
         id: null,
         fixedId: fixed.id,
         effMonth: active.effMonth || active.month || (active.versions && active.versions[0]?.month),
@@ -1490,8 +1592,9 @@ function renderExpensesLists() {
       $('#fixedEffYear').value = active.effYear || active.year || state.year;
       if (fixActions) fixActions.hidden = false;
 
-      syncDestinationRules();
+      setEntryRecurrence('recurring');
       setEntryExpenseType('fixed');
+      syncDestinationRules();
       setWizardStep(1);
     } else {
       const v = state.variable.find(x => x.id === id || x.id === fixedId);
@@ -1501,7 +1604,7 @@ function renderExpensesLists() {
       const isPixOrCash = (v.destination && (v.destination.toLowerCase() === 'pix' || v.destination.toLowerCase() === 'dinheiro'));
       const expType = isPixOrCash ? 'cash' : (isInstallment ? 'installment' : 'cash');
 
-      entryDlgState = { mode: 'edit', step: 1, type: expType, id: v.id, fixedId: null };
+      entryDlgState = { mode: 'edit', step: 1, type: expType, recurrence: 'single', id: v.id, fixedId: null };
       $('#entryDialogTitle').textContent = isPixOrCash ? 'Editar Despesa (À Vista)' : (isInstallment ? 'Editar Despesa Parcelada' : 'Editar Despesa À Vista');
 
       $('#entryName').value = v.name;
@@ -1525,8 +1628,9 @@ function renderExpensesLists() {
       if ($('#varInstallmentsCount')) $('#varInstallmentsCount').value = count;
       if (delBtn) delBtn.hidden = false;
 
-      syncDestinationRules();
+      setEntryRecurrence('single');
       setEntryExpenseType(expType);
+      syncDestinationRules();
       setWizardStep(1);
     }
 
@@ -1608,6 +1712,13 @@ function renderExpensesLists() {
       });
     });
 
+    $$('.entry-rec-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const rec = btn.dataset.rec;
+        if (rec) setEntryRecurrence(rec);
+      });
+    });
+
     $('#btnNextStep1')?.addEventListener('click', () => {
       if (!validateEntryStep1()) return;
       syncDestinationRules();
@@ -1661,8 +1772,10 @@ function renderExpensesLists() {
       const amount = Number($('#entryAmount').value);
       const destination = $('#entryDestination').value || 'Nubank';
       const isPixOrCash = (destination.toLowerCase() === 'pix' || destination.toLowerCase() === 'dinheiro');
-      const type = isPixOrCash ? 'cash' : (entryDlgState.type || 'cash');
-      const dueDay = isPixOrCash ? null : (Number($('#entryDueDay').value) || null);
+      const isRecurring = (entryDlgState.recurrence === 'recurring' || entryDlgState.type === 'fixed');
+      const simplifiedFlow = isPixOrCash && !isRecurring;
+      const type = isRecurring ? 'fixed' : (isPixOrCash ? 'cash' : (entryDlgState.type || 'cash'));
+      const dueDay = simplifiedFlow ? null : (Number($('#entryDueDay').value) || null);
       const status = isPixOrCash ? 'pago' : ($('#entryStatus').value || 'pendente');
       const key = ymKey(state.year, state.month);
 
@@ -1671,7 +1784,7 @@ function renderExpensesLists() {
         return;
       }
 
-      if (!isPixOrCash && !validateEntryStep2()) {
+      if (!simplifiedFlow && !validateEntryStep2()) {
         setWizardStep(2);
         return;
       }
@@ -1735,12 +1848,32 @@ function renderExpensesLists() {
           fixed = state.fixed.find(f => f.id === newId);
         }
 
-        if (fixed && effMonth === state.month && effYear === state.year) {
-          if (typeof setExpensePayment === 'function') {
-            setExpensePayment(fixed, effYear, effMonth, status === 'pago' ? amount : 0, amount);
-          } else {
-            fixed.paidHistory = fixed.paidHistory || {};
-            fixed.paidHistory[key] = (status === 'pago');
+        if (fixed) {
+          if (isPixOrCash) {
+            if (entryDlgState.mode === 'new') {
+              // Quita SOMENTE a ocorrência inicial que está sendo registrada
+              if (typeof setExpensePayment === 'function') {
+                setExpensePayment(fixed, effYear, effMonth, amount, amount);
+              } else {
+                fixed.paidHistory = fixed.paidHistory || {};
+                const initKey = (typeof ymKey === 'function') ? ymKey(effYear, effMonth) : `${effYear}-${effMonth}`;
+                fixed.paidHistory[initKey] = true;
+              }
+            } else if (effMonth === state.month && effYear === state.year) {
+              if (typeof setExpensePayment === 'function') {
+                setExpensePayment(fixed, effYear, effMonth, status === 'pago' ? amount : 0, amount);
+              } else {
+                fixed.paidHistory = fixed.paidHistory || {};
+                fixed.paidHistory[key] = (status === 'pago');
+              }
+            }
+          } else if (effMonth === state.month && effYear === state.year) {
+            if (typeof setExpensePayment === 'function') {
+              setExpensePayment(fixed, effYear, effMonth, status === 'pago' ? amount : 0, amount);
+            } else {
+              fixed.paidHistory = fixed.paidHistory || {};
+              fixed.paidHistory[key] = (status === 'pago');
+            }
           }
         }
       } else {
@@ -1749,7 +1882,7 @@ function renderExpensesLists() {
 
         let v = entryDlgState.id ? state.variable.find(x => x.id === entryDlgState.id) : null;
 
-        if (isPixOrCash) {
+        if (simplifiedFlow) {
           // Shortcut flow: Creation uses active navigation month; Edit preserves original months
           if (v) {
             sMonth = v.startMonth || state.month;
@@ -2074,6 +2207,12 @@ function renderExpensesLists() {
   window.validateEntryStep2 = validateEntryStep2;
   window.clearEntryValidation = clearEntryValidation;
   window.setEntryFieldError = setEntryFieldError;
+  window.setEntryRecurrence = setEntryRecurrence;
+  window.setEntryExpenseType = setEntryExpenseType;
+  window.setWizardStep = setWizardStep;
+  window.syncDestinationRules = syncDestinationRules;
+  window.updateStep3Summary = updateStep3Summary;
+  window.getEntryDlgState = () => entryDlgState;
 
   // Inicializacao sincrona dos listeners de despesas
   try {

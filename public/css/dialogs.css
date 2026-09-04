@@ -131,3 +131,42 @@
       flex-wrap: wrap;
       background: var(--surface-2);
     }
+
+    /* Seletor de Recorrência — CorvFin V2 */
+    .entry-recurrence-wrap {
+      display: grid;
+      gap: 6px;
+    }
+
+    .entry-recurrence-selector {
+      display: flex;
+      gap: 6px;
+      padding: 4px;
+      border-radius: 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+    }
+
+    .entry-rec-btn {
+      flex: 1;
+      padding: 8px 6px;
+      font-size: 0.82rem;
+      font-weight: 800;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      background: transparent;
+      color: var(--muted);
+      transition: all 0.2s ease;
+    }
+
+    .entry-rec-btn:hover {
+      color: var(--text);
+    }
+
+    .entry-rec-btn.active,
+    .entry-rec-btn[aria-pressed="true"] {
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
