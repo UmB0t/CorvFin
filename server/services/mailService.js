@@ -5,7 +5,8 @@ const cryptoService = require('./cryptoService');
 const {
   getVerificationEmailTemplate,
   getPasswordResetEmailTemplate,
-  getPasswordChangedEmailTemplate
+  getPasswordChangedEmailTemplate,
+  getSmtpTestEmailTemplate
 } = require('../templates/emailTemplates');
 
 let cachedTransporter = null;
@@ -171,34 +172,12 @@ async function sendMail({ to, subject, text, html }) {
  * Envia um e-mail de teste controlado com mensagem institucional do CorvFin.
  */
 async function sendTestEmail(recipientEmail, adminName) {
-  const subject = 'CorvFin — Teste de Configuração SMTP';
-  const text = `Olá, ${adminName || 'Administrador'}!\n\nEste é um e-mail de teste transacional confirmando que a infraestrutura SMTP do CorvFin está operacional e devidamente autenticada.\n\nData do teste: ${new Date().toLocaleString('pt-BR')}\n\nCorvFin — Inteligência para suas finanças.`;
-  const html = `
-    <div style="font-family:'Manrope',sans-serif,Arial; max-width:560px; margin:0 auto; padding:28px; background:#111315; color:#F1F3F2; border-radius:16px; border:1px solid #2B3134;">
-      <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px;">
-        <div style="width:36px; height:36px; border-radius:10px; background:#1F7A5C; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:18px; color:#fff;">C</div>
-        <h2 style="margin:0; font-size:20px; color:#F1F3F2;">CorvFin</h2>
-      </div>
-      <h3 style="margin-top:0; color:#10B981;">Conexão SMTP Estabelecida com Sucesso!</h3>
-      <p style="color:#AAB2AE; font-size:14px; line-height:1.6;">
-        Olá, <strong>${adminName || 'Administrador'}</strong>!<br><br>
-        Este é um e-mail de teste gerado pelo painel administrativo para validar a conectividade e o envio seguro de mensagens transacionais.
-      </p>
-      <div style="background:#171A1C; border:1px solid #2B3134; border-radius:10px; padding:14px; margin:20px 0; font-size:13px; color:#7F8984;">
-        <span style="color:#F1F3F2; font-weight:700;">Data do teste:</span> ${new Date().toLocaleString('pt-BR')}<br>
-        <span style="color:#F1F3F2; font-weight:700;">Destinatário validado:</span> ${recipientEmail}
-      </div>
-      <p style="color:#7F8984; font-size:12px; margin-top:24px; border-top:1px solid #2B3134; padding-top:14px;">
-        CorvFin • Inteligência para suas finanças.
-      </p>
-    </div>
-  `;
-
-  return sendMail({
+  const template = getSmtpTestEmailTemplate({ recipientEmail, adminName });
+  return module.exports.sendMail({
     to: recipientEmail,
-    subject,
-    text,
-    html
+    subject: template.subject,
+    text: template.text,
+    html: template.html
   });
 }
 

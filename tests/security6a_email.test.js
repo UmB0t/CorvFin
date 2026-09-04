@@ -25,6 +25,7 @@ const cryptoService = require('../server/services/cryptoService');
 const storageService = require('../server/services/storageService');
 const mailService = require('../server/services/mailService');
 const { generateToken } = require('../server/services/authService');
+const emailTemplates = require('../server/templates/emailTemplates');
 
 describe('Security 6A — Infraestrutura de E-mail Transacional & SMTP Nativo', () => {
   let server;
@@ -689,5 +690,92 @@ describe('Security 6A — Infraestrutura de E-mail Transacional & SMTP Nativo', 
     assert.strictEqual(rateLimitResponse.success, false);
     assert.strictEqual(rateLimitResponse.error, 'TOO_MANY_REQUESTS');
     assert.ok(rateLimitResponse.message.includes('15 minutos') || rateLimitResponse.message.includes('tentativas'));
+  });
+
+  // ============================================================================
+  // IDENTIDADE VISUAL OFICIAL, LOGO & FORMATAÇÃO COM TIMEZONE EXPLÍCITO
+  // ============================================================================
+
+  test('23. Templates transacionais utilizam URL HTTPS da logo oficial do CorvFin sem localhost nem file://', () => {
+    const templates = [
+      emailTemplates.getSmtpTestEmailTemplate({ adminName: 'Admin Test', recipientEmail: 'admin@corvfin.test' }),
+      emailTemplates.getVerificationEmailTemplate({ nome: 'User Test', verificationUrl: 'https://app.corvfin.com.br/verify-email?token=abc' }),
+      emailTemplates.getPasswordResetEmailTemplate({ nome: 'User Test', resetUrl: 'https://app.corvfin.com.br/reset-password?token=xyz' }),
+      emailTemplates.getPasswordChangedEmailTemplate({ nome: 'User Test' })
+    ];
+
+    for (const t of templates) {
+      assert.ok(t.html.includes('alt="CorvFin"'), 'HTML deve conter alt="CorvFin"');
+      assert.ok(t.html.includes('/icons/corvfin-logo-horizontal.png'), 'HTML deve referenciar corvfin-logo-horizontal.png');
+      assert.ok(t.html.includes('https://'), 'URL da logo deve ser HTTPS');
+      assert.strictEqual(t.html.includes('localhost'), false, 'HTML da logo nunca pode conter localhost');
+      assert.strictEqual(t.html.includes('127.0.0.1'), false, 'HTML da logo nunca pode conter 127.0.0.1');
+      assert.strictEqual(t.html.includes('file://'), false, 'HTML da logo nunca pode conter file://');
+      assert.ok(t.html.includes('width="200"'), 'Logo deve ter width explícito para evitar layout shift');
+      assert.ok(t.html.includes('height="55"'), 'Logo deve ter height explícito proporcional');
+    }
+  });
+
+  test('24. Placeholder com letra "C" em bloco verde foi completamente erradicado de todos os templates', async () => {
+    // Valida diretamente no template de teste SMTP
+    const smtpTpl = emailTemplates.getSmtpTestEmailTemplate({ adminName: 'Admin', recipientEmail: 'admin@corvfin.com.br' });
+    assert.strictEqual(smtpTpl.html.includes('>C<'), false, 'Placeholder >C< não pode existir no template');
+    assert.strictEqual(smtpTpl.html.includes('background:#1F7A5C; display:flex'), false);
+
+    // Valida no sendTestEmail disparado via mailService
+    let capturedEmail = null;
+    const origSendMail = mailService.sendMail;
+    mailService.sendMail = async (opts) => { capturedEmail = opts; return { success: true }; };
+
+    await mailService.sendTestEmail('admin@corvfin.com.br', 'Admin Teste');
+    mailService.sendMail = origSendMail;
+
+    assert.ok(capturedEmail, 'E-mail de teste deve ter sido despachado');
+    assert.strictEqual(capturedEmail.html.includes('>C<'), false, 'E-mail de teste real não pode conter o placeholder visual "C"');
+    assert.ok(capturedEmail.html.includes('corvfin-logo-horizontal.png'), 'E-mail de teste deve usar a logo oficial');
+  });
+
+  test('25. Todos os templates transacionais geram simultaneamente versões válidas em HTML e texto plano', () => {
+    const list = [
+      emailTemplates.getSmtpTestEmailTemplate({ adminName: 'Admin', recipientEmail: 'admin@corvfin.test' }),
+      emailTemplates.getVerificationEmailTemplate({ nome: 'User', verificationUrl: 'https://app.corvfin.com.br/v' }),
+      emailTemplates.getPasswordResetEmailTemplate({ nome: 'User', resetUrl: 'https://app.corvfin.com.br/r' }),
+      emailTemplates.getPasswordChangedEmailTemplate({ nome: 'User' })
+    ];
+
+    for (const item of list) {
+      assert.ok(typeof item.subject === 'string' && item.subject.length > 5, 'Subject deve existir');
+      assert.ok(typeof item.html === 'string' && item.html.length > 200, 'HTML deve ser robusto');
+      assert.ok(typeof item.text === 'string' && item.text.length > 50, 'Texto plano deve ser legível');
+      assert.ok(item.text.includes('CorvFin'), 'Texto plano deve identificar a marca CorvFin');
+      assert.ok(item.html.includes('Inteligência para suas finanças'), 'HTML deve conter o lema institucional');
+    }
+  });
+
+  test('26. Formatação de data/hora converte timestamp UTC para America/Fortaleza com precisão', () => {
+    // 20:10:01Z em UTC equivale a 17:10:01 no fuso America/Fortaleza (UTC-3)
+    const utcTimestamp = '2026-09-04T20:10:01.000Z';
+    const formatted = emailTemplates.formatDateTimeForEmail(utcTimestamp);
+    assert.strictEqual(formatted, '04/09/2026 17:10:01', 'Timestamp UTC deve ser formatado em 17:10:01 no fuso America/Fortaleza');
+
+    // Valida que o template de teste SMTP incorpora essa data no texto e no HTML
+    const testDate = new Date('2026-09-04T20:10:01Z');
+    const tpl = emailTemplates.getSmtpTestEmailTemplate({ adminName: 'Admin', recipientEmail: 'adm@corvfin.test', testDate });
+    assert.ok(tpl.html.includes('04/09/2026 17:10:01'), 'HTML do teste SMTP deve conter a data convertida em America/Fortaleza');
+    assert.ok(tpl.text.includes('04/09/2026 17:10:01'), 'Texto do teste SMTP deve conter a data convertida em America/Fortaleza');
+
+    // Confirma timezone padrão da aplicação
+    assert.strictEqual(emailTemplates.DEFAULT_EMAIL_TIMEZONE, 'America/Fortaleza');
+  });
+
+  test('27. Templates transacionais não expõem senhas ou segredos indevidos', () => {
+    const rawSecret = 'MySuperSecretPassword@2026!';
+    const tplChanged = emailTemplates.getPasswordChangedEmailTemplate({ nome: 'Usuário Alvo' });
+    assert.strictEqual(tplChanged.html.includes(rawSecret), false);
+    assert.strictEqual(tplChanged.text.includes(rawSecret), false);
+
+    const tplReset = emailTemplates.getPasswordResetEmailTemplate({ nome: 'Usuário Alvo', resetUrl: 'https://app.corvfin.com.br/reset-password?token=secret123' });
+    assert.ok(tplReset.html.includes('token=secret123'));
+    assert.strictEqual(tplReset.html.includes('password='), false);
   });
 });

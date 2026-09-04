@@ -108,6 +108,7 @@ module.exports = {
 
   // Autenticação & Ciclo de Conta (Checkpoint Security 6B)
   APP_PUBLIC_URL: (process.env.APP_PUBLIC_URL || 'https://app.corvfin.com.br').trim().replace(/\/+$/, ''),
+  APP_TIMEZONE: (process.env.APP_TIMEZONE || 'America/Fortaleza').trim(),
   SECURITY_TOKENS_FILE: path.join(__dirname, '..', 'data', 'security_tokens.json'),
   EMAIL_VERIFICATION_TOKEN_TTL_MS: 24 * 60 * 60 * 1000, // 24 horas (86.400.000 ms)
   PASSWORD_RESET_TOKEN_TTL_MS: 30 * 60 * 1000,          // 30 minutos (1.800.000 ms)
