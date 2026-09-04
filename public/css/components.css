@@ -1733,14 +1733,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
-.splash-logo {
-  width: 2.4rem;
-  height: 2.4rem;
-  stroke: var(--brand, #1F7A5C);
-  fill: none;
-  stroke-width: 2.2;
+.splash-logo-img {
+  width: 2.8rem;
+  height: 2.8rem;
+  object-fit: contain;
+  border-radius: 12px;
+  display: block;
 }
 
 .splash-title {

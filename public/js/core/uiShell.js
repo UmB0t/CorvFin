@@ -460,7 +460,7 @@
 
     const titleEl = $('#pageTitle');
     const subEl = $('.page-sub') || $('#pageSub');
-    if (titleEl) titleEl.textContent = titleMap[targetTabId] || (typeof TAB_TITLES !== 'undefined' && TAB_TITLES[targetTabId]) || 'OmniFin';
+    if (titleEl) titleEl.textContent = titleMap[targetTabId] || (typeof TAB_TITLES !== 'undefined' && TAB_TITLES[targetTabId]) || 'CorvFin';
     if (subEl && subMap[targetTabId]) subEl.textContent = subMap[targetTabId];
 
     if (targetTabId === 'tab-dashboard' && typeof window.renderConsolidatedDashboardTab === 'function') {

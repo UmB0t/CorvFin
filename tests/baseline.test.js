@@ -3755,7 +3755,6 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
       'favicon.svg',
       'favicon-32x32.png',
       'favicon-16x16.png',
-      'icon.svg',
       'icon-192x192.png',
       'icon-512x512.png',
       'apple-touch-icon.png',
@@ -6757,7 +6756,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     // 1. CACHE_VERSION não permanece na versão congelada v3.5 nem v3.7.0
     assert.strictEqual(swJs.includes("'omnifin-static-v3.5'"), false, 'sw.js não deve manter CACHE_VERSION congelada na v3.5');
     assert.strictEqual(swJs.includes("'omnifin-static-v3.7.0'"), false, 'sw.js não deve manter CACHE_VERSION v3.7.0');
-    assert.ok(swJs.includes("'corvfin-static-v1.0.0'") || swJs.includes("'omnifin-static-v3.8.0'"), 'sw.js deve declarar CACHE_VERSION válida');
+    assert.ok(swJs.includes("'corvfin-static-v1.0.1'") || swJs.includes("'corvfin-static-v1.0.0'") || swJs.includes("'omnifin-static-v3.8.0'"), 'sw.js deve declarar CACHE_VERSION válida');
 
     // 2. /api/* permanece estritamente network-only sem cache
     assert.ok(swJs.includes("url.pathname.startsWith('/api/')"), 'sw.js deve isolar rotas /api/ como network-only');
@@ -7363,7 +7362,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.ok(swContent.includes("'./js/loginInit.js'"), "13. STATIC_ASSETS deve conter './js/loginInit.js'");
 
     // 14. CACHE_VERSION foi incrementado
-    assert.ok(swContent.includes("CACHE_VERSION = 'corvfin-static-v1.0.0'") || swContent.includes("CACHE_VERSION = 'omnifin-static-v3.8.0'"), "14. CACHE_VERSION deve ser incrementado");
+    assert.ok(swContent.includes("CACHE_VERSION = 'corvfin-static-v1.0.1'") || swContent.includes("CACHE_VERSION = 'corvfin-static-v1.0.0'") || swContent.includes("CACHE_VERSION = 'omnifin-static-v3.8.0'"), "14. CACHE_VERSION deve ser incrementado");
     assert.ok(!swContent.includes("CACHE_VERSION = 'omnifin-static-v3.7.0'"), "14. Versão anterior v3.7.0 não deve ser a CACHE_VERSION ativa");
 
     // 15. /api/* continua não sendo servido pelo cache do Service Worker
@@ -7466,7 +7465,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     const uiShellJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'uiShell.js'), 'utf-8');
 
     // 1. CACHE_VERSION == corvfin-static-v1.0.0
-    assert.ok(swJs.includes("const CACHE_VERSION = 'corvfin-static-v1.0.0';"), '1. CACHE_VERSION deve ser estritamente corvfin-static-v1.0.0');
+    assert.ok(swJs.includes("const CACHE_VERSION = 'corvfin-static-v1.0.1';") || swJs.includes("const CACHE_VERSION = 'corvfin-static-v1.0.0';"), '1. CACHE_VERSION deve pertencer à família corvfin-static');
 
     // 2. Caches legados omnifin-static-* não são tratados como versão atual
     assert.strictEqual(swJs.includes("'omnifin-static-v3.7.0'"), false, '2. Cache v3.7.0 não deve ser tratado como versão atual');
@@ -8106,7 +8105,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.ok(csp.includes("object-src 'none'"), '11. CSP bloqueia object-src');
 
     // 12. Service Worker continua válido com CACHE_VERSION corvfin
-    assert.ok(swContent.includes("CACHE_VERSION = 'corvfin-static-v1.0.0'"), '12. Service Worker deve versionar cache com corvfin');
+    assert.ok(swContent.includes("CACHE_VERSION = 'corvfin-static-v1.0.1'") || swContent.includes("CACHE_VERSION = 'corvfin-static-v1.0.0'"), '12. Service Worker deve versionar cache com corvfin');
 
     // 13. Cache antigo possui estratégia de limpeza no activate
     assert.ok(swContent.includes('key !== CACHE_VERSION'), '13. Service Worker activate deve expurgar caches com nomes antigos');

@@ -2,7 +2,7 @@
  * CorvFin V3 - Service Worker (PWA Shell Caching & Security Isolation)
  */
 
-const CACHE_VERSION = 'corvfin-static-v1.0.0';
+const CACHE_VERSION = 'corvfin-static-v1.0.1';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -54,10 +54,12 @@ const STATIC_ASSETS = [
   './js/modules/aiAssistant.js',
   './js/modules/backup.js',
   './js/modules/notifications.js',
+  './icons/corvfin-logo-horizontal.png',
+  './icons/corvfin-logo-compact.png',
+  './icons/corvfin-icon-emerald.png',
   './icons/favicon.svg',
   './icons/favicon-32x32.png',
   './icons/favicon-16x16.png',
-  './icons/icon.svg',
   './icons/icon-192x192.png',
   './icons/icon-512x512.png',
   './icons/apple-touch-icon.png',

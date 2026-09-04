@@ -73,13 +73,20 @@
       width: 40px;
       height: 40px;
       border-radius: 12px;
-      background: var(--brand-strong);
+      background: transparent;
       color: #fff;
       display: grid;
       place-items: center;
-      font-size: 1.15rem;
-      font-weight: 800;
       flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .brand-logo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 12px;
+      display: block;
     }
 
     .brand-text {
