@@ -104,5 +104,21 @@ module.exports = {
   MAIL_CONFIG_ENCRYPTION_KEY: (process.env.MAIL_CONFIG_ENCRYPTION_KEY || '').trim(),
   EMAIL_SETTINGS_FILE: path.join(__dirname, '..', 'data', 'email_settings.json'),
   EMAIL_TEST_RATE_LIMIT_WINDOW_MS: parseInt(process.env.EMAIL_TEST_RATE_LIMIT_WINDOW_MS, 10) || (15 * 60 * 1000), // 15 min
-  EMAIL_TEST_RATE_LIMIT_MAX: parseInt(process.env.EMAIL_TEST_RATE_LIMIT_MAX, 10) || 5
+  EMAIL_TEST_RATE_LIMIT_MAX: parseInt(process.env.EMAIL_TEST_RATE_LIMIT_MAX, 10) || 5,
+
+  // Autenticação & Ciclo de Conta (Checkpoint Security 6B)
+  APP_PUBLIC_URL: (process.env.APP_PUBLIC_URL || 'https://app.corvfin.com.br').trim().replace(/\/+$/, ''),
+  SECURITY_TOKENS_FILE: path.join(__dirname, '..', 'data', 'security_tokens.json'),
+  EMAIL_VERIFICATION_TOKEN_TTL_MS: 24 * 60 * 60 * 1000, // 24 horas (86.400.000 ms)
+  PASSWORD_RESET_TOKEN_TTL_MS: 30 * 60 * 1000,          // 30 minutos (1.800.000 ms)
+  FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MS: parseInt(process.env.FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MS, 10) || (15 * 60 * 1000), // 15 min
+  FORGOT_PASSWORD_RATE_LIMIT_MAX: parseInt(process.env.FORGOT_PASSWORD_RATE_LIMIT_MAX, 10) || (process.env.NODE_ENV === 'production' ? 5 : 200),
+  RESEND_VERIFICATION_RATE_LIMIT_WINDOW_MS: parseInt(process.env.RESEND_VERIFICATION_RATE_LIMIT_WINDOW_MS, 10) || (15 * 60 * 1000), // 15 min
+  RESEND_VERIFICATION_RATE_LIMIT_MAX: parseInt(process.env.RESEND_VERIFICATION_RATE_LIMIT_MAX, 10) || (process.env.NODE_ENV === 'production' ? 5 : 200),
+  VERIFY_EMAIL_RATE_LIMIT_WINDOW_MS: parseInt(process.env.VERIFY_EMAIL_RATE_LIMIT_WINDOW_MS, 10) || (15 * 60 * 1000), // 15 min
+  VERIFY_EMAIL_RATE_LIMIT_MAX: parseInt(process.env.VERIFY_EMAIL_RATE_LIMIT_MAX, 10) || (process.env.NODE_ENV === 'production' ? 15 : 200),
+  RESET_PASSWORD_RATE_LIMIT_WINDOW_MS: parseInt(process.env.RESET_PASSWORD_RATE_LIMIT_WINDOW_MS, 10) || (15 * 60 * 1000), // 15 min
+  RESET_PASSWORD_RATE_LIMIT_MAX: parseInt(process.env.RESET_PASSWORD_RATE_LIMIT_MAX, 10) || (process.env.NODE_ENV === 'production' ? 5 : 200),
+  CHANGE_PASSWORD_RATE_LIMIT_WINDOW_MS: parseInt(process.env.CHANGE_PASSWORD_RATE_LIMIT_WINDOW_MS, 10) || (15 * 60 * 1000), // 15 min
+  CHANGE_PASSWORD_RATE_LIMIT_MAX: parseInt(process.env.CHANGE_PASSWORD_RATE_LIMIT_MAX, 10) || (process.env.NODE_ENV === 'production' ? 10 : 200)
 };

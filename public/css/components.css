@@ -1771,3 +1771,103 @@
   color: var(--muted, #9AA5B1);
   margin: 0;
 }
+
+/* ==========================================================================
+   PASSWORD POLICY CHECKLIST (Security 6B UX)
+   ========================================================================== */
+.password-checklist-box {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md, 12px);
+  padding: 12px 14px;
+  display: grid;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.password-checklist-box .checklist-header {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.password-checklist-box .checklist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 6px 12px;
+  font-size: 0.78rem;
+}
+
+.password-checklist-box .crit-item {
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  transition: color 0.15s ease, font-weight 0.15s ease;
+}
+
+.password-checklist-box .crit-item .crit-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.password-checklist-box .crit-item.valid {
+  color: var(--brand, #10B981);
+  font-weight: 800;
+}
+
+.password-checklist-box .crit-item.valid .crit-icon {
+  color: var(--brand, #10B981);
+}
+
+.password-checklist-box .crit-item.invalid {
+  color: var(--muted);
+}
+
+.password-checklist-box .crit-item.invalid .crit-icon {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+/* Estado desabilitado canônico para botões e formulário de credenciais */
+.btn:disabled,
+.btn[disabled],
+#btnChangePasswordSubmit:disabled,
+#btnChangePasswordSubmit[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn:disabled:hover,
+.btn[disabled]:hover,
+#btnChangePasswordSubmit:disabled:hover,
+#btnChangePasswordSubmit[disabled]:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Equalização de altura por linha para os cards pareados da aba Perfil */
+#tab-profile .sections-grid {
+  align-items: stretch;
+}
+
+@media (min-width: 861px) and (max-width: 1200px) {
+  #profileDestFormGrid,
+  #profileCatFormGrid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  #addDestBtn,
+  #addCategoryBtn {
+    grid-column: 1 / -1;
+  }
+}

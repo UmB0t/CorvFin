@@ -1521,6 +1521,53 @@
             </form>
           </div>
 
+          <div class="card section-card" id="profileSecurityCard">
+            <div class="section-head">
+              <div class="section-title">
+                <svg class="svg-icon" viewBox="0 0 24 24">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                Segurança da Conta — Alterar Senha
+              </div>
+            </div>
+            <form id="changePasswordForm" style="padding: 18px; display: grid; gap: 14px;" novalidate>
+              <div class="field">
+                <label for="currentPasswordInput">Senha Atual</label>
+                <input type="password" id="currentPasswordInput" name="senhaAtual" placeholder="Digite sua senha atual" autocomplete="current-password" required maxlength="128">
+              </div>
+
+              <div class="field">
+                <label for="newPasswordInput">Nova Senha</label>
+                <input type="password" id="newPasswordInput" name="novaSenha" placeholder="Mínimo 8 caracteres" autocomplete="new-password" required maxlength="128">
+              </div>
+
+              <!-- Feedback visual dos requisitos de segurança da senha -->
+              <div class="password-checklist-box" id="userPassChecklistBox">
+                <div class="checklist-header">Requisitos da senha</div>
+                <div class="checklist-grid">
+                  <div class="crit-item" id="userCritLen"><span class="crit-icon">✕</span> Pelo menos 8 caracteres</div>
+                  <div class="crit-item" id="userCritUpper"><span class="crit-icon">✕</span> Uma letra maiúscula</div>
+                  <div class="crit-item" id="userCritLower"><span class="crit-icon">✕</span> Uma letra minúscula</div>
+                  <div class="crit-item" id="userCritNum"><span class="crit-icon">✕</span> Um número</div>
+                  <div class="crit-item" id="userCritSpec"><span class="crit-icon">✕</span> Um caractere especial</div>
+                  <div class="crit-item" id="userCritMatch"><span class="crit-icon">✕</span> As senhas coincidem</div>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="confirmPasswordInput">Confirmar Nova Senha</label>
+                <input type="password" id="confirmPasswordInput" name="confirmarNovaSenha" placeholder="Repita a nova senha" autocomplete="new-password" required maxlength="128">
+              </div>
+
+              <div id="changePasswordFeedback" style="display:none; font-size:0.84rem; font-weight:700; padding:10px 12px; border-radius:10px;"></div>
+
+              <button type="submit" class="btn primary" id="btnChangePasswordSubmit" style="justify-self: start;" disabled>
+                Alterar Senha
+              </button>
+            </form>
+          </div>
+
           <div class="card section-card">
             <div class="section-head">
               <div class="section-title">
@@ -1589,7 +1636,7 @@
             </div>
           </div>
 
-          <div class="card section-card full-width">
+          <div class="card section-card">
             <div class="section-head">
               <div class="section-title">
                 <svg class="svg-icon" viewBox="0 0 24 24">

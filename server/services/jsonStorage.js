@@ -441,9 +441,206 @@ function saveEmailSettings(newSettings) {
   return merged;
 }
 
+/* ==========================================================================
+   SECURITY TOKENS REPOSITORY (Checkpoint Security 6B - JSON Driver)
+   ========================================================================== */
+
+function getSecurityTokens() {
+  const filePath = config.SECURITY_TOKENS_FILE || path.join(config.DATA_DIR, 'security_tokens.json');
+  return safeReadJSON(filePath, []);
+}
+
+function saveSecurityTokens(tokens) {
+  const filePath = config.SECURITY_TOKENS_FILE || path.join(config.DATA_DIR, 'security_tokens.json');
+  return safeWriteJSON(filePath, tokens);
+}
+
+function getUserByEmail(email) {
+  if (!email || typeof email !== 'string') return null;
+  const clean = email.trim().toLowerCase();
+  const users = getUsers();
+  return users.find(u => (u.email || '').trim().toLowerCase() === clean) || null;
+}
+
+function createSecurityToken({ userId, type, tokenHash, expiresAt }) {
+  const tokens = getSecurityTokens();
+  const nowISO = new Date().toISOString();
+  tokens.forEach(t => {
+    if (t.userId === userId && t.type === type && t.status === 'active') {
+      t.status = 'invalidated';
+      t.usedAt = nowISO;
+    }
+  });
+  const doc = {
+    id: `tok_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+    userId,
+    type,
+    tokenHash,
+    status: 'active',
+    expiresAt,
+    createdAt: nowISO,
+    usedAt: null,
+    claimedAt: null
+  };
+  tokens.push(doc);
+  saveSecurityTokens(tokens);
+  return { ...doc };
+}
+
+function invalidateSecurityTokensForUser(userId, type) {
+  const tokens = getSecurityTokens();
+  const nowISO = new Date().toISOString();
+  let count = 0;
+  tokens.forEach(t => {
+    if (t.userId === userId && t.type === type && t.status === 'active') {
+      t.status = 'invalidated';
+      t.usedAt = nowISO;
+      count++;
+    }
+  });
+  if (count > 0) saveSecurityTokens(tokens);
+  return count;
+}
+
+function verifyEmailWithToken(tokenHash) {
+  if (!tokenHash || typeof tokenHash !== 'string') {
+    return { success: false, reason: 'INVALID_TOKEN' };
+  }
+  const tokens = getSecurityTokens();
+  const nowISO = new Date().toISOString();
+  const tokenIndex = tokens.findIndex(t =>
+    t.tokenHash === tokenHash &&
+    t.type === 'email_verification' &&
+    t.status === 'active' &&
+    !t.usedAt &&
+    t.expiresAt > nowISO
+  );
+  if (tokenIndex === -1) {
+    return { success: false, reason: 'INVALID_OR_EXPIRED' };
+  }
+  const tokenDoc = tokens[tokenIndex];
+
+  // PASSO 1: Claim
+  tokenDoc.status = 'claiming';
+  tokenDoc.claimedAt = nowISO;
+
+  // PASSO 2: Update user
+  const users = getUsers();
+  const userIndex = users.findIndex(u => u.id === tokenDoc.userId);
+  if (userIndex === -1) {
+    tokenDoc.status = 'active';
+    tokenDoc.claimedAt = null;
+    saveSecurityTokens(tokens);
+    return { success: false, reason: 'USER_NOT_FOUND' };
+  }
+
+  users[userIndex].emailVerified = true;
+  users[userIndex].emailVerifiedAt = nowISO;
+  const userSaved = saveUsers(users);
+  if (!userSaved) {
+    tokenDoc.status = 'active';
+    tokenDoc.claimedAt = null;
+    saveSecurityTokens(tokens);
+    return { success: false, reason: 'USER_UPDATE_FAILED' };
+  }
+
+  // PASSO 3: Finaliza token
+  tokenDoc.status = 'used';
+  tokenDoc.usedAt = nowISO;
+  tokenDoc.claimedAt = null;
+  saveSecurityTokens(tokens);
+
+  return { success: true, userId: tokenDoc.userId };
+}
+
+function resetPasswordWithToken(tokenHash, newHashedPassword) {
+  if (!tokenHash || typeof tokenHash !== 'string' || !newHashedPassword) {
+    return { success: false, reason: 'INVALID_ARGUMENTS' };
+  }
+  const tokens = getSecurityTokens();
+  const nowISO = new Date().toISOString();
+  const tokenIndex = tokens.findIndex(t =>
+    t.tokenHash === tokenHash &&
+    t.type === 'password_reset' &&
+    t.status === 'active' &&
+    !t.usedAt &&
+    t.expiresAt > nowISO
+  );
+  if (tokenIndex === -1) {
+    return { success: false, reason: 'INVALID_OR_EXPIRED' };
+  }
+  const tokenDoc = tokens[tokenIndex];
+
+  // PASSO 1: Claim
+  tokenDoc.status = 'claiming';
+  tokenDoc.claimedAt = nowISO;
+
+  // PASSO 2: Update user
+  const users = getUsers();
+  const userIndex = users.findIndex(u => u.id === tokenDoc.userId);
+  if (userIndex === -1) {
+    tokenDoc.status = 'active';
+    tokenDoc.claimedAt = null;
+    saveSecurityTokens(tokens);
+    return { success: false, reason: 'USER_NOT_FOUND' };
+  }
+
+  users[userIndex].senha = newHashedPassword;
+  users[userIndex].tokenVersion = (typeof users[userIndex].tokenVersion === 'number' ? users[userIndex].tokenVersion : 0) + 1;
+  const userSaved = saveUsers(users);
+  if (!userSaved) {
+    tokenDoc.status = 'active';
+    tokenDoc.claimedAt = null;
+    saveSecurityTokens(tokens);
+    return { success: false, reason: 'USER_UPDATE_FAILED' };
+  }
+
+  const userEmail = users[userIndex].email;
+  const userNome = users[userIndex].nome;
+
+  // PASSO 3: Fail-safe finalization (never rollback to active)
+  tokenDoc.status = 'used';
+  tokenDoc.usedAt = nowISO;
+  tokenDoc.claimedAt = null;
+
+  tokens.forEach((t, idx) => {
+    if (idx !== tokenIndex && t.userId === tokenDoc.userId && t.type === 'password_reset' && t.status === 'active') {
+      t.status = 'invalidated';
+      t.usedAt = nowISO;
+    }
+  });
+
+  saveSecurityTokens(tokens);
+  return { success: true, userId: tokenDoc.userId, email: userEmail, nome: userNome };
+}
+
+function updateUserPassword(userId, newHashedPassword) {
+  if (!userId || !newHashedPassword) return false;
+  const users = getUsers();
+  const idx = users.findIndex(u => u.id === userId);
+  if (idx === -1) return false;
+  users[idx].senha = newHashedPassword;
+  users[idx].tokenVersion = (typeof users[idx].tokenVersion === 'number' ? users[idx].tokenVersion : 0) + 1;
+  return saveUsers(users);
+}
+
+function cleanExpiredSecurityTokens(retentionMs = 7 * 24 * 60 * 60 * 1000) {
+  const tokens = getSecurityTokens();
+  const cutoff = new Date(Date.now() - retentionMs).toISOString();
+  const filtered = tokens.filter(t => {
+    if (t.expiresAt && t.expiresAt < cutoff) return false;
+    if (t.usedAt && t.usedAt < cutoff) return false;
+    return true;
+  });
+  const deletedCount = tokens.length - filtered.length;
+  if (deletedCount > 0) saveSecurityTokens(filtered);
+  return deletedCount;
+}
+
 module.exports = {
   getUsers,
   getUserById,
+  getUserByEmail,
   saveUsers,
   getPermissions,
   savePermissions,
@@ -467,5 +664,12 @@ module.exports = {
   saveAiPendingAction,
   getAiPendingAction,
   clearAiPendingAction,
-  updateAiPendingAction
+  updateAiPendingAction,
+  getSecurityTokens,
+  createSecurityToken,
+  invalidateSecurityTokensForUser,
+  verifyEmailWithToken,
+  resetPasswordWithToken,
+  updateUserPassword,
+  cleanExpiredSecurityTokens
 };

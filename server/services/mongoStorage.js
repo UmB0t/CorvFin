@@ -722,9 +722,273 @@ async function saveEmailSettings(newSettings) {
   return merged;
 }
 
+/* ==========================================================================
+   SECURITY TOKENS REPOSITORY (Checkpoint Security 6B)
+   ========================================================================== */
+
+/**
+ * Localiza usuário pelo e-mail normalizado (case-insensitive)
+ */
+async function getUserByEmail(email) {
+  if (!email || typeof email !== 'string') return null;
+  const clean = email.trim().toLowerCase();
+  const col = await getCollection('users');
+  const doc = await col.findOne({ email: { $regex: new RegExp(`^${clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+  if (!doc) return null;
+  const { _id, ...rest } = doc;
+  return { id: doc.id || _id, ...rest };
+}
+
+/**
+ * Cria um token de segurança, invalidando previamente tokens ativos anteriores do mesmo usuário e tipo.
+ */
+async function createSecurityToken({ userId, type, tokenHash, expiresAt }) {
+  const col = await getCollection('security_tokens');
+  const nowISO = new Date().toISOString();
+
+  // Invalida tokens anteriores ativos do mesmo usuário e tipo
+  await col.updateMany(
+    { userId, type, status: 'active' },
+    { $set: { status: 'invalidated', usedAt: nowISO } }
+  );
+
+  const doc = {
+    userId,
+    type,
+    tokenHash,
+    status: 'active',
+    expiresAt,
+    createdAt: nowISO,
+    usedAt: null,
+    claimedAt: null
+  };
+
+  await col.insertOne(doc);
+  return { ...doc };
+}
+
+/**
+ * Invalida tokens ativos de um usuário para um tipo específico.
+ */
+async function invalidateSecurityTokensForUser(userId, type) {
+  const col = await getCollection('security_tokens');
+  const nowISO = new Date().toISOString();
+  const res = await col.updateMany(
+    { userId, type, status: 'active' },
+    { $set: { status: 'invalidated', usedAt: nowISO } }
+  );
+  return res.modifiedCount;
+}
+
+/**
+ * Consome token de confirmação de e-mail de forma atômica (Two-Phase Claim)
+ * sem risco de perda do token em caso de falha no update do usuário.
+ */
+async function verifyEmailWithToken(tokenHash) {
+  if (!tokenHash || typeof tokenHash !== 'string') {
+    return { success: false, reason: 'INVALID_TOKEN' };
+  }
+
+  const colTokens = await getCollection('security_tokens');
+  const userCol = await getCollection('users');
+  const nowISO = new Date().toISOString();
+
+  // PASSO 1: Claim atômico (active -> claiming)
+  const claimedToken = await colTokens.findOneAndUpdate(
+    {
+      tokenHash,
+      type: 'email_verification',
+      status: 'active',
+      usedAt: null,
+      expiresAt: { $gt: nowISO }
+    },
+    {
+      $set: { status: 'claiming', claimedAt: nowISO }
+    },
+    { returnDocument: 'after' }
+  );
+
+  const tokenDoc = claimedToken && (claimedToken.value || claimedToken._id ? (claimedToken.value || claimedToken) : null);
+  if (!tokenDoc) {
+    return { success: false, reason: 'INVALID_OR_EXPIRED' };
+  }
+
+  // PASSO 2: Atualização do usuário (emailVerified = true)
+  let userUpdated = false;
+  try {
+    const userUpdateRes = await userCol.findOneAndUpdate(
+      { $or: [{ _id: tokenDoc.userId }, { id: tokenDoc.userId }] },
+      {
+        $set: {
+          emailVerified: true,
+          emailVerifiedAt: nowISO
+        }
+      },
+      { returnDocument: 'after' }
+    );
+    const updatedUser = userUpdateRes && (userUpdateRes.value || userUpdateRes._id ? (userUpdateRes.value || userUpdateRes) : null);
+    if (!updatedUser) {
+      throw new Error('User not found');
+    }
+    userUpdated = true;
+  } catch (err) {
+    // PASSO 3A: Falha no update do usuário -> Rollback para active
+    try {
+      await colTokens.updateOne(
+        { _id: tokenDoc._id, status: 'claiming' },
+        { $set: { status: 'active', claimedAt: null } }
+      );
+    } catch (rbErr) {
+      console.error('Falha no rollback do token de verificação:', rbErr);
+    }
+    return { success: false, reason: 'USER_UPDATE_FAILED', error: err.message };
+  }
+
+  // PASSO 3B: Usuário atualizado -> Finaliza token (claiming -> used)
+  try {
+    await colTokens.updateOne(
+      { _id: tokenDoc._id },
+      { $set: { status: 'used', usedAt: nowISO, claimedAt: null } }
+    );
+  } catch (finErr) {
+    // Fail-safe: o token permanece 'claiming' e nunca mais pode ser reivindicado
+    console.error('Falha não-crítica ao finalizar token de verificação pós-confirmação:', finErr.message);
+  }
+
+  return { success: true, userId: tokenDoc.userId };
+}
+
+/**
+ * Redefine senha utilizando token com Two-Phase Claim e Fail-Safe pós-update.
+ */
+async function resetPasswordWithToken(tokenHash, newHashedPassword) {
+  if (!tokenHash || typeof tokenHash !== 'string' || !newHashedPassword) {
+    return { success: false, reason: 'INVALID_ARGUMENTS' };
+  }
+
+  const colTokens = await getCollection('security_tokens');
+  const userCol = await getCollection('users');
+  const nowISO = new Date().toISOString();
+
+  // PASSO 1: Claim atômico (active -> claiming)
+  const claimedToken = await colTokens.findOneAndUpdate(
+    {
+      tokenHash,
+      type: 'password_reset',
+      status: 'active',
+      usedAt: null,
+      expiresAt: { $gt: nowISO }
+    },
+    {
+      $set: { status: 'claiming', claimedAt: nowISO }
+    },
+    { returnDocument: 'after' }
+  );
+
+  const tokenDoc = claimedToken && (claimedToken.value || claimedToken._id ? (claimedToken.value || claimedToken) : null);
+  if (!tokenDoc) {
+    return { success: false, reason: 'INVALID_OR_EXPIRED' };
+  }
+
+  // PASSO 2: Atualização de credencial e invalidação de sessões (tokenVersion++)
+  let userUpdated = false;
+  let userEmail = null;
+  let userNome = null;
+  try {
+    const userUpdateRes = await userCol.findOneAndUpdate(
+      { $or: [{ _id: tokenDoc.userId }, { id: tokenDoc.userId }] },
+      {
+        $set: { senha: newHashedPassword },
+        $inc: { tokenVersion: 1 }
+      },
+      { returnDocument: 'after' }
+    );
+    const updatedUser = userUpdateRes && (userUpdateRes.value || userUpdateRes._id ? (userUpdateRes.value || userUpdateRes) : null);
+    if (!updatedUser) {
+      throw new Error('User not found');
+    }
+    userUpdated = true;
+    userEmail = updatedUser.email;
+    userNome = updatedUser.nome;
+  } catch (err) {
+    // Falha ANTES do update da senha -> Rollback do claim para active
+    try {
+      await colTokens.updateOne(
+        { _id: tokenDoc._id, status: 'claiming' },
+        { $set: { status: 'active', claimedAt: null } }
+      );
+    } catch (rbErr) {
+      console.error('Falha no rollback do token de reset:', rbErr);
+    }
+    return { success: false, reason: 'USER_UPDATE_FAILED', error: err.message };
+  }
+
+  // PASSO 3: Fail-Safe pós-update (o token nunca volta para active)
+  try {
+    await colTokens.updateOne(
+      { _id: tokenDoc._id },
+      { $set: { status: 'used', usedAt: nowISO, claimedAt: null } }
+    );
+    // Invalida outros tokens de reset ativos do mesmo usuário
+    await colTokens.updateMany(
+      {
+        userId: tokenDoc.userId,
+        type: 'password_reset',
+        _id: { $ne: tokenDoc._id },
+        status: 'active'
+      },
+      { $set: { status: 'invalidated', usedAt: nowISO } }
+    );
+  } catch (finErr) {
+    // Fail-safe: o token permanece 'claiming' e nunca mais pode ser reivindicado
+    console.error('Falha não-crítica ao finalizar token de reset pós-alteração de senha:', finErr.message);
+  }
+
+  return { success: true, userId: tokenDoc.userId, email: userEmail, nome: userNome };
+}
+
+/**
+ * Atualiza a senha e incrementa tokenVersion para usuário autenticado.
+ */
+async function updateUserPassword(userId, newHashedPassword) {
+  if (!userId || !newHashedPassword) return false;
+  const col = await getCollection('users');
+  const res = await col.findOneAndUpdate(
+    { $or: [{ _id: userId }, { id: userId }] },
+    {
+      $set: { senha: newHashedPassword },
+      $inc: { tokenVersion: 1 }
+    },
+    { returnDocument: 'after' }
+  );
+  const updated = res && (res.value || res._id ? (res.value || res) : null);
+  return !!updated;
+}
+
+/**
+ * Limpeza oportunística de tokens expirados há mais de 7 dias
+ */
+async function cleanExpiredSecurityTokens(retentionMs = 7 * 24 * 60 * 60 * 1000) {
+  try {
+    const col = await getCollection('security_tokens');
+    const cutoff = new Date(Date.now() - retentionMs).toISOString();
+    const res = await col.deleteMany({
+      $or: [
+        { expiresAt: { $lt: cutoff } },
+        { usedAt: { $ne: null, $lt: cutoff } }
+      ]
+    });
+    return res.deletedCount;
+  } catch (err) {
+    console.error('Erro na limpeza de security_tokens expirados:', err);
+    return 0;
+  }
+}
+
 module.exports = {
   getUsers,
   getUserById,
+  getUserByEmail,
   saveUsers,
   getPermissions,
   savePermissions,
@@ -749,5 +1013,11 @@ module.exports = {
   saveAiPendingAction,
   getAiPendingAction,
   clearAiPendingAction,
-  updateAiPendingAction
+  updateAiPendingAction,
+  createSecurityToken,
+  invalidateSecurityTokensForUser,
+  verifyEmailWithToken,
+  resetPasswordWithToken,
+  updateUserPassword,
+  cleanExpiredSecurityTokens
 };

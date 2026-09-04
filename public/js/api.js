@@ -190,6 +190,11 @@
     // Auth endpoints
     login: (login, senha) => request('/api/auth/login', { method: 'POST', body: JSON.stringify({ login, senha }) }),
     register: (payload) => request('/api/auth/register', { method: 'POST', body: JSON.stringify(payload) }),
+    verifyEmail: (token) => request('/api/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) }),
+    resendVerification: (email) => request('/api/auth/resend-verification', { method: 'POST', body: JSON.stringify({ email }) }),
+    forgotPassword: (email) => request('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+    resetPassword: (token, newPassword) => request('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
+    changePassword: (senhaAtual, novaSenha) => request('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ senhaAtual, novaSenha }) }),
     logout: async () => {
       try {
         await request('/api/auth/logout', { method: 'POST' }).catch(() => null);
@@ -228,6 +233,59 @@
     saveEmailSettings: (settings) => request('/api/admin/email-settings', { method: 'PUT', body: JSON.stringify(settings) }),
     testEmailSettings: (payload) => request('/api/admin/email-settings/test', { method: 'POST', body: JSON.stringify(payload || {}) })
   };
+
+  // Helper centralizado de avaliação de política de senha para UX (Security 6B)
+  const PasswordPolicy = {
+    minLength: 8,
+    maxLength: 128,
+    checkCriteria: function(password, confirmPassword) {
+      const pwd = typeof password === 'string' ? password : '';
+      const conf = typeof confirmPassword === 'string' ? confirmPassword : '';
+      const hasLen = pwd.length >= 8 && pwd.length <= 128;
+      const hasUpper = /[A-Z]/.test(pwd);
+      const hasLower = /[a-z]/.test(pwd);
+      const hasNum = /[0-9]/.test(pwd);
+      const hasSpec = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd);
+      const isValid = hasLen && hasUpper && hasLower && hasNum && hasSpec;
+      const hasMatch = Boolean(pwd && conf && pwd === conf);
+      const score = [hasLen, hasUpper, hasLower, hasNum, hasSpec].filter(Boolean).length;
+      return {
+        hasLen,
+        hasUpper,
+        hasLower,
+        hasNum,
+        hasSpec,
+        isValid,
+        hasMatch,
+        score
+      };
+    },
+    updateChecklist: function(elements, criteria) {
+      if (!elements) return;
+      const updateItem = (el, valid) => {
+        if (!el) return;
+        const icon = el.querySelector('.crit-icon');
+        if (valid) {
+          el.classList.add('valid');
+          el.classList.remove('invalid');
+          if (icon) icon.textContent = '✓';
+        } else {
+          el.classList.remove('valid');
+          el.classList.add('invalid');
+          if (icon) icon.textContent = '✕';
+        }
+      };
+      if (elements.len) updateItem(elements.len, criteria.hasLen);
+      if (elements.upper) updateItem(elements.upper, criteria.hasUpper);
+      if (elements.lower) updateItem(elements.lower, criteria.hasLower);
+      if (elements.num) updateItem(elements.num, criteria.hasNum);
+      if (elements.spec) updateItem(elements.spec, criteria.hasSpec);
+      if (elements.match) updateItem(elements.match, criteria.hasMatch);
+    }
+  };
+
+  API.passwordPolicy = PasswordPolicy;
+  window.PasswordPolicy = PasswordPolicy;
 
   // Garante disponibilidade global irrestrita
   window.API = API;

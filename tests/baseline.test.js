@@ -60,9 +60,22 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     const regData = await regRes.json();
     assert.strictEqual(regRes.status, 201, 'Cadastro de usuário comum deve retornar 201');
     testUserId = regData.user.id;
-    const regCookie = regRes.headers.get('set-cookie') || '';
-    const regMatch = regCookie.match(/omnifin_session=([^;]+)/);
-    testUserToken = (regMatch && regMatch[1]) || regData.token;
+
+    // Security 6B: Confirma o e-mail do usuário sintético no banco para habilitar login e emissão de sessão
+    await db.collection('users').updateOne(
+      { _id: testUserId },
+      { $set: { emailVerified: true, emailVerifiedAt: new Date().toISOString() } }
+    );
+
+    // Login inicial para emitir cookie de sessão do usuário de teste
+    const initLoginRes = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login: testUserLogin, senha: testPassword })
+    });
+    const initCookie = initLoginRes.headers.get('set-cookie') || '';
+    const initMatch = initCookie.match(/omnifin_session=([^;]+)/);
+    testUserToken = (initMatch && initMatch[1]) || '';
 
     // 4. Cria admin sintético direto no banco para os testes de permissão/admin
     testAdminId = `usr_admin_${testSuffix}`;
@@ -2415,9 +2428,16 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     });
     assert.strictEqual(regRes.status, 201, 'Registro de novo usuário deve retornar 201');
     const regJson = await regRes.json();
-    const regCookie = regRes.headers.get('set-cookie') || '';
-    const regMatch = regCookie.match(/omnifin_session=([^;]+)/);
-    const newUserToken = (regMatch && regMatch[1]) || regJson.token;
+    const usersColOnb = (await connectDB()).collection('users');
+    await usersColOnb.updateOne({ login: newLogin }, { $set: { emailVerified: true, emailVerifiedAt: new Date().toISOString() } });
+    const onbLoginRes = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login: newLogin, senha: 'Password123!@#' })
+    });
+    const onbLoginCookie = onbLoginRes.headers.get('set-cookie') || '';
+    const onbRegMatch = onbLoginCookie.match(/omnifin_session=([^;]+)/);
+    const newUserToken = (onbRegMatch && onbRegMatch[1]) || regJson.token;
 
     // Primeiro login: leitura das finanças inicializadas
     const getFin1 = await fetch(`${baseUrl}/api/finances`, {
@@ -5120,7 +5140,14 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
         })
       });
       const userBData = await otherUserRegister.json();
-      const userBCookie = otherUserRegister.headers.get('set-cookie') || '';
+      const usersColB = (await connectDB()).collection('users');
+      await usersColB.updateOne({ login: userBSuffix }, { $set: { emailVerified: true, emailVerifiedAt: new Date().toISOString() } });
+      const userBLoginRes = await fetch(`${baseUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login: userBSuffix, senha: 'Password123!' })
+      });
+      const userBCookie = userBLoginRes.headers.get('set-cookie') || '';
       const userBMatch = userBCookie.match(/omnifin_session=([^;]+)/);
       const userBToken = (userBMatch && userBMatch[1]) || userBData.token;
 
@@ -6886,7 +6913,13 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
         senha: testPassword
       })
     });
-    const regPwdCookie = regPwdRes.headers.get('set-cookie') || '';
+    await usersCol.updateOne({ login: pwdUserLogin }, { $set: { emailVerified: true, emailVerifiedAt: new Date().toISOString() } });
+    const loginPwdRes = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ login: pwdUserLogin, senha: testPassword })
+    });
+    const regPwdCookie = loginPwdRes.headers.get('set-cookie') || '';
     const oldSessionToken = regPwdCookie.match(/omnifin_session=([^;]+)/)[1];
 
     // Troca a senha pelo endpoint profile
@@ -6937,7 +6970,13 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     });
     const regDelJson = await regDelRes.json();
     const delUserId = regDelJson.user.id;
-    const delCookie = regDelRes.headers.get('set-cookie').match(/omnifin_session=([^;]+)/)[1];
+    await usersCol.updateOne({ _id: delUserId }, { $set: { emailVerified: true, emailVerifiedAt: new Date().toISOString() } });
+    const loginDelRes = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ login: delUserLogin, senha: testPassword })
+    });
+    const delCookie = loginDelRes.headers.get('set-cookie').match(/omnifin_session=([^;]+)/)[1];
 
     // Remove usuário do banco diretamente
     await usersCol.deleteOne({ _id: delUserId });
@@ -7522,7 +7561,14 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.strictEqual(regARes.status, 201);
     const regAData = await regARes.json();
     const userAId = regAData.user.id;
-    const cookieA = regARes.headers.get('set-cookie') || '';
+    const usersCol4B = (await connectDB()).collection('users');
+    await usersCol4B.updateOne({ _id: userAId }, { $set: { emailVerified: true, emailVerifiedAt: new Date().toISOString() } });
+    const loginARes = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login: suffixA, senha: testPassword })
+    });
+    const cookieA = loginARes.headers.get('set-cookie') || '';
     const matchA = cookieA.match(/omnifin_session=([^;]+)/);
     const userAToken = (matchA && matchA[1]) || regAData.token;
 
@@ -7541,7 +7587,13 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.strictEqual(regBRes.status, 201);
     const regBData = await regBRes.json();
     const userBId = regBData.user.id;
-    const cookieB = regBRes.headers.get('set-cookie') || '';
+    await usersCol4B.updateOne({ _id: userBId }, { $set: { emailVerified: true, emailVerifiedAt: new Date().toISOString() } });
+    const loginBRes = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login: suffixB, senha: testPassword })
+    });
+    const cookieB = loginBRes.headers.get('set-cookie') || '';
     const matchB = cookieB.match(/omnifin_session=([^;]+)/);
     const userBToken = (matchB && matchB[1]) || regBData.token;
 
@@ -7959,7 +8011,14 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     assert.strictEqual(regRes.status, 201);
     const regData = await regRes.json();
     const testUser5BId = regData.user.id;
-    const cookie5B = regRes.headers.get('set-cookie') || '';
+    const usersCol5B = (await connectDB()).collection('users');
+    await usersCol5B.updateOne({ _id: testUser5BId }, { $set: { emailVerified: true, emailVerifiedAt: new Date().toISOString() } });
+    const login5BRes = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login: suffix5B, senha: testPassword })
+    });
+    const cookie5B = login5BRes.headers.get('set-cookie') || '';
     const match5B = cookie5B.match(/omnifin_session=([^;]+)/);
     const testUser5BToken = (match5B && match5B[1]) || regData.token;
 

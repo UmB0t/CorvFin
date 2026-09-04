@@ -276,9 +276,26 @@ const AdminModule = (() => {
           <input type="email" id="adminCreateEmail" required placeholder="carlos@empresa.com" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
         </div>
 
+        <div class="field" style="margin-bottom:8px;">
+          <label style="font-size:0.8rem; font-weight:700; color:var(--muted);">Senha Provisória</label>
+          <input type="password" id="adminCreateSenha" required placeholder="Mínimo 8 caracteres" maxlength="128" autocomplete="new-password" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
+        </div>
+
+        <div class="password-checklist-box" id="adminCreatePassChecklistBox" style="margin-bottom:8px;">
+          <div class="checklist-header">Requisitos da senha</div>
+          <div class="checklist-grid">
+            <div class="crit-item" id="adminCreateCritLen"><span class="crit-icon">✕</span> Pelo menos 8 caracteres</div>
+            <div class="crit-item" id="adminCreateCritUpper"><span class="crit-icon">✕</span> Uma letra maiúscula</div>
+            <div class="crit-item" id="adminCreateCritLower"><span class="crit-icon">✕</span> Uma letra minúscula</div>
+            <div class="crit-item" id="adminCreateCritNum"><span class="crit-icon">✕</span> Um número</div>
+            <div class="crit-item" id="adminCreateCritSpec"><span class="crit-icon">✕</span> Um caractere especial</div>
+            <div class="crit-item" id="adminCreateCritMatch"><span class="crit-icon">✕</span> As senhas coincidem</div>
+          </div>
+        </div>
+
         <div class="field">
-          <label style="font-size:0.8rem; font-weight:700; color:var(--muted);">Senha Provisória (Mín. 8 caracteres, maiúsc, minúsc, num e símb)</label>
-          <input type="password" id="adminCreateSenha" required placeholder="••••••••" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
+          <label style="font-size:0.8rem; font-weight:700; color:var(--muted);">Confirmar Senha Provisória</label>
+          <input type="password" id="adminCreateConfirmSenha" required placeholder="Repita a senha provisória" maxlength="128" autocomplete="new-password" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
         </div>
 
         <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
@@ -326,8 +343,46 @@ const AdminModule = (() => {
     document.getElementById('btnCloseCreateUser')?.addEventListener('click', () => modal.close());
     document.getElementById('btnCancelCreateUser')?.addEventListener('click', () => modal.close());
 
+    const createPassInput = document.getElementById('adminCreateSenha');
+    const createConfirmInput = document.getElementById('adminCreateConfirmSenha');
+    const createSubmitBtn = document.getElementById('formAdminCreateUser')?.querySelector('button[type="submit"]');
+
+    const createCritElements = {
+      len: document.getElementById('adminCreateCritLen'),
+      upper: document.getElementById('adminCreateCritUpper'),
+      lower: document.getElementById('adminCreateCritLower'),
+      num: document.getElementById('adminCreateCritNum'),
+      spec: document.getElementById('adminCreateCritSpec'),
+      match: document.getElementById('adminCreateCritMatch')
+    };
+
+    function validateAdminCreatePassword() {
+      const p1 = createPassInput ? createPassInput.value : '';
+      const p2 = createConfirmInput ? createConfirmInput.value : '';
+
+      const criteria = (window.PasswordPolicy && typeof window.PasswordPolicy.checkCriteria === 'function')
+        ? window.PasswordPolicy.checkCriteria(p1, p2)
+        : { isValid: false, hasMatch: false };
+
+      if (window.PasswordPolicy && typeof window.PasswordPolicy.updateChecklist === 'function') {
+        window.PasswordPolicy.updateChecklist(createCritElements, criteria);
+      }
+
+      const isValid = Boolean(criteria.isValid && criteria.hasMatch && p1.length <= 128);
+      if (createSubmitBtn) createSubmitBtn.disabled = !isValid;
+      return isValid;
+    }
+
+    if (createSubmitBtn) createSubmitBtn.disabled = true;
+    createPassInput?.addEventListener('input', validateAdminCreatePassword);
+    createConfirmInput?.addEventListener('input', validateAdminCreatePassword);
+
     document.getElementById('formAdminCreateUser')?.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (!validateAdminCreatePassword()) {
+        showFeedback('A senha provisória não atende à política de segurança ou as senhas não coincidem.', 'error');
+        return;
+      }
       const nome = document.getElementById('adminCreateNome').value.trim();
       const login = document.getElementById('adminCreateLogin').value.trim();
       const email = document.getElementById('adminCreateEmail').value.trim();
@@ -406,9 +461,33 @@ const AdminModule = (() => {
           <input type="email" id="adminEditEmail" value="${escapeHtml(user.email)}" required style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
         </div>
 
-        <div class="field">
-          <label style="font-size:0.8rem; font-weight:700; color:var(--muted);">Redefinir Senha (opcional, deixe em branco para manter)</label>
-          <input type="password" id="adminEditNovaSenha" placeholder="Deixe em branco para não alterar" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
+        <div style="border-top:1px solid var(--line); padding-top:12px; margin-top:4px;">
+          <label style="font-size:0.82rem; font-weight:800; color:var(--text); display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="width:15px; height:15px; stroke:var(--brand);"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Redefinir Senha do Usuário (opcional)
+          </label>
+
+          <div class="field" style="margin-bottom:8px;">
+            <label for="adminEditNovaSenha" style="font-size:0.8rem; font-weight:700; color:var(--muted);">Nova Senha</label>
+            <input type="password" id="adminEditNovaSenha" placeholder="Deixe em branco para manter a atual" maxlength="128" autocomplete="new-password" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
+          </div>
+
+          <div class="password-checklist-box" id="adminEditPassChecklistBox" style="display:none; margin-bottom:8px;">
+            <div class="checklist-header">Requisitos da senha</div>
+            <div class="checklist-grid">
+              <div class="crit-item" id="adminEditCritLen"><span class="crit-icon">✕</span> Pelo menos 8 caracteres</div>
+              <div class="crit-item" id="adminEditCritUpper"><span class="crit-icon">✕</span> Uma letra maiúscula</div>
+              <div class="crit-item" id="adminEditCritLower"><span class="crit-icon">✕</span> Uma letra minúscula</div>
+              <div class="crit-item" id="adminEditCritNum"><span class="crit-icon">✕</span> Um número</div>
+              <div class="crit-item" id="adminEditCritSpec"><span class="crit-icon">✕</span> Um caractere especial</div>
+              <div class="crit-item" id="adminEditCritMatch"><span class="crit-icon">✕</span> As senhas coincidem</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="adminEditConfirmSenha" style="font-size:0.8rem; font-weight:700; color:var(--muted);">Confirmar Nova Senha</label>
+            <input type="password" id="adminEditConfirmSenha" placeholder="Repita a nova senha" maxlength="128" autocomplete="new-password" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
+          </div>
         </div>
 
         <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
@@ -426,8 +505,55 @@ const AdminModule = (() => {
     document.getElementById('btnCloseEditUser')?.addEventListener('click', () => modal.close());
     document.getElementById('btnCancelEditUser')?.addEventListener('click', () => modal.close());
 
+    const editPassInput = document.getElementById('adminEditNovaSenha');
+    const editConfirmInput = document.getElementById('adminEditConfirmSenha');
+    const editChecklistBox = document.getElementById('adminEditPassChecklistBox');
+    const editSubmitBtn = document.getElementById('formAdminEditUser')?.querySelector('button[type="submit"]');
+
+    const editCritElements = {
+      len: document.getElementById('adminEditCritLen'),
+      upper: document.getElementById('adminEditCritUpper'),
+      lower: document.getElementById('adminEditCritLower'),
+      num: document.getElementById('adminEditCritNum'),
+      spec: document.getElementById('adminEditCritSpec'),
+      match: document.getElementById('adminEditCritMatch')
+    };
+
+    function validateAdminEditPassword() {
+      const p1 = editPassInput ? editPassInput.value : '';
+      const p2 = editConfirmInput ? editConfirmInput.value : '';
+      const hasPass = Boolean(p1 || p2);
+
+      if (!hasPass) {
+        if (editChecklistBox) editChecklistBox.style.display = 'none';
+        if (editSubmitBtn) editSubmitBtn.disabled = false;
+        return true;
+      }
+
+      if (editChecklistBox) editChecklistBox.style.display = 'grid';
+
+      const criteria = (window.PasswordPolicy && typeof window.PasswordPolicy.checkCriteria === 'function')
+        ? window.PasswordPolicy.checkCriteria(p1, p2)
+        : { isValid: false, hasMatch: false };
+
+      if (window.PasswordPolicy && typeof window.PasswordPolicy.updateChecklist === 'function') {
+        window.PasswordPolicy.updateChecklist(editCritElements, criteria);
+      }
+
+      const isValid = Boolean(criteria.isValid && criteria.hasMatch && p1.length <= 128);
+      if (editSubmitBtn) editSubmitBtn.disabled = !isValid;
+      return isValid;
+    }
+
+    editPassInput?.addEventListener('input', validateAdminEditPassword);
+    editConfirmInput?.addEventListener('input', validateAdminEditPassword);
+
     document.getElementById('formAdminEditUser')?.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (!validateAdminEditPassword()) {
+        showFeedback('A nova senha informada não atende à política de segurança ou as senhas não coincidem.', 'error');
+        return;
+      }
       const nome = document.getElementById('adminEditNome').value.trim();
       const login = document.getElementById('adminEditLogin').value.trim();
       const email = document.getElementById('adminEditEmail').value.trim();

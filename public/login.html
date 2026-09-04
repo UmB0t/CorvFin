@@ -71,6 +71,19 @@
           required>
       </div>
 
+      <div class="field-aux" style="display:flex; justify-content:flex-end; margin-top:-4px; margin-bottom:14px;">
+        <button type="button" class="btn-link" id="link-forgot-password" style="background:none; border:none; color:#10b981; font-size:13px; font-weight:600; cursor:pointer; padding:0; text-decoration:underline;">
+          Esqueci minha senha
+        </button>
+      </div>
+
+      <div id="unverified-banner" style="display:none; margin-bottom:16px; padding:12px 14px; background:rgba(245,158,11,0.1); border:1px solid #f59e0b; border-radius:8px; font-size:13px; color:#fcd34d; text-align:left;">
+        <div id="unverified-text">Seu e-mail ainda não foi confirmado.</div>
+        <button type="button" id="btn-resend-verification" style="margin-top:8px; background:#f59e0b; color:#0b0f17; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">
+          Reenviar e-mail de confirmação
+        </button>
+      </div>
+
       <button type="submit" class="btn-submit" id="btn-login">
         <span>Acessar Painel</span>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
@@ -80,6 +93,69 @@
         </svg>
       </button>
     </form>
+
+    <!-- Formulário de Esqueci Minha Senha -->
+    <form id="form-forgot" class="auth-form" style="display: none;" novalidate>
+      <div class="field">
+        <label for="forgot-email">E-mail da sua conta</label>
+        <input type="email" id="forgot-email" name="email" placeholder="seu@email.com" autocomplete="email" required>
+      </div>
+
+      <div id="forgot-msg" style="display:none; font-size:13px; color:#cbd5e1; margin-bottom:12px; line-height:1.5;"></div>
+
+      <button type="submit" class="btn-submit" id="btn-forgot-submit">
+        <span>Enviar Instruções de Recuperação</span>
+      </button>
+
+      <button type="button" id="btn-forgot-back" style="margin-top:10px; background:transparent; border:1px solid #334155; color:#cbd5e1; padding:10px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; width:100%;">
+        Voltar para o Login
+      </button>
+    </form>
+
+    <!-- Formulário de Redefinição de Senha -->
+    <form id="form-reset" class="auth-form" style="display: none;" novalidate>
+      <div class="field">
+        <label for="reset-pass">Nova Senha</label>
+        <input type="password" id="reset-pass" name="novaSenha" placeholder="Mínimo 8 caracteres" autocomplete="new-password" required>
+      </div>
+
+      <!-- Validador de Requisitos da Senha para Reset -->
+      <div class="password-strength-box" id="reset-password-strength-box">
+        <div class="strength-bar-track">
+          <div class="strength-bar-fill" id="reset-strength-bar-fill"></div>
+        </div>
+        <div class="strength-criteria">
+          <div class="crit-item" id="reset-crit-len"><span class="crit-icon">✕</span> 8+ caracteres</div>
+          <div class="crit-item" id="reset-crit-upper"><span class="crit-icon">✕</span> Letra maiúscula</div>
+          <div class="crit-item" id="reset-crit-lower"><span class="crit-icon">✕</span> Letra minúscula</div>
+          <div class="crit-item" id="reset-crit-num"><span class="crit-icon">✕</span> Número (0-9)</div>
+          <div class="crit-item" id="reset-crit-spec"><span class="crit-icon">✕</span> Caractere especial</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="reset-pass-confirm">Confirmar Nova Senha</label>
+        <input type="password" id="reset-pass-confirm" name="confirmaNovaSenha" placeholder="Repita a nova senha" autocomplete="new-password" required>
+      </div>
+
+      <button type="submit" class="btn-submit" id="btn-reset-submit">
+        <span>Salvar Nova Senha</span>
+      </button>
+
+      <button type="button" id="btn-reset-back" style="margin-top:10px; background:transparent; border:1px solid #334155; color:#cbd5e1; padding:10px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; width:100%;">
+        Voltar para o Login
+      </button>
+    </form>
+
+    <!-- Painel de Confirmação de E-mail -->
+    <div id="panel-verify" class="auth-form" style="display: none; text-align: center; padding: 20px 0;">
+      <div id="verify-status-icon" style="font-size: 36px; margin-bottom: 12px;">⏳</div>
+      <h3 id="verify-status-title" style="margin: 0 0 8px 0; color: #f8fafc; font-size: 18px;">Confirmando e-mail...</h3>
+      <p id="verify-status-desc" style="color: #94a3b8; font-size: 14px; margin: 0 0 20px 0; line-height: 1.5;">Aguarde enquanto validamos seu token de confirmação.</p>
+      <button type="button" class="btn-submit" id="btn-verify-to-login" style="display: none; width: 100%;">
+        <span>Ir para o Login</span>
+      </button>
+    </div>
 
     <!-- Formulário de Cadastro -->
     <form id="form-register" class="auth-form" style="display: none;" novalidate>

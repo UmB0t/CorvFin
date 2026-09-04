@@ -6,14 +6,21 @@ const { rateLimit } = require('express-rate-limit');
 const config = require('./config/config');
 const {
   validateStrongPassword,
+  validatePasswordPolicy,
   validateEmail,
+  normalizeEmail,
   hashPassword,
   comparePassword,
-  generateToken
+  generateToken,
+  generateSecurityToken,
+  hashSecurityToken
 } = require('./services/authService');
 const {
   getUsers,
+  getUserById,
+  getUserByEmail,
   saveUsers,
+  updateUserPassword,
   getPermissions,
   savePermissions,
   getDefaultPermissions,
@@ -27,7 +34,12 @@ const {
   getUserFinances,
   saveUserFinances,
   getAllFinances,
-  saveAllFinances
+  saveAllFinances,
+  createSecurityToken,
+  invalidateSecurityTokensForUser,
+  verifyEmailWithToken,
+  resetPasswordWithToken,
+  cleanExpiredSecurityTokens
 } = require('./services/storageService');
 const { authMiddleware, adminOnlyMiddleware } = require('./middleware/auth');
 const { sanitizeFinancePayload, applyRbacModulePreservation } = require('./services/financeValidation');
@@ -175,7 +187,15 @@ app.use('/api', (req, res, next) => {
 
   // Rotas públicas de autenticação inicial são tratadas compatibilizadas
   const urlPath = req.originalUrl || req.url || '';
-  if (urlPath.includes('/auth/login') || urlPath.includes('/auth/register') || urlPath.includes('/auth/logout')) {
+  if (
+    urlPath.includes('/auth/login') ||
+    urlPath.includes('/auth/register') ||
+    urlPath.includes('/auth/logout') ||
+    urlPath.includes('/auth/forgot-password') ||
+    urlPath.includes('/auth/reset-password') ||
+    urlPath.includes('/auth/verify-email') ||
+    urlPath.includes('/auth/resend-verification')
+  ) {
     return next();
   }
 
@@ -268,6 +288,72 @@ const emailTestLimiter = rateLimit({
   }
 });
 
+// Limitadores Dedicados de Ciclo de Conta e Credenciais (Security 6B)
+const forgotPasswordLimiter = rateLimit({
+  windowMs: config.FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MS || (15 * 60 * 1000),
+  max: config.FORGOT_PASSWORD_RATE_LIMIT_MAX || 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  validate: false,
+  message: {
+    success: false,
+    error: 'TOO_MANY_REQUESTS',
+    message: 'Muitas solicitações de recuperação de senha. Tente novamente em alguns minutos.'
+  }
+});
+
+const resendVerificationLimiter = rateLimit({
+  windowMs: config.RESEND_VERIFICATION_RATE_LIMIT_WINDOW_MS || (15 * 60 * 1000),
+  max: config.RESEND_VERIFICATION_RATE_LIMIT_MAX || 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  validate: false,
+  message: {
+    success: false,
+    error: 'TOO_MANY_REQUESTS',
+    message: 'Muitas tentativas de reenvio de confirmação. Tente novamente em alguns minutos.'
+  }
+});
+
+const verifyEmailLimiter = rateLimit({
+  windowMs: config.VERIFY_EMAIL_RATE_LIMIT_WINDOW_MS || (15 * 60 * 1000),
+  max: config.VERIFY_EMAIL_RATE_LIMIT_MAX || 15,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  validate: false,
+  message: {
+    success: false,
+    error: 'TOO_MANY_REQUESTS',
+    message: 'Muitas tentativas de verificação de e-mail. Tente novamente em alguns minutos.'
+  }
+});
+
+const resetPasswordLimiter = rateLimit({
+  windowMs: config.RESET_PASSWORD_RATE_LIMIT_WINDOW_MS || (15 * 60 * 1000),
+  max: config.RESET_PASSWORD_RATE_LIMIT_MAX || 5,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  validate: false,
+  message: {
+    success: false,
+    error: 'TOO_MANY_REQUESTS',
+    message: 'Muitas tentativas de redefinição de senha. Tente novamente em alguns minutos.'
+  }
+});
+
+const changePasswordLimiter = rateLimit({
+  windowMs: config.CHANGE_PASSWORD_RATE_LIMIT_WINDOW_MS || (15 * 60 * 1000),
+  max: config.CHANGE_PASSWORD_RATE_LIMIT_MAX || 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  validate: false,
+  message: {
+    success: false,
+    error: 'TOO_MANY_REQUESTS',
+    message: 'Muitas tentativas de alteração de senha. Tente novamente em alguns minutos.'
+  }
+});
+
 // Endpoint para fornecer BASE_PATH ao frontend dinamicamente
 app.get('/config.js', (req, res) => {
   res.type('application/javascript');
@@ -346,14 +432,14 @@ app.post('/api/auth/register', authRegisterLimiter, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Formato de e-mail inválido.' });
     }
 
-    const pwdCheck = validateStrongPassword(senha);
+    const pwdCheck = validatePasswordPolicy(senha);
     if (!pwdCheck.valid) {
       return res.status(400).json({ success: false, message: pwdCheck.message });
     }
 
     const users = await getUsers();
     const cleanLogin = login.trim().toLowerCase();
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = normalizeEmail(email);
 
     if (users.some(u => u.login.toLowerCase() === cleanLogin)) {
       return res.status(409).json({ success: false, message: 'Este nome de usuário (login) já está em uso.' });
@@ -365,6 +451,7 @@ app.post('/api/auth/register', authRegisterLimiter, async (req, res) => {
 
     const hashedPassword = await hashPassword(senha);
     const isFirstUser = users.length === 0;
+    const nowISO = new Date().toISOString();
 
     const newUser = {
       id: generateUserId(),
@@ -375,7 +462,9 @@ app.post('/api/auth/register', authRegisterLimiter, async (req, res) => {
       is_admin: isFirstUser, // Primeiro usuário vira admin automaticamente
       notificacoes_ativas: true,
       tokenVersion: 0,
-      createdAt: new Date().toISOString()
+      emailVerified: false,
+      emailVerifiedAt: null,
+      createdAt: nowISO
     };
 
     users.push(newUser);
@@ -392,20 +481,40 @@ app.post('/api/auth/register', authRegisterLimiter, async (req, res) => {
     // Inicializa template de finanças para novo usuário (com onboarding.welcomeSeen = false)
     await getUserFinances(newUser.id, newUser.nome, 0, true);
 
-    const token = generateToken(newUser);
-    setAuthSessionCookie(res, token);
+    // Emite token de confirmação de e-mail (24 horas)
+    const rawToken = generateSecurityToken();
+    const tokenHash = hashSecurityToken(rawToken);
+    const expiresAt = new Date(Date.now() + (config.EMAIL_VERIFICATION_TOKEN_TTL_MS || 24 * 60 * 60 * 1000)).toISOString(); // 24 horas (86.400.000 ms)
 
+    await createSecurityToken({
+      userId: newUser.id,
+      type: 'email_verification',
+      tokenHash,
+      expiresAt
+    });
+
+    // Despacho de e-mail com desacoplamento de transporte (falha de SMTP não aborta nem corrompe a conta)
+    try {
+      await mailService.sendVerificationEmail({
+        to: newUser.email,
+        nome: newUser.nome,
+        token: rawToken
+      });
+    } catch (mailErr) {
+      console.warn('[AUTH_REGISTER] Aviso: Falha ao enviar e-mail de confirmação (transporte indisponível):', mailErr.message);
+    }
+
+    // Security 6B: NÃO emite cookie de sessão imediato para contas não confirmadas
     return res.status(201).json({
       success: true,
-      message: 'Conta criada com sucesso!',
+      requiresVerification: true,
+      message: 'Conta criada com sucesso. Confirme seu endereço de e-mail antes de fazer login. Caso não receba a mensagem, utilize a opção de reenviar confirmação.',
       user: {
         id: newUser.id,
         login: newUser.login,
         nome: newUser.nome,
         email: newUser.email,
-        is_admin: newUser.is_admin,
-        notificacoes_ativas: newUser.notificacoes_ativas,
-        permissions
+        emailVerified: false
       }
     });
   } catch (err) {
@@ -438,6 +547,17 @@ app.post('/api/auth/login', authLoginLimiter, async (req, res) => {
       return res.status(401).json({ success: false, error: 'INVALID_CREDENTIALS', message: 'Login ou senha inválidos. Verifique os dados e tente novamente.' });
     }
 
+    // Security 6B: Bloqueio de novas contas não verificadas
+    // Usuários legados sem emailVerified continuam grandfathered (emailVerified !== false)
+    if (user.emailVerified === false) {
+      return res.status(403).json({
+        success: false,
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Por favor, confirme seu endereço de e-mail antes de acessar o sistema.',
+        email: user.email
+      });
+    }
+
     const token = generateToken(user);
     const permissions = await getUserPermissions(user.id);
     setAuthSessionCookie(res, token);
@@ -452,6 +572,7 @@ app.post('/api/auth/login', authLoginLimiter, async (req, res) => {
         email: user.email,
         is_admin: !!user.is_admin,
         notificacoes_ativas: !!user.notificacoes_ativas,
+        emailVerified: user.emailVerified !== false,
         permissions
       }
     });
@@ -468,6 +589,259 @@ app.post('/api/auth/logout', (req, res) => {
     success: true,
     message: 'Logout realizado com sucesso.'
   });
+});
+
+// POST /api/auth/verify-email - Confirmação de e-mail com consumo atômico (Two-Phase Claim)
+app.post('/api/auth/verify-email', verifyEmailLimiter, async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Token de confirmação inválido ou ausente.'
+      });
+    }
+
+    const tokenHash = hashSecurityToken(token.trim());
+    const result = await verifyEmailWithToken(tokenHash);
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token de confirmação inválido ou expirado.'
+      });
+    }
+
+    console.log('[AUDIT] EMAIL_VERIFIED:', { userId: result.userId, timestamp: new Date().toISOString() });
+
+    return res.json({
+      success: true,
+      message: 'E-mail confirmado com sucesso! Você já pode realizar o login.'
+    });
+  } catch (err) {
+    console.error('Erro na confirmação de e-mail:', err);
+    return res.status(500).json({ success: false, message: 'Erro interno ao confirmar e-mail.' });
+  }
+});
+
+// POST /api/auth/resend-verification - Reenvio de confirmação com anti-enumeração
+app.post('/api/auth/resend-verification', resendVerificationLimiter, async (req, res) => {
+  try {
+    const { email } = req.body;
+    const cleanEmail = normalizeEmail(email);
+
+    // Resposta sempre neutra (anti-enumeração)
+    const neutralResponse = {
+      success: true,
+      message: 'Se houver uma conta elegível para este endereço, enviaremos novas instruções.'
+    };
+
+    if (!cleanEmail || !validateEmail(cleanEmail).valid) {
+      return res.json(neutralResponse);
+    }
+
+    const user = await getUserByEmail(cleanEmail);
+
+    // Reenvia apenas se a conta existir e ainda não estiver verificada
+    if (user && user.emailVerified === false) {
+      const rawToken = generateSecurityToken();
+      const tokenHash = hashSecurityToken(rawToken);
+      const expiresAt = new Date(Date.now() + (config.EMAIL_VERIFICATION_TOKEN_TTL_MS || 24 * 60 * 60 * 1000)).toISOString(); // 24 horas (86.400.000 ms)
+
+      await createSecurityToken({
+        userId: user.id,
+        type: 'email_verification',
+        tokenHash,
+        expiresAt
+      });
+
+      console.log('[AUDIT] EMAIL_VERIFICATION_REQUESTED:', { userId: user.id, timestamp: new Date().toISOString() });
+
+      try {
+        await mailService.sendVerificationEmail({
+          to: user.email,
+          nome: user.nome,
+          token: rawToken
+        });
+      } catch (mailErr) {
+        console.warn('[AUTH_RESEND] Aviso: Falha ao enviar e-mail de confirmação:', mailErr.message);
+      }
+    }
+
+    return res.json(neutralResponse);
+  } catch (err) {
+    console.error('Erro no reenvio de confirmação:', err);
+    return res.status(500).json({ success: false, message: 'Erro interno ao processar reenvio.' });
+  }
+});
+
+// POST /api/auth/forgot-password - Solicitação de redefinição de senha com anti-enumeração
+app.post('/api/auth/forgot-password', forgotPasswordLimiter, async (req, res) => {
+  try {
+    const { email } = req.body;
+    const cleanEmail = normalizeEmail(email);
+
+    // Resposta externa SEMPRE neutra
+    const neutralResponse = {
+      success: true,
+      message: 'Se existir uma conta associada a este e-mail, enviaremos instruções para redefinição da senha.'
+    };
+
+    if (!cleanEmail || !validateEmail(cleanEmail).valid) {
+      return res.json(neutralResponse);
+    }
+
+    const user = await getUserByEmail(cleanEmail);
+
+    if (user) {
+      const rawToken = generateSecurityToken();
+      const tokenHash = hashSecurityToken(rawToken);
+      const expiresAt = new Date(Date.now() + (config.PASSWORD_RESET_TOKEN_TTL_MS || 30 * 60 * 1000)).toISOString(); // 30 minutos (1.800.000 ms)
+
+      await createSecurityToken({
+        userId: user.id,
+        type: 'password_reset',
+        tokenHash,
+        expiresAt
+      });
+
+      console.log('[AUDIT] PASSWORD_RESET_REQUESTED:', { userId: user.id, timestamp: new Date().toISOString() });
+
+      try {
+        await mailService.sendPasswordResetEmail({
+          to: user.email,
+          nome: user.nome,
+          token: rawToken
+        });
+      } catch (mailErr) {
+        console.warn('[AUTH_FORGOT_PWD] Aviso: Falha ao enviar e-mail de recuperação:', mailErr.message);
+        await invalidateSecurityTokensForUser(user.id, 'password_reset').catch(() => {});
+      }
+    }
+
+    return res.json(neutralResponse);
+  } catch (err) {
+    console.error('Erro na solicitação de recuperação de senha:', err);
+    return res.status(500).json({ success: false, message: 'Erro interno ao processar recuperação de senha.' });
+  }
+});
+
+// POST /api/auth/reset-password - Redefinição de senha com Two-Phase Claim e Fail-Safe
+app.post('/api/auth/reset-password', resetPasswordLimiter, async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Token de redefinição inválido ou ausente.'
+      });
+    }
+
+    const policyCheck = validatePasswordPolicy(newPassword);
+    if (!policyCheck.valid) {
+      return res.status(400).json({
+        success: false,
+        message: policyCheck.message
+      });
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
+    const tokenHash = hashSecurityToken(token.trim());
+
+    const result = await resetPasswordWithToken(tokenHash, hashedPassword);
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token de redefinição inválido ou expirado.'
+      });
+    }
+
+    clearAuthSessionCookie(res);
+
+    console.log('[AUDIT] PASSWORD_RESET_COMPLETED:', { userId: result.userId, timestamp: new Date().toISOString() });
+
+    if (result.email) {
+      mailService.sendPasswordChangedAlert({
+        to: result.email,
+        nome: result.nome
+      }).catch(mailErr => {
+        console.warn('[AUTH_RESET_PWD] Aviso: Falha ao enviar aviso de senha alterada:', mailErr.message);
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Senha redefinida com sucesso! Faça login com sua nova senha.'
+    });
+  } catch (err) {
+    console.error('Erro na redefinição de senha:', err);
+    return res.status(500).json({ success: false, message: 'Erro interno ao redefinir senha.' });
+  }
+});
+
+// POST /api/auth/change-password - Alteração de senha por usuário autenticado
+app.post('/api/auth/change-password', authMiddleware, changePasswordLimiter, async (req, res) => {
+  try {
+    const { senhaAtual, novaSenha } = req.body;
+
+    if (!senhaAtual || !novaSenha) {
+      return res.status(400).json({
+        success: false,
+        message: 'Senha atual e nova senha são obrigatórias.'
+      });
+    }
+
+    const policyCheck = validatePasswordPolicy(novaSenha);
+    if (!policyCheck.valid) {
+      return res.status(400).json({
+        success: false,
+        message: policyCheck.message
+      });
+    }
+
+    if (senhaAtual === novaSenha) {
+      return res.status(400).json({
+        success: false,
+        message: 'A nova senha não pode ser idêntica à senha atual.'
+      });
+    }
+
+    const user = await getUserById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Usuário não encontrado.' });
+    }
+
+    const passwordMatch = await comparePassword(senhaAtual, user.senha);
+    if (!passwordMatch) {
+      return res.status(400).json({ success: false, message: 'Senha atual incorreta.' });
+    }
+
+    const newHashedPassword = await hashPassword(novaSenha);
+    await updateUserPassword(user.id, newHashedPassword);
+
+    clearAuthSessionCookie(res);
+
+    console.log('[AUDIT] PASSWORD_CHANGED:', { userId: user.id, timestamp: new Date().toISOString() });
+
+    if (user.email) {
+      mailService.sendPasswordChangedAlert({
+        to: user.email,
+        nome: user.nome
+      }).catch(mailErr => {
+        console.warn('[AUTH_CHANGE_PWD] Aviso: Falha ao enviar aviso de senha alterada:', mailErr.message);
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Senha alterada com sucesso! Faça login novamente com sua nova senha.'
+    });
+  } catch (err) {
+    console.error('Erro na alteração de senha autenticada:', err);
+    return res.status(500).json({ success: false, message: 'Erro interno ao alterar senha.' });
+  }
 });
 
 // GET /api/auth/me - Obter dados do usuário logado
@@ -501,7 +875,7 @@ app.put('/api/auth/profile', authMiddleware, async (req, res) => {
       if (!match) {
         return res.status(400).json({ success: false, message: 'Senha atual incorreta.' });
       }
-      const pwdCheck = validateStrongPassword(novaSenha);
+      const pwdCheck = validatePasswordPolicy(novaSenha);
       if (!pwdCheck.valid) {
         return res.status(400).json({ success: false, message: pwdCheck.message });
       }
@@ -512,12 +886,12 @@ app.put('/api/auth/profile', authMiddleware, async (req, res) => {
 
     if (nome && nome.trim()) user.nome = nome.trim();
     if (email && email.trim()) {
-      const cleanEmail = email.trim().toLowerCase();
-      if (!validateEmail(cleanEmail)) {
+      const cleanEmail = normalizeEmail(email);
+      if (!validateEmail(cleanEmail).valid) {
         return res.status(400).json({ success: false, message: 'Formato de e-mail inválido.' });
       }
       // Verifica duplicidade de e-mail com outros usuários
-      if (users.some(u => u.id !== req.user.id && u.email.toLowerCase() === cleanEmail)) {
+      if (users.some(u => u.id !== req.user.id && (u.email || '').toLowerCase() === cleanEmail)) {
         return res.status(409).json({ success: false, message: 'Este e-mail já está sendo utilizado por outra conta.' });
       }
       user.email = cleanEmail;
@@ -532,6 +906,15 @@ app.put('/api/auth/profile', authMiddleware, async (req, res) => {
 
     if (passwordChanged) {
       clearAuthSessionCookie(res);
+      console.log('[AUDIT] PASSWORD_CHANGED:', { userId: user.id, timestamp: new Date().toISOString() });
+      if (user.email) {
+        mailService.sendPasswordChangedAlert({
+          to: user.email,
+          nome: user.nome
+        }).catch(mailErr => {
+          console.warn('[AUTH_PROFILE] Aviso: Falha ao enviar aviso de senha alterada:', mailErr.message);
+        });
+      }
       return res.json({
         success: true,
         passwordChanged: true,
@@ -1054,14 +1437,14 @@ app.post('/api/admin/users', authMiddleware, adminOnlyMiddleware, async (req, re
       return res.status(400).json({ success: false, message: 'Formato de e-mail inválido.' });
     }
 
-    const pwdCheck = validateStrongPassword(senha);
+    const pwdCheck = validatePasswordPolicy(senha);
     if (!pwdCheck.valid) {
       return res.status(400).json({ success: false, message: pwdCheck.message });
     }
 
     const users = await getUsers();
     const cleanLogin = login.trim().toLowerCase();
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = normalizeEmail(email);
 
     if (users.some(u => u.login.toLowerCase() === cleanLogin)) {
       return res.status(409).json({ success: false, message: 'Este login já está em uso.' });
@@ -1072,6 +1455,7 @@ app.post('/api/admin/users', authMiddleware, adminOnlyMiddleware, async (req, re
     }
 
     const hashedPassword = await hashPassword(senha);
+    const nowISO = new Date().toISOString();
 
     const newUser = {
       id: generateUserId(),
@@ -1081,7 +1465,10 @@ app.post('/api/admin/users', authMiddleware, adminOnlyMiddleware, async (req, re
       senha: hashedPassword,
       is_admin: !!is_admin,
       notificacoes_ativas: typeof notificacoes_ativas === 'boolean' ? notificacoes_ativas : true,
-      createdAt: new Date().toISOString()
+      tokenVersion: 0,
+      emailVerified: true,
+      emailVerifiedAt: nowISO,
+      createdAt: nowISO
     };
 
     users.push(newUser);
@@ -1135,7 +1522,7 @@ app.put('/api/admin/users/:userId', authMiddleware, adminOnlyMiddleware, async (
 
     // Redefinição de senha se fornecida
     if (novaSenha && String(novaSenha).trim()) {
-      const pwdCheck = validateStrongPassword(novaSenha);
+      const pwdCheck = validatePasswordPolicy(novaSenha);
       if (!pwdCheck.valid) {
         return res.status(400).json({ success: false, message: pwdCheck.message });
       }
@@ -1213,7 +1600,7 @@ app.put('/api/admin/users/:userId/password', authMiddleware, adminOnlyMiddleware
     const { userId } = req.params;
     const { novaSenha } = req.body;
 
-    const pwdCheck = validateStrongPassword(novaSenha);
+    const pwdCheck = validatePasswordPolicy(novaSenha);
     if (!pwdCheck.valid) {
       return res.status(400).json({ success: false, message: pwdCheck.message });
     }
@@ -1686,10 +2073,14 @@ const sendIndexPage = (req, res) => {
 
 if (config.BASE_PATH) {
   app.get(`${config.BASE_PATH}/login`, sendLoginPage);
+  app.get(`${config.BASE_PATH}/verify-email`, sendLoginPage);
+  app.get(`${config.BASE_PATH}/reset-password`, sendLoginPage);
   app.get(`${config.BASE_PATH}/*`, sendIndexPage);
 }
 
 app.get('/login', sendLoginPage);
+app.get('/verify-email', sendLoginPage);
+app.get('/reset-password', sendLoginPage);
 app.get('*', sendIndexPage);
 
 // Middleware Global Terminal de Tratamento e Sanitização de Erros

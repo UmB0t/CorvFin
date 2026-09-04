@@ -1,6 +1,12 @@
 const nodemailer = require('nodemailer');
+const config = require('../config/config');
 const storageService = require('./storageService');
 const cryptoService = require('./cryptoService');
+const {
+  getVerificationEmailTemplate,
+  getPasswordResetEmailTemplate,
+  getPasswordChangedEmailTemplate
+} = require('../templates/emailTemplates');
 
 let cachedTransporter = null;
 
@@ -200,11 +206,57 @@ function hasCachedTransporter() {
   return cachedTransporter !== null;
 }
 
+/**
+ * Envia e-mail de confirmação de endereço para nova conta ou reenvio.
+ */
+async function sendVerificationEmail({ to, nome, token }) {
+  const baseUrl = config.APP_PUBLIC_URL || 'https://app.corvfin.com.br';
+  const verificationUrl = `${baseUrl}/verify-email?token=${encodeURIComponent(token)}`;
+  const template = getVerificationEmailTemplate({ nome, verificationUrl });
+  return module.exports.sendMail({
+    to,
+    subject: template.subject,
+    text: template.text,
+    html: template.html
+  });
+}
+
+/**
+ * Envia e-mail de recuperação de senha com link contendo o token temporário.
+ */
+async function sendPasswordResetEmail({ to, nome, token }) {
+  const baseUrl = config.APP_PUBLIC_URL || 'https://app.corvfin.com.br';
+  const resetUrl = `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`;
+  const template = getPasswordResetEmailTemplate({ nome, resetUrl });
+  return module.exports.sendMail({
+    to,
+    subject: template.subject,
+    text: template.text,
+    html: template.html
+  });
+}
+
+/**
+ * Envia notificação de segurança avisando que a senha do usuário foi alterada.
+ */
+async function sendPasswordChangedAlert({ to, nome }) {
+  const template = getPasswordChangedEmailTemplate({ nome });
+  return module.exports.sendMail({
+    to,
+    subject: template.subject,
+    text: template.text,
+    html: template.html
+  });
+}
+
 module.exports = {
   getTransporter,
   verifyConnection,
   sendMail,
   sendTestEmail,
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendPasswordChangedAlert,
   invalidateTransporter,
   hasCachedTransporter,
   normalizeMailError

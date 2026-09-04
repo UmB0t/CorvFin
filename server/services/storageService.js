@@ -16,7 +16,9 @@ module.exports = {
   // User Storage Helpers
   getUsers: (...args) => getActiveStorage().getUsers(...args),
   getUserById: (...args) => getActiveStorage().getUserById(...args),
+  getUserByEmail: (...args) => getActiveStorage().getUserByEmail(...args),
   saveUsers: (...args) => getActiveStorage().saveUsers(...args),
+  updateUserPassword: (...args) => getActiveStorage().updateUserPassword(...args),
 
   // Permissions Storage Helpers
   getPermissions: (...args) => getActiveStorage().getPermissions(...args),
@@ -33,6 +35,13 @@ module.exports = {
   // Global Email Settings Storage Helpers (Security 6A)
   getEmailSettings: (...args) => getActiveStorage().getEmailSettings(...args),
   saveEmailSettings: (...args) => getActiveStorage().saveEmailSettings(...args),
+
+  // Security Tokens Storage Helpers (Checkpoint Security 6B)
+  createSecurityToken: (...args) => getActiveStorage().createSecurityToken(...args),
+  invalidateSecurityTokensForUser: (...args) => getActiveStorage().invalidateSecurityTokensForUser(...args),
+  verifyEmailWithToken: (...args) => getActiveStorage().verifyEmailWithToken(...args),
+  resetPasswordWithToken: (...args) => getActiveStorage().resetPasswordWithToken(...args),
+  cleanExpiredSecurityTokens: (...args) => getActiveStorage().cleanExpiredSecurityTokens(...args),
 
   // Finances Storage Helpers
   getAllFinances: (...args) => getActiveStorage().getAllFinances(...args),

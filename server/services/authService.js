@@ -1,6 +1,12 @@
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const config = require('../config/config');
+
+function normalizeEmail(email) {
+  if (!email || typeof email !== 'string') return '';
+  return email.trim().toLowerCase();
+}
 
 function validateEmail(email) {
   if (!email || typeof email !== 'string') {
@@ -13,12 +19,15 @@ function validateEmail(email) {
   return { valid: true };
 }
 
-function validateStrongPassword(password) {
+function validatePasswordPolicy(password) {
   if (!password || typeof password !== 'string') {
     return { valid: false, message: 'A senha é obrigatória.' };
   }
   if (password.length < 8) {
     return { valid: false, message: 'A senha deve conter no mínimo 8 caracteres.' };
+  }
+  if (password.length > 128) {
+    return { valid: false, message: 'A senha não pode exceder 128 caracteres.' };
   }
   if (!/[A-Z]/.test(password)) {
     return { valid: false, message: 'A senha deve conter ao menos uma letra maiúscula.' };
@@ -34,6 +43,9 @@ function validateStrongPassword(password) {
   }
   return { valid: true };
 }
+
+// Alias para retrocompatibilidade
+const validateStrongPassword = validatePasswordPolicy;
 
 async function hashPassword(plainPassword) {
   const salt = await bcrypt.genSalt(10);
@@ -61,11 +73,30 @@ function verifyToken(token) {
   }
 }
 
+/**
+ * Gera um token criptográfico de alta entropia (256 bits / 64 caracteres hexadecimais).
+ */
+function generateSecurityToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+/**
+ * Gera o hash SHA-256 do token em hexadecimal para persistência segura no storage.
+ */
+function hashSecurityToken(rawToken) {
+  if (!rawToken || typeof rawToken !== 'string') return '';
+  return crypto.createHash('sha256').update(rawToken).digest('hex');
+}
+
 module.exports = {
+  normalizeEmail,
   validateEmail,
+  validatePasswordPolicy,
   validateStrongPassword,
   hashPassword,
   comparePassword,
   generateToken,
-  verifyToken
+  verifyToken,
+  generateSecurityToken,
+  hashSecurityToken
 };

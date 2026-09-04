@@ -243,6 +243,9 @@
     }
 
     renderMobileNavPreferences();
+    if (typeof window.validateChangePasswordForm === 'function') {
+      window.validateChangePasswordForm();
+    }
   }
 
   function renderMobileNavPreferences() {
@@ -393,8 +396,158 @@
   }
   window.renderMobileNavPreferences = renderMobileNavPreferences;
 
+  function initChangePasswordForm() {
+    const form = $('#changePasswordForm');
+    if (!form) return;
+
+    const currentPassInput = $('#currentPasswordInput');
+    const newPassInput = $('#newPasswordInput');
+    const confirmPassInput = $('#confirmPasswordInput');
+    const submitBtn = $('#btnChangePasswordSubmit');
+    const feedbackBox = $('#changePasswordFeedback');
+
+    const checklistElements = {
+      len: $('#userCritLen'),
+      upper: $('#userCritUpper'),
+      lower: $('#userCritLower'),
+      num: $('#userCritNum'),
+      spec: $('#userCritSpec'),
+      match: $('#userCritMatch')
+    };
+
+    function validateFormState() {
+      const currentPass = currentPassInput ? currentPassInput.value : '';
+      const newPass = newPassInput ? newPassInput.value : '';
+      const confirmPass = confirmPassInput ? confirmPassInput.value : '';
+
+      const criteria = (window.PasswordPolicy && typeof window.PasswordPolicy.checkCriteria === 'function')
+        ? window.PasswordPolicy.checkCriteria(newPass, confirmPass)
+        : {
+            hasLen: newPass.length >= 8 && newPass.length <= 128,
+            hasUpper: /[A-Z]/.test(newPass),
+            hasLower: /[a-z]/.test(newPass),
+            hasNum: /[0-9]/.test(newPass),
+            hasSpec: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPass),
+            isValid: newPass.length >= 8 && newPass.length <= 128 && /[A-Z]/.test(newPass) && /[a-z]/.test(newPass) && /[0-9]/.test(newPass) && /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPass),
+            hasMatch: Boolean(newPass && confirmPass && newPass === confirmPass)
+          };
+
+      if (window.PasswordPolicy && typeof window.PasswordPolicy.updateChecklist === 'function') {
+        window.PasswordPolicy.updateChecklist(checklistElements, criteria);
+      }
+
+      const canSubmit = Boolean(
+        currentPass.length > 0 &&
+        criteria.isValid &&
+        newPass.length <= 128 &&
+        confirmPass.length > 0 &&
+        criteria.hasMatch
+      );
+
+      if (submitBtn) {
+        submitBtn.disabled = !canSubmit;
+      }
+
+      return canSubmit;
+    }
+
+    ['input', 'change', 'keyup'].forEach(evt => {
+      currentPassInput?.addEventListener(evt, validateFormState);
+      newPassInput?.addEventListener(evt, validateFormState);
+      confirmPassInput?.addEventListener(evt, validateFormState);
+    });
+
+    // Garante validação integral e estado disabled imediatamente na inicialização
+    validateFormState();
+    window.validateChangePasswordForm = validateFormState;
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!validateFormState()) return;
+
+      const currentPass = currentPassInput.value;
+      const newPass = newPassInput.value;
+
+      submitBtn.disabled = true;
+      const origText = submitBtn.innerHTML;
+      submitBtn.innerHTML = '<span>Alterando senha...</span>';
+      if (feedbackBox) {
+        feedbackBox.style.display = 'none';
+        feedbackBox.textContent = '';
+      }
+
+      try {
+        const res = await API.changePassword(currentPass, newPass);
+
+        if (res && res.success) {
+          // Limpa imediatamente credenciais dos inputs
+          currentPassInput.value = '';
+          newPassInput.value = '';
+          confirmPassInput.value = '';
+          validateFormState();
+
+          if (feedbackBox) {
+            feedbackBox.style.display = 'block';
+            feedbackBox.style.background = 'var(--brand-soft)';
+            feedbackBox.style.color = 'var(--brand-strong)';
+            feedbackBox.style.border = '1px solid var(--brand)';
+            feedbackBox.textContent = 'Senha alterada com sucesso! Você será desconectado e precisará entrar novamente.';
+          }
+
+          if (typeof notify === 'function') {
+            notify('Senha alterada com sucesso! Redirecionando...', 'success');
+          }
+
+          if (typeof API.clearSession === 'function') {
+            API.clearSession();
+          }
+
+          setTimeout(() => {
+            const loginUrl = (window.withBasePath && typeof window.withBasePath === 'function')
+              ? window.withBasePath('/login.html')
+              : '/login.html';
+            window.location.href = loginUrl;
+          }, 1800);
+        } else {
+          submitBtn.innerHTML = origText;
+          validateFormState();
+          const msg = res && res.message ? res.message : 'Falha ao alterar senha. Verifique os dados informados.';
+
+          if (feedbackBox) {
+            feedbackBox.style.display = 'block';
+            feedbackBox.style.background = 'var(--danger-soft)';
+            feedbackBox.style.color = 'var(--danger)';
+            feedbackBox.style.border = '1px solid var(--danger)';
+            feedbackBox.textContent = msg;
+          }
+
+          if (typeof notify === 'function') {
+            notify(msg, 'error');
+          }
+        }
+      } catch (err) {
+        submitBtn.innerHTML = origText;
+        validateFormState();
+        const errMsg = 'Erro de conexão ao tentar alterar a senha.';
+
+        if (feedbackBox) {
+          feedbackBox.style.display = 'block';
+          feedbackBox.style.background = 'var(--danger-soft)';
+          feedbackBox.style.color = 'var(--danger)';
+          feedbackBox.style.border = '1px solid var(--danger)';
+          feedbackBox.textContent = errMsg;
+        }
+
+        if (typeof notify === 'function') {
+          notify(errMsg, 'error');
+        }
+      }
+    });
+  }
+
   function initProfileForm() {
     renderProfile();
+    initChangePasswordForm();
 
     $('#profileForm')?.addEventListener('submit', (e) => {
       e.preventDefault();
