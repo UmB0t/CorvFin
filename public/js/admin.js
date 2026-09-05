@@ -93,40 +93,42 @@ const AdminModule = (() => {
     if (!modal) {
       modal = document.createElement('dialog');
       modal.id = 'adminManageModulesDialog';
-      modal.style.cssText = 'max-width: 620px; width: 95%; border: none; border-radius: 20px; background: var(--surface); color: var(--text); padding: 0; box-shadow: 0 20px 40px rgba(0,0,0,0.3);';
+      modal.className = 'dialog-md';
       document.body.appendChild(modal);
     }
 
     const perms = user.permissions || {};
 
     modal.innerHTML = `
-      <form id="formAdminManageModules" style="padding: 24px; display: grid; gap: 16px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding-bottom:14px;">
-          <div>
-            <h3 style="margin:0; font-size:1.2rem; font-weight:850; color:var(--text); display:flex; align-items:center; gap:8px;">
-              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:20px; height:20px;">
+      <form id="formAdminManageModules">
+        <div class="dialog-head">
+          <div class="dialog-head-group">
+            <div class="dialog-icon-badge">
+              <svg class="svg-icon" viewBox="0 0 24 24">
                 <rect x="3" y="3" width="7" height="7"></rect>
                 <rect x="14" y="3" width="7" height="7"></rect>
                 <rect x="14" y="14" width="7" height="7"></rect>
                 <rect x="3" y="14" width="7" height="7"></rect>
               </svg>
-              Gerenciar Módulos
-            </h3>
-            <p style="margin:3px 0 0; color:var(--muted); font-size:0.82rem; font-weight:600;">
-              Permissões de <strong>${escapeHtml(user.nome)}</strong> (@${escapeHtml(user.login)})
-            </p>
+            </div>
+            <div>
+              <h3>Gerenciar Módulos</h3>
+              <p class="dialog-subtitle">
+                Permissões de <strong>${escapeHtml(user.nome)}</strong> (@${escapeHtml(user.login)})
+              </p>
+            </div>
           </div>
-          <button type="button" class="icon-btn small" id="btnCloseManageModules" style="display:flex; align-items:center; justify-content:center;" aria-label="Fechar">
+          <button type="button" class="icon-btn small" id="btnCloseManageModules" aria-label="Fechar">
             <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px; stroke-width:2.5;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
 
-        <div style="max-height: calc(75vh - 140px); overflow-y: auto; padding-right: 4px;">
-          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:10px;">
+        <div class="dialog-body">
+          <div class="admin-modules-grid">
             ${ALL_MODULES_CONFIG.map(m => {
               const isEnabled = perms[m.key] !== false;
               return `
-                <div class="module-perm-card" style="background:var(--surface-2); padding:12px 14px; border-radius:12px; border:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; transition:all 0.15s ease;">
+                <div class="module-perm-card">
                   <div style="display:flex; align-items:center; gap:10px;">
                     <div style="width:32px; height:32px; border-radius:8px; background:var(--brand-soft); color:var(--brand-strong); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                       ${m.iconSvg}
@@ -150,9 +152,9 @@ const AdminModule = (() => {
           </div>
         </div>
 
-        <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid var(--line); padding-top:14px; margin-top:2px;">
+        <div class="dialog-foot actions-right">
           <button type="button" class="btn soft" id="btnCancelManageModules">Cancelar</button>
-          <button type="submit" class="btn primary" id="btnSaveManageModules" style="font-weight:800;">Salvar Permissões</button>
+          <button type="submit" class="btn primary" id="btnSaveManageModules">Salvar Permissões</button>
         </div>
       </form>
     `;
@@ -248,92 +250,96 @@ const AdminModule = (() => {
     if (!modal) {
       modal = document.createElement('dialog');
       modal.id = 'adminUserCreateDialog';
-      modal.style.cssText = 'max-width: 520px; width: 95%; border: none; border-radius: 16px; background: var(--surface); color: var(--text); padding: 0; box-shadow: 0 20px 40px rgba(0,0,0,0.25);';
+      modal.className = 'dialog-form dialog-form-long';
       document.body.appendChild(modal);
+    } else {
+      modal.className = 'dialog-form dialog-form-long';
     }
 
     modal.innerHTML = `
-      <form id="formAdminCreateUser" style="padding: 24px; display: grid; gap: 14px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding-bottom:12px;">
+      <form id="formAdminCreateUser">
+        <div class="dialog-head">
           <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:var(--text);">+ Cadastrar Novo Usuário</h3>
-          <button type="button" class="icon-btn small" id="btnCloseCreateUser" style="display:flex; align-items:center; justify-content:center;" aria-label="Fechar">
+          <button type="button" class="icon-btn small" id="btnCloseCreateUser" aria-label="Fechar">
             <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px; stroke-width:2.5;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
 
-        <div class="field">
-          <label style="font-size:0.8rem; font-weight:700; color:var(--muted);">Nome Completo</label>
-          <input type="text" id="adminCreateNome" required placeholder="Ex: Carlos Silva" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
-        </div>
+        <div class="dialog-body">
+          <div class="field">
+            <label for="adminCreateNome">Nome Completo</label>
+            <input type="text" id="adminCreateNome" required placeholder="Ex: Carlos Silva">
+          </div>
 
-        <div class="field">
-          <label style="font-size:0.8rem; font-weight:700; color:var(--muted);">Login / Nome de Usuário</label>
-          <input type="text" id="adminCreateLogin" required placeholder="Ex: carlossilva" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
-        </div>
+          <div class="field">
+            <label for="adminCreateLogin">Login / Nome de Usuário</label>
+            <input type="text" id="adminCreateLogin" required placeholder="Ex: carlossilva">
+          </div>
 
-        <div class="field">
-          <label style="font-size:0.8rem; font-weight:700; color:var(--muted);">E-mail</label>
-          <input type="email" id="adminCreateEmail" required placeholder="carlos@empresa.com" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
-        </div>
+          <div class="field">
+            <label for="adminCreateEmail">E-mail</label>
+            <input type="email" id="adminCreateEmail" required placeholder="carlos@empresa.com">
+          </div>
 
-        <div class="field" style="margin-bottom:8px;">
-          <label style="font-size:0.8rem; font-weight:700; color:var(--muted);">Senha Provisória</label>
-          <input type="password" id="adminCreateSenha" required placeholder="Mínimo 8 caracteres" maxlength="128" autocomplete="new-password" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
-        </div>
+          <div class="field">
+            <label for="adminCreateSenha">Senha Provisória</label>
+            <input type="password" id="adminCreateSenha" required placeholder="Mínimo 8 caracteres" maxlength="128" autocomplete="new-password">
+          </div>
 
-        <div class="password-checklist-box" id="adminCreatePassChecklistBox" style="margin-bottom:8px;">
-          <div class="checklist-header">Requisitos da senha</div>
-          <div class="checklist-grid">
-            <div class="crit-item" id="adminCreateCritLen"><span class="crit-icon">✕</span> Pelo menos 8 caracteres</div>
-            <div class="crit-item" id="adminCreateCritUpper"><span class="crit-icon">✕</span> Uma letra maiúscula</div>
-            <div class="crit-item" id="adminCreateCritLower"><span class="crit-icon">✕</span> Uma letra minúscula</div>
-            <div class="crit-item" id="adminCreateCritNum"><span class="crit-icon">✕</span> Um número</div>
-            <div class="crit-item" id="adminCreateCritSpec"><span class="crit-icon">✕</span> Um caractere especial</div>
-            <div class="crit-item" id="adminCreateCritMatch"><span class="crit-icon">✕</span> As senhas coincidem</div>
+          <div class="password-checklist-box" id="adminCreatePassChecklistBox">
+            <div class="checklist-header">Requisitos da senha</div>
+            <div class="checklist-grid">
+              <div class="crit-item" id="adminCreateCritLen"><span class="crit-icon">✕</span> Pelo menos 8 caracteres</div>
+              <div class="crit-item" id="adminCreateCritUpper"><span class="crit-icon">✕</span> Uma letra maiúscula</div>
+              <div class="crit-item" id="adminCreateCritLower"><span class="crit-icon">✕</span> Uma letra minúscula</div>
+              <div class="crit-item" id="adminCreateCritNum"><span class="crit-icon">✕</span> Um número</div>
+              <div class="crit-item" id="adminCreateCritSpec"><span class="crit-icon">✕</span> Um caractere especial</div>
+              <div class="crit-item" id="adminCreateCritMatch"><span class="crit-icon">✕</span> As senhas coincidem</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="adminCreateConfirmSenha">Confirmar Senha Provisória</label>
+            <input type="password" id="adminCreateConfirmSenha" required placeholder="Repita a senha provisória" maxlength="128" autocomplete="new-password">
+          </div>
+
+          <div class="admin-checkbox-row">
+            <input type="checkbox" id="adminCreateIsAdmin">
+            <label for="adminCreateIsAdmin">Conceder perfil de Administrador</label>
+          </div>
+
+          <div class="dialog-divider-section">
+            <label class="dialog-divider-title text-muted">Módulos com Acesso Liberado (Herdados do Padrão)</label>
+            <div class="admin-perms-check-grid">
+              <label>
+                <input type="checkbox" id="adminCreatePerm_dashboard" ${defaultPerms.dashboard !== false ? 'checked' : ''}> Dashboard
+              </label>
+              <label>
+                <input type="checkbox" id="adminCreatePerm_despesas" ${defaultPerms.despesas !== false ? 'checked' : ''}> Despesas
+              </label>
+              <label>
+                <input type="checkbox" id="adminCreatePerm_extras" ${defaultPerms.extras !== false ? 'checked' : ''}> Rendas Extras
+              </label>
+              <label>
+                <input type="checkbox" id="adminCreatePerm_devedores" ${defaultPerms.devedores !== false ? 'checked' : ''}> Devedores
+              </label>
+              <label>
+                <input type="checkbox" id="adminCreatePerm_investimentos" ${defaultPerms.investimentos !== false ? 'checked' : ''}> Investimentos
+              </label>
+              <label>
+                <input type="checkbox" id="adminCreatePerm_beneficios" ${defaultPerms.beneficios !== false ? 'checked' : ''}> Benefícios
+              </label>
+              <label>
+                <input type="checkbox" id="adminCreatePerm_compras" ${defaultPerms.compras !== false ? 'checked' : ''}> Compras
+              </label>
+              <label>
+                <input type="checkbox" id="adminCreatePerm_simulacao" ${defaultPerms.simulacao !== false ? 'checked' : ''}> Simulação
+              </label>
+            </div>
           </div>
         </div>
 
-        <div class="field">
-          <label style="font-size:0.8rem; font-weight:700; color:var(--muted);">Confirmar Senha Provisória</label>
-          <input type="password" id="adminCreateConfirmSenha" required placeholder="Repita a senha provisória" maxlength="128" autocomplete="new-password" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
-        </div>
-
-        <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
-          <input type="checkbox" id="adminCreateIsAdmin" style="width:16px; height:16px; accent-color:var(--brand); cursor:pointer;">
-          <label for="adminCreateIsAdmin" style="font-size:0.85rem; font-weight:700; cursor:pointer;">Conceder perfil de Administrador</label>
-        </div>
-
-        <div style="border-top:1px solid var(--line); padding-top:12px; margin-top:2px;">
-          <label style="font-size:0.8rem; font-weight:700; color:var(--muted); display:block; margin-bottom:8px;">Módulos com Acesso Liberado (Herdados do Padrão)</label>
-          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; font-size:0.78rem; background:var(--surface-2); padding:10px; border-radius:10px; border:1px solid var(--line);">
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
-              <input type="checkbox" id="adminCreatePerm_dashboard" ${defaultPerms.dashboard !== false ? 'checked' : ''} style="accent-color:var(--brand);"> Dashboard
-            </label>
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
-              <input type="checkbox" id="adminCreatePerm_despesas" ${defaultPerms.despesas !== false ? 'checked' : ''} style="accent-color:var(--brand);"> Despesas
-            </label>
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
-              <input type="checkbox" id="adminCreatePerm_extras" ${defaultPerms.extras !== false ? 'checked' : ''} style="accent-color:var(--brand);"> Rendas Extras
-            </label>
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
-              <input type="checkbox" id="adminCreatePerm_devedores" ${defaultPerms.devedores !== false ? 'checked' : ''} style="accent-color:var(--brand);"> Devedores
-            </label>
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
-              <input type="checkbox" id="adminCreatePerm_investimentos" ${defaultPerms.investimentos !== false ? 'checked' : ''} style="accent-color:var(--brand);"> Investimentos
-            </label>
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
-              <input type="checkbox" id="adminCreatePerm_beneficios" ${defaultPerms.beneficios !== false ? 'checked' : ''} style="accent-color:var(--brand);"> Benefícios
-            </label>
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
-              <input type="checkbox" id="adminCreatePerm_compras" ${defaultPerms.compras !== false ? 'checked' : ''} style="accent-color:var(--brand);"> Compras
-            </label>
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:600;">
-              <input type="checkbox" id="adminCreatePerm_simulacao" ${defaultPerms.simulacao !== false ? 'checked' : ''} style="accent-color:var(--brand);"> Simulação
-            </label>
-          </div>
-        </div>
-
-        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
+        <div class="dialog-foot actions-right">
           <button type="button" class="btn soft" id="btnCancelCreateUser">Cancelar</button>
           <button type="submit" class="btn primary">Criar Usuário</button>
         </div>
@@ -433,69 +439,71 @@ const AdminModule = (() => {
     if (!modal) {
       modal = document.createElement('dialog');
       modal.id = 'adminUserEditDialog';
-      modal.style.cssText = 'max-width: 500px; width: 95%; border: none; border-radius: 16px; background: var(--surface); color: var(--text); padding: 0; box-shadow: 0 20px 40px rgba(0,0,0,0.25);';
+      modal.className = 'dialog-sm';
       document.body.appendChild(modal);
     }
 
     modal.innerHTML = `
-      <form id="formAdminEditUser" style="padding: 24px; display: grid; gap: 14px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding-bottom:12px;">
+      <form id="formAdminEditUser">
+        <div class="dialog-head">
           <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:var(--text);">Editar Usuário</h3>
-          <button type="button" class="icon-btn small" id="btnCloseEditUser" style="display:flex; align-items:center; justify-content:center;" aria-label="Fechar">
+          <button type="button" class="icon-btn small" id="btnCloseEditUser" aria-label="Fechar">
             <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px; stroke-width:2.5;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
 
-        <div class="field">
-          <label style="font-size:0.8rem; font-weight:700; color:var(--muted);">Nome Completo</label>
-          <input type="text" id="adminEditNome" value="${escapeHtml(user.nome)}" required style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
-        </div>
-
-        <div class="field">
-          <label style="font-size:0.8rem; font-weight:700; color:var(--muted);">Login / Nome de Usuário</label>
-          <input type="text" id="adminEditLogin" value="${escapeHtml(user.login)}" required style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
-        </div>
-
-        <div class="field">
-          <label style="font-size:0.8rem; font-weight:700; color:var(--muted);">E-mail</label>
-          <input type="email" id="adminEditEmail" value="${escapeHtml(user.email)}" required style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
-        </div>
-
-        <div style="border-top:1px solid var(--line); padding-top:12px; margin-top:4px;">
-          <label style="font-size:0.82rem; font-weight:800; color:var(--text); display:flex; align-items:center; gap:6px; margin-bottom:8px;">
-            <svg class="svg-icon" viewBox="0 0 24 24" style="width:15px; height:15px; stroke:var(--brand);"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            Redefinir Senha do Usuário (opcional)
-          </label>
-
-          <div class="field" style="margin-bottom:8px;">
-            <label for="adminEditNovaSenha" style="font-size:0.8rem; font-weight:700; color:var(--muted);">Nova Senha</label>
-            <input type="password" id="adminEditNovaSenha" placeholder="Deixe em branco para manter a atual" maxlength="128" autocomplete="new-password" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
-          </div>
-
-          <div class="password-checklist-box" id="adminEditPassChecklistBox" style="display:none; margin-bottom:8px;">
-            <div class="checklist-header">Requisitos da senha</div>
-            <div class="checklist-grid">
-              <div class="crit-item" id="adminEditCritLen"><span class="crit-icon">✕</span> Pelo menos 8 caracteres</div>
-              <div class="crit-item" id="adminEditCritUpper"><span class="crit-icon">✕</span> Uma letra maiúscula</div>
-              <div class="crit-item" id="adminEditCritLower"><span class="crit-icon">✕</span> Uma letra minúscula</div>
-              <div class="crit-item" id="adminEditCritNum"><span class="crit-icon">✕</span> Um número</div>
-              <div class="crit-item" id="adminEditCritSpec"><span class="crit-icon">✕</span> Um caractere especial</div>
-              <div class="crit-item" id="adminEditCritMatch"><span class="crit-icon">✕</span> As senhas coincidem</div>
-            </div>
+        <div class="dialog-body">
+          <div class="field">
+            <label for="adminEditNome">Nome Completo</label>
+            <input type="text" id="adminEditNome" value="${escapeHtml(user.nome)}" required>
           </div>
 
           <div class="field">
-            <label for="adminEditConfirmSenha" style="font-size:0.8rem; font-weight:700; color:var(--muted);">Confirmar Nova Senha</label>
-            <input type="password" id="adminEditConfirmSenha" placeholder="Repita a nova senha" maxlength="128" autocomplete="new-password" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
+            <label for="adminEditLogin">Login / Nome de Usuário</label>
+            <input type="text" id="adminEditLogin" value="${escapeHtml(user.login)}" required>
+          </div>
+
+          <div class="field">
+            <label for="adminEditEmail">E-mail</label>
+            <input type="email" id="adminEditEmail" value="${escapeHtml(user.email)}" required>
+          </div>
+
+          <div class="dialog-divider-section">
+            <label class="dialog-divider-title">
+              <svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Redefinir Senha do Usuário (opcional)
+            </label>
+
+            <div class="field">
+              <label for="adminEditNovaSenha">Nova Senha</label>
+              <input type="password" id="adminEditNovaSenha" placeholder="Deixe em branco para manter a atual" maxlength="128" autocomplete="new-password">
+            </div>
+
+            <div class="password-checklist-box" id="adminEditPassChecklistBox" style="display:none;">
+              <div class="checklist-header">Requisitos da senha</div>
+              <div class="checklist-grid">
+                <div class="crit-item" id="adminEditCritLen"><span class="crit-icon">✕</span> Pelo menos 8 caracteres</div>
+                <div class="crit-item" id="adminEditCritUpper"><span class="crit-icon">✕</span> Uma letra maiúscula</div>
+                <div class="crit-item" id="adminEditCritLower"><span class="crit-icon">✕</span> Uma letra minúscula</div>
+                <div class="crit-item" id="adminEditCritNum"><span class="crit-icon">✕</span> Um número</div>
+                <div class="crit-item" id="adminEditCritSpec"><span class="crit-icon">✕</span> Um caractere especial</div>
+                <div class="crit-item" id="adminEditCritMatch"><span class="crit-icon">✕</span> As senhas coincidem</div>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="adminEditConfirmSenha">Confirmar Nova Senha</label>
+              <input type="password" id="adminEditConfirmSenha" placeholder="Repita a nova senha" maxlength="128" autocomplete="new-password">
+            </div>
+          </div>
+
+          <div class="admin-checkbox-row">
+            <input type="checkbox" id="adminEditIsAdmin" ${user.is_admin ? 'checked' : ''}>
+            <label for="adminEditIsAdmin">Perfil de Administrador</label>
           </div>
         </div>
 
-        <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
-          <input type="checkbox" id="adminEditIsAdmin" ${user.is_admin ? 'checked' : ''} style="width:16px; height:16px; accent-color:var(--brand); cursor:pointer;">
-          <label for="adminEditIsAdmin" style="font-size:0.85rem; font-weight:700; cursor:pointer;">Perfil de Administrador</label>
-        </div>
-
-        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
+        <div class="dialog-foot actions-right">
           <button type="button" class="btn soft" id="btnCancelEditUser">Cancelar</button>
           <button type="submit" class="btn primary">Salvar Alterações</button>
         </div>
