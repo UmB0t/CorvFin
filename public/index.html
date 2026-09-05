@@ -1801,7 +1801,7 @@
                 Defina quais módulos estarão automaticamente liberados quando um novo usuário for cadastrado no sistema.
               </p>
             </div>
-            <button type="button" id="btn-save-default-perms" class="btn primary btn-primary" style="border-radius:10px; font-weight:800; display:flex; align-items:center; gap:6px;">
+            <button type="button" id="btn-save-default-perms" class="btn primary">
               Salvar Permissões Padrão
             </button>
           </div>
@@ -1856,7 +1856,7 @@
                 Controle temporariamente o acesso dos usuários aos módulos do sistema. Administradores mantêm acesso irrestrito para testes.
               </p>
             </div>
-            <button type="button" id="btn-save-maintenance" class="btn primary btn-primary" style="border-radius:10px; font-weight:800; display:flex; align-items:center; gap:6px;">
+            <button type="button" id="btn-save-maintenance" class="btn primary">
               Salvar Configurações
             </button>
           </div>
@@ -1902,17 +1902,17 @@
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px;">
               <div class="form-group">
                 <label for="smtp-host" style="display:block; font-size:0.84rem; font-weight:700; color:var(--text); margin-bottom:6px;">Servidor SMTP (Host)</label>
-                <input type="text" id="smtp-host" class="input" placeholder="smtp.hostinger.com" style="width:100%; border-radius:8px;" required>
+                <input type="text" id="smtp-host" class="input" placeholder="smtp.hostinger.com" required>
               </div>
 
               <div class="form-group">
                 <label for="smtp-port" style="display:block; font-size:0.84rem; font-weight:700; color:var(--text); margin-bottom:6px;">Porta</label>
-                <input type="number" id="smtp-port" class="input" placeholder="465" min="1" max="65535" style="width:100%; border-radius:8px;" required>
+                <input type="number" id="smtp-port" class="input" placeholder="465" min="1" max="65535" required>
               </div>
 
               <div class="form-group">
                 <label for="smtp-secure" style="display:block; font-size:0.84rem; font-weight:700; color:var(--text); margin-bottom:6px;">Segurança da Conexão</label>
-                <select id="smtp-secure" class="input" style="width:100%; border-radius:8px;">
+                <select id="smtp-secure" class="input">
                   <option value="true">SSL / TLS (Recomendado para Porta 465)</option>
                   <option value="false">STARTTLS / Padrão (Porta 587 ou 25)</option>
                 </select>
@@ -1920,7 +1920,7 @@
 
               <div class="form-group">
                 <label for="smtp-username" style="display:block; font-size:0.84rem; font-weight:700; color:var(--text); margin-bottom:6px;">Usuário / Conta de Envio</label>
-                <input type="text" id="smtp-username" class="input" placeholder="no-reply@corvfin.com.br" style="width:100%; border-radius:8px;" required>
+                <input type="text" id="smtp-username" class="input" placeholder="no-reply@corvfin.com.br" required>
               </div>
 
               <div class="form-group">
@@ -1928,31 +1928,31 @@
                   Senha SMTP
                   <span id="smtp-password-indicator" style="font-size:0.75rem; font-weight:600; color:var(--muted); margin-left:6px;"></span>
                 </label>
-                <input type="password" id="smtp-password" class="input" placeholder="Digite para definir ou substituir" autocomplete="new-password" style="width:100%; border-radius:8px;">
+                <input type="password" id="smtp-password" class="input" placeholder="Digite para definir ou substituir" autocomplete="new-password">
                 <small style="display:block; font-size:0.75rem; color:var(--muted); margin-top:4px;">Deixe em branco para manter a credencial salva anteriormente.</small>
               </div>
 
               <div class="form-group">
                 <label for="smtp-from-name" style="display:block; font-size:0.84rem; font-weight:700; color:var(--text); margin-bottom:6px;">Nome do Remetente</label>
-                <input type="text" id="smtp-from-name" class="input" placeholder="CorvFin" style="width:100%; border-radius:8px;" required>
+                <input type="text" id="smtp-from-name" class="input" placeholder="CorvFin" required>
               </div>
 
               <div class="form-group">
                 <label for="smtp-from-email" style="display:block; font-size:0.84rem; font-weight:700; color:var(--text); margin-bottom:6px;">E-mail do Remetente</label>
-                <input type="email" id="smtp-from-email" class="input" placeholder="no-reply@corvfin.com.br" style="width:100%; border-radius:8px;" required>
+                <input type="email" id="smtp-from-email" class="input" placeholder="no-reply@corvfin.com.br" required>
               </div>
             </div>
 
             <!-- Botões de Ação e Feedback -->
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-top:8px; padding-top:16px; border-top:1px solid var(--line);">
               <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                <button type="button" id="btn-save-smtp" class="btn primary btn-primary" style="border-radius:10px; font-weight:800; display:flex; align-items:center; gap:6px;">
+                <button type="button" id="btn-save-smtp" class="btn primary">
                   Salvar Configurações
                 </button>
-                <button type="button" id="btn-test-smtp-conn" class="btn secondary btn-secondary" style="border-radius:10px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                <button type="button" id="btn-test-smtp-conn" class="btn secondary">
                   Testar Conexão
                 </button>
-                <button type="button" id="btn-send-test-email" class="btn secondary btn-secondary" style="border-radius:10px; font-weight:700; display:flex; align-items:center; gap:6px;">
+                <button type="button" id="btn-send-test-email" class="btn secondary">
                   Enviar E-mail de Teste
                 </button>
               </div>
@@ -1995,7 +1995,7 @@
   </dialog>
 
   <!-- DIALOG: FULLSCREEN EXCEL-LIKE DATA TABLE MODAL -->
-  <dialog id="fullscreenTableDialog" style="width:96vw; max-width:96vw; height:92vh; max-height:92vh;">
+  <dialog id="fullscreenTableDialog" class="dialog-full">
     <div class="dialog-head">
       <h3 id="fsModalTitle"><svg class="svg-icon" viewBox="0 0 24 24">
           <path d="M8 3H5a2 2 0 0 0-2 2v3m18-5h-3a2 2 0 0 0-2 2v3M3 16v3a2 2 0 0 0 2 2h3m13 0h3a2 2 0 0 0 2-2v-3" />
@@ -2055,7 +2055,7 @@
   </dialog>
 
   <!-- DIALOG: REPORT EXPORT & PRINT -->
-  <dialog id="reportDialog" style="width: 95vw; max-width: 980px; max-height: 92vh;">
+  <dialog id="reportDialog" class="dialog-xl">
     <div class="dialog-head">
       <div style="display:flex; align-items:center; gap:8px;">
         <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); stroke-width:2.5;">
@@ -2081,8 +2081,7 @@
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end;">
           <div class="field">
             <label style="font-size:.78rem; font-weight:750; color:var(--text);">Tipo de Relatório</label>
-            <select id="reportTypeFilter"
-              style="padding: 8px 10px; border-radius: 9px; border:1px solid var(--line); background:var(--surface); color:var(--text); font-weight:600; width:100%;">
+            <select id="reportTypeFilter">
               <option value="consolidated_annual" selected>Visão Consolidada Anual</option>
               <option value="detailed_monthly">Relatório Mensal Detalhado</option>
               <option value="debtors_report">Relatório de Devedores</option>
@@ -2092,28 +2091,24 @@
 
           <div class="field" id="reportYearWrap">
             <label style="font-size:.78rem; font-weight:750; color:var(--text);">Ano de Referência</label>
-            <input type="number" id="reportYearInput" min="2000" max="2100"
-              style="padding: 8px 10px; border-radius: 9px; border:1px solid var(--line); background:var(--surface); color:var(--text); font-weight:600; width:100%;">
+            <input type="number" id="reportYearInput" min="2000" max="2100">
           </div>
 
           <div class="field" id="reportMonthWrap" hidden>
             <label style="font-size:.78rem; font-weight:750; color:var(--text);">Mês de Referência</label>
-            <select id="reportMonthSelect"
-              style="padding: 8px 10px; border-radius: 9px; border:1px solid var(--line); background:var(--surface); color:var(--text); font-weight:600; width:100%;"></select>
+            <select id="reportMonthSelect"></select>
           </div>
 
           <div class="field" id="reportDebtorWrap" hidden>
             <label style="font-size:.78rem; font-weight:750; color:var(--text);">Devedor Específico</label>
-            <select id="reportDebtorSelect"
-              style="padding: 8px 10px; border-radius: 9px; border:1px solid var(--line); background:var(--surface); color:var(--text); font-weight:600; width:100%;">
+            <select id="reportDebtorSelect">
               <option value="all" selected>Todos os Devedores</option>
             </select>
           </div>
 
           <div class="field" id="reportStatusWrap" hidden>
             <label style="font-size:.78rem; font-weight:750; color:var(--text);">Status dos Lançamentos</label>
-            <select id="reportStatusFilter"
-              style="padding: 8px 10px; border-radius: 9px; border:1px solid var(--line); background:var(--surface); color:var(--text); font-weight:600; width:100%;">
+            <select id="reportStatusFilter">
               <option value="all" selected>Todos (Pagos & Pendentes)</option>
               <option value="pago">Apenas Quitados / Pagos</option>
               <option value="pendente">Apenas Pendentes</option>
@@ -2155,7 +2150,7 @@
   </dialog>
 
   <!-- DIALOG: INTERACTIVE TUTORIAL / INFO -->
-  <dialog id="infoDialog" style="width: min(880px, 96vw); max-height: 90vh;">
+  <dialog id="infoDialog" class="dialog-wide">
     <div class="dialog-head">
       <div style="display:flex; align-items:center; gap:10px;">
         <div style="width:34px; height:34px; border-radius:10px; background:var(--brand); color:#fff; display:grid; place-items:center; flex-shrink:0;">
@@ -2641,7 +2636,7 @@
   </dialog>
 
   <!-- DIALOG: ENTRY FORM (Expenses: 3-Step Progressive Wizard) -->
-  <dialog id="entryDialog" style="max-width: 620px; width: 95%;">
+  <dialog id="entryDialog" class="dialog-md">
     <form id="entryForm">
       <div class="dialog-head" style="flex-direction:column; align-items:stretch; gap:12px; padding:16px 20px 12px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -3413,7 +3408,7 @@
   </dialog>
 
   <!-- MODAL: CONVERSÃO DE DESPESA FIXA EM VARIÁVEL -->
-  <dialog id="convertFixedToVarDialog" style="max-width: 540px; width: 95%;">
+  <dialog id="convertFixedToVarDialog" class="dialog-compact">
     <div class="dialog-head">
       <div>
         <h3 id="convertFixedToVarTitle">Converter para Despesa Variável</h3>
@@ -3537,7 +3532,7 @@
     </form>
   </dialog>
 
-  <dialog id="simDialog" style="max-width: 540px; width: 95%;">
+  <dialog id="simDialog" class="dialog-compact">
     <div class="dialog-head">
       <div>
         <h3 id="simDialogTitle">Adicionar Gasto Simulado</h3>
@@ -3609,7 +3604,7 @@
   </dialog>
 
   <!-- DIALOG: SALVAR SIMULAÇÃO / CENÁRIO -->
-  <dialog id="saveSimulationDialog" style="max-width: 500px; width: 95%;">
+  <dialog id="saveSimulationDialog" class="dialog-sm">
     <div class="dialog-head">
       <div>
         <h3 style="margin:0; font-size:1.05rem; font-weight:800; display:flex; align-items:center; gap:8px;">
@@ -3648,7 +3643,7 @@
   </dialog>
   
   <!-- MODAL DE CONCLUSÃO DE LISTA DE COMPRAS COM LANÇAMENTO FINANCEIRO -->
-  <dialog id="shoppingCompleteDialog" style="max-width: 620px; width: 95%; max-height: 90vh; border-radius: 16px;">
+  <dialog id="shoppingCompleteDialog" class="dialog-md">
     <div class="dialog-head">
       <div style="display:flex; align-items:center; gap:10px;">
         <div style="width:36px; height:36px; border-radius:10px; background:var(--brand-soft, rgba(31,122,92,0.12)); color:var(--brand); display:grid; place-items:center; flex-shrink:0;">
@@ -3828,8 +3823,8 @@
   </dialog>
 
   <!-- MODAL: CENTRAL DE RELEASE NOTES / ATUALIZAÇÕES -->
-  <dialog id="releaseNotesDialog" style="max-width: 680px; width: 95%; border-radius:18px; padding:0; border:1px solid var(--line); box-shadow:0 10px 40px rgba(0,0,0,0.25); background:var(--surface);">
-    <div class="dialog-head" style="padding:16px 20px; border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; background:var(--surface);">
+  <dialog id="releaseNotesDialog" class="dialog-bordered">
+    <div class="dialog-head">
       <div style="display:flex; align-items:center; gap:10px;">
         <div style="width:36px; height:36px; border-radius:10px; background:var(--brand-soft); color:var(--brand); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
           <svg class="svg-icon" viewBox="0 0 24 24" style="width:20px; height:20px; stroke:var(--brand);">
@@ -3853,9 +3848,9 @@
       <div id="releaseNotesList"></div>
     </div>
 
-    <div class="dialog-foot" style="padding:12px 20px; border-top:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; background:var(--surface-2);">
+    <div class="dialog-foot">
       <span style="font-size:0.78rem; color:var(--muted); font-weight:700;">CorvFin V3 • Sempre Atualizado</span>
-      <button type="button" class="btn soft" data-close="releaseNotesDialog" style="border-radius:10px; font-weight:750;">Fechar</button>
+      <button type="button" class="btn soft" data-close="releaseNotesDialog">Fechar</button>
     </div>
   </dialog>
 

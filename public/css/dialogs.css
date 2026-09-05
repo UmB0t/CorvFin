@@ -14,15 +14,19 @@
 
     .field input,
     .field select,
-    .field textarea {
+    .field textarea,
+    .input,
+    .form-control {
       padding: 10px 12px;
       border: 1px solid var(--line);
-      border-radius: 11px;
+      border-radius: var(--radius-sm, 12px);
       background: var(--surface);
       color: var(--text);
       width: 100%;
       max-width: 100%;
       box-sizing: border-box;
+      font-family: inherit;
+      font-size: .88rem;
     }
 
     .field input[aria-invalid="true"],
@@ -84,6 +88,66 @@
       width: min(680px, 94vw);
       max-height: 90vh;
       overflow: hidden;
+    }
+
+    /* Taxonomia de Tamanhos de Modais — CorvFin Design System */
+    dialog.dialog-sm,
+    dialog.modal-sm {
+      width: min(500px, 95vw);
+      max-width: 500px;
+    }
+
+    dialog.dialog-compact,
+    dialog.modal-compact {
+      width: min(540px, 95vw);
+      max-width: 540px;
+    }
+
+    dialog.dialog-md,
+    dialog.modal-md {
+      width: min(620px, 95vw);
+      max-width: 620px;
+    }
+
+    dialog.dialog-lg,
+    dialog.modal-lg {
+      width: min(740px, 95vw);
+      max-width: 740px;
+    }
+
+    dialog.dialog-wide,
+    dialog.modal-wide {
+      width: min(880px, 96vw);
+      max-width: 880px;
+    }
+
+    dialog.dialog-xl,
+    dialog.modal-xl {
+      width: min(980px, 95vw);
+      max-width: 980px;
+    }
+
+    dialog.dialog-full,
+    dialog.modal-full {
+      width: 96vw;
+      max-width: 96vw;
+      height: 92vh;
+      max-height: 92vh;
+    }
+
+    /* Variante de Dialog com Borda e Cabeçalho Plano (Informativo / Release Notes) */
+    dialog.dialog-bordered,
+    dialog#releaseNotesDialog {
+      width: min(680px, 95vw);
+      max-width: 680px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius, 18px);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+    }
+
+    dialog.dialog-bordered .dialog-head,
+    dialog#releaseNotesDialog .dialog-head {
+      background: var(--surface);
     }
 
     dialog#csvDialog {

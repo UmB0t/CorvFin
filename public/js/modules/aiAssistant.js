@@ -497,7 +497,7 @@
             <span>⚠ ${escapeHtmlText(proposal.errorMessage || (isBenefit ? 'Falha ao salvar benefício.' : 'Falha ao salvar despesa.'))}</span>
           </div>
           <div class="ai-proposal-actions">
-            <button type="button" class="btn btn-primary small ai-proposal-retry-btn" data-proposal-id="${escapeHtmlAttr(propId)}">Tentar novamente</button>
+            <button type="button" class="btn primary small ai-proposal-retry-btn" data-proposal-id="${escapeHtmlAttr(propId)}">Tentar novamente</button>
             <button type="button" class="btn soft small ai-proposal-edit-btn" data-proposal-id="${escapeHtmlAttr(propId)}">Editar</button>
             <button type="button" class="btn ghost small ai-proposal-cancel-btn" data-proposal-id="${escapeHtmlAttr(propId)}">Cancelar</button>
           </div>
@@ -527,7 +527,7 @@
       statusContent = `
         ${alertHtml}
         <div class="ai-proposal-actions">
-          <button type="button" class="btn btn-primary small ai-proposal-confirm-btn" data-proposal-id="${escapeHtmlAttr(propId)}" ${isReviewRequired ? 'disabled aria-disabled="true" title="Selecione uma categoria antes de confirmar"' : ''}>
+          <button type="button" class="btn primary small ai-proposal-confirm-btn" data-proposal-id="${escapeHtmlAttr(propId)}" ${isReviewRequired ? 'disabled aria-disabled="true" title="Selecione uma categoria antes de confirmar"' : ''}>
             Confirmar cadastro
           </button>
           <button type="button" class="btn soft small ai-proposal-edit-btn" data-proposal-id="${escapeHtmlAttr(propId)}">

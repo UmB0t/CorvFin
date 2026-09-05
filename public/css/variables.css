@@ -26,7 +26,12 @@
   --shadow: 0 14px 34px rgba(20, 48, 38, 0.07);
   --shadow-lg: 0 20px 45px rgba(20, 48, 38, 0.12);
   --radius: 18px;
+  --radius-md: 14px;
   --radius-sm: 12px;
+  --radius-xs: 8px;
+  --radius-pill: 999px;
+  --control-height: 40px;
+  --control-height-sm: 32px;
   --mobile-bottom-nav-height: 62px;
 
   /* Paleta Oficial CorvFin */

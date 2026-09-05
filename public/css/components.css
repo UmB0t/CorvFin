@@ -31,6 +31,17 @@
       background: var(--brand-strong);
     }
 
+    .btn.secondary {
+      border-color: var(--line);
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .btn.secondary:hover {
+      background: var(--surface-3);
+      border-color: var(--border-strong, var(--line));
+    }
+
     .btn.soft {
       border-color: transparent;
       color: var(--brand-strong);
@@ -560,9 +571,9 @@
     }
 
     .tag.partial {
-      background: rgba(245, 158, 11, 0.15);
-      color: #f59e0b;
-      border: 1px solid rgba(245, 158, 11, 0.35);
+      background: var(--warning-soft);
+      color: var(--warning);
+      border: 1px solid var(--warning-border);
       font-weight: 750;
       border-radius: 999px;
     }
@@ -575,9 +586,9 @@
     }
 
     .tag.payee-tag {
-      background: rgba(59, 130, 246, 0.12);
-      color: #60a5fa;
-      border: 1px solid rgba(59, 130, 246, 0.25);
+      background: var(--info-soft);
+      color: var(--info);
+      border: 1px solid var(--info-border);
       font-weight: 600;
       border-radius: 999px;
     }
@@ -1571,8 +1582,8 @@
     }
 
     .ai-proposal-status.error {
-      background: rgba(239, 68, 68, 0.15);
-      color: #ef4444;
+      background: var(--danger-soft);
+      color: var(--danger);
     }
 
     /* ==========================================================================

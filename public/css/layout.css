@@ -234,14 +234,22 @@
       transition: background .18s ease, transform .15s ease, color .18s ease, border-color .18s ease;
     }
 
-    .toolbar-btn:hover,
+    .toolbar-btn:hover {
+      background: var(--surface);
+      border-color: var(--line);
+      color: var(--brand-strong);
+      transform: scale(1.06);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+
     .toolbar-btn:focus-visible {
       background: var(--surface);
       border-color: var(--line);
       color: var(--brand-strong);
       transform: scale(1.06);
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-      outline: none;
+      outline: 3px solid color-mix(in srgb, var(--brand) 50%, transparent);
+      outline-offset: 2px;
     }
 
     .toolbar-btn:active {
