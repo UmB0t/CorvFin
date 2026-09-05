@@ -300,11 +300,9 @@
 
       <!-- TAB 1: DESPESAS -->
       <main id="tab-expenses" class="tab-content" hidden>
-        <div id="expensesHeaderBar"
-          style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; flex-wrap:wrap; gap:10px;">
-          <div id="expensesSubTabsWrap"
-            style="display:flex; gap:6px; background:var(--surface-2); padding:4px; border-radius:12px; border:1px solid var(--line);">
-            <button type="button" class="btn small primary" id="expensesMonthlyTabBtn" style="border-radius:9px;">
+        <div id="expensesHeaderBar" class="module-header">
+          <div id="expensesSubTabsWrap" class="subtabs-nav">
+            <button type="button" class="btn small primary" id="expensesMonthlyTabBtn">
               <svg class="svg-icon" viewBox="0 0 24 24">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                 <line x1="16" y1="2" x2="16" y2="6" />
@@ -313,7 +311,7 @@
               </svg>
               Despesas do Mês
             </button>
-            <button type="button" class="btn small soft" id="expensesInstallmentsTabBtn" style="border-radius:9px;">
+            <button type="button" class="btn small soft" id="expensesInstallmentsTabBtn">
               <svg class="svg-icon" viewBox="0 0 24 24">
                 <path
                   d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
@@ -323,7 +321,7 @@
               Parcelamentos & Valor Total
             </button>
           </div>
-          <div id="expensesChartControlsWrap" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <div id="expensesChartControlsWrap" class="toolbar-group">
             <div class="pill-toolbar" role="toolbar" aria-label="Gráficos e Análises de Despesas">
               <button class="toolbar-btn" id="toggleInsightsBtn"
                 data-tooltip="Exibir Análise Inteligente de Gastos" aria-label="Exibir Análise Inteligente de Gastos">
@@ -354,7 +352,7 @@
               </svg>
               Despesa Rápida
             </button>
-            <button class="btn primary" id="expensesAddBtn" data-tooltip="Abrir Wizard Completo de Lançamento" style="height:38px; border-radius:999px;">
+            <button class="btn primary pill" id="expensesAddBtn" data-tooltip="Abrir Wizard Completo de Lançamento">
               <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
@@ -386,7 +384,7 @@
 
           <section class="metrics" id="dashboardMetrics"></section>
 
-          <section class="card chart-card full-width" id="insightsSectionCard" style="margin-bottom: 20px;" hidden>
+          <section class="card chart-card full-width section-block" id="insightsSectionCard" hidden>
             <div class="chart-head">
               <h3 class="chart-title">
                 <svg class="svg-icon" viewBox="0 0 24 24">
@@ -395,7 +393,7 @@
                 </svg>
                 Análise Inteligente de Saúde Financeira
               </h3>
-              <div style="display:flex; align-items:center; gap:8px;">
+              <div class="toolbar-group">
                 <button class="icon-btn small" id="closeInsightsBtn" data-tooltip="Ocultar Análise Inteligente">
                   <svg class="svg-icon" viewBox="0 0 24 24">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -407,11 +405,10 @@
             <div class="insights-grid" id="insightsContainer"></div>
           </section>
 
-          <section class="card chart-card full-width" id="destChartSectionCard" style="margin-bottom: 20px;" hidden>
-            <div class="chart-head"
-              style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                <h3 class="chart-title" style="margin:0;">
+          <section class="card chart-card full-width section-block" id="destChartSectionCard" hidden>
+            <div class="chart-head">
+              <div class="toolbar-group">
+                <h3 class="chart-title">
                   <svg class="svg-icon" viewBox="0 0 24 24">
                     <line x1="18" y1="20" x2="18" y2="10" />
                     <line x1="12" y1="20" x2="12" y2="4" />
@@ -421,7 +418,7 @@
                 </h3>
                 <span class="badge info" id="destChartTotal">Total: R$ 0,00</span>
               </div>
-              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <div class="toolbar-group">
                 <div class="chart-type-selector">
                   <button type="button" class="dest-chart-type-btn chart-type-btn active" data-dest-chart-type="bar" data-tooltip="Barras Horizontais">
                     <svg class="svg-icon" viewBox="0 0 24 24" style="width:1em;height:1em;">
@@ -460,11 +457,10 @@
             </div>
           </section>
 
-          <section class="card chart-card full-width" id="categoryChartSectionCard" style="margin-bottom: 20px;" hidden>
-            <div class="chart-head"
-              style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                <h3 class="chart-title" style="margin:0;">
+          <section class="card chart-card full-width section-block" id="categoryChartSectionCard" hidden>
+            <div class="chart-head">
+              <div class="toolbar-group">
+                <h3 class="chart-title">
                   <svg class="svg-icon" viewBox="0 0 24 24">
                     <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
                     <path d="M22 12A10 10 0 0 0 12 2v10z" />
@@ -473,7 +469,7 @@
                 </h3>
                 <span class="badge info" id="categoryChartTotalIncome">Renda: R$ 0,00</span>
               </div>
-              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <div class="toolbar-group">
                 <div class="chart-type-selector">
                   <button type="button" class="chart-type-btn active" data-chart-type="bar" data-tooltip="Barras Horizontais">
                     <svg class="svg-icon" viewBox="0 0 24 24" style="width:1em;height:1em;">
@@ -549,34 +545,23 @@
 
           <!-- VISÃO SIMPLIFICADA (TABELA ÚNICA + RESUMO) -->
           <section id="simplifiedExpensesContainer" hidden>
-            <div class="card" style="padding: 18px 20px; margin-bottom: 20px; background: var(--surface);">
-              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+            <div class="card summary-strip">
+              <div class="summary-strip-row">
                 <div>
-                  <span
-                    style="font-size:.75rem; color:var(--muted); font-weight:800; text-transform:uppercase; letter-spacing:.04em;">Total
-                    a Pagar (Despesas)</span>
-                  <div class="num negative" id="simpTotalExpenses"
-                    style="font-size:1.6rem; font-weight:800; margin-top:2px;">R$ 0,00</div>
+                  <span class="summary-strip-label">Total a Pagar (Despesas)</span>
+                  <div class="num negative summary-strip-value" id="simpTotalExpenses">R$ 0,00</div>
                 </div>
                 <div>
-                  <span
-                    style="font-size:.75rem; color:var(--muted); font-weight:800; text-transform:uppercase; letter-spacing:.04em;">Valor
-                    Quitado (Pago)</span>
-                  <div class="num positive" id="simpPaidExpenses"
-                    style="font-size:1.35rem; font-weight:800; margin-top:2px;">R$ 0,00</div>
+                  <span class="summary-strip-label">Valor Quitado (Pago)</span>
+                  <div class="num positive summary-strip-value compact" id="simpPaidExpenses">R$ 0,00</div>
                 </div>
                 <div>
-                  <span
-                    style="font-size:.75rem; color:var(--muted); font-weight:800; text-transform:uppercase; letter-spacing:.04em;">Pendente</span>
-                  <div class="num warning" id="simpPendingExpenses"
-                    style="font-size:1.35rem; font-weight:800; margin-top:2px;">R$ 0,00</div>
+                  <span class="summary-strip-label">Pendente</span>
+                  <div class="num warning summary-strip-value compact" id="simpPendingExpenses">R$ 0,00</div>
                 </div>
                 <div>
-                  <span
-                    style="font-size:.75rem; color:var(--muted); font-weight:800; text-transform:uppercase; letter-spacing:.04em;">Sobra
-                    do Valor (Abate)</span>
-                  <div class="num positive" id="simpSobraValue"
-                    style="font-size:1.6rem; font-weight:800; margin-top:2px;">R$ 0,00</div>
+                  <span class="summary-strip-label">Sobra do Valor (Abate)</span>
+                  <div class="num positive summary-strip-value" id="simpSobraValue">R$ 0,00</div>
                 </div>
               </div>
             </div>
@@ -676,7 +661,7 @@
 
         <!-- CONTAINER: VISÃO GERAL DE PARCELAMENTOS & VALOR TOTAL (GLOBAL) -->
         <div id="expensesInstallmentsViewWrap" hidden>
-          <section class="metrics" id="expensesInstallmentsMetrics" style="margin-bottom: 20px;"></section>
+          <section class="metrics section-block" id="expensesInstallmentsMetrics"></section>
 
           <div class="filter-bar">
             <input id="installmentsSearchInput"
@@ -757,12 +742,12 @@
 
       <!-- TAB 2: RENDAS EXTRAS -->
       <main id="tab-extras" class="tab-content" hidden>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; flex-wrap:wrap; gap:10px;">
+        <div class="module-header">
           <div>
             <h2 style="font-size:1.4rem; font-weight:800; margin:0;">Rendas Extras</h2>
             <p style="margin:2px 0 0; color:var(--muted); font-size:.84rem; font-weight:600;">Gerenciamento de receitas adicionais, bônus, freelances e trabalhos pontuais.</p>
           </div>
-          <div style="display:flex; align-items:center; gap:8px;">
+          <div class="toolbar-group">
             <div class="pill-toolbar" role="toolbar" aria-label="Gráficos de Rendas Extras">
               <button class="toolbar-btn active" id="toggleExtrasChartsBtn" data-tooltip="Alternar Gráficos de Renda Extra" aria-label="Alternar Gráficos de Renda Extra">
                 <svg class="svg-icon" viewBox="0 0 24 24">
@@ -771,7 +756,7 @@
                 </svg>
               </button>
             </div>
-            <button class="btn primary small" id="newExtraBtn" style="height:38px; border-radius:999px;">
+            <button class="btn primary small pill" id="newExtraBtn">
               <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
@@ -781,13 +766,13 @@
           </div>
         </div>
 
-        <section class="metrics" id="extraMetrics" style="margin-bottom: 20px;"></section>
+        <section class="metrics section-block" id="extraMetrics"></section>
 
         <!-- SEÇÃO DE GRÁFICOS VISUAIS DE RENDAS EXTRAS -->
-        <div class="sections-grid" id="extrasChartsGrid" style="margin-bottom: 20px;">
+        <div class="sections-grid" id="extrasChartsGrid">
           <!-- GRÁFICO 1: DISTRIBUIÇÃO POR ORIGEM / REMETENTE -->
           <div class="card chart-card">
-            <div class="chart-head" style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="chart-head">
               <h3 class="chart-title">
                 <svg class="svg-icon" viewBox="0 0 24 24">
                   <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
@@ -804,7 +789,7 @@
 
           <!-- GRÁFICO 2: EVOLUÇÃO ANUAL DE RECEITA EXTRA -->
           <div class="card chart-card">
-            <div class="chart-head" style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="chart-head">
               <h3 class="chart-title">
                 <svg class="svg-icon" viewBox="0 0 24 24">
                   <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -855,11 +840,9 @@
 
       <!-- TAB 3: DEVEDORES -->
       <main id="tab-debtors" class="tab-content" hidden>
-        <div
-          style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; flex-wrap:wrap; gap:10px;">
-          <div
-            style="display:flex; gap:6px; background:var(--surface-2); padding:4px; border-radius:12px; border:1px solid var(--line);">
-            <button type="button" class="btn small primary" id="debtorsMonthlyTabBtn" style="border-radius:9px;">
+        <div class="module-header">
+          <div class="subtabs-nav">
+            <button type="button" class="btn small primary" id="debtorsMonthlyTabBtn">
               <svg class="svg-icon" viewBox="0 0 24 24">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                 <line x1="16" y1="2" x2="16" y2="6" />
@@ -868,7 +851,7 @@
               </svg>
               Cobranças do Mês
             </button>
-            <button type="button" class="btn small soft" id="debtorsTotalsTabBtn" style="border-radius:9px;">
+            <button type="button" class="btn small soft" id="debtorsTotalsTabBtn">
               <svg class="svg-icon" viewBox="0 0 24 24">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                 <circle cx="9" cy="7" r="4" />
@@ -878,7 +861,7 @@
               Dívidas Totais & Contratos
             </button>
           </div>
-          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <div class="toolbar-group">
             <div class="pill-toolbar" role="toolbar" aria-label="Gráficos de Devedores">
               <button class="toolbar-btn" id="toggleDebtorPersonBtn"
                 data-tooltip="Gráfico: Montante por Devedor" aria-label="Gráfico: Montante por Devedor">
@@ -895,7 +878,7 @@
                 </svg>
               </button>
             </div>
-            <button class="btn primary small" id="newDebtorBtn" style="height:38px; border-radius:999px;">
+            <button class="btn primary small pill" id="newDebtorBtn">
               <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
@@ -907,7 +890,7 @@
 
         <!-- CONTAINER: COBRANÇAS DO MÊS (MENSAL) -->
         <div id="debtorsMonthlyViewWrap">
-          <section class="metrics" id="debtorMetrics" style="margin-bottom: 20px;"></section>
+          <section class="metrics section-block" id="debtorMetrics"></section>
 
           <div class="filter-bar">
             <input id="debtorsSearchInput" placeholder="Pesquisar por devedor, título ou observações...">
@@ -918,11 +901,11 @@
             </select>
           </div>
 
-          <div class="sections-grid" id="debtorChartsGrid" style="margin-bottom: 20px;">
+          <div class="sections-grid" id="debtorChartsGrid">
             <div class="card chart-card" id="debtorPersonCard">
-              <div class="chart-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                  <h3 class="chart-title" style="margin:0;">
+              <div class="chart-head">
+                <div class="toolbar-group">
+                  <h3 class="chart-title">
                     <svg class="svg-icon" viewBox="0 0 24 24">
                       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                       <circle cx="12" cy="7" r="4" />
@@ -931,7 +914,7 @@
                   </h3>
                   <span class="badge info" id="debtorPersonTotal">Total: R$ 0,00</span>
                 </div>
-                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <div class="toolbar-group">
                   <div class="chart-type-selector">
                     <button type="button" class="debtor-person-chart-btn chart-type-btn active" data-debtor-person-chart-type="bar" data-tooltip="Barras Horizontais">
                       <svg class="svg-icon" viewBox="0 0 24 24" style="width:1em;height:1em;">
@@ -969,10 +952,11 @@
                 <div class="dest-bars" id="debtorPersonBars"></div>
               </div>
             </div>
+
             <div class="card chart-card" id="debtorDestCard">
-              <div class="chart-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                  <h3 class="chart-title" style="margin:0;">
+              <div class="chart-head">
+                <div class="toolbar-group">
+                  <h3 class="chart-title">
                     <svg class="svg-icon" viewBox="0 0 24 24">
                       <rect x="2" y="5" width="20" height="14" rx="2" />
                       <line x1="2" y1="10" x2="22" y2="10" />
@@ -981,7 +965,7 @@
                   </h3>
                   <span class="badge info" id="debtorDestTotal">Total: R$ 0,00</span>
                 </div>
-                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <div class="toolbar-group">
                   <div class="chart-type-selector">
                     <button type="button" class="debtor-dest-chart-btn chart-type-btn active" data-debtor-dest-chart-type="bar" data-tooltip="Barras Horizontais">
                       <svg class="svg-icon" viewBox="0 0 24 24" style="width:1em;height:1em;">
@@ -1041,7 +1025,7 @@
 
         <!-- CONTAINER: DÍVIDAS TOTAIS POR DEVEDOR (GLOBAL / CONSOLIDADO) -->
         <div id="debtorsTotalsViewWrap" hidden>
-          <section class="metrics" id="debtorsTotalsMetrics" style="margin-bottom: 20px;"></section>
+          <section class="metrics section-block" id="debtorsTotalsMetrics"></section>
 
           <div class="filter-bar">
             <input id="debtorsTotalsSearchInput" placeholder="Pesquisar por devedor, título ou destino...">
@@ -1116,11 +1100,11 @@
 
       <!-- TAB 4: INVESTIMENTOS -->
       <main id="tab-investments" class="tab-content" hidden>
-        <section class="metrics" id="investMetrics" style="margin-bottom: 20px;"></section>
+        <section class="metrics section-block" id="investMetrics"></section>
 
-        <section class="card chart-card full-width" id="investSimulatorCard" style="margin-bottom: 20px;">
-          <div class="chart-head" id="toggleInvestSimulatorHeader" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none;">
-            <h3 class="chart-title" style="margin:0;">
+        <section class="card chart-card full-width section-block" id="investSimulatorCard">
+          <div class="chart-head" id="toggleInvestSimulatorHeader" style="cursor:pointer; user-select:none;">
+            <h3 class="chart-title">
               <svg class="svg-icon" viewBox="0 0 24 24">
                 <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
                 <polyline points="17 6 23 6 23 12" />
@@ -1166,10 +1150,9 @@
           </div>
         </section>
 
-        <div
-          style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; flex-wrap:wrap; gap:10px;">
+        <div class="module-header">
           <h3 style="margin:0; font-weight:800; font-size:1.1rem;">Seus Ativos e Metas Financeiras</h3>
-          <div style="display:flex; align-items:center; gap:8px;">
+          <div class="toolbar-group">
             <div class="pill-toolbar" role="toolbar" aria-label="Gráficos de Investimentos">
               <button class="toolbar-btn active" id="toggleInvestChartsBtn" data-tooltip="Alternar Gráficos de Alocação" aria-label="Alternar Gráficos de Alocação">
                 <svg class="svg-icon" viewBox="0 0 24 24">
@@ -1195,7 +1178,7 @@
           </div>
         </div>
 
-        <div class="sections-grid" id="investChartsGrid" style="margin-bottom: 20px;">
+        <div class="sections-grid" id="investChartsGrid">
           <div class="card chart-card">
             <div class="chart-head">
               <h3 class="chart-title">
@@ -1227,14 +1210,14 @@
 
       <!-- ABA: BENEFÍCIOS -->
       <main id="tab-benefits" class="tab-content" hidden>
-        <div class="top-actions-bar" style="margin-bottom:16px;">
+        <div class="top-actions-bar module-header">
           <div>
             <h2 style="font-size:1.4rem; font-weight:800; margin:0;">Controle de Benefícios</h2>
             <p style="margin:2px 0 0; color:var(--muted); font-size:.84rem; font-weight:600;">Gerenciamento de
               benefícios corporativos (Saúde, VR, VA, Transporte, Educação, Cultura, Farmácia) com saldo mensal
               compartilhado.</p>
           </div>
-          <div style="display:flex; align-items:center; gap:8px;">
+          <div class="toolbar-group">
             <div class="pill-toolbar" role="toolbar" aria-label="Gráficos de Benefícios">
               <button class="toolbar-btn active" id="toggleBenefitsChartsBtn" data-tooltip="Alternar Gráficos de Benefícios" aria-label="Alternar Gráficos de Benefícios">
                 <svg class="svg-icon" viewBox="0 0 24 24">
@@ -1243,7 +1226,7 @@
                 </svg>
               </button>
             </div>
-            <button class="btn primary small" id="newBenefitBtn" style="height:38px; border-radius:999px;">
+            <button class="btn primary small pill" id="newBenefitBtn">
               <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
@@ -1253,13 +1236,13 @@
           </div>
         </div>
 
-        <section class="metrics" id="benefitMetrics" style="margin-bottom:20px;"></section>
+        <section class="metrics section-block" id="benefitMetrics"></section>
 
         <!-- SEÇÃO DE GRÁFICOS VISUAIS DE BENEFÍCIOS -->
-        <div class="sections-grid" id="benefitsChartsGrid" style="margin-bottom: 20px;">
+        <div class="sections-grid" id="benefitsChartsGrid">
           <!-- GRÁFICO 1: DISTRIBUIÇÃO POR TIPO DE BENEFÍCIO -->
           <div class="card chart-card">
-            <div class="chart-head" style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="chart-head">
               <h3 class="chart-title">
                 <svg class="svg-icon" viewBox="0 0 24 24">
                   <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
@@ -1276,7 +1259,7 @@
 
           <!-- GRÁFICO 2: EVOLUÇÃO DIÁRIA DE GASTOS & SALDO RESTANTE -->
           <div class="card chart-card">
-            <div class="chart-head" style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="chart-head">
               <h3 class="chart-title">
                 <svg class="svg-icon" viewBox="0 0 24 24">
                   <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
@@ -1341,8 +1324,8 @@
 
       <main id="tab-simulation" class="tab-content" hidden>
         <!-- CABEÇALHO & BARRA DE AÇÕES DO SANDBOX -->
-        <div id="simHeaderBar" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px; flex-wrap:wrap; gap:10px;">
-          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div id="simHeaderBar" class="module-header">
+          <div class="toolbar-group">
             <span class="tag" style="background:var(--brand-soft); color:var(--brand); font-weight:800; padding:6px 14px; border-radius:999px; font-size:0.85rem; border:1px solid color-mix(in srgb, var(--brand) 25%, transparent);">
               Simulações não alteram seus dados reais
             </span>
@@ -1357,8 +1340,8 @@
             </div>
           </div>
 
-          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <button type="button" class="btn soft" id="simResetBtn" style="border-radius:999px;">
+          <div class="toolbar-group">
+            <button type="button" class="btn soft pill" id="simResetBtn">
               <svg class="svg-icon" viewBox="0 0 24 24">
                 <polyline points="1 4 1 10 7 10" />
                 <polyline points="23 20 23 14 17 14" />
@@ -1366,7 +1349,7 @@
               </svg>
               Resetar
             </button>
-            <button type="button" class="btn soft" id="simSaveBtn" style="border-radius:999px;">
+            <button type="button" class="btn soft pill" id="simSaveBtn">
               <svg class="svg-icon" viewBox="0 0 24 24">
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
                 <polyline points="17 21 17 13 7 13 7 21"/>
@@ -1374,7 +1357,7 @@
               </svg>
               Salvar Simulação
             </button>
-            <button type="button" class="btn primary" id="simAddBtn" style="border-radius:999px;">
+            <button type="button" class="btn primary pill" id="simAddBtn">
               <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
@@ -1392,22 +1375,22 @@
             </svg>
             Entradas no Cenário Simulado:
           </span>
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem; font-weight:750; color:var(--text); margin:0;">
-            <input type="checkbox" id="simIncludeExtras" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
-            Incluir Rendas Extras
+          <label class="form-checkbox-label">
+            <input type="checkbox" id="simIncludeExtras" class="form-checkbox">
+            <span>Incluir Rendas Extras</span>
           </label>
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem; font-weight:750; color:var(--text); margin:0;">
-            <input type="checkbox" id="simIncludeDebtors" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
-            Incluir Devedores
+          <label class="form-checkbox-label">
+            <input type="checkbox" id="simIncludeDebtors" class="form-checkbox">
+            <span>Incluir Devedores</span>
           </label>
         </div>
 
         <!-- CARDS COMPARATIVOS DE IMPACTO (KPIS LADO A LADO) -->
-        <section class="metrics" id="simMetrics" style="margin-bottom:20px;"></section>
+        <section class="metrics section-block" id="simMetrics"></section>
 
         <!-- GRÁFICO COMPARATIVO MENSAL (12 MESES) -->
-        <section class="card chart-card full-width" id="simChartSectionCard" style="margin-bottom: 20px;">
-          <div class="chart-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <section class="card chart-card full-width section-block" id="simChartSectionCard">
+          <div class="chart-head">
             <h3 class="chart-title">
               <svg class="svg-icon" viewBox="0 0 24 24">
                 <line x1="18" y1="20" x2="18" y2="10" />
@@ -1478,7 +1461,7 @@
               </svg>
               Simulações Salvas
             </div>
-            <span class="badge" id="savedSimulationsCountBadge" style="background:var(--surface-2); color:var(--text); font-weight:700;">0 cenários</span>
+            <span class="badge neutral" id="savedSimulationsCountBadge">0 cenários</span>
           </div>
           <div style="padding: 10px 14px 0;">
             <p class="hint" style="margin:0 0 8px;">Reabra simulações anteriores para consultar cenários salvos. Reabrir um cenário não altera seus dados reais.</p>
@@ -1788,16 +1771,16 @@
         </div>
 
         <!-- SEÇÃO: CONFIGURAÇÃO DE PERMISSÕES PADRÃO (NOVOS USUÁRIOS) -->
-        <div class="card section-card full-width" style="padding: 20px 24px; margin-top: 20px; border-radius: 14px;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+        <div class="card section-card full-width settings-card">
+          <div class="settings-card-head">
             <div>
-              <h3 style="margin:0; font-size:1.1rem; font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px;">
+              <h3 class="settings-card-title">
                 <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:20px; height:20px;">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                 </svg>
                 Configuração de Permissões Padrão (Novos Usuários)
               </h3>
-              <p style="margin:4px 0 0; color:var(--muted); font-size:0.84rem;">
+              <p class="settings-card-desc">
                 Defina quais módulos estarão automaticamente liberados quando um novo usuário for cadastrado no sistema.
               </p>
             </div>
@@ -1807,52 +1790,52 @@
           </div>
 
           <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px; background:var(--surface-2); padding:16px; border-radius:12px; border:1px solid var(--line);">
-            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; font-weight:700; color:var(--text);">
-              <input type="checkbox" id="default-perm-dashboard" data-default-module="dashboard" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="default-perm-dashboard" data-default-module="dashboard" class="form-checkbox">
               <span>Dashboard</span>
             </label>
-            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; font-weight:700; color:var(--text);">
-              <input type="checkbox" id="default-perm-despesas" data-default-module="despesas" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="default-perm-despesas" data-default-module="despesas" class="form-checkbox">
               <span>Despesas</span>
             </label>
-            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; font-weight:700; color:var(--text);">
-              <input type="checkbox" id="default-perm-extras" data-default-module="extras" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="default-perm-extras" data-default-module="extras" class="form-checkbox">
               <span>Rendas Extras</span>
             </label>
-            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; font-weight:700; color:var(--text);">
-              <input type="checkbox" id="default-perm-devedores" data-default-module="devedores" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="default-perm-devedores" data-default-module="devedores" class="form-checkbox">
               <span>Devedores</span>
             </label>
-            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; font-weight:700; color:var(--text);">
-              <input type="checkbox" id="default-perm-investimentos" data-default-module="investimentos" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="default-perm-investimentos" data-default-module="investimentos" class="form-checkbox">
               <span>Investimentos</span>
             </label>
-            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; font-weight:700; color:var(--text);">
-              <input type="checkbox" id="default-perm-beneficios" data-default-module="beneficios" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="default-perm-beneficios" data-default-module="beneficios" class="form-checkbox">
               <span>Benefícios</span>
             </label>
-            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; font-weight:700; color:var(--text);">
-              <input type="checkbox" id="default-perm-compras" data-default-module="compras" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="default-perm-compras" data-default-module="compras" class="form-checkbox">
               <span>Lista de Compras</span>
             </label>
-            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.88rem; font-weight:700; color:var(--text);">
-              <input type="checkbox" id="default-perm-simulacao" data-default-module="simulacao" style="width:18px; height:18px; accent-color:var(--brand); cursor:pointer;">
+            <label class="form-checkbox-label">
+              <input type="checkbox" id="default-perm-simulacao" data-default-module="simulacao" class="form-checkbox">
               <span>Simulação</span>
             </label>
           </div>
         </div>
 
         <!-- SEÇÃO: MANUTENÇÃO DOS MÓDULOS -->
-        <div class="card section-card full-width" style="padding: 20px 24px; margin-top: 20px; border-radius: 14px;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+        <div class="card section-card full-width settings-card">
+          <div class="settings-card-head">
             <div>
-              <h3 style="margin:0; font-size:1.1rem; font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px;">
+              <h3 class="settings-card-title">
                 <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--warning, #f59e0b); width:20px; height:20px;">
                   <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
                 </svg>
                 Manutenção dos Módulos
               </h3>
-              <p style="margin:4px 0 0; color:var(--muted); font-size:0.84rem;">
+              <p class="settings-card-desc">
                 Controle temporariamente o acesso dos usuários aos módulos do sistema. Administradores mantêm acesso irrestrito para testes.
               </p>
             </div>
@@ -1867,22 +1850,22 @@
         </div>
 
         <!-- SEÇÃO: CONFIGURAÇÃO DE E-MAIL / SMTP TRANSACIONAL (SECURITY 6A) -->
-        <div class="card section-card full-width" style="padding: 20px 24px; margin-top: 20px; border-radius: 14px;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+        <div class="card section-card full-width settings-card">
+          <div class="settings-card-head">
             <div>
-              <h3 style="margin:0; font-size:1.1rem; font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px;">
+              <h3 class="settings-card-title">
                 <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:20px; height:20px;">
                   <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
                   <polyline points="22,6 12,13 2,6"></polyline>
                 </svg>
                 Configuração de E-mail / SMTP Transacional
               </h3>
-              <p style="margin:4px 0 0; color:var(--muted); font-size:0.84rem;">
+              <p class="settings-card-desc">
                 Configure as credenciais e parâmetros do servidor SMTP para envio nativo de e-mails transacionais (ativação de contas, recuperação de senha e avisos).
               </p>
             </div>
-            <div id="smtpStatusBadgeContainer" style="display:flex; align-items:center; gap:8px;">
-              <span id="smtpStatusBadge" style="padding:4px 10px; border-radius:8px; font-weight:800; font-size:0.78rem; background:var(--surface-2); color:var(--muted); border:1px solid var(--line);">Carregando...</span>
+            <div id="smtpStatusBadgeContainer" class="toolbar-group">
+              <span id="smtpStatusBadge" class="badge neutral" style="font-size:0.78rem; font-weight:800; padding:4px 10px; border-radius:8px;">Carregando...</span>
             </div>
           </div>
 
