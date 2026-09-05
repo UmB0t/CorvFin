@@ -520,14 +520,22 @@
           </section>
 
           <div class="filter-bar">
-            <input id="expensesSearchInput" placeholder="Pesquisar despesas por nome, categoria ou destino...">
+            <input id="expensesSearchInput" placeholder="Pesquisar por descrição, categoria ou favorecido...">
             <select id="expensesStatusFilter">
               <option value="all">Todos os Status</option>
               <option value="pendente">Apenas Pendentes</option>
               <option value="pago">Apenas Pagos</option>
             </select>
-            <select id="expensesDestFilter">
-              <option value="all">Todos os Destinos</option>
+            <select id="expensesDestFilter" aria-label="Filtrar por Método de Pagamento">
+              <option value="all">Todos os Métodos</option>
+              <option value="pix">PIX</option>
+              <option value="dinheiro">Dinheiro</option>
+              <option value="cartao_credito">Cartão de Crédito</option>
+              <option value="cartao_debito">Cartão de Débito</option>
+              <option value="boleto">Boleto</option>
+              <option value="transferencia">Transferência</option>
+              <option value="debito_automatico">Débito Automático</option>
+              <option value="outros">Outros</option>
             </select>
             <select id="expensesSortFilter">
               <option value="amount-desc">Maior Valor</option>
@@ -2693,16 +2701,36 @@
           </div>
 
           <div class="field">
-            <label>Destino / Forma de Pagamento *</label>
-            <select id="entryDestination" required></select>
-            <small id="entryDestHint" style="font-size:0.78rem; color:var(--muted); font-weight:600; margin-top:2px;"></small>
+            <label for="entryPaymentMethod">Método de Pagamento *</label>
+            <select id="entryPaymentMethod" required></select>
+          </div>
+
+          <div class="field">
+            <label for="entryPayee">Destino / Favorecido <small style="font-weight:600; color:var(--muted);">(Opcional)</small></label>
+            <input id="entryPayee" list="payeeSuggestions" placeholder="Ex: Casas Bahia, Fernando, Enel, Supermercado">
+            <datalist id="payeeSuggestions"></datalist>
+          </div>
+
+          <div class="field" id="entryAccountWrap" style="display:none;">
+            <label id="entryAccountLabel" for="entryAccount">Conta / Cartão Utilizado <small style="font-weight:600; color:var(--muted);">(Opcional)</small></label>
+            <select id="entryAccount"></select>
+          </div>
+
+          <!-- Ponte de compatibilidade legada V1 -->
+          <div class="field" id="entryDestinationWrap" style="display:none;">
+            <label>Destino Legado</label>
+            <select id="entryDestination"></select>
+            <small id="entryDestHint"></small>
           </div>
 
           <div class="field entry-recurrence-wrap" id="entryRecurrenceWrap">
-            <label>Recorrência *</label>
+            <label>Natureza do Lançamento *</label>
             <div class="entry-recurrence-selector" id="entryRecurrenceSelector" role="group" aria-label="Recorrência do Lançamento">
               <button type="button" class="btn small entry-rec-btn active" data-rec="single" id="entryRecSingleBtn" aria-pressed="true">
                 Despesa única
+              </button>
+              <button type="button" class="btn small entry-rec-btn" data-rec="installment" id="entryRecInstallmentBtn" aria-pressed="false">
+                Parcelada
               </button>
               <button type="button" class="btn small entry-rec-btn" data-rec="recurring" id="entryRecRecurringBtn" aria-pressed="false">
                 Despesa recorrente (mensal)
@@ -2799,7 +2827,44 @@
                 <select id="fixedEffYear"></select>
               </div>
             </div>
-            <p class="hint" style="margin:0; font-size:.78rem;">Despesa recorrente mensal a partir da competência definida.</p>
+            <div class="field" style="margin-top:6px;">
+              <label style="font-size:.74rem; color:var(--muted); font-weight:750;">Duração da Recorrência</label>
+              <div class="recurrence-duration-group">
+                <label class="rec-duration-option">
+                  <input type="radio" name="entryRecEndType" id="recEndTypeNever" value="never" checked>
+                  <span>Sem data de término (contínua)</span>
+                </label>
+                <label class="rec-duration-option">
+                  <input type="radio" name="entryRecEndType" id="recEndTypeCount" value="count">
+                  <span>Após quantidade de meses/ocorrências</span>
+                </label>
+                <div id="recCountWrap" class="rec-duration-subpanel" style="display:none;">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <input type="number" id="recCountInput" min="1" max="360" value="10" style="width:90px; text-align:center; font-weight:800;">
+                    <span style="font-size:.82rem; color:var(--muted);">ocorrência(s)</span>
+                  </div>
+                </div>
+                <label class="rec-duration-option">
+                  <input type="radio" name="entryRecEndType" id="recEndTypeDate" value="date">
+                  <span>Até determinada competência (mês/ano)</span>
+                </label>
+                <div id="recDateWrap" class="rec-duration-subpanel" style="display:none;">
+                  <div class="field-grid" style="grid-template-columns: 1.5fr 1fr; gap: 8px;">
+                    <div class="field">
+                      <label style="font-size:.72rem; color:var(--muted);">Mês Final</label>
+                      <select id="recEndMonth"></select>
+                    </div>
+                    <div class="field">
+                      <label style="font-size:.72rem; color:var(--muted);">Ano Final</label>
+                      <select id="recEndYear"></select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="calc-badge" id="recDurationBadge" style="width:100%; justify-content:center; padding:8px 12px; font-size:.82rem; margin-top:8px;">
+                Recorrência mensal contínua
+              </div>
+            </div>
           </div>
 
           <!-- VENCIMENTO INTELIGENTE / HERDADO DO DESTINO -->
@@ -2829,7 +2894,10 @@
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; font-size:0.8rem;">
               <span class="badge" id="summaryCategory" style="background:var(--surface); border:1px solid var(--line); font-weight:750;">Categoria</span>
-              <span class="badge" id="summaryDestination" style="background:var(--surface); border:1px solid var(--line); font-weight:750;">Destino</span>
+              <span class="badge" id="summaryMethod" style="background:var(--surface); border:1px solid var(--line); font-weight:750;">Método</span>
+              <span class="badge" id="summaryPayee" style="display:none; background:var(--surface); border:1px solid var(--line); font-weight:750;">Favorecido</span>
+              <span class="badge" id="summaryAccount" style="display:none; background:var(--surface); border:1px solid var(--line); font-weight:750;">Conta</span>
+              <span class="badge" id="summaryDestination" style="display:none; background:var(--surface); border:1px solid var(--line); font-weight:750;">Destino</span>
               <span class="badge info" id="summaryType">À Vista</span>
               <span class="badge" id="summaryPeriod" style="background:var(--surface); border:1px solid var(--line); font-weight:750;">Mês/Ano</span>
             </div>
@@ -3283,57 +3351,65 @@
     </form>
   </dialog>
 
-  <!-- MODAL: LINHA DO TEMPO / EVOLUÇÃO TEMPORAL DA DESPESA -->
-  <dialog id="timelineDialog" style="max-width: 720px; width: 95%;">
+  <!-- MODAL: LINHA DO TEMPO / ANÁLISE DETALHADA DA DESPESA (CORVFIN V2) -->
+  <dialog id="timelineDialog" class="modal-timeline">
     <div class="dialog-head">
       <div>
-        <h3 id="timelineTitle">Evolução & Linha do Tempo</h3>
-        <p id="timelineSub" style="margin:2px 0 0; color:var(--muted); font-size:.82rem; font-weight:600;">Histórico de
-          vigência, status mensal e valores acumulados.</p>
+        <h3 id="timelineTitle">Análise da Despesa</h3>
+        <p id="timelineSub">Visão detalhada, resumo contratual e histórico financeiro.</p>
       </div>
-      <button type="button" class="icon-btn small" data-close="timelineDialog">
+      <button type="button" class="icon-btn small" data-close="timelineDialog" aria-label="Fechar modal de análise">
         <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
           <line x1="18" y1="6" x2="6" y2="18" />
           <line x1="6" y1="6" x2="18" y2="18" />
         </svg>
       </button>
     </div>
-    <div class="dialog-body" style="padding: 18px 20px;">
-      <!-- Métricas do Ano -->
-      <div class="metrics" id="timelineMetrics"
-        style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom: 16px; gap: 10px;"></div>
+    <div class="dialog-body">
+      <!-- 1. RESUMO ESTRUTURADO DA DESPESA (CORVFIN V2) -->
+      <div id="expenseAnalysisSummary" class="expense-analysis-container"></div>
 
-      <!-- Barra de Progresso Anual -->
-      <div
-        style="margin-bottom: 16px; background: var(--surface-2); padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-          <span
-            style="font-size:.78rem; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;">Progresso
-            de Quitação no Ano</span>
-          <span class="num" id="timelineProgressText" style="font-size:.84rem; font-weight:800;">0%</span>
+      <!-- 2. HISTÓRICO DE COMPETÊNCIAS / MESES -->
+      <div class="expense-analysis-history-section">
+        <div class="expense-analysis-section-head">
+          <h4 class="expense-analysis-section-title">Histórico de Competências</h4>
+          <span class="expense-analysis-section-sub" id="timelineHistorySub">Ano de Análise</span>
         </div>
-        <div class="dest-track" style="height:10px;">
-          <div class="dest-fill" id="timelineProgressBar" style="width:0%; background:var(--brand);"></div>
-        </div>
-      </div>
 
-      <!-- Tabela dos 12 Meses -->
-      <div class="card" style="overflow:hidden; border:1px solid var(--line);">
-        <table style="width:100%; border-collapse:collapse; font-size:.84rem; text-align:left;">
-          <thead>
-            <tr style="background:var(--surface-2); border-bottom:1px solid var(--line);">
-              <th style="padding:10px 12px;">Mês / Ano</th>
-              <th style="padding:10px 12px;">Vigência / Parcela</th>
-              <th style="padding:10px 12px;">Valor</th>
-              <th style="padding:10px 12px;">Status</th>
-              <th style="padding:10px 12px; text-align:right;">Acumulado Pago</th>
-            </tr>
-          </thead>
-          <tbody id="timelineTableBody"></tbody>
-        </table>
+        <!-- Métricas do Ano -->
+        <div class="metrics" id="timelineMetrics"></div>
+
+        <!-- Barra de Progresso Anual -->
+        <div class="timeline-progress-wrap">
+          <div class="timeline-progress-head">
+            <span class="timeline-progress-label">Progresso de Quitação no Ano</span>
+            <span class="num" id="timelineProgressText">0%</span>
+          </div>
+          <div class="dest-track timeline-track">
+            <div class="dest-fill" id="timelineProgressBar"></div>
+          </div>
+        </div>
+
+        <!-- Tabela dos 12 Meses -->
+        <div class="card timeline-table-card">
+          <table class="timeline-table">
+            <thead>
+              <tr>
+                <th>Mês / Ano</th>
+                <th>Vigência / Parcela</th>
+                <th>Valor</th>
+                <th>Status</th>
+                <th class="text-right">Acumulado Pago</th>
+              </tr>
+            </thead>
+            <tbody id="timelineTableBody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
     <div class="dialog-foot">
+      <button type="button" class="btn soft small" data-close="timelineDialog">Fechar</button>
+    </div>
   </dialog>
 
   <!-- MODAL: CONVERSÃO DE DESPESA FIXA EM VARIÁVEL -->

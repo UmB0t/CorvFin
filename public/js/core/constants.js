@@ -18,6 +18,106 @@ window.DEFAULT_DESTINATIONS = [
   { name: 'Binance', color: '#EAB308', icon: 'globe', dueDay: null }
 ];
 
+window.PAYMENT_METHODS = [
+  { id: 'pix', name: 'PIX', icon: 'dollar' },
+  { id: 'dinheiro', name: 'Dinheiro', icon: 'wallet' },
+  { id: 'cartao_credito', name: 'Cartão de Crédito', icon: 'card' },
+  { id: 'cartao_debito', name: 'Cartão de Débito', icon: 'card' },
+  { id: 'boleto', name: 'Boleto', icon: 'receipt' },
+  { id: 'transferencia', name: 'Transferência', icon: 'bank' },
+  { id: 'debito_automatico', name: 'Débito Automático', icon: 'receipt' },
+  { id: 'outros', name: 'Outro', icon: 'tag' }
+];
+
+window.PAYMENT_METHOD_NAMES_MAP = {
+  'pix': 'PIX',
+  'dinheiro': 'Dinheiro',
+  'cartao_credito': 'Cartão de Crédito',
+  'cartao_debito': 'Cartão de Débito',
+  'boleto': 'Boleto',
+  'transferencia': 'Transferência',
+  'debito_automatico': 'Débito Automático',
+  'outros': 'Outro'
+};
+
+// Helpers explícitos para resolução de domínio V2 e ponte legada V1
+window.resolveExpensePaymentMethod = function(expense) {
+  if (!expense) return 'outros';
+  if (expense.payment && expense.payment.method) {
+    return expense.payment.method;
+  }
+  const dest = String(expense.destination || '').toLowerCase().trim();
+  if (dest === 'pix') return 'pix';
+  if (dest === 'dinheiro' || dest === 'em dinheiro' || dest === 'cash') return 'dinheiro';
+  if (expense.paymentType === 'installment') return 'cartao_credito';
+  if (dest && dest !== 'gerais' && dest !== 'outros') return 'cartao_credito';
+  return 'outros';
+};
+
+window.resolveExpenseAccount = function(expense) {
+  if (!expense) return null;
+  if (expense.payment && expense.payment.account !== undefined) {
+    return expense.payment.account;
+  }
+  const dest = String(expense.destination || '').trim();
+  const destLower = dest.toLowerCase();
+  if (destLower === 'pix' || destLower === 'dinheiro' || destLower === 'em dinheiro' || destLower === 'cash' || destLower === 'gerais') {
+    return null;
+  }
+  return dest || null;
+};
+
+window.resolveExpensePayee = function(expense) {
+  if (!expense) return null;
+  if (expense.payee !== undefined && expense.payee !== null && String(expense.payee).trim() !== '') {
+    return String(expense.payee).trim();
+  }
+  return null;
+};
+
+window.resolveExpenseTemporal = function(expense) {
+  if (!expense) return { type: 'single', recurrence: null };
+  if (expense.temporal && expense.temporal.type) {
+    return expense.temporal;
+  }
+  if (expense.paymentType === 'fixed' || expense.versions) {
+    return {
+      type: 'recurring',
+      recurrence: expense.endedFrom ? { frequency: 'monthly', endType: 'date', endYear: expense.endedFrom.year, endMonth: expense.endedFrom.month } : { frequency: 'monthly', endType: 'never' }
+    };
+  }
+  if (expense.paymentType === 'installment' || (expense.installments && expense.installments > 1)) {
+    return { type: 'installment', recurrence: null };
+  }
+  return { type: 'single', recurrence: null };
+};
+
+window.buildLegacyDestinationBridge = function(paymentMethod, account) {
+  // Ponte EXCLUSIVAMENTE para compatibilidade V1 (evita undefined em leitores legados)
+  if (account && String(account).trim()) {
+    return String(account).trim();
+  }
+  if (paymentMethod === 'pix') return 'Pix';
+  if (paymentMethod === 'dinheiro') return 'Dinheiro';
+  if (paymentMethod === 'cartao_credito' || paymentMethod === 'cartao_debito') return 'Cartão';
+  if (paymentMethod === 'boleto') return 'Boleto';
+  if (paymentMethod === 'transferencia') return 'Transferência';
+  if (paymentMethod === 'debito_automatico') return 'Débito Automático';
+  return 'Gerais';
+};
+
+window.calculateRecurrenceEndFrom = function(startYear, startMonth, count) {
+  const c = Math.max(1, parseInt(count, 10) || 1);
+  const sm = Number(startMonth) || 1;
+  const sy = Number(startYear) || 2026;
+  // Ocorrências ativas vão de index 0 até (c - 1)
+  // O primeiro mês inativo (endedFrom) é index c
+  const endIdx = (sm - 1) + c;
+  const endedYear = sy + Math.floor(endIdx / 12);
+  const endedMonth = (endIdx % 12) + 1;
+  return { year: endedYear, month: endedMonth };
+};
+
 window.DEFAULT_CATEGORY_ICONS_MAP = {
   'Moradia': 'home',
   'Lazer': 'star',

@@ -74,7 +74,21 @@
 
     const destFilterSelect = $('#expensesDestFilter');
     if (destFilterSelect) {
-      destFilterSelect.innerHTML = `<option value="all">Todos os Destinos</option>` + sortedDests.map(d => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
+      const methods = (window.PAYMENT_METHODS && window.PAYMENT_METHODS.length) ? window.PAYMENT_METHODS : [
+        { id: 'pix', name: 'PIX' },
+        { id: 'dinheiro', name: 'Dinheiro' },
+        { id: 'cartao_credito', name: 'Cartão de Crédito' },
+        { id: 'cartao_debito', name: 'Cartão de Débito' },
+        { id: 'boleto', name: 'Boleto' },
+        { id: 'transferencia', name: 'Transferência' },
+        { id: 'debito_automatico', name: 'Débito Automático' },
+        { id: 'outros', name: 'Outros' }
+      ];
+      const curVal = destFilterSelect.value || 'all';
+      destFilterSelect.innerHTML = `<option value="all">Todos os Métodos</option>` + methods.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`).join('');
+      if (curVal && destFilterSelect.querySelector(`option[value="${curVal}"]`)) {
+        destFilterSelect.value = curVal;
+      }
     }
 
     const tagsContainer = $('#destTagsList');

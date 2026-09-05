@@ -888,17 +888,35 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
     pendingAction = null;
   }
 
-  // 7. Chamada ao Webhook do n8n com contexto e pendingAction
+  // Carrega dados financeiros do usuário para contexto semântico V2 e validação
+  const finances = await storageService.getUserFinances(userId, userName);
+  const userCategories = (finances.categories || []).map(c => typeof c === 'string' ? c : (c?.name || '')).filter(Boolean);
+  const rawUserDestinations = (finances.destinations || []).map(d => typeof d === 'string' ? d : (d?.name || '')).filter(Boolean);
+  const userDestinations = rawUserDestinations;
+
+  const NATIVE_METHODS = new Set(['pix', 'dinheiro', 'em dinheiro', 'cash', 'gerais', 'outros']);
+  const validAccounts = rawUserDestinations.filter(d => !NATIVE_METHODS.has(normalizeSearchStr(d)));
+  const canonicalPaymentMethods = ['pix', 'dinheiro', 'cartao_credito', 'cartao_debito', 'boleto', 'transferencia', 'debito_automatico', 'outros'];
+
+  // 7. Chamada ao Webhook do n8n com contexto V2 explícito e pendingAction
   const webhookPayload = {
     type: type || 'text',
     message: cleanMessage,
     authenticatedUserId: userId,
     conversationId,
     currentDate: currentDateIso,
+    validCategories: userCategories,
+    paymentMethods: canonicalPaymentMethods,
+    validAccounts,
+    userDestinations: rawUserDestinations, // Campo LEGADO para compatibilidade n8n
     context: {
       month: targetMonth,
       year: targetYear,
-      currentDate: currentDateIso
+      currentDate: currentDateIso,
+      validCategories: userCategories,
+      paymentMethods: canonicalPaymentMethods,
+      validAccounts,
+      userDestinations: rawUserDestinations
     },
     pendingAction: pendingAction ? {
       id: pendingAction._id,
@@ -947,11 +965,6 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
 
     const json = await response.json().catch(() => null);
     const actionResult = Array.isArray(json) ? (json[0] || {}) : (json || {});
-
-    // Carrega dados financeiros do usuário para validação e cruzamento
-    const finances = await storageService.getUserFinances(userId, userName);
-    const userCategories = (finances.categories || []).map(c => typeof c === 'string' ? c : (c?.name || '')).filter(Boolean);
-    const userDestinations = (finances.destinations || []).map(d => typeof d === 'string' ? d : (d?.name || '')).filter(Boolean);
 
     if (actionResult.action === 'unsupported_action') {
       return {
@@ -1243,7 +1256,7 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
       };
     }
 
-    // Resolução de Categoria Canônica para Despesas
+    // Resolução de Categoria Canônica para Despesas (Match estrito contra categorias reais do usuário)
     let matchedCategory = null;
     const catInput = safeTrim(mergedSlots.category);
     const descLower = normalizeSearchStr(mergedDesc);
@@ -1257,6 +1270,7 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
     }
 
     if (!matchedCategory && mergedDesc) {
+      // Heurística de apoio semântico somente se mapear estritamente para uma categoria real do usuário
       const SEMANTIC_CATEGORY_MAP = [
         { keywords: ['almoco', 'almoço', 'jantar', 'lanche', 'pizza', 'restaurante', 'mercado', 'comida', 'alimentacao', 'alimentação', 'supermercado', 'ifood', 'ubereats', 'padaria', 'cafe', 'café', 'mcdonalds', 'burger'], targets: ['alimentacao', 'alimentação', 'refeicao', 'refeição', 'restaurante', 'mercado'] },
         { keywords: ['netflix', 'spotify', 'gemini', 'chatgpt', 'prime', 'youtube', 'assinatura', 'software', 'nuvem', 'hosting', 'mensalidade', 'apple', 'icloud', 'claude', 'disney', 'hbo', 'max'], targets: ['assinatura', 'assinaturas', 'servicos', 'serviços', 'software'] },
@@ -1280,16 +1294,6 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
     }
 
     if (!matchedCategory) {
-      const geraisCat = userCategories.find(c => {
-        const norm = normalizeSearchStr(c);
-        return norm === 'gerais' || norm === 'geral' || norm === 'outros' || norm === 'diversos';
-      });
-      if (geraisCat) {
-        matchedCategory = geraisCat;
-      }
-    }
-
-    if (!matchedCategory) {
       if (catInput) {
         rawWarnings.push(`Categoria "${catInput}" não foi encontrada nas suas categorias.`);
       } else {
@@ -1299,15 +1303,101 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
       rawWarnings = rawWarnings.filter(w => !/categoria.*(n[aã]o identificada|n[aã]o encontrada|revisada)/i.test(w));
     }
 
-    // requiresReview deve refletir o estado real das pendências
+    // requiresReview deve refletir o estado real das pendências (categoria obrigatória)
     requiresReview = !matchedCategory || rawWarnings.length > 0;
 
-    // Resolução de Destino Canônico
-    let finalDestination = mergedDestination;
-    if (finalDestination) {
-      const match = userDestinations.find(d => normalizeSearchStr(typeof d === 'string' ? d : d?.name) === normalizeSearchStr(finalDestination));
+    // Resolução de Dimensões V2
+    // 1. Favorecido
+    let resolvedPayee = safeTrim(rawData.payee || rawData.establishment || rawData.recipient || existingSlots.payee || null) || null;
+    if (!resolvedPayee && cleanMessage) {
+      const payeeMatch = cleanMessage.match(/\b(?:na|no|em|para|pelo|pela)\s+([A-Za-zÀ-ÿ0-9\s&'-]+?)(?:\s+(?:no valor|por|de|com|via|em|pelo|dia|parcelad)|$)/i);
+      if (payeeMatch) {
+        const candidate = safeTrim(payeeMatch[1]);
+        const candNorm = normalizeSearchStr(candidate);
+        if (candidate && candidate.length >= 2 && candidate.length <= 50
+            && !NATIVE_METHODS.has(candNorm)
+            && !userCategories.some(c => normalizeSearchStr(c) === candNorm)
+            && !validAccounts.some(a => normalizeSearchStr(a) === candNorm)) {
+          resolvedPayee = candidate;
+        }
+      }
+    }
+
+    // 2. Método de Pagamento V2
+    let rawMethod = safeTrim(rawData.payment?.method || rawData.paymentMethod || rawData.method);
+    let resolvedMethod = null;
+    if (rawMethod) {
+      const normRawMethod = normalizeSearchStr(rawMethod);
+      if (normRawMethod.includes('pix')) resolvedMethod = 'pix';
+      else if (normRawMethod.includes('dinheiro') || normRawMethod.includes('cash')) resolvedMethod = 'dinheiro';
+      else if (normRawMethod.includes('debito') || normRawMethod.includes('débito')) resolvedMethod = 'cartao_debito';
+      else if (normRawMethod.includes('credito') || normRawMethod.includes('crédito')) resolvedMethod = 'cartao_credito';
+      else if (normRawMethod.includes('cartao') || normRawMethod.includes('cartão')) resolvedMethod = 'cartao_credito';
+      else if (normRawMethod.includes('boleto')) resolvedMethod = 'boleto';
+      else if (normRawMethod.includes('transferencia') || normRawMethod.includes('transferência') || normRawMethod.includes('ted') || normRawMethod.includes('doc')) resolvedMethod = 'transferencia';
+      else if (normRawMethod.includes('automatico') || normRawMethod.includes('automático')) resolvedMethod = 'debito_automatico';
+      else if (canonicalPaymentMethods.includes(normRawMethod)) resolvedMethod = normRawMethod;
+    }
+
+    if (!resolvedMethod) {
+      if (/\bpix\b/i.test(lowerMessage)) resolvedMethod = 'pix';
+      else if (/\b(dinheiro|em dinheiro|cash)\b/i.test(lowerMessage)) resolvedMethod = 'dinheiro';
+      else if (/\b(debito|débito)\b/i.test(lowerMessage)) resolvedMethod = 'cartao_debito';
+      else if (/\b(boleto)\b/i.test(lowerMessage)) resolvedMethod = 'boleto';
+      else if (/\b(transferencia|transferência|ted|doc)\b/i.test(lowerMessage)) resolvedMethod = 'transferencia';
+      else if (/\b(debito automatico|débito automático)\b/i.test(lowerMessage)) resolvedMethod = 'debito_automatico';
+      else if (mergedDestination && normalizeSearchStr(mergedDestination) === 'pix') resolvedMethod = 'pix';
+      else if (mergedDestination && (normalizeSearchStr(mergedDestination) === 'dinheiro' || normalizeSearchStr(mergedDestination) === 'em dinheiro')) resolvedMethod = 'dinheiro';
+      else if (mergedSlots.installments > 1) resolvedMethod = 'cartao_credito';
+      else if (mergedDestination && validAccounts.some(a => normalizeSearchStr(a) === normalizeSearchStr(mergedDestination))) resolvedMethod = 'cartao_credito';
+      else resolvedMethod = 'outros';
+    }
+
+    // 3. Conta / Cartão V2
+    let resolvedAccount = safeTrim(rawData.payment?.account || rawData.account || null);
+    if (!resolvedAccount) {
+      const matchAcc = validAccounts.find(acc => {
+        const accNorm = normalizeSearchStr(acc);
+        return (mergedDestination && normalizeSearchStr(mergedDestination) === accNorm)
+          || normalizeSearchStr(cleanMessage).includes(accNorm);
+      });
+      if (matchAcc) resolvedAccount = matchAcc;
+    }
+    if (resolvedAccount && NATIVE_METHODS.has(normalizeSearchStr(resolvedAccount))) {
+      resolvedAccount = null;
+    }
+
+    // 4. Temporalidade V2
+    const isRecurring = Boolean(rawData.isRecurring || rawData.temporal?.type === 'fixed' || /\b(todo mes|todo mês|mensal|mensalmente|assinatura|recorrente)\b/i.test(lowerMessage));
+    const parsedInstallments = Math.max(1, parseInt(rawData.installments || mergedSlots.installments || 1, 10));
+    let resolvedTemporal = { type: 'cash' };
+    if (isRecurring) {
+      resolvedTemporal = {
+        type: 'fixed',
+        recurrence: { frequency: 'monthly', type: 'never' }
+      };
+    } else if (parsedInstallments > 1) {
+      resolvedTemporal = {
+        type: 'installment'
+      };
+    }
+
+    // 5. Bridge Legada Destination
+    let legacyDestination = mergedDestination;
+    if (!legacyDestination) {
+      if (resolvedAccount) {
+        legacyDestination = resolvedAccount;
+      } else if (resolvedMethod === 'pix') {
+        legacyDestination = 'Pix';
+      } else if (resolvedMethod === 'dinheiro') {
+        legacyDestination = 'Dinheiro';
+      } else {
+        legacyDestination = 'Outros';
+      }
+    } else {
+      const match = userDestinations.find(d => normalizeSearchStr(typeof d === 'string' ? d : d?.name) === normalizeSearchStr(legacyDestination));
       if (match) {
-        finalDestination = typeof match === 'string' ? match : match.name;
+        legacyDestination = typeof match === 'string' ? match : match.name;
       }
     }
 
@@ -1322,7 +1412,13 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
         description: mergedDesc,
         amount: mergedAmount,
         category: matchedCategory,
-        destination: finalDestination,
+        destination: legacyDestination,
+        payee: resolvedPayee,
+        payment: {
+          method: resolvedMethod,
+          account: resolvedAccount
+        },
+        temporal: resolvedTemporal,
         competence: { month: compMonth, year: compYear },
         installments: mergedSlots.installments,
         notes: mergedSlots.notes,
@@ -1380,11 +1476,204 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
 }
 
 /**
+ * Constrói o registro de despesa no formato V2 garantindo paridade entre IA, wizard e cadastro rápido,
+ * com compatibilidade legada V1 (destination bridge).
+ */
+function buildAiExpenseRecord({
+  base = {},
+  userEdits = {},
+  matchedCat = null,
+  matchedDestObj = null,
+  compMonth = null,
+  compYear = null,
+  name,
+  description,
+  amount,
+  group,
+  category,
+  destination,
+  payee,
+  payment,
+  paymentMethod,
+  account,
+  isRecurring,
+  installments,
+  notes,
+  note,
+  status
+} = {}) {
+  const effectiveBase = { ...base };
+  if (name !== undefined) effectiveBase.description = name;
+  if (description !== undefined) effectiveBase.description = description;
+  if (amount !== undefined) effectiveBase.amount = amount;
+  if (group !== undefined) effectiveBase.category = group;
+  if (category !== undefined) effectiveBase.category = category;
+  if (destination !== undefined) effectiveBase.destination = destination;
+  if (payee !== undefined) effectiveBase.payee = payee;
+  if (payment !== undefined) {
+    effectiveBase.paymentMethod = payment?.method;
+    effectiveBase.account = payment?.account;
+  }
+  if (paymentMethod !== undefined) effectiveBase.paymentMethod = paymentMethod;
+  if (account !== undefined) effectiveBase.account = account;
+  if (isRecurring !== undefined) effectiveBase.isRecurring = Boolean(isRecurring);
+  if (installments !== undefined) effectiveBase.installments = installments;
+  if (notes !== undefined) effectiveBase.notes = notes;
+  if (note !== undefined) effectiveBase.notes = note;
+  if (status !== undefined) effectiveBase.status = status;
+
+  const rawDesc = userEdits.description !== undefined ? userEdits.description : (effectiveBase.description || effectiveBase.name || '');
+  const resolvedDesc = safeTrim(rawDesc).toLocaleUpperCase('pt-BR');
+  const resolvedAmount = Number(userEdits.amount !== undefined ? userEdits.amount : effectiveBase.amount) || 0;
+
+  const resolvedCat = safeTrim(matchedCat || userEdits.category || effectiveBase.category || effectiveBase.group);
+  if (!resolvedCat) {
+    const err = new Error('Categoria é obrigatória para a criação da despesa.');
+    err.code = 'CATEGORY_REQUIRED';
+    err.status = 400;
+    throw err;
+  }
+
+  const matchedDestName = typeof matchedDestObj === 'string' ? matchedDestObj : (matchedDestObj?.name || userEdits.destination || effectiveBase.destination || '');
+  const normDest = normalizeSearchStr(matchedDestName);
+
+  const explicitMethod = userEdits.paymentMethod || effectiveBase.paymentMethod;
+  const explicitAccount = userEdits.account || effectiveBase.account;
+  const explicitPayee = userEdits.payee || effectiveBase.payee || null;
+
+  let resolvedMethod = 'outros';
+  if (explicitMethod) {
+    resolvedMethod = safeTrim(explicitMethod).toLowerCase();
+  } else if (normDest === 'pix') {
+    resolvedMethod = 'pix';
+  } else if (normDest === 'dinheiro' || normDest === 'em dinheiro' || normDest === 'cash') {
+    resolvedMethod = 'dinheiro';
+  } else if (normDest) {
+    resolvedMethod = 'cartao_credito';
+  } else {
+    resolvedMethod = 'pix';
+  }
+
+  let resolvedAccount = null;
+  if (explicitAccount) {
+    resolvedAccount = safeTrim(explicitAccount);
+  } else if (resolvedMethod !== 'pix' && resolvedMethod !== 'dinheiro') {
+    resolvedAccount = matchedDestName || null;
+  }
+
+  // Legacy bridge destination
+  let legacyDestination = matchedDestName;
+  if (!legacyDestination) {
+    if (resolvedAccount) {
+      legacyDestination = resolvedAccount;
+    } else if (resolvedMethod === 'pix') {
+      legacyDestination = 'Pix';
+    } else if (resolvedMethod === 'dinheiro') {
+      legacyDestination = 'Dinheiro';
+    } else {
+      legacyDestination = 'Outros';
+    }
+  }
+
+  const isPixOrCash = (resolvedMethod === 'pix' || resolvedMethod === 'dinheiro');
+  const dueDay = isPixOrCash ? null : (matchedDestObj?.dueDay || null);
+
+  const now = new Date();
+  const cMonth = compMonth || (effectiveBase.competence?.month) || (now.getMonth() + 1);
+  const cYear = compYear || (effectiveBase.competence?.year) || now.getFullYear();
+  const periodKey = `${cYear}-${String(cMonth).padStart(2, '0')}`;
+
+  const isRecurringExpense = Boolean(effectiveBase.isRecurring || userEdits.isRecurring);
+  const rawInstallments = userEdits.installments !== undefined ? userEdits.installments : (effectiveBase.installments || 1);
+  const parsedInstallments = Math.max(1, parseInt(rawInstallments, 10) || 1);
+  const isInstallment = !isRecurringExpense && (parsedInstallments > 1);
+
+  // Status handling: respeita status explícito se fornecido; fallback inteligente de quitação para Pix/Dinheiro
+  let statusResolved = 'pendente';
+  if (userEdits.status) {
+    statusResolved = (userEdits.status === 'pago') ? 'pago' : 'pendente';
+  } else if (effectiveBase.status) {
+    statusResolved = (effectiveBase.status === 'pago') ? 'pago' : 'pendente';
+  } else if (isPixOrCash) {
+    statusResolved = 'pago';
+  }
+
+  const paidHistory = {};
+  if (statusResolved === 'pago') {
+    paidHistory[periodKey] = {
+      paidAmount: resolvedAmount,
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  const newExpenseId = 'exp_' + crypto.randomBytes(8).toString('hex') + Date.now().toString(36);
+  const rawNotes = userEdits.notes !== undefined ? userEdits.notes : (effectiveBase.notes || '');
+  const noteStr = safeTrim(rawNotes);
+
+  if (isRecurringExpense) {
+    return {
+      id: newExpenseId,
+      name: resolvedDesc,
+      group: resolvedCat,
+      destination: legacyDestination,
+      payee: explicitPayee ? String(explicitPayee).trim().slice(0, 150) : null,
+      payment: {
+        method: resolvedMethod,
+        account: resolvedAccount ? String(resolvedAccount).trim().slice(0, 150) : null
+      },
+      temporal: {
+        type: 'fixed',
+        recurrence: { frequency: 'monthly', type: 'never' }
+      },
+      dueDay,
+      note: noteStr,
+      paymentType: 'fixed',
+      versions: [
+        {
+          year: cYear,
+          month: cMonth,
+          startYear: cYear,
+          startMonth: cMonth,
+          amount: resolvedAmount
+        }
+      ],
+      paidHistory
+    };
+  }
+
+  return {
+    id: newExpenseId,
+    name: resolvedDesc,
+    amount: resolvedAmount,
+    group: resolvedCat,
+    destination: legacyDestination,
+    payee: explicitPayee ? String(explicitPayee).trim().slice(0, 150) : null,
+    payment: {
+      method: resolvedMethod,
+      account: resolvedAccount ? String(resolvedAccount).trim().slice(0, 150) : null
+    },
+    temporal: {
+      type: isInstallment ? 'installment' : 'cash'
+    },
+    dueDay,
+    note: noteStr,
+    startMonth: cMonth,
+    startYear: cYear,
+    endMonth: isInstallment ? (((cMonth - 1 + parsedInstallments - 1) % 12) + 1) : cMonth,
+    endYear: isInstallment ? (cYear + Math.floor((cMonth - 1 + parsedInstallments - 1) / 12)) : cYear,
+    installments: parsedInstallments,
+    paymentType: isInstallment ? 'installment' : 'cash',
+    status: statusResolved,
+    paidHistory
+  };
+}
+
+/**
  * Valida os dados da proposta (incluindo edições permitidas do usuário),
  * cria a despesa através do motor oficial do OmniFin com regras de Pix/Dinheiro/dueDay,
  * persiste no storage com optimistic locking (CAS/revision) e marca o proposalId como consumido.
  */
-async function confirmExpenseProposal({ userId, proposalId, data: userEdits = {} }) {
+async function confirmExpenseProposalAsync({ userId, proposalId, data: userEdits = {} }) {
   if (!proposalId || typeof proposalId !== 'string') {
     const err = new Error('ID de proposta obrigatório.');
     err.status = 400;
@@ -1500,6 +1789,7 @@ async function confirmExpenseProposal({ userId, proposalId, data: userEdits = {}
   // Busca o documento finances atual do usuário
   const finances = await storageService.getUserFinances(userId);
   finances.variable = finances.variable || [];
+  finances.fixed = finances.fixed || [];
 
   const normalizeSearchStr = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
@@ -1516,61 +1806,58 @@ async function confirmExpenseProposal({ userId, proposalId, data: userEdits = {}
     throw err;
   }
 
-  // Validação de Destino no cadastro do próprio usuário (Null-safe)
+  // Validação de Destino no cadastro do próprio usuário (Null-safe com suporte a V2)
   const userDestinations = (finances.destinations || []).filter(Boolean);
-  const normDest = normalizeSearchStr(destination);
-  const matchedDestObj = userDestinations.find(d => {
+  let resolvedDestName = destination;
+  if (!resolvedDestName) {
+    if (userEdits.account || base.payment?.account) {
+      resolvedDestName = userEdits.account || base.payment?.account;
+    } else if (userEdits.paymentMethod === 'pix' || base.payment?.method === 'pix') {
+      resolvedDestName = 'Pix';
+    } else if (userEdits.paymentMethod === 'dinheiro' || base.payment?.method === 'dinheiro') {
+      resolvedDestName = 'Dinheiro';
+    } else {
+      resolvedDestName = 'Outros';
+    }
+  }
+  const normDest = normalizeSearchStr(resolvedDestName);
+  let matchedDestObj = userDestinations.find(d => {
     const dName = typeof d === 'string' ? d : (d?.name || '');
     const cleanDName = safeTrim(dName).toLowerCase();
-    return cleanDName === destination.toLowerCase()
+    return cleanDName === resolvedDestName.toLowerCase()
       || normalizeSearchStr(dName) === normDest
       || ((normDest === 'em dinheiro' || normDest === 'dinheiro' || normDest === 'cash') && normalizeSearchStr(dName) === 'dinheiro')
       || (normDest === 'pix' && normalizeSearchStr(dName) === 'pix');
   });
 
   if (!matchedDestObj) {
-    const err = new Error(`O destino "${destination || 'Não informado'}" não existe no seu cadastro.`);
-    err.status = 400;
-    err.code = 'INVALID_DESTINATION';
-    throw err;
-  }
-  const matchedDestName = typeof matchedDestObj === 'string' ? matchedDestObj : matchedDestObj.name;
-
-  // Aplicação do Motor Oficial de Despesas (Mesma lógica de Cadastro Rápido & Wizard)
-  const isPixOrCash = (matchedDestName.toLowerCase() === 'pix' || matchedDestName.toLowerCase() === 'dinheiro');
-  const dueDay = isPixOrCash ? null : (matchedDestObj.dueDay || null);
-  const periodKey = `${compYear}-${String(compMonth).padStart(2, '0')}`;
-
-  const paidHistory = {};
-  let status = 'pendente';
-  if (isPixOrCash) {
-    status = 'pago';
-    paidHistory[periodKey] = {
-      paidAmount: amount,
-      updatedAt: new Date().toISOString()
-    };
+    if (normDest === 'pix' || normDest === 'dinheiro') {
+      matchedDestObj = { name: normDest === 'pix' ? 'Pix' : 'Dinheiro' };
+    } else if (normDest === 'outros') {
+      matchedDestObj = { name: 'Outros' };
+    } else {
+      const err = new Error(`O destino "${resolvedDestName || 'Não informado'}" não existe no seu cadastro.`);
+      err.status = 400;
+      err.code = 'INVALID_DESTINATION';
+      throw err;
+    }
   }
 
-  const newExpenseId = 'exp_' + crypto.randomBytes(8).toString('hex') + Date.now().toString(36);
-  const newExpense = {
-    id: newExpenseId,
-    name: description,
-    amount,
-    group: matchedCat,
-    destination: matchedDestName,
-    dueDay,
-    note: notes || '',
-    startMonth: compMonth,
-    startYear: compYear,
-    endMonth: compMonth,
-    endYear: compYear,
-    installments,
-    paymentType: 'cash',
-    status,
-    paidHistory
-  };
+  const newExpense = buildAiExpenseRecord({
+    base,
+    userEdits,
+    matchedCat,
+    matchedDestObj,
+    compMonth,
+    compYear
+  });
 
-  finances.variable.push(newExpense);
+  if (newExpense.paymentType === 'fixed' || newExpense.temporal?.type === 'fixed') {
+    finances.fixed.push(newExpense);
+  } else {
+    finances.variable.push(newExpense);
+  }
+
   const saved = await storageService.saveUserFinances(userId, finances);
 
   // Marca a proposta como consumida/confirmada
@@ -1596,6 +1883,25 @@ async function confirmExpenseProposal({ userId, proposalId, data: userEdits = {}
     revision: saved.revision,
     data: saved
   };
+}
+
+function confirmExpenseProposal(arg1, arg2, arg3) {
+  if (arg1 && typeof arg1 === 'object' && ('userId' in arg1 || 'proposalId' in arg1)) {
+    return confirmExpenseProposalAsync(arg1);
+  }
+  const finances = arg1 || { fixed: [], variable: [] };
+  finances.fixed = finances.fixed || [];
+  finances.variable = finances.variable || [];
+  const proposal = arg2 || {};
+  const userEdits = arg3 || {};
+
+  const record = buildAiExpenseRecord({ ...proposal, userEdits });
+  if (record.paymentType === 'fixed' || record.temporal?.type === 'fixed') {
+    finances.fixed.push(record);
+  } else {
+    finances.variable.push(record);
+  }
+  return finances;
 }
 
 /**
@@ -1796,6 +2102,7 @@ module.exports = {
   sendToN8nWebhook,
   interpretExpenseAction,
   confirmExpenseProposal,
+  buildAiExpenseRecord,
   confirmBenefitProposal,
   cancelExpenseProposal
 };

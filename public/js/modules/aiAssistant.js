@@ -308,6 +308,28 @@
       }
     });
 
+    // Listener para seleção de categoria real na proposta
+    body?.addEventListener('change', (e) => {
+      const catSelect = e.target.closest('.ai-proposal-cat-select');
+      if (catSelect) {
+        const propId = catSelect.getAttribute('data-proposal-id');
+        const chosen = catSelect.value;
+        const msg = messages.find(m => m.proposal && m.proposal.proposalId === propId);
+        if (msg && msg.proposal && msg.proposal.data) {
+          msg.proposal.data.category = chosen || null;
+          if (chosen) {
+            msg.proposal.data.requiresReview = false;
+            if (Array.isArray(msg.proposal.data.warnings)) {
+              msg.proposal.data.warnings = msg.proposal.data.warnings.filter(w => !/categoria/i.test(w));
+            }
+          } else {
+            msg.proposal.data.requiresReview = true;
+          }
+          renderAiMessages();
+        }
+      }
+    });
+
     // Listener global para sincronizar confirmação de proposta ao salvar pelos modais de edição
     document.getElementById('quickExpenseForm')?.addEventListener('submit', () => {
       if (activeEditingProposalId) {
@@ -433,7 +455,7 @@
     const hasValidDesc = Boolean(d.description && String(d.description).trim().length > 0);
     const hasValidAmt = Boolean(d.amount && !isNaN(Number(d.amount)) && Number(d.amount) > 0);
     const hasValidCat = isBenefit ? true : Boolean(d.category && String(d.category).trim().length > 0);
-    const hasValidDest = isBenefit ? true : Boolean(d.destination && String(d.destination).trim().length > 0);
+    const hasValidMethod = isBenefit ? true : Boolean(d.payment?.method || d.destination || (typeof window.resolveExpensePaymentMethod === 'function' && window.resolveExpensePaymentMethod(d)));
     const hasValidType = isBenefit ? Boolean(d.benefitType && ['saude', 'vr', 'va', 'transporte', 'educacao', 'cultura', 'farmacia'].includes(d.benefitType)) : true;
 
     const isReviewRequired = Boolean(
@@ -442,7 +464,7 @@
       !hasValidDesc ||
       !hasValidAmt ||
       !hasValidCat ||
-      !hasValidDest ||
+      !hasValidMethod ||
       !hasValidType
     );
 
@@ -487,10 +509,10 @@
       if (isReviewRequired || (Array.isArray(proposal.warnings) && proposal.warnings.length > 0)) {
         const warningsList = Array.isArray(proposal.warnings) && proposal.warnings.length > 0 ? [...proposal.warnings] : [];
         if (!isBenefit && !hasValidCat && !warningsList.some(w => String(w).toLowerCase().includes('categoria'))) {
-          warningsList.push('Informe ou selecione uma categoria válida.');
+          warningsList.push('Selecione uma categoria antes de confirmar.');
         }
-        if (!isBenefit && !hasValidDest && !warningsList.some(w => String(w).toLowerCase().includes('destino') || String(w).toLowerCase().includes('conta'))) {
-          warningsList.push('Informe ou selecione um destino de pagamento.');
+        if (!isBenefit && !hasValidMethod && !warningsList.some(w => String(w).toLowerCase().includes('método') || String(w).toLowerCase().includes('metodo'))) {
+          warningsList.push('Informe ou selecione um método de pagamento.');
         }
         if (isBenefit && !hasValidType && !warningsList.some(w => String(w).toLowerCase().includes('tipo'))) {
           warningsList.push('Selecione um tipo de benefício válido (VR, VA, Saúde, etc.).');
@@ -505,7 +527,7 @@
       statusContent = `
         ${alertHtml}
         <div class="ai-proposal-actions">
-          <button type="button" class="btn btn-primary small ai-proposal-confirm-btn" data-proposal-id="${escapeHtmlAttr(propId)}" ${isReviewRequired ? 'disabled aria-disabled="true" title="Complete os campos antes de confirmar"' : ''}>
+          <button type="button" class="btn btn-primary small ai-proposal-confirm-btn" data-proposal-id="${escapeHtmlAttr(propId)}" ${isReviewRequired ? 'disabled aria-disabled="true" title="Selecione uma categoria antes de confirmar"' : ''}>
             Confirmar cadastro
           </button>
           <button type="button" class="btn soft small ai-proposal-edit-btn" data-proposal-id="${escapeHtmlAttr(propId)}">
@@ -561,6 +583,21 @@
       `;
     }
 
+    const methodId = d.payment?.method || (typeof window.resolveExpensePaymentMethod === 'function' ? window.resolveExpensePaymentMethod(d) : 'outros');
+    const methodName = (window.PAYMENT_METHOD_NAMES_MAP && window.PAYMENT_METHOD_NAMES_MAP[methodId]) || methodId;
+    const payeeVal = d.payee || (typeof window.resolveExpensePayee === 'function' ? window.resolveExpensePayee(d) : null);
+    const accountVal = d.payment?.account || (typeof window.resolveExpenseAccount === 'function' ? window.resolveExpenseAccount(d) : null);
+
+    let temporalFormatted = 'À vista';
+    if (d.temporal?.type === 'fixed' || d.isRecurring || d.paymentType === 'fixed') {
+      temporalFormatted = 'Fixa';
+    } else if (d.temporal?.type === 'installment' || (d.installments && d.installments > 1)) {
+      temporalFormatted = `Parcelada (${d.installments}x)`;
+    }
+
+    const state = (typeof getState === 'function') ? getState() : (window.FP_STATE || {});
+    const realCategories = (state.categories || []).map(c => typeof c === 'string' ? c : (c?.name || '')).filter(Boolean);
+
     return `
       <div class="ai-proposal-card">
         <div class="ai-proposal-header">
@@ -578,24 +615,41 @@
 
         <div class="ai-proposal-grid">
           <div class="ai-proposal-item">
-            <span class="ai-proposal-item-label">Categoria</span>
-            <span class="ai-proposal-item-val" style="color:${d.category ? 'var(--text)' : 'var(--warning, #f59e0b)'};">
-              ${escapeHtmlText(d.category || 'Não identificada')}
-            </span>
+            <span class="ai-proposal-item-label">Método</span>
+            <span class="ai-proposal-item-val">${escapeHtmlText(methodName)}</span>
           </div>
+          ${payeeVal ? `
+            <div class="ai-proposal-item">
+              <span class="ai-proposal-item-label">Favorecido</span>
+              <span class="ai-proposal-item-val">${escapeHtmlText(payeeVal)}</span>
+            </div>
+          ` : ''}
+          ${accountVal ? `
+            <div class="ai-proposal-item">
+              <span class="ai-proposal-item-label">Conta / Cartão</span>
+              <span class="ai-proposal-item-val">${escapeHtmlText(accountVal)}</span>
+            </div>
+          ` : ''}
           <div class="ai-proposal-item">
-            <span class="ai-proposal-item-label">Destino</span>
-            <span class="ai-proposal-item-val" style="color:${d.destination ? 'var(--text)' : 'var(--warning, #f59e0b)'};">
-              ${escapeHtmlText(d.destination || 'Não identificado')}
-            </span>
+            <span class="ai-proposal-item-label">Categoria</span>
+            ${d.category ? `
+              <span class="ai-proposal-item-val" style="color:var(--text); font-weight:700;">${escapeHtmlText(d.category)}</span>
+            ` : `
+              <div style="display:flex; flex-direction:column; gap:4px; margin-top:2px;">
+                <select class="ai-proposal-cat-select" data-proposal-id="${escapeHtmlAttr(propId)}" style="font-size:0.78rem; padding:4px 6px; border-radius:6px; border:1px solid var(--warning, #f59e0b); background:var(--surface); color:var(--text); max-width:180px;">
+                  <option value="">Selecione categoria...</option>
+                  ${realCategories.map(c => `<option value="${escapeHtmlAttr(c)}">${escapeHtmlText(c)}</option>`).join('')}
+                </select>
+              </div>
+            `}
           </div>
           <div class="ai-proposal-item">
             <span class="ai-proposal-item-label">Competência</span>
             <span class="ai-proposal-item-val">${escapeHtmlText(competenceFormatted)}</span>
           </div>
           <div class="ai-proposal-item">
-            <span class="ai-proposal-item-label">Parcelas</span>
-            <span class="ai-proposal-item-val">${escapeHtmlText(d.installments && d.installments > 1 ? `${d.installments}x` : 'À vista (1x)')}</span>
+            <span class="ai-proposal-item-label">Temporalidade</span>
+            <span class="ai-proposal-item-val">${escapeHtmlText(temporalFormatted)}</span>
           </div>
         </div>
 
@@ -668,6 +722,13 @@
   async function confirmExpenseProposal(proposalId) {
     const msg = messages.find(m => m.proposal && m.proposal.proposalId === proposalId);
     if (!msg || !msg.proposal) return;
+
+    if (!msg.proposal.data?.category) {
+      if (typeof notify === 'function') {
+        notify('Selecione uma categoria antes de confirmar a despesa.', 'warning');
+      }
+      return;
+    }
 
     if (msg.proposal.status === 'confirmed' || msg.proposal.status === 'confirming') {
       return;
@@ -811,6 +872,12 @@
     const pData = msg.proposal.data || {};
     const descUpper = String(pData.description || '').trim().toLocaleUpperCase('pt-BR');
 
+    // Foca o seletor inline de categoria se presente no card
+    const catSelectEl = document.querySelector(`.ai-proposal-cat-select[data-proposal-id="${proposalId}"]`);
+    if (catSelectEl) {
+      catSelectEl.focus();
+    }
+
     if (typeof window.openQuickExpenseDialog === 'function') {
       window.openQuickExpenseDialog();
       if (document.getElementById('quickExpenseName')) {
@@ -822,9 +889,12 @@
       if (pData.category && document.getElementById('quickExpenseGroup')) {
         document.getElementById('quickExpenseGroup').value = pData.category;
       }
-      if (pData.destination && document.getElementById('quickExpenseDestination')) {
-        document.getElementById('quickExpenseDestination').value = pData.destination;
-        if (typeof syncQuickExpenseDestHint === 'function') syncQuickExpenseDestHint();
+      if (document.getElementById('quickExpenseDestination')) {
+        const destVal = pData.destination || pData.payment?.account || (pData.payment?.method === 'pix' ? 'Pix' : 'Dinheiro');
+        if (destVal) {
+          document.getElementById('quickExpenseDestination').value = destVal;
+          if (typeof syncQuickExpenseDestHint === 'function') syncQuickExpenseDestHint();
+        }
       }
       if (pData.notes && document.getElementById('quickExpenseNote')) {
         document.getElementById('quickExpenseNote').value = pData.notes;
@@ -840,9 +910,21 @@
       if (pData.category && document.getElementById('entryGroup')) {
         document.getElementById('entryGroup').value = pData.category;
       }
-      if (pData.destination && document.getElementById('entryDestination')) {
-        document.getElementById('entryDestination').value = pData.destination;
-        if (typeof syncDestinationRules === 'function') syncDestinationRules();
+      if (document.getElementById('entryDestination')) {
+        const destVal = pData.destination || pData.payment?.account || (pData.payment?.method === 'pix' ? 'Pix' : 'Dinheiro');
+        if (destVal) {
+          document.getElementById('entryDestination').value = destVal;
+          if (typeof syncDestinationRules === 'function') syncDestinationRules();
+        }
+      }
+      if (pData.payee && document.getElementById('entryPayee')) {
+        document.getElementById('entryPayee').value = pData.payee;
+      }
+      if (pData.payment?.method && document.getElementById('entryPaymentMethod')) {
+        document.getElementById('entryPaymentMethod').value = pData.payment.method;
+      }
+      if (pData.payment?.account && document.getElementById('entryAccount')) {
+        document.getElementById('entryAccount').value = pData.payment.account;
       }
     }
   }

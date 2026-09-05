@@ -5480,8 +5480,9 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
         })
       });
       const fallbackCatJson = await fallbackCatInterpRes.json();
-      // O usuário padrão possui a categoria 'Gerais' cadastrada
-      assert.strictEqual(fallbackCatJson.data.category, 'Gerais', 'Deve usar Gerais como fallback sem deixar category=null');
+      // Ajuste 1 V2: Se a categoria não puder ser resolvida com segurança, category = null e requiresReview = true (sem fallback para Gerais)
+      assert.strictEqual(fallbackCatJson.data.category, null, 'Não deve usar Gerais como fallback, categoria desconhecida deve ser null');
+      assert.strictEqual(fallbackCatJson.requiresReview, true, 'Deve exigir revisão humana quando categoria for desconhecida');
 
       // 22. Cancelamento de Proposta
       const cancelProposalDoc = {

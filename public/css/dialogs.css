@@ -170,3 +170,232 @@
       color: var(--text);
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
     }
+
+    .recurrence-duration-group {
+      display: grid;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .rec-duration-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      font-weight: 750;
+      cursor: pointer;
+      color: var(--text);
+    }
+
+    .rec-duration-subpanel {
+      padding-left: 24px;
+      display: grid;
+      gap: 8px;
+    }
+
+    /* ==========================================================================
+       MODAL DE ANÁLISE DA DESPESA (CorvFin V2)
+       ========================================================================== */
+    dialog.modal-timeline,
+    dialog#timelineDialog {
+      width: min(740px, 95vw);
+      max-width: 740px;
+    }
+
+    .expense-analysis-container {
+      display: grid;
+      gap: 14px;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px 18px;
+    }
+
+    .expense-analysis-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .expense-analysis-heading {
+      font-size: 0.80rem;
+      font-weight: 800;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0;
+    }
+
+    .expense-analysis-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px 18px;
+    }
+
+    .expense-analysis-field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .expense-analysis-label {
+      font-size: 0.74rem;
+      font-weight: 750;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .expense-analysis-val {
+      font-size: 0.90rem;
+      font-weight: 700;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    .expense-analysis-val.highlight {
+      font-weight: 800;
+      color: var(--brand-strong);
+    }
+
+    .expense-analysis-situation-card {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      padding: 12px 14px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    .expense-analysis-situation-card .sit-field {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .expense-analysis-situation-card .sit-label {
+      font-size: 0.72rem;
+      font-weight: 750;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .expense-analysis-situation-card .sit-val {
+      font-size: 0.94rem;
+      font-weight: 800;
+    }
+
+    .expense-analysis-history-section {
+      display: grid;
+      gap: 14px;
+      margin-top: 6px;
+    }
+
+    .expense-analysis-section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 4px 2px;
+    }
+
+    .expense-analysis-section-title {
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0;
+    }
+
+    .expense-analysis-section-sub {
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .timeline-progress-wrap {
+      margin-bottom: 6px;
+      background: var(--surface-2);
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+    }
+
+    .timeline-progress-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .timeline-progress-label {
+      font-size: 0.78rem;
+      font-weight: 800;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .timeline-track {
+      height: 10px;
+    }
+
+    .timeline-table-card {
+      overflow: hidden;
+      border: 1px solid var(--line);
+    }
+
+    .timeline-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+      text-align: left;
+    }
+
+    .timeline-table thead tr {
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .timeline-table th {
+      padding: 10px 12px;
+      font-weight: 750;
+      color: var(--muted);
+    }
+
+    .timeline-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .timeline-table tr.current-month-row {
+      background: var(--brand-soft);
+      font-weight: 700;
+    }
+
+    .timeline-table .text-right {
+      text-align: right;
+    }
+
+    .tag-current-month {
+      margin-left: 6px;
+      font-size: 0.70rem;
+      background: var(--brand-strong);
+      color: #fff;
+    }
+
+    @media (max-width: 480px) {
+      .expense-analysis-grid {
+        grid-template-columns: 1fr;
+      }
+      .expense-analysis-situation-card {
+        grid-template-columns: 1fr;
+      }
+    }

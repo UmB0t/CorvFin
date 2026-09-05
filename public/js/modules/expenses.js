@@ -257,6 +257,7 @@ function clearRibbonHighlight() {
 
 function buildEntryRow({
         id, fixedId, type, title, tags = [], amount, status, paidAmount, remainingAmount, dueDay, destination,
+        payee, paymentMethod, account,
         onClickToggleStatus, onClickEdit, onClickTimeline, onMouseEnter, onMouseLeave,
         customLeftBadge, onDelete
       }) {
@@ -290,7 +291,7 @@ function buildEntryRow({
               ? `Parcialmente Recebido (${currency(paidAmount || 0)} de ${currency(amount)}). Clique para gerenciar recebimento`
               : `Parcialmente Pago (${currency(paidAmount || 0)} de ${currency(amount)}). Clique para gerenciar pagamento`;
             statusClass = 'partial';
-            statusIcon = `<svg class="svg-icon" viewBox="0 0 24 24" style="stroke:currentColor; fill:none; width:16px; height:16px;"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 9 9h-9z" fill="currentColor" opacity="0.75"/></svg>`;
+            statusIcon = `<svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 9 9h-9z" fill="currentColor" opacity="0.75"/></svg>`;
           }
 
           leftIconHtml = `
@@ -320,15 +321,32 @@ function buildEntryRow({
           const resolvedPaid = Number(paidAmount || 0);
           const resolvedRem = remainingAmount !== undefined ? Number(remainingAmount) : Math.max(0, Number(amount) - resolvedPaid);
           const prefix = isIncome ? 'Recebido' : 'Pago';
-          partialTagHtml = `<span class="tag partial" style="background:rgba(245,158,11,0.15); color:#f59e0b; border:1px solid rgba(245,158,11,0.35); font-weight:750;">${prefix}: ${currency(resolvedPaid)} • Restante: ${currency(resolvedRem)}</span>`;
+          partialTagHtml = `<span class="tag partial">${prefix}: ${currency(resolvedPaid)} • Restante: ${currency(resolvedRem)}</span>`;
         }
 
-        const destMeta = destination ? getDestMeta(destination) : null;
-        const destIconSvg = destMeta ? (DEST_SVG_ICONS[destMeta.icon] || DEST_SVG_ICONS.card) : '';
-        const destPillHtml = (destination && destination !== 'Renda Extra') ? `
-      <span class="tag dest" style="background:${destMeta.color}22; color:${destMeta.color}; border:1px solid ${destMeta.color}44;">
-        ${destIconSvg} ${escapeHtml(destination)}
-      </span>` : '';
+        // Resolução de campos V2 com fallback seguro para legado (constants.js helpers)
+        const resolvedPayee = payee || (typeof resolveExpensePayee === 'function' ? resolveExpensePayee({ payee, name: title }) : null);
+        const resolvedMethod = paymentMethod || (typeof resolveExpensePaymentMethod === 'function' ? resolveExpensePaymentMethod({ destination }) : null);
+        const resolvedAccount = account || (typeof resolveExpenseAccount === 'function' ? resolveExpenseAccount({ destination }) : null);
+
+        // Sublinha de contexto V2 limpa e despoluída: Favorecido · Método · Conta
+        const contextParts = [];
+        if (resolvedPayee) {
+          contextParts.push(resolvedPayee);
+        }
+        if (resolvedMethod && resolvedMethod !== 'outros') {
+          const mName = (window.PAYMENT_METHOD_NAMES_MAP && window.PAYMENT_METHOD_NAMES_MAP[resolvedMethod]) || resolvedMethod.toUpperCase();
+          contextParts.push(mName);
+        }
+        if (resolvedAccount) {
+          contextParts.push(resolvedAccount);
+        } else if (type === 'debtor' && destination && destination !== 'Renda Extra') {
+          contextParts.push(destination);
+        }
+
+        const contextSubHtml = contextParts.length > 0
+          ? `<div class="entry-sub">${contextParts.map(escapeHtml).join(' · ')}</div>`
+          : '';
 
         const dragHandleTitle = (type === 'fixed' || type === 'variable')
           ? 'Arraste para reordenar ou converter entre Fixa e Variável'
@@ -340,7 +358,7 @@ function buildEntryRow({
       </span>`;
 
         const timelineBtnHtml = (type === 'fixed' || type === 'variable') ? `
-      <button type="button" class="icon-btn small timeline-btn" data-tooltip="Ver Evolução & Linha do Tempo" aria-label="Ver Evolução & Linha do Tempo">${ICONS.timeline || '<svg class="svg-icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>'}</button>` : '';
+      <button type="button" class="icon-btn small timeline-btn" data-tooltip="Análise da Despesa" aria-label="Análise da Despesa">${ICONS.timeline || '<svg class="svg-icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>'}</button>` : '';
 
         const editBtnHtml = onClickEdit ? `
       <button type="button" class="icon-btn small edit-btn" data-tooltip="Editar Lançamento" aria-label="Editar Lançamento">${ICONS.edit}</button>` : '';
@@ -350,23 +368,33 @@ function buildEntryRow({
 
         const amountClass = type === 'benefit' ? 'negative' : (isPaid ? 'positive' : (isPartial ? 'partial' : ''));
 
+        // Filtragem limpa de tags: remove chips redundantes de Total de contrato e tipo
+        const filteredTags = (tags || []).filter(Boolean).filter(t => {
+          if (typeof t === 'string') {
+            if (t.startsWith('Total:') || t === 'Fixa' || t === 'Variável') return false;
+          }
+          return true;
+        });
+
+        const tagsHtml = filteredTags.map(t => {
+          const isCat = (state.categories || []).some(c => ((typeof getCategoryName === 'function') ? getCategoryName(c) : (typeof c === 'string' ? c : c.name)) === t);
+          if (isCat && typeof getCategoryIconSvg === 'function') {
+            const iconSvg = getCategoryIconSvg(t);
+            return `<span class="tag tag-cat">${iconSvg} ${escapeHtml(t)}</span>`;
+          }
+          return `<span class="tag">${escapeHtml(t)}</span>`;
+        }).join('');
+
         row.innerHTML = `
       ${dragHandleHtml}
       ${leftIconHtml}
       <div class="entry-info">
         <div class="entry-title">${escapeHtml(title)}</div>
+        ${contextSubHtml}
         <div class="entry-meta">
-          ${destPillHtml}
           ${dueTagHtml}
           ${partialTagHtml}
-          ${tags.filter(Boolean).map(t => {
-            const isCat = (state.categories || []).some(c => ((typeof getCategoryName === 'function') ? getCategoryName(c) : (typeof c === 'string' ? c : c.name)) === t);
-            if (isCat && typeof getCategoryIconSvg === 'function') {
-              const iconSvg = getCategoryIconSvg(t);
-              return `<span class="tag" style="display:inline-flex; align-items:center; gap:4px;">${iconSvg} ${escapeHtml(t)}</span>`;
-            }
-            return `<span class="tag">${escapeHtml(t)}</span>`;
-          }).join('')}
+          ${tagsHtml}
         </div>
       </div>
       <div class="entry-amount num ${amountClass}">${currency(amount)}</div>
@@ -818,9 +846,9 @@ function renderSimplifiedExpenses() {
           sobraEl.className = `num ${sobra >= 0 ? 'positive' : 'negative'}`;
         }
 
-        const query = ($('#expensesSearchInput').value || '').toLowerCase().trim();
-        const statusFilter = $('#expensesStatusFilter').value;
-        const destFilter = $('#expensesDestFilter').value;
+        const query = ($('#expensesSearchInput')?.value || '').toLowerCase().trim();
+        const statusFilter = $('#expensesStatusFilter')?.value || 'all';
+        const methodFilter = $('#expensesDestFilter')?.value || 'all';
         const sortMode = $('#expensesSortFilter') ? $('#expensesSortFilter').value : 'amount-desc';
 
         const fixed = activeFixedForMonth(y, m).map(f => Object.assign({ typeName: 'Fixa', itemType: 'fixed' }, f));
@@ -829,10 +857,14 @@ function renderSimplifiedExpenses() {
         let combined = [...fixed, ...variable];
 
         combined = sortExpensesList(combined.filter(item => {
+          const itemMethod = (typeof resolveExpensePaymentMethod === 'function') ? resolveExpensePaymentMethod(item) : (item.payment?.method || null);
+          const itemAcc = (typeof resolveExpenseAccount === 'function') ? resolveExpenseAccount(item) : (item.payment?.account || null);
           if (statusFilter !== 'all' && item.status !== statusFilter) return false;
-          if (destFilter !== 'all' && item.destination !== destFilter) return false;
+          if (methodFilter !== 'all' && itemMethod !== methodFilter) return false;
           if (query) {
-            const text = `${item.name} ${item.group} ${item.destination} ${item.note || ''}`.toLowerCase();
+            const itemPayee = (typeof resolveExpensePayee === 'function') ? (resolveExpensePayee(item) || '') : (item.payee || '');
+            const mName = (window.PAYMENT_METHOD_NAMES_MAP && itemMethod && window.PAYMENT_METHOD_NAMES_MAP[itemMethod]) || itemMethod || '';
+            const text = `${item.name} ${item.group || ''} ${itemPayee} ${mName} ${itemAcc || ''} ${item.note || ''}`.toLowerCase();
             if (!text.includes(query)) return false;
           }
           return true;
@@ -852,7 +884,6 @@ function renderSimplifiedExpenses() {
 
         combined.forEach(item => {
           const isFixed = item.itemType === 'fixed';
-          const totalContract = !isFixed && item.installmentTotal ? Number(item.amount) * Number(item.installmentTotal) : null;
           const origItem = isFixed ? (state.fixed.find(f => f.id === item.fixedId) || item) : (state.variable.find(v => v.id === item.id) || item);
           const activeMonths = isFixed ? getFixedActiveMonths(origItem, y) : getVariableActiveMonths(origItem, y);
 
@@ -862,15 +893,16 @@ function renderSimplifiedExpenses() {
             type: item.itemType,
             title: item.name,
             tags: [
-              item.typeName,
-              isFixed ? `desde ${MONTH_ABBR[(item.effMonth || 1) - 1]}/${item.effYear}` : `parcela ${item.installmentIndex}/${item.installmentTotal}`,
-              totalContract ? `Total: ${currency(totalContract)}` : null,
-              item.group || 'Gerais'
+              item.group || 'Gerais',
+              isFixed ? `desde ${MONTH_ABBR[(item.effMonth || 1) - 1]}/${item.effYear}` : (item.installmentTotal > 1 ? `parcela ${item.installmentIndex}/${item.installmentTotal}` : null)
             ].filter(Boolean),
             amount: item.amount,
             status: item.status,
             dueDay: item.dueDay,
             destination: item.destination,
+            payee: item.payee || origItem.payee,
+            paymentMethod: item.payment?.method || origItem.payment?.method,
+            account: item.payment?.account || origItem.payment?.account,
             onClickToggleStatus: () => toggleExpenseStatus(item.itemType, isFixed ? item.fixedId : item.id, item.status),
             onClickEdit: () => openEntryDialog({ mode: 'edit', type: item.itemType, fixedId: item.fixedId, id: item.id }),
             onClickTimeline: () => openExpenseTimeline({ type: item.itemType, fixedId: item.fixedId, id: item.id }),
@@ -889,16 +921,20 @@ function renderExpensesLists() {
         }
         const y = state.year, m = state.month;
 
-        const query = ($('#expensesSearchInput').value || '').toLowerCase().trim();
-        const statusFilter = $('#expensesStatusFilter').value;
-        const destFilter = $('#expensesDestFilter').value;
+        const query = ($('#expensesSearchInput')?.value || '').toLowerCase().trim();
+        const statusFilter = $('#expensesStatusFilter')?.value || 'all';
+        const methodFilter = $('#expensesDestFilter')?.value || 'all';
         const sortMode = $('#expensesSortFilter') ? $('#expensesSortFilter').value : 'amount-desc';
 
         const filterFn = (item) => {
+          const itemMethod = (typeof resolveExpensePaymentMethod === 'function') ? resolveExpensePaymentMethod(item) : (item.payment?.method || null);
+          const itemAcc = (typeof resolveExpenseAccount === 'function') ? resolveExpenseAccount(item) : (item.payment?.account || null);
           if (statusFilter !== 'all' && item.status !== statusFilter) return false;
-          if (destFilter !== 'all' && item.destination !== destFilter) return false;
+          if (methodFilter !== 'all' && itemMethod !== methodFilter) return false;
           if (query) {
-            const text = `${item.name} ${item.group} ${item.destination} ${item.note || ''}`.toLowerCase();
+            const itemPayee = (typeof resolveExpensePayee === 'function') ? (resolveExpensePayee(item) || '') : (item.payee || '');
+            const mName = (window.PAYMENT_METHOD_NAMES_MAP && itemMethod && window.PAYMENT_METHOD_NAMES_MAP[itemMethod]) || itemMethod || '';
+            const text = `${item.name} ${item.group || ''} ${itemPayee} ${mName} ${itemAcc || ''} ${item.note || ''}`.toLowerCase();
             if (!text.includes(query)) return false;
           }
           return true;
@@ -914,6 +950,9 @@ function renderExpensesLists() {
           return buildEntryRow({
             fixedId: f.fixedId, type: 'fixed', title: f.name, tags: [f.group || 'Fixa', `desde ${MONTH_ABBR[f.effMonth - 1]}/${f.effYear}`],
             amount: f.amount, status: f.status, paidAmount: f.paidAmount, remainingAmount: f.remainingAmount, dueDay: f.dueDay, destination: f.destination,
+            payee: f.payee || origFixed.payee,
+            paymentMethod: f.payment?.method || origFixed.payment?.method,
+            account: f.payment?.account || origFixed.payment?.account,
             onClickToggleStatus: () => toggleExpenseStatus('fixed', f.fixedId, f.status),
             onClickEdit: () => openEntryDialog({ mode: 'edit', type: 'fixed', fixedId: f.fixedId }),
             onClickTimeline: () => openExpenseTimeline({ type: 'fixed', fixedId: f.fixedId }),
@@ -926,17 +965,18 @@ function renderExpensesLists() {
         const rawVariable = activeVariableForMonth(y, m);
         const variable = sortExpensesList(rawVariable.filter(filterFn), sortMode);
         const variableRows = variable.map(v => {
-          const totalContract = Number(v.amount) * Number(v.installmentTotal);
           const origVar = state.variable.find(x => x.id === v.id) || v;
           const activeMonths = getVariableActiveMonths(origVar, y);
           return buildEntryRow({
             id: v.id, type: 'variable', title: v.name,
             tags: [
               v.group || 'Variável',
-              `parcela ${v.installmentIndex}/${v.installmentTotal}`,
-              `Total: ${currency(totalContract)}`
-            ],
+              v.installmentTotal > 1 ? `parcela ${v.installmentIndex}/${v.installmentTotal}` : null
+            ].filter(Boolean),
             amount: v.amount, status: v.status, paidAmount: v.paidAmount, remainingAmount: v.remainingAmount, dueDay: v.dueDay, destination: v.destination,
+            payee: v.payee || origVar.payee,
+            paymentMethod: v.payment?.method || origVar.payment?.method,
+            account: v.payment?.account || origVar.payment?.account,
             onClickToggleStatus: () => toggleExpenseStatus('variable', v.id, v.status),
             onClickEdit: () => openEntryDialog({ mode: 'edit', type: 'variable', id: v.id }),
             onClickTimeline: () => openExpenseTimeline({ type: 'variable', id: v.id }),
@@ -1010,21 +1050,21 @@ function renderExpensesLists() {
 
   function validateEntryStep1() {
     const nameInput = $('#entryName');
-    const name = nameInput?.value.trim();
+    const name = String(nameInput?.value ?? '').trim();
     if (!name) {
       setEntryFieldError(nameInput, 'Informe a descrição do lançamento.');
       return false;
     }
 
     const groupInput = $('#entryGroup');
-    const group = groupInput?.value.trim();
+    const group = String(groupInput?.value ?? '').trim();
     if (!group) {
       setEntryFieldError(groupInput, 'Selecione a categoria do lançamento.');
       return false;
     }
 
     const amountInput = $('#entryAmount');
-    const amountVal = amountInput?.value.trim();
+    const amountVal = String(amountInput?.value ?? '').trim();
     const amount = Number(amountVal);
     if (!amountVal || isNaN(amount) || amount <= 0) {
       setEntryFieldError(amountInput, 'Informe um valor maior que zero.');
@@ -1032,7 +1072,7 @@ function renderExpensesLists() {
     }
 
     const destInput = $('#entryDestination');
-    const dest = destInput?.value.trim();
+    const dest = String(destInput?.value ?? '').trim();
     if (!dest) {
       setEntryFieldError(destInput, 'Selecione a forma de pagamento / destino.');
       return false;
@@ -1177,28 +1217,125 @@ function renderExpensesLists() {
     }
   }
 
+  function updateRecDurationView() {
+    const endType = $('input[name="entryRecEndType"]:checked')?.value || 'never';
+    const countWrap = $('#recCountWrap');
+    const dateWrap = $('#recDateWrap');
+    const badge = $('#recDurationBadge');
+
+    if (countWrap) countWrap.style.display = (endType === 'count' ? 'block' : 'none');
+    if (dateWrap) dateWrap.style.display = (endType === 'date' ? 'block' : 'none');
+
+    if (!badge) return;
+
+    const sm = Number($('#fixedEffMonth')?.value) || (getState().month || 1);
+    const sy = Number($('#fixedEffYear')?.value) || (getState().year || 2026);
+
+    if (endType === 'never') {
+      badge.textContent = 'Recorrência mensal contínua (sem data de término)';
+    } else if (endType === 'count') {
+      const count = Math.max(1, parseInt($('#recCountInput')?.value, 10) || 1);
+      const endIdx = (sm - 1) + (count - 1);
+      const ey = sy + Math.floor(endIdx / 12);
+      const em = (endIdx % 12) + 1;
+      badge.textContent = `Recorrência mensal: ${count} ocorrência(s) (de ${MONTH_ABBR[sm - 1]}/${sy} até ${MONTH_ABBR[em - 1]}/${ey})`;
+    } else if (endType === 'date') {
+      const em = Number($('#recEndMonth')?.value) || sm;
+      const ey = Number($('#recEndYear')?.value) || sy;
+      const count = Math.max(1, (ey * 12 + em) - (sy * 12 + sm) + 1);
+      badge.textContent = `Recorrência mensal até ${MONTH_ABBR[em - 1]}/${ey} (${count} ocorrência(s))`;
+    }
+  }
+
+  function updatePaymentMethodSelect() {
+    const sel = $('#entryPaymentMethod');
+    if (!sel) return;
+    const methods = window.PAYMENT_METHODS || [
+      { id: 'pix', name: 'PIX' },
+      { id: 'dinheiro', name: 'Dinheiro' },
+      { id: 'cartao_credito', name: 'Cartão de Crédito' },
+      { id: 'cartao_debito', name: 'Cartão de Débito' },
+      { id: 'boleto', name: 'Boleto' },
+      { id: 'transferencia', name: 'Transferência' },
+      { id: 'debito_automatico', name: 'Débito Automático' },
+      { id: 'outros', name: 'Outro' }
+    ];
+    const curVal = sel.value;
+    sel.innerHTML = methods.map(m => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('');
+    if (curVal && methods.some(m => m.id === curVal)) {
+      sel.value = curVal;
+    } else {
+      sel.value = 'pix';
+    }
+  }
+
+  function updateAccountSelect() {
+    const state = getState();
+    const sel = $('#entryAccount');
+    if (!sel) return;
+    const sortedDests = (typeof getSortedDestinations === 'function') ? getSortedDestinations(state.destinations) : (state.destinations || []);
+    const accounts = sortedDests.filter(d => {
+      const n = (d.name || '').toLowerCase().trim();
+      return n !== 'pix' && n !== 'dinheiro' && n !== 'em dinheiro';
+    });
+    const curVal = sel.value;
+    let opts = `<option value="">Nenhuma / Não informada</option>`;
+    opts += accounts.map(a => `<option value="${escapeHtml(a.name)}">${escapeHtml(a.name)}</option>`).join('');
+    sel.innerHTML = opts;
+    if (curVal && accounts.some(a => a.name === curVal)) {
+      sel.value = curVal;
+    } else {
+      sel.value = '';
+    }
+  }
+
+  function updatePayeeSuggestions() {
+    const state = getState();
+    const datalist = $('#payeeSuggestions');
+    if (!datalist) return;
+    const payees = new Set();
+    (state.fixed || []).forEach(f => {
+      const p = (typeof resolveExpensePayee === 'function') ? resolveExpensePayee(f) : f.payee;
+      if (p) payees.add(p);
+    });
+    (state.variable || []).forEach(v => {
+      const p = (typeof resolveExpensePayee === 'function') ? resolveExpensePayee(v) : v.payee;
+      if (p) payees.add(p);
+    });
+    datalist.innerHTML = Array.from(payees).sort().map(p => `<option value="${escapeHtml(p)}"></option>`).join('');
+  }
+
   function setEntryRecurrence(rec) {
-    const isRecurring = (rec === 'recurring');
-    entryDlgState.recurrence = isRecurring ? 'recurring' : 'single';
+    const isRec = (rec === 'recurring');
+    const isInst = (rec === 'installment');
+    const isSingle = (!isRec && !isInst);
+
+    entryDlgState.recurrence = isRec ? 'recurring' : (isInst ? 'installment' : 'single');
     if ($('#entryRecurrence')) $('#entryRecurrence').value = entryDlgState.recurrence;
 
     const singleBtn = $('#entryRecSingleBtn');
+    const instBtn = $('#entryRecInstallmentBtn');
     const recBtn = $('#entryRecRecurringBtn');
+
     if (singleBtn) {
-      singleBtn.classList.toggle('active', !isRecurring);
-      singleBtn.setAttribute('aria-pressed', String(!isRecurring));
+      singleBtn.classList.toggle('active', isSingle);
+      singleBtn.setAttribute('aria-pressed', String(isSingle));
+    }
+    if (instBtn) {
+      instBtn.classList.toggle('active', isInst);
+      instBtn.setAttribute('aria-pressed', String(isInst));
     }
     if (recBtn) {
-      recBtn.classList.toggle('active', isRecurring);
-      recBtn.setAttribute('aria-pressed', String(isRecurring));
+      recBtn.classList.toggle('active', isRec);
+      recBtn.setAttribute('aria-pressed', String(isRec));
     }
 
-    if (isRecurring) {
+    if (isRec) {
       setEntryExpenseType('fixed');
+    } else if (isInst) {
+      setEntryExpenseType('installment');
     } else {
-      if (entryDlgState.type === 'fixed') {
-        setEntryExpenseType('cash');
-      }
+      setEntryExpenseType('cash');
     }
 
     syncDestinationRules();
@@ -1210,14 +1347,22 @@ function renderExpensesLists() {
     if ($('#entryPaymentType')) $('#entryPaymentType').value = expType;
 
     const isRec = (expType === 'fixed');
-    entryDlgState.recurrence = isRec ? 'recurring' : 'single';
+    const isInst = (expType === 'installment');
+    const isSingle = (!isRec && !isInst);
+
+    entryDlgState.recurrence = isRec ? 'recurring' : (isInst ? 'installment' : 'single');
     if ($('#entryRecurrence')) $('#entryRecurrence').value = entryDlgState.recurrence;
 
     const singleBtn = $('#entryRecSingleBtn');
+    const instBtn = $('#entryRecInstallmentBtn');
     const recBtn = $('#entryRecRecurringBtn');
     if (singleBtn) {
-      singleBtn.classList.toggle('active', !isRec);
-      singleBtn.setAttribute('aria-pressed', String(!isRec));
+      singleBtn.classList.toggle('active', isSingle);
+      singleBtn.setAttribute('aria-pressed', String(isSingle));
+    }
+    if (instBtn) {
+      instBtn.classList.toggle('active', isInst);
+      instBtn.setAttribute('aria-pressed', String(isInst));
     }
     if (recBtn) {
       recBtn.classList.toggle('active', isRec);
@@ -1238,15 +1383,62 @@ function renderExpensesLists() {
     if (expType === 'installment') {
       updateVarInstallments();
     }
+    if (expType === 'fixed') {
+      updateRecDurationView();
+    }
   }
+
+  let entryDlgSynced = { method: '', account: '', dest: '' };
 
   function syncDestinationRules() {
     const state = getState();
-    const destName = $('#entryDestination')?.value;
-    const dest = (state.destinations || []).find(d => d.name === destName);
-    const isPixOrCash = dest && (dest.name.toLowerCase() === 'pix' || dest.name.toLowerCase() === 'dinheiro');
+
+    // 1. Resolução do método de pagamento e conta: V2 é autoritativo, mas mudanças diretas em destination são detectadas e propagadas
+    const paymentMethodInput = $('#entryPaymentMethod');
+    const destInput = $('#entryDestination');
+    const accountInput = $('#entryAccount');
+
+    const curMethod = paymentMethodInput?.value || '';
+    const curAccount = accountInput?.value || '';
+    const curDest = destInput?.value || '';
+
+    let paymentMethod = curMethod || 'pix';
+    let account = curAccount || null;
+
+    // Se o destino legado foi alterado diretamente (ex: testes legados ou input em entryDestination)
+    if (destInput && curDest && curDest !== entryDlgSynced.dest && (curMethod === entryDlgSynced.method && curAccount === entryDlgSynced.account)) {
+      paymentMethod = (typeof resolveExpensePaymentMethod === 'function')
+        ? resolveExpensePaymentMethod({ destination: curDest })
+        : (curDest.toLowerCase() === 'dinheiro' ? 'dinheiro' : (curDest.toLowerCase() === 'pix' ? 'pix' : 'cartao_credito'));
+      account = (typeof resolveExpenseAccount === 'function')
+        ? resolveExpenseAccount({ destination: curDest })
+        : (paymentMethod !== 'pix' && paymentMethod !== 'dinheiro' ? curDest : null);
+
+      if (paymentMethodInput) paymentMethodInput.value = paymentMethod;
+      if (accountInput) accountInput.value = account || '';
+    } else {
+      // V2 tem precedência: sincroniza a bridge legada destination
+      paymentMethod = curMethod || 'pix';
+      account = curAccount || null;
+
+      if (destInput) {
+        const legacyDest = (typeof buildLegacyDestinationBridge === 'function')
+          ? buildLegacyDestinationBridge(paymentMethod, account)
+          : (account || (paymentMethod === 'pix' ? 'Pix' : (paymentMethod === 'dinheiro' ? 'Dinheiro' : 'Nubank')));
+        destInput.value = legacyDest;
+      }
+    }
+
+    entryDlgSynced = {
+      method: paymentMethodInput?.value || '',
+      account: accountInput?.value || '',
+      dest: destInput?.value || ''
+    };
+
+    const isPixOrCash = (paymentMethod === 'pix' || paymentMethod === 'dinheiro');
     const isRecurring = (entryDlgState.recurrence === 'recurring' || entryDlgState.type === 'fixed');
-    const simplifiedFlow = isPixOrCash && !isRecurring;
+    const isInstallment = (entryDlgState.recurrence === 'installment' || entryDlgState.type === 'installment');
+    const simplifiedFlow = isPixOrCash && !isRecurring && !isInstallment;
 
     const destHint = $('#entryDestHint');
     const dueWrap = $('#dueDayWrap');
@@ -1259,8 +1451,51 @@ function renderExpensesLists() {
     const btnNext1 = $('#btnNextStep1');
     const submitBtn = $('#entrySubmitBtn');
     const typeSelectorWrap = $('#typeSelectorWrap');
+    const accountWrap = $('#entryAccountWrap');
+    const accountLabel = $('#entryAccountLabel');
 
-    // Keep notes synced between fields
+    // Visibilidade contextual do seletor de Conta / Cartão
+    if (accountWrap) {
+      if (paymentMethod === 'dinheiro') {
+        accountWrap.style.display = 'none';
+        if (accountInput) accountInput.value = '';
+      } else {
+        accountWrap.style.display = 'grid';
+        if (accountLabel) {
+          if (paymentMethod === 'pix') {
+            accountLabel.innerHTML = 'Conta de Origem <small style="font-weight:600; color:var(--muted);">(Opcional)</small>';
+          } else if (paymentMethod === 'cartao_credito') {
+            accountLabel.innerHTML = 'Cartão Utilizado <small style="font-weight:600; color:var(--muted);">(Opcional)</small>';
+          } else if (paymentMethod === 'cartao_debito') {
+            accountLabel.innerHTML = 'Conta / Cartão <small style="font-weight:600; color:var(--muted);">(Opcional)</small>';
+          } else if (paymentMethod === 'boleto' || paymentMethod === 'transferencia' || paymentMethod === 'debito_automatico') {
+            accountLabel.innerHTML = 'Conta de Débito <small style="font-weight:600; color:var(--muted);">(Opcional)</small>';
+          } else {
+            accountLabel.innerHTML = 'Conta / Instrumento <small style="font-weight:600; color:var(--muted);">(Opcional)</small>';
+          }
+        }
+      }
+    }
+
+    // Herança de vencimento da conta/cartão selecionada
+    const targetAccountName = accountInput?.value || (destInput?.value && destInput.value !== 'Pix' && destInput.value !== 'Dinheiro' ? destInput.value : null);
+    const destMeta = targetAccountName ? (state.destinations || []).find(d => d.name === targetAccountName) : null;
+
+    if (destMeta && destMeta.dueDay) {
+      if (destHint) destHint.textContent = `📅 Vencimento padrão: dia ${destMeta.dueDay}`;
+      if ($('#entryDueDay') && ($('#entryDueDay').value === '' || entryDlgState.mode === 'new')) {
+        $('#entryDueDay').value = destMeta.dueDay;
+      }
+      if (inheritedHint) {
+        inheritedHint.textContent = `✓ Vencimento: dia ${destMeta.dueDay} (herdado de ${destMeta.name})`;
+        inheritedHint.style.display = 'block';
+      }
+    } else {
+      if (destHint) destHint.textContent = '';
+      if (inheritedHint) inheritedHint.style.display = 'none';
+    }
+
+    // Manter observações sincronizadas
     setEntryNote(getEntryNote());
 
     if (simplifiedFlow) {
@@ -1270,10 +1505,8 @@ function renderExpensesLists() {
       if (inheritedHint) inheritedHint.style.display = 'none';
       setEntryExpenseType('cash');
 
-      // Show note in Step 1 for shortcut flow
       if (noteStep1Wrap) noteStep1Wrap.style.display = 'grid';
 
-      // Adapt stepper to Direct Flow
       if (stepInd1) {
         const span = stepInd1.querySelector('span:not(.wizard-dot)');
         if (span) span.textContent = 'Identificação & Finalização';
@@ -1282,7 +1515,6 @@ function renderExpensesLists() {
       if (stepInd3) stepInd3.style.display = 'none';
       stepLines.forEach(l => l.style.display = 'none');
 
-      // If on step 1, show Save button directly
       if (entryDlgState.step === 1) {
         if (btnNext1) btnNext1.style.display = 'none';
         if (submitBtn) {
@@ -1290,19 +1522,20 @@ function renderExpensesLists() {
           submitBtn.textContent = '✓ Salvar Lançamento';
         }
       }
-    } else if (isPixOrCash && isRecurring) {
-      if (destHint) destHint.textContent = '⚡ O lançamento atual será quitado automaticamente. Os próximos lançamentos da recorrência permanecerão pendentes até o pagamento.';
+    } else if (isRecurring) {
+      if (destHint) {
+        if (isPixOrCash) {
+          destHint.textContent = '⚡ O lançamento atual será quitado automaticamente. Os próximos lançamentos da recorrência permanecerão pendentes até o pagamento.';
+        } else {
+          destHint.textContent = '';
+        }
+      }
       if (noteStep1Wrap) noteStep1Wrap.style.display = 'none';
       if (dueWrap) dueWrap.style.display = 'grid';
-      if (inheritedHint) inheritedHint.style.display = 'none';
-
-      // Ensure type is fixed
-      setEntryExpenseType('fixed');
-
-      // Hide type selector in step 2 (no installment options for cash/pix)
       if (typeSelectorWrap) typeSelectorWrap.style.display = 'none';
 
-      // Restore 3-step wizard stepper
+      setEntryExpenseType('fixed');
+
       if (stepInd1) {
         const span = stepInd1.querySelector('span:not(.wizard-dot)');
         if (span) span.textContent = 'Identificação';
@@ -1319,12 +1552,38 @@ function renderExpensesLists() {
         if (btnNext1) btnNext1.style.display = 'inline-flex';
         if (submitBtn) submitBtn.style.display = 'none';
       }
+      updateRecDurationView();
+    } else if (isInstallment) {
+      if (noteStep1Wrap) noteStep1Wrap.style.display = 'none';
+      if (dueWrap) dueWrap.style.display = 'grid';
+      if (typeSelectorWrap) typeSelectorWrap.style.display = 'none';
+
+      setEntryExpenseType('installment');
+
+      if (stepInd1) {
+        const span = stepInd1.querySelector('span:not(.wizard-dot)');
+        if (span) span.textContent = 'Identificação';
+      }
+      if (stepInd2) {
+        stepInd2.style.display = 'flex';
+        const span2 = stepInd2.querySelector('span:not(.wizard-dot)');
+        if (span2) span2.textContent = 'Parcelamento';
+      }
+      if (stepInd3) stepInd3.style.display = 'flex';
+      stepLines.forEach(l => l.style.display = 'block');
+
+      if (entryDlgState.step === 1) {
+        if (btnNext1) btnNext1.style.display = 'inline-flex';
+        if (submitBtn) submitBtn.style.display = 'none';
+      }
+      updateVarInstallments();
     } else {
       if (noteStep1Wrap) noteStep1Wrap.style.display = 'none';
       if (dueWrap) dueWrap.style.display = 'grid';
-      if (typeSelectorWrap) typeSelectorWrap.style.display = 'grid';
+      if (typeSelectorWrap) typeSelectorWrap.style.display = 'none';
 
-      // Restore 3-step wizard stepper
+      setEntryExpenseType('cash');
+
       if (stepInd1) {
         const span = stepInd1.querySelector('span:not(.wizard-dot)');
         if (span) span.textContent = 'Identificação';
@@ -1341,20 +1600,6 @@ function renderExpensesLists() {
         if (btnNext1) btnNext1.style.display = 'inline-flex';
         if (submitBtn) submitBtn.style.display = 'none';
       }
-
-      if (dest && dest.dueDay) {
-        if (destHint) destHint.textContent = `📅 Vencimento padrão deste destino: dia ${dest.dueDay}`;
-        if ($('#entryDueDay') && ($('#entryDueDay').value === '' || entryDlgState.mode === 'new')) {
-          $('#entryDueDay').value = dest.dueDay;
-        }
-        if (inheritedHint) {
-          inheritedHint.textContent = `✓ Vencimento: dia ${dest.dueDay} (herdado de ${dest.name})`;
-          inheritedHint.style.display = 'block';
-        }
-      } else {
-        if (destHint) destHint.textContent = '';
-        if (inheritedHint) inheritedHint.style.display = 'none';
-      }
     }
   }
 
@@ -1365,12 +1610,37 @@ function renderExpensesLists() {
     const cat = $('#entryGroup')?.value || 'Gerais';
     const destName = $('#entryDestination')?.value || 'Nubank';
     const expType = entryDlgState.type || 'cash';
-    const isPixOrCash = (destName.toLowerCase() === 'pix' || destName.toLowerCase() === 'dinheiro');
+    const paymentMethod = $('#entryPaymentMethod')?.value || (destName.toLowerCase() === 'pix' ? 'pix' : (destName.toLowerCase() === 'dinheiro' ? 'dinheiro' : 'cartao_credito'));
+    const isPixOrCash = (paymentMethod === 'pix' || paymentMethod === 'dinheiro');
     const isRecurring = (entryDlgState.recurrence === 'recurring' || expType === 'fixed');
 
     if ($('#summaryName')) $('#summaryName').textContent = name;
     if ($('#summaryAmount')) $('#summaryAmount').textContent = currency(amount);
     if ($('#summaryCategory')) $('#summaryCategory').textContent = cat;
+
+    const methodName = (window.PAYMENT_METHOD_NAMES_MAP && window.PAYMENT_METHOD_NAMES_MAP[paymentMethod]) || (paymentMethod ? paymentMethod.toUpperCase() : 'PIX');
+    if ($('#summaryMethod')) $('#summaryMethod').textContent = methodName;
+
+    const payee = ($('#entryPayee')?.value || '').trim();
+    if ($('#summaryPayee')) {
+      if (payee) {
+        $('#summaryPayee').textContent = payee;
+        $('#summaryPayee').style.display = 'inline-block';
+      } else {
+        $('#summaryPayee').style.display = 'none';
+      }
+    }
+
+    const account = $('#entryAccount')?.value;
+    if ($('#summaryAccount')) {
+      if (account) {
+        $('#summaryAccount').textContent = account;
+        $('#summaryAccount').style.display = 'inline-block';
+      } else {
+        $('#summaryAccount').style.display = 'none';
+      }
+    }
+
     if ($('#summaryDestination')) $('#summaryDestination').textContent = destName;
 
     if ($('#summaryType') && $('#summaryPeriod')) {
@@ -1390,14 +1660,31 @@ function renderExpensesLists() {
       } else {
         const fm = Number($('#fixedEffMonth')?.value) || state.month;
         const fy = Number($('#fixedEffYear')?.value) || state.year;
-        $('#summaryType').textContent = 'Fixa (Mensal)';
-        $('#summaryPeriod').textContent = `Desde ${MONTH_ABBR[fm - 1]}/${fy}`;
+        const recEndType = $('input[name="entryRecEndType"]:checked')?.value || 'never';
+        if (recEndType === 'count') {
+          const count = Math.max(1, parseInt($('#recCountInput')?.value, 10) || 1);
+          const endIdx = (fm - 1) + (count - 1);
+          const ey = fy + Math.floor(endIdx / 12);
+          const em = (endIdx % 12) + 1;
+          $('#summaryType').textContent = `Recorrente (${count}x)`;
+          $('#summaryPeriod').textContent = `${MONTH_ABBR[fm - 1]}/${fy} a ${MONTH_ABBR[em - 1]}/${ey}`;
+        } else if (recEndType === 'date') {
+          const em = Number($('#recEndMonth')?.value) || fm;
+          const ey = Number($('#recEndYear')?.value) || fy;
+          $('#summaryType').textContent = 'Recorrente';
+          $('#summaryPeriod').textContent = `${MONTH_ABBR[fm - 1]}/${fy} a ${MONTH_ABBR[em - 1]}/${ey}`;
+        } else {
+          $('#summaryType').textContent = 'Fixa (Mensal)';
+          $('#summaryPeriod').textContent = `Desde ${MONTH_ABBR[fm - 1]}/${fy}`;
+        }
       }
     }
 
     const pixCashHint = $('#pixCashStatusHint');
     if (isPixOrCash) {
-      if ($('#entryStatus')) $('#entryStatus').value = 'pago';
+      if ($('#entryStatus') && entryDlgState.mode === 'new') {
+        $('#entryStatus').value = 'pago';
+      }
       if (pixCashHint) {
         if (isRecurring) {
           pixCashHint.textContent = '✓ O lançamento atual será quitado automaticamente. Os próximos lançamentos da recorrência permanecerão pendentes até o pagamento.';
@@ -1516,6 +1803,9 @@ function renderExpensesLists() {
     fillMonthSelects();
     updateCategorySelects();
     updateDestinationSelects();
+    updatePaymentMethodSelect();
+    updateAccountSelect();
+    updatePayeeSuggestions();
 
     const delBtn = $('#deleteEntryBtn');
     const fixActions = $('#fixedActions');
@@ -1548,11 +1838,22 @@ function renderExpensesLists() {
         mode: 'new',
         step: 1,
         type: isFixedInit ? 'fixed' : (type === 'installment' ? 'installment' : 'cash'),
-        recurrence: isFixedInit ? 'recurring' : 'single',
+        recurrence: isFixedInit ? 'recurring' : (type === 'installment' ? 'installment' : 'single'),
         id: null,
         fixedId: null
       };
-      $('#entryDialogTitle').textContent = isFixedInit ? 'Nova Despesa Fixa' : 'Nova Despesa';
+      $('#entryDialogTitle').textContent = isFixedInit ? 'Nova Despesa Fixa' : (type === 'installment' ? 'Nova Despesa Parcelada' : 'Nova Despesa');
+
+      if ($('#entryPayee')) $('#entryPayee').value = '';
+      if ($('#entryPaymentMethod')) $('#entryPaymentMethod').value = 'pix';
+      if ($('#entryAccount')) $('#entryAccount').value = '';
+
+      const radioNever = $('input[name="entryRecEndType"][value="never"]');
+      if (radioNever) radioNever.checked = true;
+      if ($('#recCountInput')) $('#recCountInput').value = 12;
+      if ($('#recEndMonth')) $('#recEndMonth').value = curMonth;
+      if ($('#recEndYear')) $('#recEndYear').value = curYear + 1;
+      updateRecDurationView();
 
       const defaultDest = sortedDests[0]?.name || 'Pix';
       $('#entryDestination').value = defaultDest;
@@ -1585,6 +1886,34 @@ function renderExpensesLists() {
       $('#entryDestination').value = fixed.destination || 'Nubank';
       $('#entryDueDay').value = fixed.dueDay || '';
 
+      const payeeVal = (typeof resolveExpensePayee === 'function') ? resolveExpensePayee(fixed) : (fixed.payee || '');
+      if ($('#entryPayee')) $('#entryPayee').value = payeeVal || '';
+
+      const pmVal = (typeof resolveExpensePaymentMethod === 'function') ? resolveExpensePaymentMethod(fixed) : (fixed.payment?.method || 'pix');
+      const accVal = (typeof resolveExpenseAccount === 'function') ? resolveExpenseAccount(fixed) : (fixed.payment?.account || '');
+      if ($('#entryPaymentMethod')) $('#entryPaymentMethod').value = pmVal;
+      if ($('#entryAccount')) $('#entryAccount').value = accVal || '';
+
+      if (fixed.endedFrom) {
+        if (fixed.temporal?.recurrence?.type === 'count') {
+          const radioCount = $('input[name="entryRecEndType"][value="count"]');
+          if (radioCount) radioCount.checked = true;
+          if ($('#recCountInput')) $('#recCountInput').value = fixed.temporal.recurrence.count || 12;
+        } else {
+          const radioDate = $('input[name="entryRecEndType"][value="date"]');
+          if (radioDate) radioDate.checked = true;
+          let lastActiveY = fixed.endedFrom.year;
+          let lastActiveM = fixed.endedFrom.month - 1;
+          if (lastActiveM < 1) { lastActiveM = 12; lastActiveY--; }
+          if ($('#recEndMonth')) $('#recEndMonth').value = fixed.temporal?.recurrence?.endMonth || lastActiveM;
+          if ($('#recEndYear')) $('#recEndYear').value = fixed.temporal?.recurrence?.endYear || lastActiveY;
+        }
+      } else {
+        const radioNever = $('input[name="entryRecEndType"][value="never"]');
+        if (radioNever) radioNever.checked = true;
+      }
+      updateRecDurationView();
+
       const key = ymKey(state.year, state.month);
       const isPaid = fixed.paidHistory ? fixed.paidHistory[key] === true : (active.status === 'pago');
       $('#entryStatus').value = isPaid ? 'pago' : 'pendente';
@@ -1601,10 +1930,11 @@ function renderExpensesLists() {
       if (!v) return;
 
       const isInstallment = (v.installments > 1 || (mk(v.endYear, v.endMonth) > mk(v.startYear, v.startMonth)));
-      const isPixOrCash = (v.destination && (v.destination.toLowerCase() === 'pix' || v.destination.toLowerCase() === 'dinheiro'));
+      const resolvedMethod = (typeof resolveExpensePaymentMethod === 'function') ? resolveExpensePaymentMethod(v) : (v.payment?.method || (v.destination?.toLowerCase() === 'pix' ? 'pix' : 'cartao_credito'));
+      const isPixOrCash = (resolvedMethod === 'pix' || resolvedMethod === 'dinheiro');
       const expType = isPixOrCash ? 'cash' : (isInstallment ? 'installment' : 'cash');
 
-      entryDlgState = { mode: 'edit', step: 1, type: expType, recurrence: 'single', id: v.id, fixedId: null };
+      entryDlgState = { mode: 'edit', step: 1, type: expType, recurrence: isInstallment ? 'installment' : 'single', id: v.id, fixedId: null };
       $('#entryDialogTitle').textContent = isPixOrCash ? 'Editar Despesa (À Vista)' : (isInstallment ? 'Editar Despesa Parcelada' : 'Editar Despesa À Vista');
 
       $('#entryName').value = v.name;
@@ -1613,6 +1943,14 @@ function renderExpensesLists() {
       $('#entryAmount').value = v.amount;
       $('#entryDestination').value = v.destination || 'Nubank';
       $('#entryDueDay').value = v.dueDay || '';
+
+      const payeeVal = (typeof resolveExpensePayee === 'function') ? resolveExpensePayee(v) : (v.payee || '');
+      if ($('#entryPayee')) $('#entryPayee').value = payeeVal || '';
+
+      const pmVal = (typeof resolveExpensePaymentMethod === 'function') ? resolveExpensePaymentMethod(v) : (v.payment?.method || 'cartao_credito');
+      const accVal = (typeof resolveExpenseAccount === 'function') ? resolveExpenseAccount(v) : (v.payment?.account || '');
+      if ($('#entryPaymentMethod')) $('#entryPaymentMethod').value = pmVal;
+      if ($('#entryAccount')) $('#entryAccount').value = accVal || '';
 
       const key = ymKey(v.startYear || state.year, v.startMonth || state.month);
       const isPaid = v.paidHistory ? v.paidHistory[key] === true : (v.status === 'pago');
@@ -1628,12 +1966,17 @@ function renderExpensesLists() {
       if ($('#varInstallmentsCount')) $('#varInstallmentsCount').value = count;
       if (delBtn) delBtn.hidden = false;
 
-      setEntryRecurrence('single');
+      setEntryRecurrence(isInstallment ? 'installment' : 'single');
       setEntryExpenseType(expType);
       syncDestinationRules();
       setWizardStep(1);
     }
 
+    entryDlgSynced = {
+      method: $('#entryPaymentMethod')?.value || '',
+      account: $('#entryAccount')?.value || '',
+      dest: $('#entryDestination')?.value || ''
+    };
     clearEntryValidation();
     if (entryDlg) entryDlg.showModal();
   }
@@ -1676,7 +2019,30 @@ function renderExpensesLists() {
     $('#addVariableBtn')?.addEventListener('click', () => openEntryDialog({ mode: 'new', type: 'installment' }));
 
     // WIZARD NAVIGATION LISTENERS
-    $('#entryDestination')?.addEventListener('change', syncDestinationRules);
+    $('#entryDestination')?.addEventListener('change', () => {
+      const dVal = $('#entryDestination')?.value;
+      if (dVal) {
+        const resolvedMethod = (typeof resolveExpensePaymentMethod === 'function')
+          ? resolveExpensePaymentMethod({ destination: dVal })
+          : (dVal.toLowerCase() === 'dinheiro' ? 'dinheiro' : (dVal.toLowerCase() === 'pix' ? 'pix' : 'cartao_credito'));
+        const resolvedAcc = (typeof resolveExpenseAccount === 'function')
+          ? resolveExpenseAccount({ destination: dVal })
+          : (resolvedMethod !== 'pix' && resolvedMethod !== 'dinheiro' ? dVal : null);
+        if ($('#entryPaymentMethod')) $('#entryPaymentMethod').value = resolvedMethod;
+        if ($('#entryAccount')) $('#entryAccount').value = resolvedAcc || '';
+      }
+      syncDestinationRules();
+    });
+    $('#entryPaymentMethod')?.addEventListener('change', syncDestinationRules);
+    $('#entryAccount')?.addEventListener('change', syncDestinationRules);
+    $$('input[name="entryRecEndType"]').forEach(r => r.addEventListener('change', updateRecDurationView));
+    ['#recCountInput', '#recEndMonth', '#recEndYear'].forEach(id => {
+      const el = $(id);
+      if (el) {
+        el.addEventListener('input', updateRecDurationView);
+        el.addEventListener('change', updateRecDurationView);
+      }
+    });
 
     // Note inputs live synchronization
     $('#entryNoteStep1')?.addEventListener('input', (e) => {
@@ -1770,13 +2136,38 @@ function renderExpensesLists() {
       let group = $('#entryGroup').value.trim() || 'Gerais';
       const note = getEntryNote();
       const amount = Number($('#entryAmount').value);
-      const destination = $('#entryDestination').value || 'Nubank';
-      const isPixOrCash = (destination.toLowerCase() === 'pix' || destination.toLowerCase() === 'dinheiro');
+
+      const payee = ($('#entryPayee')?.value || '').trim() || null;
+      let paymentMethod = $('#entryPaymentMethod')?.value;
+      let account = ($('#entryAccount')?.value || '').trim() || null;
+      let destination = $('#entryDestination')?.value;
+
+      if (!paymentMethod && destination) {
+        paymentMethod = (typeof resolveExpensePaymentMethod === 'function')
+          ? resolveExpensePaymentMethod({ destination })
+          : (destination.toLowerCase() === 'dinheiro' ? 'dinheiro' : (destination.toLowerCase() === 'pix' ? 'pix' : 'cartao_credito'));
+      }
+      if (!account && destination && paymentMethod !== 'pix' && paymentMethod !== 'dinheiro') {
+        account = destination;
+      }
+      paymentMethod = paymentMethod || 'pix';
+
+      destination = (typeof buildLegacyDestinationBridge === 'function')
+        ? buildLegacyDestinationBridge(paymentMethod, account)
+        : (account || (paymentMethod === 'pix' ? 'Pix' : (paymentMethod === 'dinheiro' ? 'Dinheiro' : 'Nubank')));
+
+      const isPixOrCash = (paymentMethod === 'pix' || paymentMethod === 'dinheiro');
       const isRecurring = (entryDlgState.recurrence === 'recurring' || entryDlgState.type === 'fixed');
-      const simplifiedFlow = isPixOrCash && !isRecurring;
-      const type = isRecurring ? 'fixed' : (isPixOrCash ? 'cash' : (entryDlgState.type || 'cash'));
+      const isInstallment = (entryDlgState.recurrence === 'installment' || entryDlgState.type === 'installment');
+      const simplifiedFlow = isPixOrCash && !isRecurring && !isInstallment;
+      const type = isRecurring ? 'fixed' : (isInstallment ? 'installment' : 'cash');
       const dueDay = simplifiedFlow ? null : (Number($('#entryDueDay').value) || null);
-      const status = isPixOrCash ? 'pago' : ($('#entryStatus').value || 'pendente');
+
+      // Ajuste 3: Metodo != Status. No fluxo rapido de criacao, status default para pix/dinheiro é pago se nao fornecido, respeitando selecao explicita.
+      let status = $('#entryStatus')?.value;
+      if (!status) {
+        status = (isPixOrCash && entryDlgState.mode === 'new') ? 'pago' : 'pendente';
+      }
       const key = ymKey(state.year, state.month);
 
       if (!validateEntryStep1()) {
@@ -1793,12 +2184,38 @@ function renderExpensesLists() {
         state.fixed = state.fixed || [];
         const effMonth = Number($('#fixedEffMonth').value) || state.month;
         const effYear = Number($('#fixedEffYear').value) || state.year;
+
+        const recEndType = $('input[name="entryRecEndType"]:checked')?.value || 'never';
+        let temporalRecurrence = { frequency: 'monthly', type: 'never' };
+        let calculatedEndedFrom = null;
+
+        if (recEndType === 'count') {
+          const recCount = Math.max(1, parseInt($('#recCountInput')?.value, 10) || 12);
+          temporalRecurrence = { frequency: 'monthly', type: 'count', count: recCount };
+          if (typeof calculateRecurrenceEndFrom === 'function') {
+            calculatedEndedFrom = calculateRecurrenceEndFrom(effYear, effMonth, recCount);
+          } else {
+            const endIdx = (effMonth - 1) + recCount;
+            calculatedEndedFrom = { year: effYear + Math.floor(endIdx / 12), month: (endIdx % 12) + 1 };
+          }
+        } else if (recEndType === 'date') {
+          const endM = Number($('#recEndMonth')?.value) || effMonth;
+          const endY = Number($('#recEndYear')?.value) || effYear;
+          temporalRecurrence = { frequency: 'monthly', type: 'date', endYear: endY, endMonth: endM };
+          const nextIdx = (endM - 1) + 1;
+          calculatedEndedFrom = { year: endY + Math.floor(nextIdx / 12), month: (nextIdx % 12) + 1 };
+        }
+
         let fixed = entryDlgState.fixedId ? state.fixed.find(f => f.id === entryDlgState.fixedId) : null;
 
         if (fixed) {
           fixed.name = name;
           fixed.group = group;
-          fixed.destination = destination;
+          fixed.destination = destination; // Bridge V1
+          fixed.payment = { method: paymentMethod, account: account || null };
+          fixed.payee = payee;
+          fixed.temporal = { type: 'fixed', recurrence: temporalRecurrence };
+          fixed.endedFrom = calculatedEndedFrom;
           fixed.dueDay = dueDay;
           fixed.note = note;
           fixed.paymentType = 'fixed';
@@ -1838,7 +2255,11 @@ function renderExpensesLists() {
             id: newId,
             name,
             group,
-            destination,
+            destination, // Bridge V1
+            payment: { method: paymentMethod, account: account || null },
+            payee,
+            temporal: { type: 'fixed', recurrence: temporalRecurrence },
+            endedFrom: calculatedEndedFrom,
             dueDay,
             note,
             paymentType: 'fixed',
@@ -1849,22 +2270,14 @@ function renderExpensesLists() {
         }
 
         if (fixed) {
-          if (isPixOrCash) {
-            if (entryDlgState.mode === 'new') {
-              // Quita SOMENTE a ocorrência inicial que está sendo registrada
+          if (entryDlgState.mode === 'new') {
+            if (status === 'pago') {
               if (typeof setExpensePayment === 'function') {
                 setExpensePayment(fixed, effYear, effMonth, amount, amount);
               } else {
                 fixed.paidHistory = fixed.paidHistory || {};
                 const initKey = (typeof ymKey === 'function') ? ymKey(effYear, effMonth) : `${effYear}-${effMonth}`;
                 fixed.paidHistory[initKey] = true;
-              }
-            } else if (effMonth === state.month && effYear === state.year) {
-              if (typeof setExpensePayment === 'function') {
-                setExpensePayment(fixed, effYear, effMonth, status === 'pago' ? amount : 0, amount);
-              } else {
-                fixed.paidHistory = fixed.paidHistory || {};
-                fixed.paidHistory[key] = (status === 'pago');
               }
             }
           } else if (effMonth === state.month && effYear === state.year) {
@@ -1883,7 +2296,6 @@ function renderExpensesLists() {
         let v = entryDlgState.id ? state.variable.find(x => x.id === entryDlgState.id) : null;
 
         if (simplifiedFlow) {
-          // Shortcut flow: Creation uses active navigation month; Edit preserves original months
           if (v) {
             sMonth = v.startMonth || state.month;
             sYear = v.startYear || state.year;
@@ -1914,11 +2326,18 @@ function renderExpensesLists() {
           pType = 'installment';
         }
 
+        const temporalData = (pType === 'installment')
+          ? { type: 'installment', installments: count, startYear: sYear, startMonth: sMonth, endYear: eYear, endMonth: eMonth }
+          : { type: 'cash', year: sYear, month: sMonth };
+
         if (v) {
           v.name = name;
           v.amount = amount;
           v.group = group;
-          v.destination = destination;
+          v.destination = destination; // Bridge V1
+          v.payment = { method: paymentMethod, account: account || null };
+          v.payee = payee;
+          v.temporal = temporalData;
           v.dueDay = dueDay;
           v.note = note;
           v.startMonth = sMonth;
@@ -1934,7 +2353,10 @@ function renderExpensesLists() {
             name,
             amount,
             group,
-            destination,
+            destination, // Bridge V1
+            payment: { method: paymentMethod, account: account || null },
+            payee,
+            temporal: temporalData,
             dueDay,
             note,
             startMonth: sMonth,
@@ -2075,12 +2497,18 @@ function renderExpensesLists() {
       const dueDay = isPixOrCash ? null : (destMeta?.dueDay || null);
       const y = state.year, m = state.month;
 
+      const qMethod = isPixOrCash ? (destination.toLowerCase() === 'pix' ? 'pix' : 'dinheiro') : 'cartao_credito';
+      const qAccount = isPixOrCash ? null : destination;
+
       const newExpense = {
         id: uid(),
         name,
         amount,
         group,
-        destination,
+        destination, // Bridge V1
+        payment: { method: qMethod, account: qAccount },
+        payee: null,
+        temporal: { type: 'cash', year: y, month: m },
         dueDay,
         note,
         startMonth: m,
@@ -2212,6 +2640,10 @@ function renderExpensesLists() {
   window.setWizardStep = setWizardStep;
   window.syncDestinationRules = syncDestinationRules;
   window.updateStep3Summary = updateStep3Summary;
+  window.updatePaymentMethodSelect = updatePaymentMethodSelect;
+  window.updateAccountSelect = updateAccountSelect;
+  window.updatePayeeSuggestions = updatePayeeSuggestions;
+  window.updateRecDurationView = updateRecDurationView;
   window.getEntryDlgState = () => entryDlgState;
 
   // Inicializacao sincrona dos listeners de despesas

@@ -205,169 +205,422 @@ function convertVariableToFixed(varId) {
         });
       }
 
+function buildExpenseAnalysisSummaryHtml(item, type, state) {
+  if (!item) return '';
+
+  const y = (state && state.year) || new Date().getFullYear();
+  const m = (state && state.month) || (new Date().getMonth() + 1);
+
+  // 1. Resolucao de Dimensoes V2 com Fallback Canonico V1 (constants.js helpers)
+  const category = item.group || 'Gerais';
+  const payee = (typeof resolveExpensePayee === 'function')
+    ? resolveExpensePayee(item)
+    : (item.payee && String(item.payee).trim() ? String(item.payee).trim() : null);
+
+  const methodId = (typeof resolveExpensePaymentMethod === 'function')
+    ? resolveExpensePaymentMethod(item)
+    : (item.payment?.method || null);
+
+  const methodName = (window.PAYMENT_METHOD_NAMES_MAP && window.PAYMENT_METHOD_NAMES_MAP[methodId])
+    ? window.PAYMENT_METHOD_NAMES_MAP[methodId]
+    : (methodId && methodId !== 'outros' ? methodId.toUpperCase() : (methodId === 'outros' ? 'Outro' : null));
+
+  const account = (typeof resolveExpenseAccount === 'function')
+    ? resolveExpenseAccount(item)
+    : (item.payment?.account && String(item.payment.account).trim() ? String(item.payment.account).trim() : null);
+
+  const temporal = (typeof resolveExpenseTemporal === 'function')
+    ? resolveExpenseTemporal(item)
+    : (item.temporal || {});
+
+  // 2. Determinacao da Natureza da Obrigacao (Unica, Parcelada, Recorrente)
+  const isFixedType = (type === 'fixed') || (item.paymentType === 'fixed') || Boolean(item.versions);
+  let nature = 'Única';
+  if (isFixedType || temporal.type === 'recurring' || temporal.type === 'fixed') {
+    nature = 'Recorrente';
+  } else if (temporal.type === 'installment' || (item.installments && item.installments > 1) || (item.startYear && item.endYear && (mk(item.endYear, item.endMonth) - mk(item.startYear, item.startMonth) + 1) > 1)) {
+    nature = 'Parcelada';
+  } else {
+    nature = 'Única';
+  }
+
+  // 3. Informacoes Financeiras e de Pagamento da Competencia Atual
+  let activeAmount = 0;
+  if (nature === 'Recorrente') {
+    const versions = [...(item.versions || [{ year: y, month: m, amount: item.amount }])].sort((a, b) => mk(a.year, a.month) - mk(b.year, b.month));
+    let activeVer = null;
+    const target = mk(y, m);
+    for (const v of versions) {
+      if (mk(v.year, v.month) <= target) activeVer = v; else break;
+    }
+    activeAmount = activeVer ? Number(activeVer.amount) : Number(item.amount || 0);
+  } else {
+    activeAmount = Number(item.amount || 0);
+  }
+
+  const payInfo = (typeof getExpensePaymentInfo === 'function')
+    ? getExpensePaymentInfo(item, y, m, activeAmount)
+    : { totalAmount: activeAmount, paidAmount: (item.status === 'pago' ? activeAmount : 0), remainingAmount: (item.status === 'pago' ? 0 : activeAmount), status: item.status || 'pendente' };
+
+  // 4. Campos Estruturados do Grid (omitindo ausentes, sem "Destino")
+  const gridFields = [];
+
+  gridFields.push({ label: 'Categoria', val: escapeHtml(category) });
+
+  if (payee) {
+    gridFields.push({ label: 'Favorecido', val: escapeHtml(payee) });
+  }
+
+  if (methodName) {
+    gridFields.push({ label: 'Método', val: escapeHtml(methodName) });
+  }
+
+  if (account) {
+    gridFields.push({ label: 'Conta / Cartão', val: escapeHtml(account) });
+  }
+
+  gridFields.push({ label: 'Natureza', val: escapeHtml(nature) });
+
+  if (nature === 'Única') {
+    const compMonth = item.startMonth || m;
+    const compYear = item.startYear || y;
+    const compFormatted = `${MONTH_ABBR[compMonth - 1]}/${compYear}`;
+    gridFields.push({ label: 'Competência', val: compFormatted });
+  } else if (nature === 'Parcelada') {
+    const startM = item.startMonth || m;
+    const startY = item.startYear || y;
+    const endM = item.endMonth || m;
+    const endY = item.endYear || y;
+    const totalContractMonths = Math.max(1, mk(endY, endM) - mk(startY, startM) + 1);
+    const installmentsCount = item.installments || totalContractMonths;
+
+    const currentTarget = mk(y, m);
+    let installmentText = '';
+    if (currentTarget >= mk(startY, startM) && currentTarget <= mk(endY, endM)) {
+      const currentIdx = currentTarget - mk(startY, startM) + 1;
+      installmentText = `${currentIdx} de ${installmentsCount}`;
+    } else if (currentTarget < mk(startY, startM)) {
+      installmentText = `1 de ${installmentsCount} (inicia em ${MONTH_ABBR[startM - 1]}/${startY})`;
+    } else {
+      installmentText = `Concluída (${installmentsCount} de ${installmentsCount})`;
+    }
+
+    gridFields.push({ label: 'Parcelamento', val: installmentText });
+    gridFields.push({ label: 'Valor da parcela', val: currency(activeAmount) });
+
+    const totalContractAmount = activeAmount * installmentsCount;
+    gridFields.push({ label: 'Valor total', val: currency(totalContractAmount), highlight: true });
+
+    gridFields.push({ label: 'Competência inicial', val: `${MONTH_ABBR[startM - 1]}/${startY}` });
+    gridFields.push({ label: 'Competência final', val: `${MONTH_ABBR[endM - 1]}/${endY}` });
+  } else if (nature === 'Recorrente') {
+    gridFields.push({ label: 'Frequência', val: 'Mensal' });
+    gridFields.push({ label: 'Valor por ocorrência', val: currency(activeAmount) });
+
+    const versions = [...(item.versions || [])].sort((a, b) => mk(a.year, a.month) - mk(b.year, b.month));
+    const firstVer = versions[0];
+    const startM = firstVer ? (firstVer.startMonth || firstVer.month) : 1;
+    const startY = firstVer ? (firstVer.startYear || firstVer.year) : y;
+    gridFields.push({ label: 'Início', val: `${MONTH_ABBR[startM - 1]}/${startY}` });
+
+    const rec = temporal.recurrence || {};
+    const endedFrom = item.endedFrom;
+
+    if (!endedFrom && rec.type !== 'date' && rec.type !== 'count') {
+      gridFields.push({ label: 'Término', val: 'Sem data final' });
+    } else if (rec.type === 'count' && rec.count) {
+      gridFields.push({ label: 'Duração', val: `${rec.count} ocorrências` });
+      if (endedFrom) {
+        const lastActiveM = endedFrom.month === 1 ? 12 : endedFrom.month - 1;
+        const lastActiveY = endedFrom.month === 1 ? endedFrom.year - 1 : endedFrom.year;
+        gridFields.push({ label: 'Término', val: `${MONTH_ABBR[lastActiveM - 1]}/${lastActiveY}` });
+      } else if (typeof calculateRecurrenceEndFrom === 'function') {
+        const ef = calculateRecurrenceEndFrom(startY, startM, rec.count);
+        const lastActiveM = ef.month === 1 ? 12 : ef.month - 1;
+        const lastActiveY = ef.month === 1 ? ef.year - 1 : ef.year;
+        gridFields.push({ label: 'Término', val: `${MONTH_ABBR[lastActiveM - 1]}/${lastActiveY}` });
+      }
+    } else if (endedFrom) {
+      const lastActiveM = endedFrom.month === 1 ? 12 : endedFrom.month - 1;
+      const lastActiveY = endedFrom.month === 1 ? endedFrom.year - 1 : endedFrom.year;
+      gridFields.push({ label: 'Término', val: `${MONTH_ABBR[lastActiveM - 1]}/${lastActiveY}` });
+    } else if (rec.endMonth && rec.endYear) {
+      gridFields.push({ label: 'Término', val: `${MONTH_ABBR[rec.endMonth - 1]}/${rec.endYear}` });
+    } else {
+      gridFields.push({ label: 'Término', val: 'Sem data final' });
+    }
+  }
+
+  // 5. Situacao Financeira / Pagamento da Competencia Atual
+  let statusBadgeHtml = '';
+  const situationItems = [];
+  const currentCompLabel = `${MONTH_ABBR[m - 1]}/${y}`;
+
+  let isCurrentActive = true;
+  if (nature === 'Recorrente' && item.endedFrom && mk(y, m) >= mk(item.endedFrom.year, item.endedFrom.month)) {
+    isCurrentActive = false;
+  } else if (nature === 'Parcelada') {
+    const sM = item.startMonth || m, sY = item.startYear || y;
+    const eM = item.endMonth || m, eY = item.endYear || y;
+    isCurrentActive = mk(y, m) >= mk(sY, sM) && mk(y, m) <= mk(eY, eM);
+  }
+
+  if (!isCurrentActive) {
+    statusBadgeHtml = '<span class="badge">Inativo</span>';
+    situationItems.push({ label: `Situação (${currentCompLabel})`, val: 'Fora do período de vigência' });
+  } else if (payInfo.status === 'pago') {
+    statusBadgeHtml = '<span class="badge success">Pago</span>';
+    situationItems.push({ label: `Status (${currentCompLabel})`, val: statusBadgeHtml });
+    situationItems.push({ label: 'Valor Quitado', val: currency(payInfo.totalAmount) });
+  } else if (payInfo.status === 'parcial') {
+    statusBadgeHtml = '<span class="badge warning">Parcialmente pago</span>';
+    situationItems.push({ label: `Status (${currentCompLabel})`, val: statusBadgeHtml });
+    situationItems.push({ label: 'Valor da Competência', val: currency(payInfo.totalAmount) });
+    situationItems.push({ label: 'Valor Pago', val: currency(payInfo.paidAmount) });
+    situationItems.push({ label: 'Restante a Pagar', val: currency(payInfo.remainingAmount) });
+  } else {
+    statusBadgeHtml = '<span class="badge warning">Pendente</span>';
+    situationItems.push({ label: `Status (${currentCompLabel})`, val: statusBadgeHtml });
+    situationItems.push({ label: 'Valor Pendente', val: currency(payInfo.totalAmount) });
+  }
+
+  return `
+    <div class="expense-analysis-header">
+      <h4 class="expense-analysis-heading">Resumo da Obrigação</h4>
+      ${statusBadgeHtml}
+    </div>
+
+    <div class="expense-analysis-grid">
+      ${gridFields.map(f => `
+        <div class="expense-analysis-field">
+          <span class="expense-analysis-label">${escapeHtml(f.label)}</span>
+          <span class="expense-analysis-val${f.highlight ? ' highlight' : ''}">${f.val}</span>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="expense-analysis-situation-card">
+      ${situationItems.map(s => `
+        <div class="sit-field">
+          <span class="sit-label">${escapeHtml(s.label)}</span>
+          <span class="sit-val">${s.val}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
 function openExpenseTimeline(opts) {
-    const state = getState();
-        const { type, id, fixedId } = opts;
-        const timelineDlg = $('#timelineDialog');
-        if (!timelineDlg) return;
+  const state = getState();
+  const { type, id, fixedId } = opts || {};
+  const timelineDlg = $('#timelineDialog');
+  if (!timelineDlg) return;
 
-        let itemTitle = '', itemGroup = '', itemDest = '', itemNote = '';
-        const monthsStatus = [];
-        let annualPlanned = 0;
-        let annualPaid = 0;
-        let paidMonthsCount = 0;
-        let activeMonthsCount = 0;
+  let currentItem = opts?.item || null;
+  if (!currentItem) {
+    if (type === 'fixed') {
+      currentItem = state.fixed.find(f => f.id === fixedId);
+    } else if (type === 'variable') {
+      currentItem = state.variable.find(x => x.id === id);
+    }
+  }
+  if (!currentItem) return;
 
-        if (type === 'fixed') {
-          const fixed = state.fixed.find(f => f.id === fixedId);
-          if (!fixed) return;
-          itemTitle = fixed.name;
-          itemGroup = fixed.group || 'Gerais';
-          itemDest = fixed.destination || 'Nubank';
-          itemNote = fixed.note || '';
+  const itemTitle = currentItem.name || '';
+  const itemGroup = currentItem.group || 'Gerais';
+  const itemNote = currentItem.note || '';
 
-          const targetY = state.year;
-          let runningPaid = 0;
+  const monthsStatus = [];
+  let annualPlanned = 0;
+  let annualPaid = 0;
+  let paidMonthsCount = 0;
+  let activeMonthsCount = 0;
+  const targetY = state.year;
 
-          for (let m = 1; m <= 12; m++) {
-            const target = mk(targetY, m);
-            const key = ymKey(targetY, m);
+  if (type === 'fixed' || currentItem.paymentType === 'fixed' || Boolean(currentItem.versions)) {
+    const fixed = currentItem;
+    let runningPaid = 0;
 
-            let isActive = true;
-            if (fixed.endedFrom && target >= mk(fixed.endedFrom.year, fixed.endedFrom.month)) {
-              isActive = false;
-            }
+    for (let m = 1; m <= 12; m++) {
+      const target = mk(targetY, m);
 
-            const versions = [...fixed.versions].sort((a, b) => mk(a.year, a.month) - mk(b.year, b.month));
-            let activeVer = null;
-            for (const v of versions) {
-              if (mk(v.year, v.month) <= target) activeVer = v; else break;
-            }
+      let isActive = true;
+      if (fixed.endedFrom && target >= mk(fixed.endedFrom.year, fixed.endedFrom.month)) {
+        isActive = false;
+      }
 
-            if (!activeVer) isActive = false;
+      const versions = [...(fixed.versions || [])].sort((a, b) => mk(a.year, a.month) - mk(b.year, b.month));
+      let activeVer = null;
+      for (const v of versions) {
+        if (mk(v.year, v.month) <= target) activeVer = v; else break;
+      }
 
-            const amount = isActive && activeVer ? Number(activeVer.amount) : 0;
-            const isPaid = isActive && fixed.paidHistory && fixed.paidHistory[key] === true;
+      if (!activeVer) isActive = false;
 
-            if (isActive) {
-              annualPlanned += amount;
-              activeMonthsCount++;
-              if (isPaid) {
-                annualPaid += amount;
-                runningPaid += amount;
-                paidMonthsCount++;
-              }
-            }
+      const amount = isActive && activeVer ? Number(activeVer.amount) : 0;
+      const payInfo = (typeof getExpensePaymentInfo === 'function')
+        ? getExpensePaymentInfo(fixed, targetY, m, amount)
+        : { totalAmount: amount, paidAmount: (fixed.paidHistory && fixed.paidHistory[ymKey(targetY, m)] === true ? amount : 0), status: (fixed.paidHistory && fixed.paidHistory[ymKey(targetY, m)] === true ? 'pago' : 'pendente') };
 
-            monthsStatus.push({
-              month: m,
-              year: targetY,
-              isActive,
-              amount,
-              isPaid,
-              runningPaid,
-              vigenciaText: isActive ? `Fixa (desde ${MONTH_ABBR[(activeVer.month || 1) - 1]}/${activeVer.year})` : 'Inativo / Encerrado'
-            });
-          }
-        } else if (type === 'variable') {
-          const v = state.variable.find(x => x.id === id);
-          if (!v) return;
-          itemTitle = v.name;
-          itemGroup = v.group || 'Gerais';
-          itemDest = v.destination || 'Nubank';
-          itemNote = v.note || '';
+      const isPaid = isActive && payInfo.status === 'pago';
+      const paidThisMonth = isActive ? payInfo.paidAmount : 0;
 
-          const targetY = state.year;
-          const totalContractMonths = mk(v.endYear, v.endMonth) - mk(v.startYear, v.startMonth) + 1;
-          let runningPaid = 0;
-
-          for (let m = 1; m <= 12; m++) {
-            const target = mk(targetY, m);
-            const key = ymKey(targetY, m);
-            const isActive = target >= mk(v.startYear, v.startMonth) && target <= mk(v.endYear, v.endMonth);
-            const idx = isActive ? (target - mk(v.startYear, v.startMonth) + 1) : 0;
-            const isPaid = isActive && v.paidHistory && v.paidHistory[key] === true;
-            const amount = isActive ? Number(v.amount) : 0;
-
-            if (isActive) {
-              annualPlanned += amount;
-              activeMonthsCount++;
-              if (isPaid) {
-                annualPaid += amount;
-                runningPaid += amount;
-                paidMonthsCount++;
-              }
-            }
-
-            monthsStatus.push({
-              month: m,
-              year: targetY,
-              isActive,
-              amount,
-              isPaid,
-              runningPaid,
-              vigenciaText: isActive ? `Parcela ${idx} de ${totalContractMonths}` : (target < mk(v.startYear, v.startMonth) ? 'Antes do Início' : 'Após o Término')
-            });
-          }
+      if (isActive) {
+        annualPlanned += amount;
+        activeMonthsCount++;
+        annualPaid += paidThisMonth;
+        runningPaid += paidThisMonth;
+        if (isPaid) {
+          paidMonthsCount++;
         }
+      }
 
-        const pctAnnualPaid = annualPlanned > 0 ? Math.min(100, Math.round((annualPaid / annualPlanned) * 100)) : 0;
-        const remainingAnnual = Math.max(0, annualPlanned - annualPaid);
+      monthsStatus.push({
+        month: m,
+        year: targetY,
+        isActive,
+        amount,
+        isPaid,
+        status: payInfo.status,
+        paidAmount: paidThisMonth,
+        remainingAmount: payInfo.remainingAmount,
+        runningPaid,
+        vigenciaText: isActive ? `Fixa (desde ${MONTH_ABBR[(activeVer.month || 1) - 1]}/${activeVer.year})` : 'Inativo / Encerrado'
+      });
+    }
+  } else {
+    const v = currentItem;
+    const startM = v.startMonth || 1, startY = v.startYear || targetY;
+    const endM = v.endMonth || startM, endY = v.endYear || startY;
+    const totalContractMonths = Math.max(1, mk(endY, endM) - mk(startY, startM) + 1);
+    let runningPaid = 0;
 
-        $('#timelineTitle').innerHTML = `${escapeHtml(itemTitle)} <span class="tag" style="margin-left:8px;">${escapeHtml(itemGroup)}</span>`;
-        $('#timelineSub').textContent = `Destino: ${itemDest} • Ano de Análise: ${state.year}${itemNote ? ` • Obs: ${itemNote}` : ''}`;
+    for (let m = 1; m <= 12; m++) {
+      const target = mk(targetY, m);
+      const isActive = target >= mk(startY, startM) && target <= mk(endY, endM);
+      const idx = isActive ? (target - mk(startY, startM) + 1) : 0;
+      const amount = isActive ? Number(v.amount) : 0;
 
-        $('#timelineMetrics').innerHTML = `
-      <div class="metric" style="padding:12px 14px;">
+      const payInfo = (typeof getExpensePaymentInfo === 'function')
+        ? getExpensePaymentInfo(v, targetY, m, amount)
+        : { totalAmount: amount, paidAmount: (v.paidHistory && v.paidHistory[ymKey(targetY, m)] === true ? amount : 0), status: (v.paidHistory && v.paidHistory[ymKey(targetY, m)] === true ? 'pago' : 'pendente') };
+
+      const isPaid = isActive && payInfo.status === 'pago';
+      const paidThisMonth = isActive ? payInfo.paidAmount : 0;
+
+      if (isActive) {
+        annualPlanned += amount;
+        activeMonthsCount++;
+        annualPaid += paidThisMonth;
+        runningPaid += paidThisMonth;
+        if (isPaid) {
+          paidMonthsCount++;
+        }
+      }
+
+      monthsStatus.push({
+        month: m,
+        year: targetY,
+        isActive,
+        amount,
+        isPaid,
+        status: payInfo.status,
+        paidAmount: paidThisMonth,
+        remainingAmount: payInfo.remainingAmount,
+        runningPaid,
+        vigenciaText: isActive ? (totalContractMonths > 1 ? `Parcela ${idx} de ${totalContractMonths}` : 'Única') : (target < mk(startY, startM) ? 'Antes do Início' : 'Após o Término')
+      });
+    }
+  }
+
+  const pctAnnualPaid = annualPlanned > 0 ? Math.min(100, Math.round((annualPaid / annualPlanned) * 100)) : 0;
+  const remainingAnnual = Math.max(0, annualPlanned - annualPaid);
+
+  // 1. Cabecalho
+  const titleEl = $('#timelineTitle');
+  if (titleEl) {
+    titleEl.innerHTML = `${escapeHtml(itemTitle)} <span class="tag">${escapeHtml(itemGroup)}</span>`;
+  }
+  const subEl = $('#timelineSub');
+  if (subEl) {
+    subEl.textContent = `Ano de Análise: ${state.year}${itemNote ? ` • Obs: ${itemNote}` : ''}`;
+  }
+
+  // 2. Resumo Estruturado V2
+  const summaryEl = $('#expenseAnalysisSummary');
+  if (summaryEl) {
+    summaryEl.innerHTML = buildExpenseAnalysisSummaryHtml(currentItem, type, state);
+  }
+
+  // 3. Subtitulo de Historico
+  const histSub = $('#timelineHistorySub');
+  if (histSub) {
+    histSub.textContent = `Competências de ${state.year}`;
+  }
+
+  // 4. Metricas Anuais
+  const metricsEl = $('#timelineMetrics');
+  if (metricsEl) {
+    metricsEl.innerHTML = `
+      <div class="metric">
         <div class="label">Total Previsto (${state.year})</div>
-        <div class="value num negative" style="font-size:1.25rem;">${currency(annualPlanned)}</div>
+        <div class="value num negative">${currency(annualPlanned)}</div>
         <div class="sub">${activeMonthsCount} mês(es) vigente(s)</div>
       </div>
-      <div class="metric" style="padding:12px 14px;">
+      <div class="metric">
         <div class="label">Total Pago (${state.year})</div>
-        <div class="value num positive" style="font-size:1.25rem;">${currency(annualPaid)}</div>
+        <div class="value num positive">${currency(annualPaid)}</div>
         <div class="sub">${paidMonthsCount} de ${activeMonthsCount} quitados</div>
       </div>
-      <div class="metric" style="padding:12px 14px;">
+      <div class="metric">
         <div class="label">Pendente (${state.year})</div>
-        <div class="value num warning" style="font-size:1.25rem;">${currency(remainingAnnual)}</div>
-        <div class="sub">${activeMonthsCount - paidMonthsCount} mês(es) a pagar</div>
+        <div class="value num warning">${currency(remainingAnnual)}</div>
+        <div class="sub">${Math.max(0, activeMonthsCount - paidMonthsCount)} mês(es) a pagar</div>
       </div>
     `;
+  }
 
-        const progBar = $('#timelineProgressBar');
-        if (progBar) progBar.style.width = `${pctAnnualPaid}%`;
-        const progText = $('#timelineProgressText');
-        if (progText) progText.textContent = `${pctAnnualPaid}% quitado no ano (${currency(annualPaid)} de ${currency(annualPlanned)})`;
+  // 5. Barra de Progresso
+  const progBar = $('#timelineProgressBar');
+  if (progBar) progBar.style.width = `${pctAnnualPaid}%`;
+  const progText = $('#timelineProgressText');
+  if (progText) progText.textContent = `${pctAnnualPaid}% quitado no ano (${currency(annualPaid)} de ${currency(annualPlanned)})`;
 
-        const tbody = $('#timelineTableBody');
-        if (tbody) {
-          tbody.innerHTML = monthsStatus.map(st => {
-            const isCurrentMonth = st.month === state.month;
-            let statusBadge = '<span class="tag" style="opacity:0.6;">Inativo</span>';
-            if (st.isActive) {
-              statusBadge = st.isPaid
-                ? '<span class="badge success">Pago</span>'
-                : '<span class="badge warning">Pendente</span>';
-            }
-
-            return `
-          <tr style="${isCurrentMonth ? 'background:var(--brand-soft); font-weight:700;' : ''} border-bottom:1px solid var(--line);">
-            <td style="padding:10px 12px;">
-              <strong>${MONTH_NAMES[st.month - 1]} / ${st.year}</strong>
-              ${isCurrentMonth ? '<span class="tag" style="margin-left:6px; font-size:.7rem; background:var(--brand-strong); color:#fff;">Mês Atual</span>' : ''}
-            </td>
-            <td style="padding:10px 12px; color:var(--muted);">${st.vigenciaText}</td>
-            <td style="padding:10px 12px;" class="num">${st.isActive ? currency(st.amount) : '—'}</td>
-            <td style="padding:10px 12px;">${statusBadge}</td>
-            <td style="padding:10px 12px; text-align:right;" class="num positive">${st.isActive && st.runningPaid > 0 ? currency(st.runningPaid) : '—'}</td>
-          </tr>
-        `;
-          }).join('');
+  // 6. Tabela das 12 Competencias
+  const tbody = $('#timelineTableBody');
+  if (tbody) {
+    tbody.innerHTML = monthsStatus.map(st => {
+      const isCurrentMonth = st.month === state.month;
+      let statusBadge = '<span class="tag">Inativo</span>';
+      if (st.isActive) {
+        if (st.status === 'pago') {
+          statusBadge = '<span class="badge success">Pago</span>';
+        } else if (st.status === 'parcial') {
+          statusBadge = `<span class="badge warning">Parcial (${currency(st.paidAmount)})</span>`;
+        } else {
+          statusBadge = '<span class="badge warning">Pendente</span>';
         }
-
-        timelineDlg.showModal();
       }
+
+      return `
+        <tr class="${isCurrentMonth ? 'current-month-row' : ''}">
+          <td>
+            <strong>${MONTH_NAMES[st.month - 1]} / ${st.year}</strong>
+            ${isCurrentMonth ? '<span class="tag tag-current-month">Mês Atual</span>' : ''}
+          </td>
+          <td class="text-muted">${st.vigenciaText}</td>
+          <td class="num">${st.isActive ? currency(st.amount) : '—'}</td>
+          <td>${statusBadge}</td>
+          <td class="num positive text-right">${st.isActive && st.runningPaid > 0 ? currency(st.runningPaid) : '—'}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  if (typeof timelineDlg.showModal === 'function') {
+    timelineDlg.showModal();
+  }
+}
 
       /* ---------- PARCELAMENTOS & VALOR TOTAL (DESPESAS) ---------- */
       // expensesTableSort declarada no topo do modulo
@@ -693,6 +946,7 @@ function openExpenseTimeline(opts) {
   // Bridges publicas autorizadas do modulo (consumidas por render() central, DND e cards)
   window.renderExpensesInstallmentsTab = renderExpensesInstallmentsTab;
   window.openExpenseTimeline = openExpenseTimeline;
+  window.buildExpenseAnalysisSummaryHtml = buildExpenseAnalysisSummaryHtml;
   window.convertVariableToFixed = convertVariableToFixed;
   window.openConvertFixedToVarDialog = openConvertFixedToVarDialog;
   window.initExpenseInstallmentsModule = initConvertFixedToVarDialog;

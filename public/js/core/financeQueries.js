@@ -90,6 +90,9 @@
         fixedId: f.id, versionId: active.id, name: f.name, group: f.group || 'Gerais', note: f.note,
         amount: active.amount, effYear: active.year, effMonth: active.month,
         dueDay: f.dueDay || null, destination: f.destination || 'Nubank',
+        payee: f.payee || null,
+        payment: f.payment || null,
+        temporal: f.temporal || null,
         status: payInfo.status,
         paidAmount: payInfo.paidAmount,
         remainingAmount: payInfo.remainingAmount

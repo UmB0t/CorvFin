@@ -311,6 +311,34 @@ function validateFinanceSemantics(payload) {
       checkDueDay(f.dueDay, 'fixed.dueDay');
       checkPaidHistory(f.paidHistory, 'fixed');
 
+      checkString(f.payee, STRING_LIMITS.NAME_MAX, 'fixed.payee');
+      if (f.payment && typeof f.payment === 'object') {
+        checkString(f.payment.method, 50, 'fixed.payment.method');
+        checkString(f.payment.account, STRING_LIMITS.NAME_MAX, 'fixed.payment.account');
+      }
+      if (f.temporal && typeof f.temporal === 'object') {
+        checkString(f.temporal.type, 50, 'fixed.temporal.type');
+        if (f.temporal.recurrence && typeof f.temporal.recurrence === 'object') {
+          checkString(f.temporal.recurrence.frequency, 50, 'fixed.temporal.recurrence.frequency');
+          checkString(f.temporal.recurrence.endType, 50, 'fixed.temporal.recurrence.endType');
+          if (f.temporal.recurrence.count !== undefined && f.temporal.recurrence.count !== null) {
+            const count = Number(f.temporal.recurrence.count);
+            if (!Number.isInteger(count) || count < 1 || count > MAX_INSTALLMENTS) {
+              const err = new Error(`INVALID_FINANCE_PAYLOAD: count de recorrência inválido (${f.temporal.recurrence.count}).`);
+              err.status = 400;
+              err.code = 'INVALID_FINANCE_PAYLOAD';
+              throw err;
+            }
+          }
+          checkMonth(f.temporal.recurrence.endMonth, 'fixed.temporal.recurrence.endMonth');
+          checkYear(f.temporal.recurrence.endYear, 'fixed.temporal.recurrence.endYear');
+        }
+      }
+      if (f.endedFrom && typeof f.endedFrom === 'object') {
+        checkMonth(f.endedFrom.month, 'fixed.endedFrom.month');
+        checkYear(f.endedFrom.year, 'fixed.endedFrom.year');
+      }
+
       if (Array.isArray(f.versions)) {
         if (f.versions.length > MAX_ARRAY_ITEMS) {
           const err = new Error(`INVALID_FINANCE_PAYLOAD: fixed.versions excede o limite de ${MAX_ARRAY_ITEMS} itens.`);
@@ -336,6 +364,14 @@ function validateFinanceSemantics(payload) {
       if (!v || typeof v !== 'object') continue;
       checkString(v.name, STRING_LIMITS.NAME_MAX, 'variable.name');
       checkString(v.note, STRING_LIMITS.NOTES_MAX, 'variable.note');
+      checkString(v.payee, STRING_LIMITS.NAME_MAX, 'variable.payee');
+      if (v.payment && typeof v.payment === 'object') {
+        checkString(v.payment.method, 50, 'variable.payment.method');
+        checkString(v.payment.account, STRING_LIMITS.NAME_MAX, 'variable.payment.account');
+      }
+      if (v.temporal && typeof v.temporal === 'object') {
+        checkString(v.temporal.type, 50, 'variable.temporal.type');
+      }
       checkDueDay(v.dueDay, 'variable.dueDay');
       checkFiniteNumber(v.amount, 'variable.amount', true, true);
       checkMonth(v.startMonth, 'variable.startMonth');

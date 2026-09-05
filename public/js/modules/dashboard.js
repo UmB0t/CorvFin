@@ -628,14 +628,18 @@ function renderRibbon(explicitTabId) {
         let count = 0;
 
         activeFixedForMonth(y, m).forEach(f => {
-          if (f.destination === destName && f.status !== 'pago') {
+          const itemAcc = (typeof resolveExpenseAccount === 'function') ? resolveExpenseAccount(f) : (f.payment?.account || null);
+          const isMatch = (itemAcc === destName) || (f.destination === destName);
+          if (isMatch && f.status !== 'pago') {
             const item = state.fixed.find(x => x.id === f.fixedId);
             if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = true; count++; }
           }
         });
 
         activeVariableForMonth(y, m).forEach(v => {
-          if (v.destination === destName && v.status !== 'pago') {
+          const itemAcc = (typeof resolveExpenseAccount === 'function') ? resolveExpenseAccount(v) : (v.payment?.account || null);
+          const isMatch = (itemAcc === destName) || (v.destination === destName);
+          if (isMatch && v.status !== 'pago') {
             const item = state.variable.find(x => x.id === v.id);
             if (item) { item.paidHistory = item.paidHistory || {}; item.paidHistory[key] = true; count++; }
           }
@@ -794,7 +798,8 @@ function renderRibbon(explicitTabId) {
         const destMap = {};
 
         t.allExpenses.forEach(e => {
-          const d = (e.destination || 'Gerais').trim();
+          const itemAcc = (typeof resolveExpenseAccount === 'function') ? resolveExpenseAccount(e) : (e.payment?.account || null);
+          const d = (itemAcc || e.destination || 'Gerais').trim();
           destMap[d] = (destMap[d] || 0) + Number(e.amount || 0);
         });
 

@@ -61,7 +61,7 @@
 
     const monthSelectors = [
       '#cashEffMonth', '#varStartMonth', '#varEndMonth',
-      '#fixedEffMonth', '#entryMonth',
+      '#fixedEffMonth', '#recEndMonth', '#entryMonth',
       '#extraStartMonth', '#extraEndMonth',
       '#debtorStartMonth', '#debtorEndMonth',
       '#aporteMonth', '#benefitMonth',
@@ -87,7 +87,7 @@
 
     const yearSelectors = [
       '#cashEffYear', '#varStartYear', '#varEndYear',
-      '#fixedEffYear', '#entryYear',
+      '#fixedEffYear', '#recEndYear', '#entryYear',
       '#extraStartYear', '#extraEndYear',
       '#debtorStartYear', '#debtorEndYear',
       '#aporteYear', '#benefitYear',
