@@ -5,7 +5,7 @@
       }
 
       .chart-type-btn {
-        padding: 6px !important;
+        padding: 6px;
       }
     }
 
@@ -30,12 +30,6 @@
 
     @media (max-width: 860px) {
       .sections-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    @media (max-width: 860px) {
-      #investChartsGrid {
         grid-template-columns: 1fr;
       }
     }

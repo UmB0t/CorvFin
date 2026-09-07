@@ -397,13 +397,6 @@
       margin-bottom: 22px;
     }
 
-    #investChartsGrid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 20px;
-    }
-
     .dest-track {
       height: 8px;
       border-radius: 999px;

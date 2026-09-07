@@ -106,11 +106,11 @@
   }
 
   .sections-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: 1fr;
   }
 
   .metrics {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
 
   .top-actions-bar {
@@ -596,69 +596,76 @@
   .dashboard-grid,
   .form-grid,
   .field-grid,
-  .metrics-grid,
-  #investChartsGrid,
+  .metrics-grid {
+    grid-template-columns: 1fr;
+    width: 100%;
+    max-width: 100%;
+    gap: 10px;
+  }
+
+  /* Sobrescrita necessária para elemento com grid inline legado */
   #shoppingListsGrid {
     grid-template-columns: 1fr !important;
     width: 100% !important;
     max-width: 100% !important;
-    box-sizing: border-box !important;
     gap: 10px !important;
   }
 
   /* KPIs / Métricas */
-  .metrics {
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 8px !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
+  .metrics,
+  #tab-investments .metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
   }
 
   .metric {
-    padding: 10px 12px !important;
-    min-width: 0 !important;
-    box-sizing: border-box !important;
-    border-radius: 12px !important;
-    overflow: hidden !important;
+    padding: 10px 12px;
+    min-width: 0;
+    border-radius: 12px;
+    overflow: hidden;
   }
 
   .metric .label {
-    font-size: clamp(0.62rem, 2.2vw, 0.67rem) !important;
-    letter-spacing: 0.03em !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    line-height: 1.2 !important;
+    font-size: clamp(0.62rem, 2.2vw, 0.67rem);
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
   }
 
   .metric .value {
-    font-size: clamp(1.05rem, 3.8vw, 1.2rem) !important;
-    margin: 2px 0 !important;
-    line-height: 1.15 !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    font-weight: 800 !important;
+    font-size: clamp(1.05rem, 3.8vw, 1.2rem);
+    margin: 2px 0;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 800;
   }
 
   .metric .sub {
-    font-size: clamp(0.60rem, 2vw, 0.65rem) !important;
-    line-height: 1.2 !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
+    font-size: clamp(0.60rem, 2vw, 0.65rem);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  /* Cards Globais */
+  /* Cards Globais & Espaçamento de Seções */
   .card,
   .section-card {
-    padding: 12px 14px !important;
-    border-radius: 12px !important;
-    box-sizing: border-box !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    margin-bottom: 10px !important;
+    padding: 12px 14px;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 100%;
+    margin-bottom: 10px;
+  }
+
+  .section-block {
+    margin-bottom: 10px;
   }
 
   /* 3.8 SUBTABS & GRUPO DE BOTÕES NO MOBILE (SEGMENTED CONTROL) */
@@ -767,6 +774,7 @@
   .ribbon {
     display: flex !important;
     flex-wrap: nowrap !important;
+    align-items: flex-end !important;
     gap: 4px !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
@@ -783,9 +791,11 @@
 
   .ribbon-col {
     min-width: 38px !important;
-    height: 68px !important;
+    height: auto !important;
+    min-height: 68px !important;
     flex: 0 0 auto !important;
     padding: 2px !important;
+    justify-content: flex-end !important;
   }
 
   /* 3.10 FORMULÁRIOS, INPUTS & CHECKBOXES GLOBAIS (PREVENÇÃO DE AUTO-ZOOM NO IOS SAFARI >= 16px) */
@@ -865,7 +875,7 @@
   #tab-profile textarea,
   #tab-investments input,
   #tab-investments select,
-  #tab-simulation input,
+  #tab-simulation input:not([type="checkbox"]):not([type="radio"]),
   #tab-simulation select,
   #tab-shopping input,
   #tab-shopping select,
@@ -1039,8 +1049,7 @@
 
   /* O componente de destinos continua visível normalmente no mobile */
   #destChartSectionCard {
-    max-width: 100% !important;
-    box-sizing: border-box !important;
+    max-width: 100%;
   }
 
   /* Preservação explícita de controles e seletores de visualização de gráficos no mobile */
@@ -1084,8 +1093,7 @@
   #categoryChartSectionCard,
   #insightsSectionCard,
   #categoryUnifiedChartContent {
-    max-width: 100% !important;
-    box-sizing: border-box !important;
+    max-width: 100%;
   }
 
   #expensesChartControlsWrap {
@@ -1098,9 +1106,36 @@
   }
 
   .dest-bar-item {
-    grid-template-columns: 85px 1fr 75px auto !important;
-    gap: 6px !important;
+    display: grid !important;
+    grid-template-columns: 115px 1fr auto auto !important;
+    gap: 8px !important;
+    align-items: center !important;
     font-size: 0.78rem !important;
+  }
+
+  .dest-bar-item > div:first-child,
+  .dest-bar-item > .dest-name {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .dest-bar-item .dest-name {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    display: inline-block !important;
+  }
+
+  .dest-bar-item .dest-track {
+    min-width: 24px !important;
+  }
+
+  .dest-bar-item .dest-val {
+    white-space: nowrap !important;
+    text-align: right !important;
   }
 
   /* 3.14 TOASTS MOBILE */
@@ -1130,14 +1165,14 @@
 
   /* 3.15 BENEFÍCIOS MOBILE */
   #tab-benefits .top-actions-bar {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    margin-bottom: 10px;
-    width: 100%;
-    max-width: 100%;
-    overflow: visible;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    margin-bottom: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
   }
 
   #tab-benefits .top-actions-bar > div:first-child {
@@ -1202,8 +1237,8 @@
   }
 
   #benefitsChartsGrid {
-    grid-template-columns: 1fr !important;
-    gap: 10px !important;
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   /* 3.16 SIMULAÇÃO MOBILE */
@@ -1269,13 +1304,13 @@
   #simGlobalControls .form-checkbox,
   #simIncludeExtras,
   #simIncludeDebtors {
-    width: 18px;
-    height: 18px;
-    min-height: 18px;
-    max-height: 18px;
-    flex-shrink: 0;
-    margin: 0;
-    accent-color: var(--brand);
+    width: 18px !important;
+    height: 18px !important;
+    min-height: 18px !important;
+    max-height: 18px !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+    accent-color: var(--brand) !important;
   }
 
   .chart-head,
@@ -1325,8 +1360,8 @@
 
   /* 3.17 PERFIL, DESTINOS & CATEGORIAS MOBILE */
   #tab-profile .sections-grid {
-    grid-template-columns: 1fr !important;
-    gap: 10px !important;
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   #profileDestFormGrid,
