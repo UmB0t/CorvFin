@@ -1156,7 +1156,7 @@
   }
 
   .dest-bar-item .dest-track {
-    min-width: 24px !important;
+    min-width: 24px;
   }
 
   .dest-bar-item .dest-val {
@@ -1167,12 +1167,10 @@
   /* 3.14 TOASTS MOBILE */
   #toast-container,
   .toast-container {
-    top: auto !important;
     bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
     left: 12px !important;
     right: 12px !important;
     transform: none !important;
-    width: auto !important;
     max-width: calc(100vw - 24px) !important;
     align-items: stretch !important;
   }
@@ -1182,11 +1180,9 @@
   #toast,
   .toast {
     width: 100% !important;
-    max-width: 100% !important;
     border-radius: 14px !important;
     justify-content: center !important;
     text-align: center !important;
-    box-sizing: border-box !important;
   }
 
   /* 3.15 BENEFÍCIOS MOBILE */
@@ -1378,18 +1374,18 @@
   }
 
   #tab-simulation .legend {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 4px 10px !important;
-    width: 100% !important;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    width: 100%;
     margin-top: 2px !important;
   }
 
   #tab-simulation .legend span {
-    font-size: 0.74rem !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    gap: 4px !important;
+    font-size: 0.74rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
   }
 
   /* 3.17 PERFIL, DESTINOS & CATEGORIAS MOBILE */
@@ -1472,14 +1468,14 @@
   }
 
   .color-swatch-btn {
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-    min-height: 32px !important;
-    border-radius: 50% !important;
-    cursor: pointer !important;
-    touch-action: manipulation !important;
-    flex-shrink: 0 !important;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    touch-action: manipulation;
+    flex-shrink: 0;
   }
 
   #destTagsList,
