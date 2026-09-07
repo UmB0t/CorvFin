@@ -386,31 +386,31 @@
 
   /* DASHBOARD: NAVEGAÇÃO MENSAL NO MOBILE */
   .dashboard-month-nav {
-    padding: 8px 10px !important;
-    gap: 8px !important;
-    border-radius: 12px !important;
-    margin-bottom: 10px !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
+    padding: 8px 10px;
+    gap: 8px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   .dashboard-month-nav .dash-nav-header {
-    width: 100% !important;
-    justify-content: flex-start !important;
+    width: 100%;
+    justify-content: flex-start;
   }
   .dashboard-month-nav .dash-nav-controls {
-    width: 100% !important;
-    justify-content: space-between !important;
+    width: 100%;
+    justify-content: space-between;
   }
   .dashboard-month-nav .dash-month-display {
-    min-width: 76px !important;
-    font-size: 0.85rem !important;
+    min-width: 76px;
+    font-size: 0.85rem;
   }
   .dashboard-month-nav .dash-month-full {
-    display: none !important;
+    display: none;
   }
   .dashboard-month-nav .dash-month-short {
-    display: inline !important;
+    display: inline;
   }
 
   /* QUICK ACTION ITEMS */
@@ -748,19 +748,19 @@
   }
 
   .year-nav {
-    display: flex !important;
-    align-items: center !important;
-    gap: 6px !important;
-    width: 100% !important;
-    justify-content: space-between !important;
-    font-size: 0.95rem !important;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    justify-content: space-between;
+    font-size: 0.95rem;
   }
 
   .today-btn-fixed {
-    margin-left: auto !important;
-    font-size: 0.76rem !important;
-    padding: 5px 10px !important;
-    min-height: 32px !important;
+    margin-left: auto;
+    font-size: 0.76rem;
+    padding: 5px 10px;
+    min-height: 32px;
   }
 
   .ribbon-head .legend {
@@ -774,15 +774,15 @@
   .ribbon {
     display: flex !important;
     flex-wrap: nowrap !important;
-    align-items: flex-end !important;
-    gap: 4px !important;
+    align-items: flex-end;
+    gap: 4px;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
     scrollbar-width: none;
-    padding-bottom: 4px !important;
+    padding-bottom: 4px;
     width: 100% !important;
     max-width: 100% !important;
-    box-sizing: border-box !important;
+    box-sizing: border-box;
   }
 
   .ribbon::-webkit-scrollbar {
@@ -791,24 +791,24 @@
 
   .ribbon-col {
     min-width: 38px !important;
-    height: auto !important;
+    height: auto;
     min-height: 68px !important;
     flex: 0 0 auto !important;
-    padding: 2px !important;
-    justify-content: flex-end !important;
+    padding: 2px;
+    justify-content: flex-end;
   }
 
   /* 3.10 FORMULÁRIOS, INPUTS & CHECKBOXES GLOBAIS (PREVENÇÃO DE AUTO-ZOOM NO IOS SAFARI >= 16px) */
   .field-row {
-    flex-direction: column !important;
-    gap: 8px !important;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .field-group {
-    width: 100% !important;
+    width: 100%;
   }
 
-  input,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="hidden"]),
   select,
   textarea,
   input[type="text"],
@@ -819,65 +819,63 @@
   input[type="date"],
   input[type="tel"],
   input[type="url"],
-  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="hidden"]),
-  .field input,
+  .field input:not([type="checkbox"]):not([type="radio"]),
   .field select,
   .field textarea,
-  .field-grid input,
+  .field-grid input:not([type="checkbox"]):not([type="radio"]),
   .field-grid select,
   .field-grid textarea,
-  .field-row input,
+  .field-row input:not([type="checkbox"]):not([type="radio"]),
   .field-row select,
   .field-row textarea,
   .form-input,
   .form-select,
   .form-control,
-  .filter-bar input,
+  .filter-bar input:not([type="checkbox"]):not([type="radio"]),
   .filter-bar select,
   .th-filter-select,
   .shopping-autocomplete-wrapper input,
-  .shopping-input-row input,
+  .shopping-input-row input:not([type="checkbox"]):not([type="radio"]),
   .shopping-input-row select,
-  dialog input,
+  dialog input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="hidden"]),
   dialog select,
   dialog textarea,
-  dialog input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="hidden"]),
-  #quickExpenseDialog input,
+  #quickExpenseDialog input:not([type="checkbox"]):not([type="radio"]),
   #quickExpenseDialog select,
   #quickExpenseDialog textarea,
   #entryDialog input:not([type="checkbox"]):not([type="radio"]),
   #entryDialog select,
   #entryDialog textarea,
-  #debtorDialog input,
+  #debtorDialog input:not([type="checkbox"]):not([type="radio"]),
   #debtorDialog select,
   #debtorDialog textarea,
-  #extraDialog input,
+  #extraDialog input:not([type="checkbox"]):not([type="radio"]),
   #extraDialog select,
   #extraDialog textarea,
-  #benefitDialog input,
+  #benefitDialog input:not([type="checkbox"]):not([type="radio"]),
   #benefitDialog select,
   #benefitDialog textarea,
-  #partialPaymentDialog input,
+  #partialPaymentDialog input:not([type="checkbox"]):not([type="radio"]),
   #partialPaymentDialog select,
   #partialPaymentDialog textarea,
-  #convertFixedToVarDialog input,
+  #convertFixedToVarDialog input:not([type="checkbox"]):not([type="radio"]),
   #convertFixedToVarDialog select,
   #convertFixedToVarDialog textarea,
-  #simDialog input,
+  #simDialog input:not([type="checkbox"]):not([type="radio"]),
   #simDialog select,
   #simDialog textarea,
-  #shoppingPriceModal input,
+  #shoppingPriceModal input:not([type="checkbox"]):not([type="radio"]),
   #shoppingPriceModal select,
-  #shoppingCompleteDialog input,
+  #shoppingCompleteDialog input:not([type="checkbox"]):not([type="radio"]),
   #shoppingCompleteDialog select,
-  #tab-profile input,
+  #tab-profile input:not([type="checkbox"]):not([type="radio"]),
   #tab-profile select,
   #tab-profile textarea,
-  #tab-investments input,
+  #tab-investments input:not([type="checkbox"]):not([type="radio"]),
   #tab-investments select,
   #tab-simulation input:not([type="checkbox"]):not([type="radio"]),
   #tab-simulation select,
-  #tab-shopping input,
+  #tab-shopping input:not([type="checkbox"]):not([type="radio"]),
   #tab-shopping select,
   #tab-admin input:not([type="checkbox"]):not([type="radio"]),
   #tab-admin select,
@@ -1249,18 +1247,26 @@
     font-weight: 750;
   }
 
+  .filter-bar {
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
   #tab-benefits .filter-bar {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 6px !important;
-    width: 100% !important;
-    margin-bottom: 10px !important;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    margin-bottom: 10px;
   }
 
   #tab-benefits .filter-bar input,
   #tab-benefits .filter-bar select {
-    width: 100% !important;
-    min-width: 0 !important;
+    width: 100%;
+    min-width: 0;
   }
 
   #benefitsChartsGrid {
@@ -1305,9 +1311,9 @@
   }
 
   #simGlobalControls > span:first-child {
-    width: 100% !important;
-    font-size: 0.84rem !important;
-    margin-bottom: 2px !important;
+    width: 100%;
+    font-size: 0.84rem;
+    margin-bottom: 2px;
   }
 
   #simGlobalControls .form-checkbox-label,
@@ -1400,20 +1406,20 @@
   }
 
   #tab-profile .field {
-    width: 100% !important;
-    min-width: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 4px !important;
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
 
   #tab-profile .field label {
-    font-size: 0.76rem !important;
-    font-weight: 750 !important;
-    white-space: normal !important;
-    word-break: normal !important;
-    display: block !important;
-    width: 100% !important;
+    font-size: 0.76rem;
+    font-weight: 750;
+    white-space: normal;
+    word-break: normal;
+    display: block;
+    width: 100%;
   }
 
   #newDestInput,
@@ -1508,6 +1514,45 @@
     justify-content: center !important;
     cursor: pointer !important;
     touch-action: manipulation !important;
+  }
+
+  /* 3.17.1 PERFIL: NAVEGAÇÃO MOBILE (CARDS DE FAVORITOS) */
+  #mobileNavFavoritesPicker > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  #mobileNavFavoritesPicker label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+  }
+
+  #mobileNavFavoritesPicker label > div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  #mobileNavFavoritesPicker label > div span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #mobileNavFavoritesPicker > div > div:last-child {
+    flex-shrink: 0;
   }
 
   /* 3.18 ADMIN — GESTÃO DE USUÁRIOS EM CARDS MOBILE & RBAC */
@@ -1684,24 +1729,24 @@
 
   /* ADMIN USERS PAGINATION NO MOBILE */
   .admin-users-pagination {
-    padding: 8px 10px !important;
-    justify-content: center !important;
-    text-align: center !important;
-    gap: 6px !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
+    padding: 8px 10px;
+    justify-content: center;
+    text-align: center;
+    gap: 6px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   .admin-users-summary {
-    width: 100% !important;
-    font-size: 0.76rem !important;
-    text-align: center !important;
+    width: 100%;
+    font-size: 0.76rem;
+    text-align: center;
   }
   .admin-pagination-controls {
-    width: 100% !important;
-    justify-content: center !important;
-    flex-wrap: wrap !important;
-    gap: 4px !important;
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 4px;
   }
 
   /* 3.19 PERMISSÕES PADRÃO & MANUTENÇÃO MOBILE */
