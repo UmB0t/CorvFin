@@ -12,7 +12,7 @@
       letter-spacing: .04em;
     }
 
-    .field input,
+    .field input:not([type="checkbox"]):not([type="radio"]),
     .field select,
     .field textarea,
     .input,
@@ -29,10 +29,10 @@
       font-size: .88rem;
     }
 
-    .field input[aria-invalid="true"],
+    .field input:not([type="checkbox"]):not([type="radio"])[aria-invalid="true"],
     .field select[aria-invalid="true"],
     .field textarea[aria-invalid="true"],
-    .field input.is-invalid,
+    .field input:not([type="checkbox"]):not([type="radio"]).is-invalid,
     .field select.is-invalid,
     .field textarea.is-invalid {
       border-color: var(--danger) !important;
@@ -212,8 +212,8 @@
       font-weight: 700;
     }
 
-    dialog.dialog-form-long .field input,
-    dialog.modal-form-long .field input {
+    dialog.dialog-form-long .field input:not([type="checkbox"]):not([type="radio"]),
+    dialog.modal-form-long .field input:not([type="checkbox"]):not([type="radio"]) {
       background: var(--surface-2);
       border-radius: 10px;
     }
@@ -548,14 +548,42 @@
       margin-top: 6px;
     }
 
+    .field label.rec-duration-option,
     .rec-duration-option {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 8px;
+      width: 100%;
+      cursor: pointer;
       font-size: 0.82rem;
       font-weight: 750;
-      cursor: pointer;
       color: var(--text);
+      text-transform: none;
+      letter-spacing: normal;
+    }
+
+    .rec-duration-option input[type="radio"] {
+      width: 18px;
+      height: 18px;
+      min-width: 18px;
+      max-width: 18px;
+      min-height: 18px;
+      max-height: 18px;
+      flex: 0 0 18px;
+      margin: 1px 0 0 0;
+      cursor: pointer;
+      accent-color: var(--brand);
+    }
+
+    .rec-duration-option span {
+      flex: 1 1 auto;
+      min-width: 0;
+      font-size: 0.82rem;
+      line-height: 1.35;
+      color: var(--text);
+      white-space: normal;
+      word-break: normal;
+      overflow-wrap: break-word;
     }
 
     .rec-duration-subpanel {

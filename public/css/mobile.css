@@ -845,7 +845,7 @@
   #quickExpenseDialog input,
   #quickExpenseDialog select,
   #quickExpenseDialog textarea,
-  #entryDialog input,
+  #entryDialog input:not([type="checkbox"]):not([type="radio"]),
   #entryDialog select,
   #entryDialog textarea,
   #debtorDialog input,
