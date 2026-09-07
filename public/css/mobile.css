@@ -974,24 +974,50 @@
 
   /* 3.11 DIALOGS & MODAIS (BOTTOM SHEET NO MOBILE) */
   dialog {
-    position: fixed !important;
-    bottom: 0 !important;
-    top: auto !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    max-height: 92dvh !important;
-    max-height: 92vh !important;
-    margin: 0 !important;
+    position: fixed;
+    bottom: 0;
+    top: auto;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: 92dvh;
+    max-height: 92vh;
+    margin: 0;
     border-radius: 18px 18px 0 0 !important;
-    border: none !important;
-    border-top: 1px solid var(--line) !important;
-    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.25) !important;
-    transform: translateY(0) !important;
-    animation: slideUpMobileSheet 0.24s cubic-bezier(0.16, 1, 0.3, 1) !important;
-    box-sizing: border-box !important;
-    overscroll-behavior: contain !important;
+    border: none;
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.25);
+    transform: translateY(0);
+    animation: slideUpMobileSheet 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
+    overscroll-behavior: contain;
+  }
+
+  /* Taxonomia de Dialogs no Mobile (Largura total em Bottom Sheet) */
+  dialog.dialog-xs,
+  dialog.dialog-narrow,
+  dialog.dialog-sm,
+  dialog.dialog-form,
+  dialog.dialog-compact,
+  dialog.dialog-md,
+  dialog.dialog-lg,
+  dialog.dialog-wide,
+  dialog.dialog-xl,
+  dialog.dialog-full,
+  dialog.dialog-bordered,
+  dialog.dialog-form-long,
+  dialog.modal-timeline,
+  dialog#releaseNotesDialog,
+  dialog#timelineDialog,
+  dialog#csvDialog {
+    width: 100%;
+    max-width: 100%;
+    max-height: 92dvh;
+    max-height: 92vh;
+    border: none;
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.25);
   }
 
   @keyframes slideUpMobileSheet {
@@ -1005,11 +1031,12 @@
   }
 
   dialog .dialog-head {
-    padding: 12px 14px !important;
-    border-bottom: 1px solid var(--line) !important;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
   }
 
-  dialog .dialog-body {
+  dialog .dialog-body,
+  dialog.dialog-form-long .dialog-body {
     max-height: calc(88dvh - 110px) !important;
     max-height: calc(88vh - 110px) !important;
     overflow-y: auto !important;
@@ -1022,8 +1049,8 @@
   dialog .dialog-foot,
   dialog .dialog-actions {
     padding: 10px 14px calc(12px + env(safe-area-inset-bottom)) 14px !important;
-    border-top: 1px solid var(--line) !important;
-    background: var(--surface) !important;
+    border-top: 1px solid var(--line);
+    background: var(--surface);
   }
 
   /* 3.12 TABELAS & CONTAINERS SCROLLÁVEIS */
