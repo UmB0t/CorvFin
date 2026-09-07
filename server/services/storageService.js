@@ -62,6 +62,15 @@ module.exports = {
   clearAiPendingAction: (...args) => getActiveStorage().clearAiPendingAction(...args),
   updateAiPendingAction: (...args) => getActiveStorage().updateAiPendingAction(...args),
 
+  // Plans Storage Helpers (Lote 5B)
+  getPlans: (...args) => getActiveStorage().getPlans(...args),
+  getPlanById: (...args) => getActiveStorage().getPlanById(...args),
+  getPlanBySlug: (...args) => getActiveStorage().getPlanBySlug(...args),
+  getDefaultPlan: (...args) => getActiveStorage().getDefaultPlan(...args),
+  savePlan: (...args) => getActiveStorage().savePlan(...args),
+  updatePlan: (...args) => getActiveStorage().updatePlan(...args),
+  setDefaultPlan: (...args) => getActiveStorage().setDefaultPlan(...args),
+
   // Utilitários de auditoria e inspeção
   getDriver: () => config.STORAGE_DRIVER,
   jsonStorage,

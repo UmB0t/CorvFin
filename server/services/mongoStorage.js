@@ -533,6 +533,13 @@ async function ensureMongoIndexes() {
 
   const financesCol = await getCollection('finances');
   await financesCol.createIndex({ userId: 1 }, { unique: true });
+
+  const plansCol = await getCollection('plans');
+  await plansCol.createIndex({ slug: 1 }, { unique: true });
+  await plansCol.createIndex(
+    { isDefault: 1 },
+    { unique: true, partialFilterExpression: { isDefault: true } }
+  );
 }
 
 /* ==========================================================================
@@ -985,6 +992,157 @@ async function cleanExpiredSecurityTokens(retentionMs = 7 * 24 * 60 * 60 * 1000)
   }
 }
 
+/* ==========================================================================
+   PLANS REPOSITORY (Collection: plans) - Lote 5B
+   ========================================================================== */
+
+let planIndexesEnsured = false;
+async function ensurePlanIndexes(col) {
+  if (planIndexesEnsured) return;
+  try {
+    await col.createIndex({ slug: 1 }, { unique: true });
+    await col.createIndex(
+      { isDefault: 1 },
+      { unique: true, partialFilterExpression: { isDefault: true } }
+    );
+    planIndexesEnsured = true;
+  } catch (err) {
+    // Índices podem já existir ou ser criados concorrentemente
+  }
+}
+
+function mapPlanDoc(doc) {
+  if (!doc) return null;
+  const { _id, ...rest } = doc;
+  return { _id, id: _id, ...rest };
+}
+
+async function getPlans(filter = {}) {
+  const col = await getCollection('plans');
+  await ensurePlanIndexes(col);
+  const query = {};
+  if (filter.status) {
+    query.status = filter.status;
+  }
+  const docs = await col.find(query).sort({ 'metadata.displayOrder': 1, createdAt: 1 }).toArray();
+  return docs.map(mapPlanDoc);
+}
+
+async function getPlanById(planId) {
+  if (!planId) return null;
+  const col = await getCollection('plans');
+  await ensurePlanIndexes(col);
+  const doc = await col.findOne({ $or: [{ _id: planId }, { id: planId }] });
+  return mapPlanDoc(doc);
+}
+
+async function getPlanBySlug(slug) {
+  if (!slug) return null;
+  const col = await getCollection('plans');
+  await ensurePlanIndexes(col);
+  const doc = await col.findOne({ slug });
+  return mapPlanDoc(doc);
+}
+
+async function getDefaultPlan() {
+  const col = await getCollection('plans');
+  await ensurePlanIndexes(col);
+  const doc = await col.findOne({ isDefault: true });
+  return mapPlanDoc(doc);
+}
+
+async function savePlan(planDoc) {
+  if (!planDoc || !planDoc._id) {
+    throw new Error('Documento de plano inválido: _id obrigatório');
+  }
+  const col = await getCollection('plans');
+  await ensurePlanIndexes(col);
+
+  const docToSave = {
+    ...planDoc,
+    createdAt: planDoc.createdAt || new Date().toISOString(),
+    updatedAt: planDoc.updatedAt || new Date().toISOString()
+  };
+
+  await col.insertOne(docToSave);
+  return mapPlanDoc(docToSave);
+}
+
+async function updatePlan(planId, updateData) {
+  if (!planId) return null;
+  const col = await getCollection('plans');
+  await ensurePlanIndexes(col);
+
+  const payload = {
+    ...updateData,
+    updatedAt: new Date().toISOString()
+  };
+
+  const res = await col.findOneAndUpdate(
+    { $or: [{ _id: planId }, { id: planId }] },
+    { $set: payload },
+    { returnDocument: 'after' }
+  );
+
+  const updated = res && (res.value || res._id ? (res.value || res) : null);
+  return mapPlanDoc(updated);
+}
+
+async function setDefaultPlan(targetPlanId) {
+  if (!targetPlanId) {
+    throw new Error('targetPlanId obrigatório para setDefaultPlan');
+  }
+  const col = await getCollection('plans');
+  await ensurePlanIndexes(col);
+
+  const target = await col.findOne({ $or: [{ _id: targetPlanId }, { id: targetPlanId }] });
+  if (!target) {
+    throw new Error(`Plano não encontrado: "${targetPlanId}"`);
+  }
+  if (target.status !== 'active') {
+    throw new Error(`Não é possível definir plano com status "${target.status}" como default. Apenas planos ativos são elegíveis.`);
+  }
+
+  const currentDefault = await col.findOne({ isDefault: true });
+  if (currentDefault && (currentDefault._id === targetPlanId || currentDefault.id === targetPlanId)) {
+    return mapPlanDoc(currentDefault);
+  }
+
+  const now = new Date().toISOString();
+
+  if (currentDefault) {
+    await col.updateOne(
+      { _id: currentDefault._id },
+      { $set: { isDefault: false, updatedAt: now } }
+    );
+  }
+
+  try {
+    const res = await col.findOneAndUpdate(
+      { $or: [{ _id: targetPlanId }, { id: targetPlanId }] },
+      { $set: { isDefault: true, updatedAt: now } },
+      { returnDocument: 'after' }
+    );
+    const updated = res && (res.value || res._id ? (res.value || res) : null);
+    return mapPlanDoc(updated);
+  } catch (promoErr) {
+    if (currentDefault) {
+      try {
+        await col.updateOne(
+          { _id: currentDefault._id },
+          { $set: { isDefault: true, updatedAt: new Date().toISOString() } }
+        );
+      } catch (rollbackErr) {
+        console.error('[CRITICAL] Falha crítica no rollback de setDefaultPlan:', rollbackErr);
+        const critErr = new Error(`Falha ao promover novo default (${promoErr.message}) E falha crítica no rollback (${rollbackErr.message})`);
+        critErr.code = 'CRITICAL_DEFAULT_ROLLBACK_FAILED';
+        throw critErr;
+      }
+    }
+    throw promoErr;
+  }
+}
+
 module.exports = {
   getUsers,
   getUserById,
@@ -1019,5 +1177,12 @@ module.exports = {
   verifyEmailWithToken,
   resetPasswordWithToken,
   updateUserPassword,
-  cleanExpiredSecurityTokens
+  cleanExpiredSecurityTokens,
+  getPlans,
+  getPlanById,
+  getPlanBySlug,
+  getDefaultPlan,
+  savePlan,
+  updatePlan,
+  setDefaultPlan
 };

@@ -637,6 +637,171 @@ function cleanExpiredSecurityTokens(retentionMs = 7 * 24 * 60 * 60 * 1000) {
   return deletedCount;
 }
 
+/* ==========================================================================
+   PLANS REPOSITORY (File: config.PLANS_FILE) - Lote 5B
+   ========================================================================== */
+
+function getPlansFilePath() {
+  return config.PLANS_FILE || path.join(config.DATA_DIR, 'plans.json');
+}
+
+function getRawPlans() {
+  return safeReadJSON(getPlansFilePath(), []);
+}
+
+function saveRawPlans(plans) {
+  return safeWriteJSON(getPlansFilePath(), plans);
+}
+
+function mapJsonPlan(plan) {
+  if (!plan) return null;
+  const { _id, ...rest } = plan;
+  return { _id, id: _id, ...rest };
+}
+
+function getPlans(filter = {}) {
+  const plans = getRawPlans();
+  let result = plans;
+  if (filter.status) {
+    result = result.filter(p => p.status === filter.status);
+  }
+  result.sort((a, b) => {
+    const orderA = a.metadata?.displayOrder ?? 0;
+    const orderB = b.metadata?.displayOrder ?? 0;
+    if (orderA !== orderB) return orderA - orderB;
+    return (a.createdAt || '').localeCompare(b.createdAt || '');
+  });
+  return result.map(mapJsonPlan);
+}
+
+function getPlanById(planId) {
+  if (!planId) return null;
+  const plans = getRawPlans();
+  const found = plans.find(p => p._id === planId || p.id === planId);
+  return mapJsonPlan(found);
+}
+
+function getPlanBySlug(slug) {
+  if (!slug) return null;
+  const plans = getRawPlans();
+  const found = plans.find(p => p.slug === slug);
+  return mapJsonPlan(found);
+}
+
+function getDefaultPlan() {
+  const plans = getRawPlans();
+  const found = plans.find(p => p.isDefault === true);
+  return mapJsonPlan(found);
+}
+
+function savePlan(planDoc) {
+  if (!planDoc || !planDoc._id) {
+    throw new Error('Documento de plano inválido: _id obrigatório');
+  }
+  const plans = getRawPlans();
+
+  if (plans.some(p => p.slug === planDoc.slug)) {
+    const err = new Error(`E11000 duplicate key error: slug "${planDoc.slug}" already exists`);
+    err.code = 11000;
+    throw err;
+  }
+
+  if (planDoc.isDefault === true && plans.some(p => p.isDefault === true)) {
+    const err = new Error('E11000 duplicate key error: isDefault true already exists');
+    err.code = 11000;
+    throw err;
+  }
+
+  const docToSave = {
+    ...planDoc,
+    id: planDoc._id,
+    createdAt: planDoc.createdAt || new Date().toISOString(),
+    updatedAt: planDoc.updatedAt || new Date().toISOString()
+  };
+
+  plans.push(docToSave);
+  saveRawPlans(plans);
+  return mapJsonPlan(docToSave);
+}
+
+function updatePlan(planId, updateData) {
+  if (!planId) return null;
+  const plans = getRawPlans();
+  const index = plans.findIndex(p => p._id === planId || p.id === planId);
+  if (index === -1) return null;
+
+  if (updateData.isDefault === true) {
+    const existingDefault = plans.find((p, i) => i !== index && p.isDefault === true);
+    if (existingDefault) {
+      const err = new Error('E11000 duplicate key error: isDefault true already exists');
+      err.code = 11000;
+      throw err;
+    }
+  }
+
+  const current = plans[index];
+  const updated = {
+    ...current,
+    ...updateData,
+    _id: current._id,
+    id: current._id,
+    updatedAt: new Date().toISOString()
+  };
+
+  plans[index] = updated;
+  saveRawPlans(plans);
+  return mapJsonPlan(updated);
+}
+
+function setDefaultPlan(targetPlanId) {
+  if (!targetPlanId) {
+    throw new Error('targetPlanId obrigatório para setDefaultPlan');
+  }
+  const plans = getRawPlans();
+  const targetIndex = plans.findIndex(p => p._id === targetPlanId || p.id === targetPlanId);
+  if (targetIndex === -1) {
+    throw new Error(`Plano não encontrado: "${targetPlanId}"`);
+  }
+
+  const target = plans[targetIndex];
+  if (target.status !== 'active') {
+    throw new Error(`Não é possível definir plano com status "${target.status}" como default. Apenas planos ativos são elegíveis.`);
+  }
+
+  const currentDefaultIndex = plans.findIndex(p => p.isDefault === true);
+  if (currentDefaultIndex === targetIndex) {
+    return mapJsonPlan(target);
+  }
+
+  const now = new Date().toISOString();
+  const snapshot = JSON.parse(JSON.stringify(plans));
+
+  try {
+    if (currentDefaultIndex !== -1) {
+      plans[currentDefaultIndex].isDefault = false;
+      plans[currentDefaultIndex].updatedAt = now;
+    }
+    plans[targetIndex].isDefault = true;
+    plans[targetIndex].updatedAt = now;
+
+    const ok = saveRawPlans(plans);
+    if (!ok) {
+      throw new Error('Falha ao gravar arquivo plans.json');
+    }
+    return mapJsonPlan(plans[targetIndex]);
+  } catch (err) {
+    try {
+      saveRawPlans(snapshot);
+    } catch (rollbackErr) {
+      console.error('[CRITICAL] Falha crítica no rollback de setDefaultPlan em JSON:', rollbackErr);
+      const critErr = new Error(`Falha ao promover default (${err.message}) E falha crítica no rollback (${rollbackErr.message})`);
+      critErr.code = 'CRITICAL_DEFAULT_ROLLBACK_FAILED';
+      throw critErr;
+    }
+    throw err;
+  }
+}
+
 module.exports = {
   getUsers,
   getUserById,
@@ -671,5 +836,12 @@ module.exports = {
   verifyEmailWithToken,
   resetPasswordWithToken,
   updateUserPassword,
-  cleanExpiredSecurityTokens
+  cleanExpiredSecurityTokens,
+  getPlans,
+  getPlanById,
+  getPlanBySlug,
+  getDefaultPlan,
+  savePlan,
+  updatePlan,
+  setDefaultPlan
 };
