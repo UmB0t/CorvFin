@@ -250,7 +250,7 @@
   }
 
   #mobileKebabBtn {
-    display: inline-flex !important;
+    display: inline-flex;
   }
 
   .toolbar-btn {
@@ -1266,15 +1266,15 @@
   }
 
   #simGlobalControls {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 8px !important;
-    padding: 10px 12px !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
-    background: var(--surface-2) !important;
-    border-radius: 10px !important;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 12px;
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--surface-2);
+    border-radius: 10px;
   }
 
   #simGlobalControls > span:first-child {

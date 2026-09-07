@@ -2083,3 +2083,26 @@
     grid-column: 1 / -1;
   }
 }
+
+/* --------------------------------------------------------------------------
+   FASE 4B / LOTE C — ESTILOS BASE CONSOLIDADOS (EX-INLINE)
+   -------------------------------------------------------------------------- */
+#mobileKebabBtn {
+  display: none;
+}
+
+#categoryUnifiedChartContent {
+  margin-top: 4px;
+}
+
+#simGlobalControls {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--surface-2);
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
