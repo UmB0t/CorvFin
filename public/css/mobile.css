@@ -1055,12 +1055,13 @@
   .table-responsive,
   .table-wrap,
   .entries-table-wrap,
-  .table-container {
-    width: 100% !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    margin-bottom: 12px !important;
-    box-sizing: border-box !important;
+  .table-container,
+  .consolidated-matrix-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 12px;
+    box-sizing: border-box;
   }
 
   /* 3.13 GRÁFICOS & BARRAS */
@@ -1585,10 +1586,10 @@
   }
 
   #adminUsersTable {
-    display: block !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    border: none !important;
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    border: none;
   }
 
   #adminUsersTable thead {
@@ -1596,40 +1597,40 @@
   }
 
   #adminUsersTable tbody {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 8px !important;
-    width: 100% !important;
-    padding: 6px !important;
-    box-sizing: border-box !important;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    padding: 6px;
+    box-sizing: border-box;
   }
 
   #adminUsersTable tr {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 6px !important;
-    background: var(--surface) !important;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: var(--surface);
     border: 1px solid var(--line) !important;
-    border-radius: 12px !important;
-    padding: 12px 14px !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+    border-radius: 12px;
+    padding: 12px 14px;
+    width: 100%;
+    box-sizing: border-box;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   }
 
   #adminUsersTable td {
-    display: block !important;
+    display: block;
     padding: 0 !important;
-    border: none !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
+    border: none;
+    width: 100%;
+    box-sizing: border-box;
     text-align: left !important;
   }
 
   #adminUsersTable td:nth-child(1) strong {
     font-size: 0.95rem !important;
     color: var(--text) !important;
-    display: block !important;
+    display: block;
   }
 
   #adminUsersTable td:nth-child(1) div {
@@ -1639,10 +1640,10 @@
   }
 
   #adminUsersTable td:nth-child(2) {
-    font-family: monospace !important;
+    font-family: monospace;
     color: var(--brand-strong, var(--brand)) !important;
     font-weight: 750 !important;
-    font-size: 0.84rem !important;
+    font-size: 0.84rem;
   }
 
   #adminUsersTable td:nth-child(3) {
@@ -1652,79 +1653,54 @@
   }
 
   #adminUsersTable td:nth-child(4) {
-    margin-top: 2px !important;
+    margin-top: 2px;
   }
 
   #adminUsersTable td:nth-child(4) .tag {
-    display: inline-flex !important;
+    display: inline-flex;
     padding: 3px 8px !important;
     font-size: 0.74rem !important;
-    border-radius: 6px !important;
+    border-radius: 6px;
   }
 
   #adminUsersTable td:nth-child(5) {
-    margin-top: 4px !important;
+    margin-top: 4px;
     padding: 8px 10px !important;
-    background: var(--surface-2) !important;
-    border: 1px solid var(--line) !important;
-    border-radius: 8px !important;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
   }
 
   #adminUsersTable td:nth-child(5) > div {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 4px !important;
-    width: 100% !important;
-  }
-
-  #adminUsersTable td:nth-child(5) label.tag {
-    display: flex !important;
-    align-items: center !important;
-    gap: 5px !important;
-    min-height: 32px !important;
-    padding: 3px 6px !important;
-    font-size: 0.72rem !important;
-    font-weight: 700 !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
-    border-radius: 6px !important;
-    background: var(--surface) !important;
-    border: 1px solid var(--line) !important;
-    cursor: pointer !important;
-  }
-
-  #adminUsersTable td:nth-child(5) input[type="checkbox"] {
-    width: 15px !important;
-    height: 15px !important;
-    min-height: 15px !important;
-    max-height: 15px !important;
-    margin: 0 !important;
-    accent-color: var(--brand) !important;
+    gap: 4px;
+    width: 100%;
   }
 
   #adminUsersTable td:nth-child(6) {
     display: flex !important;
-    align-items: center !important;
-    justify-content: flex-end !important;
-    gap: 6px !important;
-    margin-top: 6px !important;
-    padding-top: 10px !important;
-    border-top: 1px solid var(--line) !important;
-    width: 100% !important;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 6px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+    width: 100%;
   }
 
   #adminUsersTable td:nth-child(6) [data-edit-user] {
-    flex: 1 !important;
-    min-height: 36px !important;
-    justify-content: center !important;
-    font-weight: 750 !important;
-    font-size: 0.82rem !important;
+    flex: 1;
+    min-height: 36px;
+    justify-content: center;
+    font-weight: 750;
+    font-size: 0.82rem;
   }
 
   #adminUsersTable td:nth-child(6) [data-del-user] {
-    min-height: 36px !important;
-    min-width: 40px !important;
-    justify-content: center !important;
+    min-height: 36px;
+    min-width: 40px;
+    justify-content: center;
   }
 
   /* ADMIN USERS PAGINATION NO MOBILE */
