@@ -6,6 +6,7 @@
 
 const config = require('../config/config');
 const storageService = require('./storageService');
+const aiQuotaService = require('./aiQuotaService');
 
 const SYSTEM_GUIDE_CONTEXT = `
 CORVFIN V3 - GUIA E DIRETRIZES DO ASSISTENTE:
@@ -687,7 +688,7 @@ function extractBenefitTypeFromMessage(text) {
  * Gerencia o ciclo de vida do pendingAction (collecting -> ready -> proposed -> confirmed/cancelled/expired),
  * faz merge incremental seguro de slots e gera a proposta com proposalId quando todos os dados estiverem prontos.
  */
-async function interpretExpenseAction({ message, userId, userName, conversationId: reqConvId, context, type = 'text' }) {
+async function interpretExpenseAction({ message, userId, userName, user = null, conversationId: reqConvId, context, type = 'text' }) {
   const webhookUrl = config.N8N_AI_ACTION_WEBHOOK_URL;
   const authUser = config.N8N_AI_ACTION_BASIC_AUTH_USER;
   const authPass = config.N8N_AI_ACTION_BASIC_AUTH_PASSWORD;
@@ -776,6 +777,18 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
 
   if (isReadOnlyQuery && pendingAction && pendingAction.status === 'collecting') {
     console.log(`[AI ACTION] read-only query detected during multi-turn flow: "${cleanMessage}" -> bypassing slot update`);
+    let roReservation = null;
+    let roProviderStarted = false;
+    let roProviderFailed = false;
+    if (user) {
+      const quotaRes = await aiQuotaService.reserve({
+        user,
+        operationType: 'financial_query',
+        inputMode: type || 'text',
+        credits: 1
+      });
+      roReservation = quotaRes.reservation;
+    }
     let queryAnswer = 'Você pode consultar seus saldos e extratos no painel.';
     try {
       if (config.N8N_AI_ACTION_WEBHOOK_URL) {
@@ -784,27 +797,57 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
           userId,
           context: { month: targetMonth, year: targetYear, currentDate: currentDateIso }
         };
-        const qRes = await fetch(config.N8N_AI_ACTION_WEBHOOK_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+        if (roReservation) {
+          await aiQuotaService.markProviderStarted(roReservation);
+          roProviderStarted = true;
+        }
+        let qRes;
+        try {
+          qRes = await fetch(config.N8N_AI_ACTION_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        } catch (fetchQErr) {
+          roProviderFailed = true;
+          throw fetchQErr;
+        }
         if (qRes.ok) {
           const qJson = await qRes.json().catch(() => ({}));
           const actionObj = Array.isArray(qJson) ? qJson[0] : qJson;
           queryAnswer = actionObj.answer || actionObj.message || queryAnswer;
+        } else {
+          roProviderFailed = true;
+          throw new Error(`n8n action webhook status ${qRes.status}`);
         }
       } else if (config.N8N_AI_WEBHOOK_URL) {
-        const chatRes = await sendToN8nWebhook(
-          { id: userId, nome: userName },
-          cleanMessage,
-          conversationId,
-          { month: targetMonth, year: targetYear, currentDate: currentDateIso }
-        );
+        if (roReservation) {
+          await aiQuotaService.markProviderStarted(roReservation);
+          roProviderStarted = true;
+        }
+        let chatRes;
+        try {
+          chatRes = await sendToN8nWebhook(
+            { id: userId, nome: userName },
+            cleanMessage,
+            conversationId,
+            { month: targetMonth, year: targetYear, currentDate: currentDateIso }
+          );
+        } catch (chatQErr) {
+          roProviderFailed = true;
+          throw chatQErr;
+        }
         queryAnswer = chatRes.answer || chatRes.response || queryAnswer;
+      }
+      if (roReservation) {
+        await aiQuotaService.finalize(roReservation);
+        roReservation = null;
       }
     } catch (errQ) {
       console.warn('[AI ACTION] query webhook error:', errQ.message);
+      if (roReservation) {
+        await aiQuotaService.release(roReservation, { providerStarted: roProviderFailed, providerFailed: roProviderFailed }).catch(relErr => console.error('[AI ACTION] release error:', relErr));
+      }
     }
     return {
       success: true,
@@ -818,19 +861,52 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
 
   if (isReadOnlyQuery) {
     console.log(`[AI ACTION] read-only query detected during multi-turn flow: "${cleanMessage}" -> bypassing slot update`);
-    const queryRes = await sendToN8nWebhook(
-      { id: userId, nome: userName },
-      cleanMessage,
-      conversationId,
-      { month: targetMonth, year: targetYear, currentDate: currentDateIso }
-    );
-    return {
-      success: true,
-      action: 'chat',
-      answer: queryRes.answer || 'Aqui estão seus dados financeiros.',
-      suggestions: Array.isArray(queryRes.suggestions) ? queryRes.suggestions : [],
-      duration: Date.now() - startTime
-    };
+    let roReservation = null;
+    let roProviderStarted = false;
+    let roProviderFailed = false;
+    if (user) {
+      const quotaRes = await aiQuotaService.reserve({
+        user,
+        operationType: 'financial_query',
+        inputMode: type || 'text',
+        credits: 1
+      });
+      roReservation = quotaRes.reservation;
+    }
+    try {
+      if (roReservation) {
+        await aiQuotaService.markProviderStarted(roReservation);
+        roProviderStarted = true;
+      }
+      let queryRes;
+      try {
+        queryRes = await sendToN8nWebhook(
+          { id: userId, nome: userName },
+          cleanMessage,
+          conversationId,
+          { month: targetMonth, year: targetYear, currentDate: currentDateIso }
+        );
+      } catch (sendQErr) {
+        roProviderFailed = true;
+        throw sendQErr;
+      }
+      if (roReservation) {
+        await aiQuotaService.finalize(roReservation);
+        roReservation = null;
+      }
+      return {
+        success: true,
+        action: 'chat',
+        answer: queryRes.answer || 'Aqui estão seus dados financeiros.',
+        suggestions: Array.isArray(queryRes.suggestions) ? queryRes.suggestions : [],
+        duration: Date.now() - startTime
+      };
+    } catch (errQ) {
+      if (roReservation) {
+        await aiQuotaService.release(roReservation, { providerStarted: roProviderFailed, providerFailed: roProviderFailed }).catch(relErr => console.error('[AI ACTION] release error:', relErr));
+      }
+      throw errQ;
+    }
   }
 
   // 5. Detecção de Colisão com Nova Transação
@@ -940,19 +1016,47 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
 
   console.log(`[AI ACTION] interpret request user=${userId} conv=${conversationId}`);
 
-  try {
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(webhookPayload),
-      signal: controller.signal
+  const isBenefit = /\b(vr|va|vale refeicao|vale alimentacao|beneficio|vale transporte)\b/i.test(lowerMessage) || (pendingAction?.intent === 'create_benefit');
+  const operationType = isBenefit ? 'benefit_interpretation' : 'expense_interpretation';
+
+  let reservation = null;
+  let providerStarted = false;
+  let providerFailed = false;
+  if (user) {
+    const quotaRes = await aiQuotaService.reserve({
+      user,
+      operationType,
+      inputMode: type || 'text',
+      credits: 1
     });
+    reservation = quotaRes.reservation;
+  }
+
+  try {
+    if (reservation) {
+      await aiQuotaService.markProviderStarted(reservation);
+      providerStarted = true;
+    }
+
+    let response;
+    try {
+      response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(webhookPayload),
+        signal: controller.signal
+      });
+    } catch (fetchErr) {
+      providerFailed = true;
+      throw fetchErr;
+    }
 
     clearTimeout(timer);
     const duration = Date.now() - startTime;
     console.log(`[AI ACTION] n8n status=${response.status} duration=${duration}ms`);
 
     if (!response.ok) {
+      providerFailed = true;
       const errorText = await response.text().catch(() => '');
       console.error(`[AI ACTION] n8n action upstream returned HTTP ${response.status}: ${errorText.substring(0, 200)}`);
       const err = new Error(`n8n action webhook respondeu com HTTP ${response.status}`);
@@ -964,9 +1068,36 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
     }
 
     const json = await response.json().catch(() => null);
+    if (!json || (typeof json !== 'object' && !Array.isArray(json))) {
+      providerFailed = true;
+      const parseErr = new Error('Resposta inválida do assistente de IA.');
+      parseErr.status = 502;
+      parseErr.code = 'N8N_INVALID_RESPONSE';
+      throw parseErr;
+    }
+
     const actionResult = Array.isArray(json) ? (json[0] || {}) : (json || {});
 
+    // Validação Semântica do Contrato do Provedor
+    const hasContract = Boolean(
+      actionResult.action ||
+      (actionResult.data && typeof actionResult.data === 'object') ||
+      actionResult.answer ||
+      actionResult.message
+    );
+    if (!hasContract) {
+      providerFailed = true;
+      const contractErr = new Error('Resposta do provedor não atende ao contrato esperado.');
+      contractErr.status = 502;
+      contractErr.code = 'N8N_INVALID_CONTRACT';
+      throw contractErr;
+    }
+
     if (actionResult.action === 'unsupported_action') {
+      if (reservation) {
+        await aiQuotaService.finalize(reservation);
+        reservation = null;
+      }
       return {
         success: true,
         action: 'unsupported_action',
@@ -1025,6 +1156,10 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
 
     // Se n8n respondeu chat/insufficient_data e não há slots coletados nem pendingAction, retorna chat diretamente
     if ((actionResult.action === 'chat' || actionResult.action === 'insufficient_data' || (actionResult.answer && !actionResult.data)) && !pendingAction && !mergedDesc && !mergedAmount) {
+      if (reservation) {
+        await aiQuotaService.finalize(reservation);
+        reservation = null;
+      }
       return {
         success: true,
         action: actionResult.action || 'chat',
@@ -1166,6 +1301,11 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
         ? questionAnswer
         : actionResult.answer;
 
+      if (reservation) {
+        await aiQuotaService.finalize(reservation);
+        reservation = null;
+      }
+
       return {
         success: true,
         action: 'continue_collection',
@@ -1241,6 +1381,11 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
       });
 
       console.log(`[AI ACTION] benefit proposal created id=${proposalId} from multi-turn`);
+
+      if (reservation) {
+        await aiQuotaService.finalize(reservation);
+        reservation = null;
+      }
 
       return {
         success: true,
@@ -1449,6 +1594,11 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
 
     console.log(`[AI ACTION] expense proposal created id=${proposalId} from multi-turn`);
 
+    if (reservation) {
+      await aiQuotaService.finalize(reservation);
+      reservation = null;
+    }
+
     return {
       success: true,
       proposalId,
@@ -1463,6 +1613,9 @@ async function interpretExpenseAction({ message, userId, userName, conversationI
     };
   } catch (err) {
     clearTimeout(timer);
+    if (reservation) {
+      await aiQuotaService.release(reservation, { providerStarted: providerFailed, providerFailed }).catch(relErr => console.error('[AI ACTION] release error:', relErr));
+    }
     if (err.name === 'AbortError' || err.code === 20) {
       console.error(`[AI ACTION] n8n action timeout after ${timeoutMs}ms`);
       const timeoutErr = new Error('Tempo limite de resposta do assistente excedido (timeout).');

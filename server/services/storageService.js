@@ -63,6 +63,13 @@ module.exports = {
   clearAiPendingAction: (...args) => getActiveStorage().clearAiPendingAction(...args),
   updateAiPendingAction: (...args) => getActiveStorage().updateAiPendingAction(...args),
 
+  // AI Daily Credits & Usage Storage Helpers (Lote 5G)
+  getAiDailyUsage: (...args) => getActiveStorage().getAiDailyUsage(...args),
+  reserveAiDailyCredits: (...args) => getActiveStorage().reserveAiDailyCredits(...args),
+  markAiProviderStarted: (...args) => getActiveStorage().markAiProviderStarted(...args),
+  finalizeAiDailyCredits: (...args) => getActiveStorage().finalizeAiDailyCredits(...args),
+  releaseAiDailyCredits: (...args) => getActiveStorage().releaseAiDailyCredits(...args),
+
   // Plans Storage Helpers (Lote 5B)
   getPlans: (...args) => getActiveStorage().getPlans(...args),
   getPlanById: (...args) => getActiveStorage().getPlanById(...args),

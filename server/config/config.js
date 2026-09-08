@@ -89,6 +89,7 @@ module.exports = {
   AI_PROPOSALS_FILE: path.join(__dirname, '..', 'data', 'ai_proposals.json'),
   AI_PENDING_ACTIONS_FILE: path.join(__dirname, '..', 'data', 'ai_pending_actions.json'),
   PLANS_FILE: path.join(__dirname, '..', 'data', 'plans.json'),
+  AI_USAGE_DAILY_FILE: process.env.AI_USAGE_DAILY_FILE || path.join(__dirname, '..', 'data', 'ai_usage_daily.json'),
   AI_PENDING_ACTION_TTL_MS: parseInt(process.env.AI_PENDING_ACTION_TTL_MS, 10) || (30 * 60 * 1000), // 30 minutos
   // n8n AI Agent Integration (Conversational Read-Only - Basic Auth)
   N8N_AI_WEBHOOK_URL: (process.env.N8N_AI_WEBHOOK_URL || process.env.N8N_WEBHOOK_URL || process.env.N8N_AI_URL || '').trim(),

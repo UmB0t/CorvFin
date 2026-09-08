@@ -59,6 +59,8 @@ const {
   confirmBenefitProposal,
   cancelExpenseProposal
 } = require('./services/aiService');
+const aiQuotaService = require('./services/aiQuotaService');
+const { classifyAiOperation } = require('./services/aiClassificationService');
 
 const app = express();
 
@@ -1062,8 +1064,12 @@ app.use('/api/ai/', aiLimiter);
 
 // POST /api/ai/chat - Processar mensagem do usuário com o Agente de IA via n8n
 app.post('/api/ai/chat', authMiddleware, async (req, res) => {
+  let reservation = null;
+  let providerStarted = false;
+  let providerFailed = false;
   try {
-    const { message, conversationId, context } = req.body || {};
+    const { message, conversationId, context, inputMode } = req.body || {};
+    const cleanMode = (inputMode || 'text').trim().toLowerCase();
 
     if (!message || typeof message !== 'string' || !message.trim()) {
       return res.status(400).json({
@@ -1080,6 +1086,41 @@ app.post('/api/ai/chat', authMiddleware, async (req, res) => {
       });
     }
 
+    // Classificação determinística da operação (zero LLM)
+    const classification = classifyAiOperation({
+      endpoint: 'chat',
+      message: cleanMessage,
+      inputMode: cleanMode
+    });
+
+    if (classification.unsupported) {
+      return res.status(400).json({
+        success: false,
+        error: 'UNSUPPORTED_INPUT_MODE',
+        message: classification.errorMessage
+      });
+    }
+
+    // Asserção comercial de acesso ao módulo de IA (ai.enabled === true)
+    await aiQuotaService.assertAiAccess(req.user);
+
+    const convId = conversationId && typeof conversationId === 'string'
+      ? conversationId.trim()
+      : ('conv_' + req.user.id + '_' + Date.now().toString(36));
+
+    // Zero credit = Zero provider call (resolução estritamente local)
+    if (classification.localResponse) {
+      console.log(`[AI] local intent resolved (0 credits): type=${classification.operationType} user=${req.user.id}`);
+      return res.json({
+        success: true,
+        conversationId: convId,
+        answer: classification.localResponse.answer,
+        suggestions: classification.localResponse.suggestions || [],
+        duration: 0
+      });
+    }
+
+    // Operação tarifada: validação de infraestrutura n8n
     if (!config.N8N_AI_WEBHOOK_URL || !config.N8N_AI_BASIC_AUTH_USER || !config.N8N_AI_BASIC_AUTH_PASSWORD) {
       console.warn('[AI] request received but n8n integration is not fully configured in environment');
       return res.status(503).json({
@@ -1089,13 +1130,18 @@ app.post('/api/ai/chat', authMiddleware, async (req, res) => {
       });
     }
 
-    const convId = conversationId && typeof conversationId === 'string'
-      ? conversationId.trim()
-      : ('conv_' + req.user.id + '_' + Date.now().toString(36));
+    // Reserva atômica de quota antes de carregar contexto financeiro ou chamar n8n
+    const reserveResult = await aiQuotaService.reserve({
+      user: req.user,
+      operationType: classification.operationType,
+      inputMode: classification.inputMode,
+      credits: classification.creditCost
+    });
+    reservation = reserveResult.reservation;
 
-    console.log(`[AI] request received: user=${req.user.id} conversation=${convId}`);
+    console.log(`[AI] quota reserved: user=${req.user.id} op=${classification.operationType} credits=${classification.creditCost} reservationId=${reservation?.reservationId} conversation=${convId}`);
 
-    // Carrega os dados financeiros estritamente do usuário autenticado pelo JWT
+    // Carrega dados financeiros estritamente do usuário autenticado após autorização comercial
     const finances = await getUserFinances(req.user.id, req.user.nome);
 
     const targetMonth = Number(context?.month) || (new Date().getMonth() + 1);
@@ -1126,10 +1172,79 @@ app.post('/api/ai/chat', authMiddleware, async (req, res) => {
       }
     };
 
-    const aiResponse = await sendToN8nWebhook(webhookPayload);
+    // Telemetria: registra início da chamada externa HTTP imediatamente antes do fetch
+    if (reservation) {
+      await aiQuotaService.markProviderStarted(reservation);
+      providerStarted = true;
+    }
+
+    let aiResponse;
+    try {
+      aiResponse = await sendToN8nWebhook(webhookPayload);
+    } catch (n8nErr) {
+      providerFailed = true;
+      throw n8nErr;
+    }
+
     console.log(`[AI] response sent to client: conversation=${convId} duration=${aiResponse.duration || 0}ms`);
+
+    // Sucesso da operação: finaliza reserva e contabiliza operação concluída
+    if (reservation) {
+      await aiQuotaService.finalize(reservation);
+      reservation = null;
+    }
+
     return res.json(aiResponse);
   } catch (err) {
+    if (reservation) {
+      try {
+        await aiQuotaService.release(reservation, { providerStarted: providerFailed });
+        console.log(`[AI] quota released after failure: user=${reservation.userId} credits=${reservation.credits} providerFailed=${providerFailed}`);
+      } catch (releaseErr) {
+        console.error('[AI] error releasing quota reservation:', releaseErr);
+      }
+    }
+
+    if (err.status === 429 || err.code === 'AI_DAILY_QUOTA_REACHED') {
+      return res.status(429).json({
+        success: false,
+        error: 'AI_DAILY_QUOTA_REACHED',
+        code: 'AI_DAILY_QUOTA_REACHED',
+        resource: 'ai',
+        limitKey: 'creditsPerDay',
+        limit: err.limit,
+        used: err.used,
+        required: err.required,
+        remaining: err.remaining,
+        dateKey: err.dateKey,
+        resetsAt: err.resetsAt,
+        message: err.message
+      });
+    }
+    if (err.code === 'PLAN_ACCESS_DENIED' || (err.status === 403 && err.resource === 'ai')) {
+      return res.status(403).json({
+        success: false,
+        error: err.code || 'PLAN_ACCESS_DENIED',
+        code: err.code || 'PLAN_ACCESS_DENIED',
+        message: err.message
+      });
+    }
+    if (err.code === 'PLAN_REFERENCE_INVALID') {
+      return res.status(403).json({
+        success: false,
+        error: 'PLAN_REFERENCE_INVALID',
+        code: 'PLAN_REFERENCE_INVALID',
+        message: err.message
+      });
+    }
+    if (err.code === 'PLAN_CONFIGURATION_INVALID') {
+      return res.status(500).json({
+        success: false,
+        error: 'PLAN_CONFIGURATION_INVALID',
+        code: 'PLAN_CONFIGURATION_INVALID',
+        message: err.message
+      });
+    }
     if (err.status === 503) {
       console.warn(`[AI] chat failed: 503 Service Unavailable (${err.message})`);
       return res.status(503).json({
@@ -1163,7 +1278,16 @@ app.post('/api/ai/chat', authMiddleware, async (req, res) => {
 // POST /api/ai/actions/interpret - Interpretar intenção de despesa via n8n e gerar proposta segura
 app.post('/api/ai/actions/interpret', authMiddleware, async (req, res) => {
   try {
-    const { message, conversationId, context, type } = req.body || {};
+    const { message, conversationId, context, type, inputMode } = req.body || {};
+    const mode = (inputMode || type || 'text').trim().toLowerCase();
+
+    if (mode !== 'text') {
+      return res.status(400).json({
+        success: false,
+        error: 'UNSUPPORTED_INPUT_MODE',
+        message: `A modalidade de entrada "${mode}" ainda não é suportada neste ambiente. Utilize entrada em texto.`
+      });
+    }
 
     if (!message || typeof message !== 'string' || !message.trim()) {
       return res.status(400).json({
@@ -1180,17 +1304,61 @@ app.post('/api/ai/actions/interpret', authMiddleware, async (req, res) => {
       });
     }
 
+    // Asserção comercial de acesso ao módulo de IA (ai.enabled === true)
+    await aiQuotaService.assertAiAccess(req.user);
+
     const proposalResult = await interpretExpenseAction({
       message: cleanMessage,
       userId: req.user.id,
       userName: req.user.nome,
+      user: req.user,
       conversationId,
       context,
-      type: type || 'text'
+      type: mode
     });
 
     return res.json(proposalResult);
   } catch (err) {
+    if (err.status === 429 || err.code === 'AI_DAILY_QUOTA_REACHED') {
+      return res.status(429).json({
+        success: false,
+        error: 'AI_DAILY_QUOTA_REACHED',
+        code: 'AI_DAILY_QUOTA_REACHED',
+        resource: 'ai',
+        limitKey: 'creditsPerDay',
+        limit: err.limit,
+        used: err.used,
+        required: err.required,
+        remaining: err.remaining,
+        dateKey: err.dateKey,
+        resetsAt: err.resetsAt,
+        message: err.message
+      });
+    }
+    if (err.code === 'PLAN_ACCESS_DENIED' || (err.status === 403 && err.resource === 'ai')) {
+      return res.status(403).json({
+        success: false,
+        error: err.code || 'PLAN_ACCESS_DENIED',
+        code: err.code || 'PLAN_ACCESS_DENIED',
+        message: err.message
+      });
+    }
+    if (err.code === 'PLAN_REFERENCE_INVALID') {
+      return res.status(403).json({
+        success: false,
+        error: 'PLAN_REFERENCE_INVALID',
+        code: 'PLAN_REFERENCE_INVALID',
+        message: err.message
+      });
+    }
+    if (err.code === 'PLAN_CONFIGURATION_INVALID') {
+      return res.status(500).json({
+        success: false,
+        error: 'PLAN_CONFIGURATION_INVALID',
+        code: 'PLAN_CONFIGURATION_INVALID',
+        message: err.message
+      });
+    }
     if (err.status === 503) {
       return res.status(503).json({
         success: false,

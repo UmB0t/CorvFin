@@ -194,7 +194,13 @@ async function getLimit(user, resourceKey, limitKey) {
     throw err;
   }
 
-  const limitDef = resourceDef.availableLimits?.find(l => l.key === limitKey);
+  // Suporte transparente de retrocompatibilidade para leitura do limite legado questionsPerDay
+  let effectiveLimitKey = limitKey;
+  if (resourceKey === 'ai' && limitKey === 'questionsPerDay') {
+    effectiveLimitKey = 'creditsPerDay';
+  }
+
+  const limitDef = resourceDef.availableLimits?.find(l => l.key === effectiveLimitKey);
   if (!limitDef) {
     const err = new Error(`Limit key "${limitKey}" is not declared for resource "${resourceKey}"`);
     err.code = 'UNKNOWN_LIMIT_KEY';
@@ -205,14 +211,14 @@ async function getLimit(user, resourceKey, limitKey) {
   const plan = await getPlanForUser(user);
   const planEntitlement = plan.entitlements?.[resourceKey];
 
-  if (!planEntitlement || !planEntitlement.limits || planEntitlement.limits[limitKey] === undefined) {
+  if (!planEntitlement || !planEntitlement.limits || planEntitlement.limits[effectiveLimitKey] === undefined) {
     const err = new Error(`Plan "${plan.slug || plan._id}" is missing configuration for limit "${resourceKey}.${limitKey}"`);
     err.code = 'PLAN_CONFIGURATION_INVALID';
     err.status = 500;
     throw err;
   }
 
-  const limitValue = planEntitlement.limits[limitKey];
+  const limitValue = planEntitlement.limits[effectiveLimitKey];
 
   if (limitValue === null) {
     if (!limitDef.allowUnlimited) {

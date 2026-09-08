@@ -691,6 +691,308 @@ async function updateAiPendingAction(userId, conversationId, updateFields = {}) 
 }
 
 /* ==========================================================================
+   AI DAILY CREDITS & USAGE REPOSITORY (Collection: ai_usage_daily) - Lote 5G
+   ========================================================================== */
+
+let aiUsageIndexesEnsured = false;
+async function ensureAiUsageIndexes(col) {
+  if (aiUsageIndexesEnsured) return;
+  try {
+    await col.createIndex({ userId: 1, dateKey: 1 }, { unique: true });
+    aiUsageIndexesEnsured = true;
+  } catch (err) {
+    // Índice pode já existir ou ser restrito em bancos descartáveis de teste
+  }
+}
+
+async function getAiDailyUsage(userId, dateKey) {
+  if (!userId || !dateKey) return null;
+  const col = await getCollection('ai_usage_daily');
+  const id = `${userId}_${dateKey}`;
+  const doc = await col.findOne({ $or: [{ _id: id }, { userId, dateKey }] });
+  if (!doc) {
+    return {
+      _id: id,
+      userId,
+      dateKey,
+      creditsUsed: 0,
+      operations: {},
+      providerCalls: 0,
+      providerFailures: 0,
+      pendingReservations: {}
+    };
+  }
+  const { _id, ...rest } = doc;
+  return {
+    _id,
+    id: _id,
+    providerCalls: doc.providerCalls || 0,
+    providerFailures: doc.providerFailures || 0,
+    pendingReservations: doc.pendingReservations || {},
+    ...rest
+  };
+}
+
+async function reserveAiDailyCredits({ userId, dateKey, limit, credits = 1, operationType = 'financial_query', reservationId }) {
+  if (!userId || !dateKey) {
+    throw new Error('userId and dateKey are required for reserveAiDailyCredits');
+  }
+
+  const col = await getCollection('ai_usage_daily');
+  await ensureAiUsageIndexes(col);
+
+  const id = `${userId}_${dateKey}`;
+  const now = new Date();
+
+  // 1. credits === 0: Operação gratuita não altera creditsUsed nem cria reserva pendente
+  if (credits === 0) {
+    const current = await col.findOne({ _id: id });
+    const used = current ? (current.creditsUsed || 0) : 0;
+    return {
+      allowed: true,
+      creditsUsed: used,
+      remaining: limit === null ? null : Math.max(0, limit - used),
+      reservationId: null
+    };
+  }
+
+  // 2. Proteção obrigatória: se os créditos exigidos excedem o teto total do plano
+  if (limit !== null && credits > limit) {
+    const current = await col.findOne({ _id: id });
+    const used = current ? (current.creditsUsed || 0) : 0;
+    return {
+      allowed: false,
+      creditsUsed: used,
+      remaining: Math.max(0, limit - used)
+    };
+  }
+
+  // 3. limit === 0 com credits > 0: Bloqueia imediatamente
+  if (limit === 0) {
+    const current = await col.findOne({ _id: id });
+    const used = current ? (current.creditsUsed || 0) : 0;
+    return {
+      allowed: false,
+      creditsUsed: used,
+      remaining: 0
+    };
+  }
+
+  const updatePayload = {
+    $inc: { creditsUsed: credits },
+    $set: { updatedAt: now },
+    $setOnInsert: {
+      userId,
+      dateKey,
+      operations: {},
+      providerCalls: 0,
+      providerFailures: 0,
+      createdAt: now
+    }
+  };
+  if (reservationId) {
+    updatePayload.$set[`pendingReservations.${reservationId}`] = {
+      credits,
+      operationType,
+      createdAt: now,
+      providerStarted: false
+    };
+  }
+
+  // 4. limit === null: Ilimitado (registra reserva sem teto)
+  if (limit === null) {
+    const res = await col.findOneAndUpdate(
+      { _id: id },
+      updatePayload,
+      { upsert: true, returnDocument: 'after' }
+    );
+    const doc = res?.value || res;
+    return {
+      allowed: true,
+      creditsUsed: doc.creditsUsed,
+      remaining: null,
+      reservationId
+    };
+  }
+
+  // 5. limit > 0: Reserva atômica condicional (creditsUsed + credits <= limit)
+  try {
+    const res = await col.findOneAndUpdate(
+      { _id: id, creditsUsed: { $lte: limit - credits } },
+      updatePayload,
+      { upsert: true, returnDocument: 'after' }
+    );
+    const doc = res?.value || res;
+    return {
+      allowed: true,
+      creditsUsed: doc.creditsUsed,
+      remaining: Math.max(0, limit - doc.creditsUsed),
+      reservationId
+    };
+  } catch (err) {
+    // Se colidiu em chave duplicada pelo upsert no _id, o limite foi excedido
+    if (err.code === 11000) {
+      const current = await col.findOne({ _id: id });
+      const used = current ? (current.creditsUsed || 0) : limit;
+      return {
+        allowed: false,
+        creditsUsed: used,
+        remaining: Math.max(0, limit - used)
+      };
+    }
+    throw err;
+  }
+}
+
+async function markAiProviderStarted({ userId, dateKey, reservationId }) {
+  if (!userId || !dateKey || !reservationId) {
+    return { success: false, providerCalls: 0 };
+  }
+
+  const col = await getCollection('ai_usage_daily');
+  const id = `${userId}_${dateKey}`;
+  const now = new Date();
+
+  // Atômico: somente incrementa providerCalls se a reservation existir e providerStarted não for true
+  const res = await col.findOneAndUpdate(
+    {
+      _id: id,
+      [`pendingReservations.${reservationId}`]: { $exists: true },
+      $or: [
+        { [`pendingReservations.${reservationId}.providerStarted`]: false },
+        { [`pendingReservations.${reservationId}.providerStarted`]: { $exists: false } }
+      ]
+    },
+    {
+      $inc: { providerCalls: 1 },
+      $set: {
+        [`pendingReservations.${reservationId}.providerStarted`]: true,
+        updatedAt: now
+      }
+    },
+    { returnDocument: 'after' }
+  );
+
+  const doc = res?.value || res;
+  if (!doc) {
+    const current = await col.findOne({ _id: id });
+    return {
+      success: !!(current?.pendingReservations?.[reservationId]),
+      providerCalls: current?.providerCalls || 0
+    };
+  }
+
+  return { success: true, providerCalls: doc.providerCalls };
+}
+
+async function finalizeAiDailyCredits({ userId, dateKey, reservationId, operationType }) {
+  if (!userId || !dateKey || !reservationId) {
+    return { success: false, noop: true };
+  }
+
+  const col = await getCollection('ai_usage_daily');
+  const id = `${userId}_${dateKey}`;
+  const now = new Date();
+
+  let op = operationType;
+  if (!op) {
+    const current = await col.findOne({ _id: id, [`pendingReservations.${reservationId}`]: { $exists: true } });
+    op = current?.pendingReservations?.[reservationId]?.operationType || 'financial_query';
+  }
+  const opField = `operations.${op}`;
+
+  // Atômico: somente finaliza se pendingReservations.<reservationId> existir
+  const res = await col.findOneAndUpdate(
+    {
+      _id: id,
+      [`pendingReservations.${reservationId}`]: { $exists: true }
+    },
+    {
+      $unset: { [`pendingReservations.${reservationId}`]: "" },
+      $inc: { [opField]: 1 },
+      $set: { updatedAt: now }
+    },
+    { returnDocument: 'after' }
+  );
+
+  const doc = res?.value || res;
+  if (!doc) {
+    return { success: false, noop: true };
+  }
+
+  return {
+    success: true,
+    noop: false,
+    creditsUsed: doc.creditsUsed || 0,
+    operationCount: doc.operations?.[op] || 1
+  };
+}
+
+async function releaseAiDailyCredits({ userId, dateKey, reservationId, credits = 1, operationType, providerStarted, providerFailed }) {
+  if (!userId || !dateKey || !reservationId) {
+    return { success: false, noop: true, creditsUsed: 0 };
+  }
+
+  const col = await getCollection('ai_usage_daily');
+  const id = `${userId}_${dateKey}`;
+  const now = new Date();
+
+  // Verifica se a reserva pendente existe
+  const current = await col.findOne(
+    { _id: id, [`pendingReservations.${reservationId}`]: { $exists: true } }
+  );
+  if (!current || !current.pendingReservations || !current.pendingReservations[reservationId]) {
+    return { success: false, noop: true, creditsUsed: current?.creditsUsed || 0 };
+  }
+
+  const pending = current.pendingReservations[reservationId];
+  let refundCredits = pending.credits !== undefined ? pending.credits : credits;
+
+  let wasFailed;
+  if (providerFailed !== undefined) {
+    wasFailed = providerFailed === true;
+  } else if (providerStarted !== undefined) {
+    wasFailed = providerStarted === true;
+  } else {
+    wasFailed = pending.providerStarted === true;
+  }
+
+  const incPayload = {
+    creditsUsed: -refundCredits
+  };
+  if (wasFailed) {
+    incPayload.providerFailures = 1;
+  }
+
+  // Atômico: somente desfaz se a reserva ainda existir
+  const res = await col.findOneAndUpdate(
+    {
+      _id: id,
+      [`pendingReservations.${reservationId}`]: { $exists: true }
+    },
+    {
+      $unset: { [`pendingReservations.${reservationId}`]: "" },
+      $inc: incPayload,
+      $set: { updatedAt: now }
+    },
+    { returnDocument: 'after' }
+  );
+
+  const doc = res?.value || res;
+  if (!doc) {
+    return { success: false, noop: true, creditsUsed: 0 };
+  }
+
+  let finalUsed = doc.creditsUsed || 0;
+  if (finalUsed < 0) {
+    await col.updateOne({ _id: id, creditsUsed: { $lt: 0 } }, { $set: { creditsUsed: 0 } });
+    finalUsed = 0;
+  }
+
+  return { success: true, noop: false, creditsUsed: finalUsed };
+}
+
+/* ==========================================================================
    GLOBAL SETTINGS REPOSITORY (Collection 'settings': _id = 'email_settings', etc.)
    ========================================================================== */
 
@@ -1191,6 +1493,11 @@ module.exports = {
   getAiPendingAction,
   clearAiPendingAction,
   updateAiPendingAction,
+  getAiDailyUsage,
+  reserveAiDailyCredits,
+  markAiProviderStarted,
+  finalizeAiDailyCredits,
+  releaseAiDailyCredits,
   createSecurityToken,
   invalidateSecurityTokensForUser,
   verifyEmailWithToken,

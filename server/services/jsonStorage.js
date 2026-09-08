@@ -23,12 +23,25 @@ function safeReadJSON(filePath, defaultVal = {}) {
 }
 
 function safeWriteJSON(filePath, data) {
+  const tempPath = `${filePath}.tmp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   try {
-    const tempPath = `${filePath}.tmp_${Date.now()}`;
     fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf-8');
-    fs.renameSync(tempPath, filePath);
+    try {
+      fs.renameSync(tempPath, filePath);
+    } catch (renameErr) {
+      // No Windows, renameSync atômico pode falhar com EPERM/EBUSY momentâneo
+      if (renameErr.code === 'EPERM' || renameErr.code === 'EBUSY') {
+        fs.copyFileSync(tempPath, filePath);
+        try { fs.unlinkSync(tempPath); } catch (_) {}
+      } else {
+        throw renameErr;
+      }
+    }
     return true;
   } catch (err) {
+    try {
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+    } catch (_) {}
     console.error(`Erro gravando arquivo ${filePath}:`, err);
     return false;
   }
@@ -411,6 +424,239 @@ function updateAiPendingAction(userId, conversationId, updateFields = {}) {
   Object.assign(doc, updateFields, { updatedAt: new Date().toISOString() });
   saveAllAiPendingActions(actions);
   return doc;
+}
+
+// AI Daily Credits & Usage Storage Helpers (Lote 5G)
+function getAiDailyUsageFile() {
+  return config.AI_USAGE_DAILY_FILE || path.join(config.DATA_DIR, 'ai_usage_daily.json');
+}
+
+function getAllAiDailyUsage() {
+  return safeReadJSON(getAiDailyUsageFile(), {});
+}
+
+function saveAllAiDailyUsage(usageMap) {
+  return safeWriteJSON(getAiDailyUsageFile(), usageMap);
+}
+
+function getAiDailyUsage(userId, dateKey) {
+  if (!userId || !dateKey) return null;
+  const usageMap = getAllAiDailyUsage();
+  const key = `${userId}_${dateKey}`;
+  const doc = usageMap[key];
+  if (!doc) {
+    return null;
+  }
+  return { ...doc, _id: key, id: key };
+}
+
+function reserveAiDailyCredits({ userId, dateKey, limit, credits = 1, operationType = 'financial_query', reservationId }) {
+  if (!userId || !dateKey) {
+    throw new Error('userId and dateKey are required for reserveAiDailyCredits');
+  }
+
+  const usageMap = getAllAiDailyUsage();
+  const key = `${userId}_${dateKey}`;
+  const nowISO = new Date().toISOString();
+  const currentDoc = usageMap[key] || {
+    userId,
+    dateKey,
+    creditsUsed: 0,
+    operations: {},
+    providerCalls: 0,
+    providerFailures: 0,
+    pendingReservations: {},
+    createdAt: nowISO
+  };
+
+  currentDoc.pendingReservations = currentDoc.pendingReservations || {};
+  currentDoc.operations = currentDoc.operations || {};
+  currentDoc.providerCalls = currentDoc.providerCalls || 0;
+  currentDoc.providerFailures = currentDoc.providerFailures || 0;
+
+  const currentUsed = currentDoc.creditsUsed || 0;
+
+  // 1. credits === 0: Operação gratuita não debita créditos nem cria pending reservation
+  if (credits === 0) {
+    return {
+      allowed: true,
+      creditsUsed: currentUsed,
+      remaining: limit === null ? null : Math.max(0, limit - currentUsed),
+      reservationId: null
+    };
+  }
+
+  // 2. Proteção obrigatória: se a operação exige mais créditos do que o limite total diário do plano
+  if (limit !== null && credits > limit) {
+    return {
+      allowed: false,
+      creditsUsed: currentUsed,
+      remaining: Math.max(0, limit - currentUsed)
+    };
+  }
+
+  // 3. limit === 0 com credits > 0: Bloqueia imediatamente
+  if (limit === 0) {
+    return {
+      allowed: false,
+      creditsUsed: currentUsed,
+      remaining: 0
+    };
+  }
+
+  // 4. limit === null: Ilimitado (registra reserva sem teto)
+  if (limit === null) {
+    const nextUsed = currentUsed + credits;
+    currentDoc.creditsUsed = nextUsed;
+    if (reservationId) {
+      currentDoc.pendingReservations[reservationId] = {
+        credits,
+        operationType,
+        createdAt: nowISO,
+        providerStarted: false
+      };
+    }
+    currentDoc.updatedAt = nowISO;
+    usageMap[key] = currentDoc;
+    saveAllAiDailyUsage(usageMap);
+    return {
+      allowed: true,
+      creditsUsed: nextUsed,
+      remaining: null,
+      reservationId
+    };
+  }
+
+  // 5. limit > 0: Condicional ponderado (currentUsed + credits <= limit)
+  if (currentUsed + credits > limit) {
+    return {
+      allowed: false,
+      creditsUsed: currentUsed,
+      remaining: Math.max(0, limit - currentUsed)
+    };
+  }
+
+  const nextUsed = currentUsed + credits;
+  currentDoc.creditsUsed = nextUsed;
+  if (reservationId) {
+    currentDoc.pendingReservations[reservationId] = {
+      credits,
+      operationType,
+      createdAt: nowISO,
+      providerStarted: false
+    };
+  }
+  currentDoc.updatedAt = nowISO;
+  usageMap[key] = currentDoc;
+  saveAllAiDailyUsage(usageMap);
+
+  return {
+    allowed: true,
+    creditsUsed: nextUsed,
+    remaining: Math.max(0, limit - nextUsed),
+    reservationId
+  };
+}
+
+function markAiProviderStarted({ userId, dateKey, reservationId }) {
+  if (!userId || !dateKey || !reservationId) {
+    return { success: false, providerCalls: 0 };
+  }
+
+  const usageMap = getAllAiDailyUsage();
+  const key = `${userId}_${dateKey}`;
+  const doc = usageMap[key];
+  if (!doc || !doc.pendingReservations || !doc.pendingReservations[reservationId]) {
+    return { success: false, providerCalls: doc?.providerCalls || 0 };
+  }
+
+  const pending = doc.pendingReservations[reservationId];
+  if (!pending.providerStarted) {
+    pending.providerStarted = true;
+    doc.providerCalls = (doc.providerCalls || 0) + 1;
+    doc.updatedAt = new Date().toISOString();
+    usageMap[key] = doc;
+    saveAllAiDailyUsage(usageMap);
+  }
+
+  return { success: true, providerCalls: doc.providerCalls };
+}
+
+function finalizeAiDailyCredits({ userId, dateKey, reservationId, operationType }) {
+  if (!userId || !dateKey || !reservationId) {
+    return { success: false, noop: true };
+  }
+
+  const usageMap = getAllAiDailyUsage();
+  const key = `${userId}_${dateKey}`;
+  const doc = usageMap[key];
+  if (!doc || !doc.pendingReservations || !doc.pendingReservations[reservationId]) {
+    return { success: false, noop: true, creditsUsed: doc?.creditsUsed || 0 };
+  }
+
+  const pending = doc.pendingReservations[reservationId];
+  const opType = operationType || pending.operationType || 'financial_query';
+
+  delete doc.pendingReservations[reservationId];
+  doc.operations = doc.operations || {};
+  doc.operations[opType] = (doc.operations[opType] || 0) + 1;
+  doc.updatedAt = new Date().toISOString();
+  usageMap[key] = doc;
+  saveAllAiDailyUsage(usageMap);
+
+  return {
+    success: true,
+    noop: false,
+    creditsUsed: doc.creditsUsed,
+    operationCount: doc.operations[opType]
+  };
+}
+
+function releaseAiDailyCredits({ userId, dateKey, reservationId, credits = 1, operationType, providerStarted, providerFailed }) {
+  if (!userId || !dateKey) {
+    return { success: false, noop: true, creditsUsed: 0 };
+  }
+
+  const usageMap = getAllAiDailyUsage();
+  const key = `${userId}_${dateKey}`;
+  const doc = usageMap[key];
+  if (!doc) {
+    return { success: false, noop: true, creditsUsed: 0 };
+  }
+
+  // Exige que a reserva pendente exista para permitir estorno idempotente
+  if (reservationId) {
+    if (!doc.pendingReservations || !doc.pendingReservations[reservationId]) {
+      return { success: false, noop: true, creditsUsed: doc.creditsUsed || 0 };
+    }
+
+    const pending = doc.pendingReservations[reservationId];
+    const actualCredits = pending.credits !== undefined ? pending.credits : credits;
+
+    let wasStarted;
+    if (providerFailed !== undefined) {
+      wasStarted = providerFailed === true;
+    } else if (providerStarted !== undefined) {
+      wasStarted = providerStarted === true;
+    } else {
+      wasStarted = pending.providerStarted === true;
+    }
+
+    delete doc.pendingReservations[reservationId];
+    doc.creditsUsed = Math.max(0, (doc.creditsUsed || 0) - actualCredits);
+    if (wasStarted) {
+      doc.providerFailures = (doc.providerFailures || 0) + 1;
+    }
+    // providerCalls NÃO é decrementado (contabiliza chamada iniciada)
+    // operations NÃO é decrementado (só é incrementado em finalize)
+    doc.updatedAt = new Date().toISOString();
+    usageMap[key] = doc;
+    saveAllAiDailyUsage(usageMap);
+
+    return { success: true, noop: false, creditsUsed: doc.creditsUsed, providerFailures: doc.providerFailures || 0 };
+  }
+
+  return { success: false, noop: true, creditsUsed: doc.creditsUsed || 0 };
 }
 
 const DEFAULT_EMAIL_SETTINGS = {
@@ -845,6 +1091,11 @@ module.exports = {
   getAiPendingAction,
   clearAiPendingAction,
   updateAiPendingAction,
+  getAiDailyUsage,
+  reserveAiDailyCredits,
+  markAiProviderStarted,
+  finalizeAiDailyCredits,
+  releaseAiDailyCredits,
   getSecurityTokens,
   createSecurityToken,
   invalidateSecurityTokensForUser,

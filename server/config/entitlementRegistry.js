@@ -116,8 +116,8 @@ const ENTITLEMENT_REGISTRY = {
     supportsAccessToggle: true,
     availableLimits: [
       {
-        key: 'questionsPerDay',
-        label: 'Perguntas por Dia',
+        key: 'creditsPerDay',
+        label: 'Créditos por Dia',
         type: 'integer',
         min: 0,
         allowUnlimited: true
@@ -189,7 +189,8 @@ function validatePlanEntitlements(entitlements, requireAllResources = false) {
 
       // Valida cada chave de limite presente
       for (const [limitKey, limitValue] of Object.entries(resourceConfig.limits)) {
-        const limitDef = availableLimits.find(l => l.key === limitKey);
+        const isLegacyAiKey = resourceKey === 'ai' && limitKey === 'questionsPerDay';
+        const limitDef = availableLimits.find(l => l.key === limitKey) || (isLegacyAiKey ? { key: 'questionsPerDay', type: 'integer', min: 0, allowUnlimited: true } : null);
         if (!limitDef) {
           const err = new Error(`Unknown limit key "${limitKey}" for resource "${resourceKey}"`);
           err.code = 'UNKNOWN_LIMIT';
@@ -242,7 +243,7 @@ function getCompatibilityEntitlements() {
  * Cada lote declara explicitamente os pares [resourceKey, limitKey] introduzidos
  * que são elegíveis a preenchimento retrocompatível com `null` (unlimited) caso ausentes.
  *
- * Limites anteriores (ex: devedores.maxItems, investimentos.maxItems, ai.questionsPerDay)
+ * Limites anteriores (ex: devedores.maxItems, investimentos.maxItems)
  * NÃO estão nesta lista e portanto permanecem estritamente fail-closed caso ausentes em um plano.
  */
 const PLAN_ENTITLEMENT_SCHEMA_EVOLUTIONS = {
@@ -251,6 +252,9 @@ const PLAN_ENTITLEMENT_SCHEMA_EVOLUTIONS = {
     ['extras', 'maxItems'],
     ['beneficios', 'maxItems'],
     ['compras', 'maxItems']
+  ],
+  '5G': [
+    ['ai', 'questionsPerDay', 'creditsPerDay']
   ]
 };
 
@@ -260,18 +264,21 @@ const PLAN_ENTITLEMENT_SCHEMA_EVOLUTIONS = {
  *
  * Invariantes:
  * 1. Apenas os 4 limites introduzidos no Lote 5F recebem compatibilidade automática (null) se ausentes;
- * 2. Limites pré-existentes ausentes (ex: devedores.maxItems, investimentos.maxItems, ai.questionsPerDay)
+ * 2. Limites pré-existentes ausentes (ex: devedores.maxItems, investimentos.maxItems)
  *    permanecem AUSENTES, garantindo fail-closed no runtime getLimit();
- * 3. Qualquer valor já configurado (0, N positivo, null) é estritamente PRESERVADO sem sobrescrita.
+ * 3. Qualquer valor já configurado (0, N positivo, null) é estritamente PRESERVADO sem sobrescrita;
+ * 4. Lote 5G: Se plano histórico possui ai.questionsPerDay = X e NÃO possui creditsPerDay,
+ *    migra creditsPerDay = X (onde X pode ser null, 0 ou N positivo). Se ambos ausentes, permanece fail-closed.
  */
 function normalizePlanEntitlements(entitlements) {
   if (!entitlements || typeof entitlements !== 'object' || Array.isArray(entitlements)) {
     return entitlements;
   }
 
-  const evolutions = PLAN_ENTITLEMENT_SCHEMA_EVOLUTIONS['5F'] || [];
+  // 1. Evoluções 5F (maxItems)
+  const evolutions5F = PLAN_ENTITLEMENT_SCHEMA_EVOLUTIONS['5F'] || [];
 
-  for (const [resourceKey, limitKey] of evolutions) {
+  for (const [resourceKey, limitKey] of evolutions5F) {
     const resource = entitlements[resourceKey];
     if (!resource || typeof resource !== 'object' || Array.isArray(resource)) {
       continue;
@@ -284,6 +291,18 @@ function normalizePlanEntitlements(entitlements) {
     // Somente preenche se a chave da allowlist 5F estiver estritamente ausente
     if (!(limitKey in resource.limits)) {
       resource.limits[limitKey] = null;
+    }
+  }
+
+  // 2. Evolução 5G: ai.questionsPerDay -> ai.creditsPerDay
+  if (entitlements.ai && typeof entitlements.ai === 'object') {
+    if (!entitlements.ai.limits || typeof entitlements.ai.limits !== 'object' || Array.isArray(entitlements.ai.limits)) {
+      entitlements.ai.limits = {};
+    }
+    const aiLimits = entitlements.ai.limits;
+    // Se possui questionsPerDay e não possui creditsPerDay, migra preservando valor
+    if ('questionsPerDay' in aiLimits && !('creditsPerDay' in aiLimits)) {
+      aiLimits.creditsPerDay = aiLimits.questionsPerDay;
     }
   }
 

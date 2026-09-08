@@ -1085,11 +1085,15 @@
             }
           }
         } catch (actionErr) {
-          if (actionErr && actionErr.status !== 503 && actionErr.status !== 504) {
-            console.warn('[CorvFin AI] Action interpretation fallback to conversational chat:', actionErr.message);
-          } else {
+          const isTerminalStatus = actionErr && [403, 429, 503, 504].includes(actionErr.status);
+          const terminalCodes = ['PLAN_ACCESS_DENIED', 'PLAN_REFERENCE_INVALID', 'PLAN_CONFIGURATION_INVALID', 'AI_DAILY_QUOTA_REACHED'];
+          const isTerminalCode = actionErr && (terminalCodes.includes(actionErr.code) || terminalCodes.includes(actionErr.error));
+
+          if (isTerminalStatus || isTerminalCode) {
             throw actionErr;
           }
+
+          console.warn('[CorvFin AI] Action interpretation fallback to conversational chat:', actionErr?.message);
         }
       }
 
@@ -1119,10 +1123,15 @@
     } catch (err) {
       console.error('[CorvFin AI]', {
         status: err?.status,
+        code: err?.code || err?.error,
         message: err?.message
       });
       let friendlyError = 'Não foi possível conectar ao Assistente de IA. Verifique sua conexão ou tente novamente.';
-      if (err && err.status === 503) {
+      if (err && (err.status === 429 || err.code === 'AI_DAILY_QUOTA_REACHED' || err.error === 'AI_DAILY_QUOTA_REACHED')) {
+        friendlyError = err.message || 'Você não possui créditos de IA suficientes para esta operação hoje.';
+      } else if (err && (err.status === 403 || err.code === 'PLAN_ACCESS_DENIED' || err.code === 'PLAN_REFERENCE_INVALID')) {
+        friendlyError = err.message || 'Seu plano atual não possui acesso ao Assistente de IA.';
+      } else if (err && err.status === 503) {
         friendlyError = 'O Assistente de IA não está ativado no servidor no momento.';
       } else if (err && err.status === 504) {
         friendlyError = 'O assistente demorou muito para responder (timeout). Tente uma pergunta mais específica.';
