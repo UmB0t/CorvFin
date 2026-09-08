@@ -21,6 +21,7 @@ function createAdminSandbox(overrides = {}) {
       tagName: tagName.toUpperCase(),
       id,
       className: '',
+      value: '',
       classList: {
         add: () => {},
         remove: () => {},
@@ -162,10 +163,32 @@ describe('Lote 5E — Helpers Monetários e Conversão de amountCents', () => {
     }
   });
 
-  test('slugify gera sugestão limpa para criação mas backend permanece autoridade', () => {
-    assert.equal(Admin.slugify('CorvFin Pro'), 'corvfin_pro');
-    assert.equal(Admin.slugify('Plano Família 2.0!'), 'plano_familia_2_0');
-    assert.equal(Admin.slugify('  Ação & Teste  '), 'acao_teste');
+  test('slugify gera sugestão canônica em formato kebab-case compatível com backend (5E.1)', () => {
+    // Exemplos obrigatórios do contrato
+    assert.equal(Admin.slugify('CorvFin Pro'), 'corvfin-pro');
+    assert.equal(Admin.slugify('Plano Básico'), 'plano-basico');
+    assert.equal(Admin.slugify('Premium Mensal'), 'premium-mensal');
+    assert.equal(Admin.slugify('Plano 2026'), 'plano-2026');
+
+    // Casos de robustez
+    assert.equal(Admin.slugify('Plano   Múltiplos    Espaços'), 'plano-multiplos-espacos');
+    assert.equal(Admin.slugify('  Ação & Teste  '), 'acao-teste');
+    assert.equal(Admin.slugify('Plano Família 2.0!'), 'plano-familia-2-0');
+    assert.equal(Admin.slugify('plano_com_underscore'), 'plano-com-underscore');
+    assert.equal(Admin.slugify('---hifen-inicio-e-fim---'), 'hifen-inicio-e-fim');
+    assert.equal(Admin.slugify('plano--duplo---hifen'), 'plano-duplo-hifen');
+
+    // Invariantes estritos: nenhum underscore, nenhum hífen nas pontas, nenhum hífen duplicado
+    const sampleOutputs = [
+      Admin.slugify('CorvFin Pro Per Month'),
+      Admin.slugify('Plano Básico 2026!'),
+      Admin.slugify('_plan_underscore_')
+    ];
+    for (const slug of sampleOutputs) {
+      assert.doesNotMatch(slug, /_/, `Slug "${slug}" não pode conter underscore`);
+      assert.doesNotMatch(slug, /^-|-$/, `Slug "${slug}" não pode começar nem terminar com hífen`);
+      assert.doesNotMatch(slug, /--/, `Slug "${slug}" não pode conter hífens duplicados`);
+    }
   });
 });
 
@@ -601,6 +624,90 @@ describe('Lote 5E — Ações de Planos (Lifecycle, Default, Atribuição e Rest
     assert.strictEqual(extracted.resource_a.limits.limitUnlimited, null, 'Limite ilimitado deve ser null');
     assert.strictEqual(extracted.resource_a.limits.limitZero, 0, 'Limite zero deve ser preservado como 0 numérico');
     assert.strictEqual(extracted.resource_a.limits.limitPositive, 42, 'Limite positivo deve ser número');
+  });
+});
+
+describe('Lote 5E.1 — Sugestão e Envio de Slug no Modal de Criação de Planos', () => {
+  test('Digitação do nome do plano sugere slug kebab-case sem prefixo forçado e sem underscore', async () => {
+    let createPlanPayload = null;
+
+    const { sandbox, elements, eventListeners } = createAdminSandbox({
+      API: {
+        createPlan: async (payload) => {
+          createPlanPayload = payload;
+          return { success: true, plan: { _id: 'plan_new', ...payload } };
+        }
+      }
+    });
+    const Admin = sandbox.AdminModule;
+
+    await Admin.openCreatePlanModal();
+
+    const nameInput = elements.adminCreatePlanName;
+    const slugInput = elements.adminCreatePlanSlug;
+
+    assert.ok(nameInput, 'Input de nome deve existir');
+    assert.ok(slugInput, 'Input de slug deve existir');
+
+    // 1. Digita "CorvFin Pro Per Month" no nome -> sugestão automática compatível
+    nameInput.value = 'CorvFin Pro Per Month';
+    const nameInputListeners = eventListeners['adminCreatePlanName']?.['input'] || [];
+    assert.ok(nameInputListeners.length > 0, 'Deve haver listener de input no nameInput');
+    nameInputListeners.forEach(fn => fn());
+
+    assert.equal(slugInput.value, 'corvfin-pro-per-month', 'Slug deve ser corvfin-pro-per-month sem prefixo plan_ e sem underscore');
+    assert.doesNotMatch(slugInput.value, /_/, 'Slug não pode conter underscore');
+
+    // 2. Submissão do formulário envia o slug correto no payload
+    const formListeners = eventListeners['formAdminCreatePlan']?.['submit'] || [];
+    assert.ok(formListeners.length > 0, 'Deve haver listener de submit no formulário');
+
+    let defaultPrevented = false;
+    await formListeners[0]({ preventDefault: () => { defaultPrevented = true; } });
+
+    assert.ok(defaultPrevented, 'preventDefault deve ter sido chamado');
+    assert.ok(createPlanPayload, 'API.createPlan deve ter sido chamado');
+    assert.equal(createPlanPayload.name, 'CorvFin Pro Per Month');
+    assert.equal(createPlanPayload.slug, 'corvfin-pro-per-month');
+    assert.doesNotMatch(createPlanPayload.slug, /_/, 'Payload final não pode conter underscore');
+  });
+
+  test('Edição manual do campo slug preserva personalização e não é sobrescrita pelo nome', async () => {
+    let createPlanPayload = null;
+
+    const { sandbox, elements, eventListeners } = createAdminSandbox({
+      API: {
+        createPlan: async (payload) => {
+          createPlanPayload = payload;
+          return { success: true, plan: { _id: 'plan_new', ...payload } };
+        }
+      }
+    });
+    const Admin = sandbox.AdminModule;
+
+    await Admin.openCreatePlanModal();
+
+    const nameInput = elements.adminCreatePlanName;
+    const slugInput = elements.adminCreatePlanSlug;
+
+    // Usuário digita slug manual
+    slugInput.value = 'meu-slug-customizado';
+    const slugInputListeners = eventListeners['adminCreatePlanSlug']?.['input'] || [];
+    slugInputListeners.forEach(fn => fn());
+
+    // Agora altera o nome
+    nameInput.value = 'Outro Nome Qualquer';
+    const nameInputListeners = eventListeners['adminCreatePlanName']?.['input'] || [];
+    nameInputListeners.forEach(fn => fn());
+
+    // O slug não deve ter sido sobrescrito
+    assert.equal(slugInput.value, 'meu-slug-customizado');
+
+    // Submete
+    const formListeners = eventListeners['formAdminCreatePlan']?.['submit'] || [];
+    await formListeners[0]({ preventDefault: () => {} });
+
+    assert.equal(createPlanPayload.slug, 'meu-slug-customizado');
   });
 });
 

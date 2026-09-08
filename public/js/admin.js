@@ -81,8 +81,8 @@ const AdminModule = (() => {
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
       .trim()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '');
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
   }
 
   // Parse formatted currency string or number to integer amountCents (ex: "R$ 29,90" -> 2990, 0 -> 0)
@@ -1230,7 +1230,7 @@ const AdminModule = (() => {
                 Slug / Identificador Canônico *
                 <small style="color:var(--muted); font-size:0.72rem; margin-left:4px;">(Imutável após criação)</small>
               </label>
-              <input type="text" id="adminCreatePlanSlug" class="input" placeholder="Ex: plan_pro" required>
+              <input type="text" id="adminCreatePlanSlug" class="input" placeholder="Ex: corvfin-pro" required>
             </div>
           </div>
 
@@ -1290,16 +1290,15 @@ const AdminModule = (() => {
     slugInput?.addEventListener('input', () => { slugTouched = true; });
     nameInput?.addEventListener('input', () => {
       if (!slugTouched && slugInput) {
-        const clean = slugify(nameInput.value);
-        slugInput.value = clean ? `plan_${clean}` : '';
+        slugInput.value = slugify(nameInput.value);
       }
     });
 
     document.getElementById('formAdminCreatePlan')?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const name = nameInput.value.trim();
-      const slug = slugInput.value.trim();
-      const description = document.getElementById('adminCreatePlanDesc')?.value.trim() || '';
+      const name = (nameInput?.value || '').trim();
+      const slug = (slugInput?.value || '').trim();
+      const description = (document.getElementById('adminCreatePlanDesc')?.value || '').trim();
       const priceStr = document.getElementById('adminCreatePlanPrice')?.value || '';
       const interval = document.getElementById('adminCreatePlanInterval')?.value || 'month';
       const orderVal = parseInt(document.getElementById('adminCreatePlanOrder')?.value || '0', 10);
