@@ -974,6 +974,24 @@ async function updateUserPassword(userId, newHashedPassword) {
 }
 
 /**
+ * Atualiza exclusivamente o vínculo comercial (planId) de um usuário.
+ * Preserva todos os demais campos e retorna o documento do usuário atualizado.
+ */
+async function updateUserPlan(userId, planId) {
+  if (!userId || !planId) return null;
+  const col = await getCollection('users');
+  const res = await col.findOneAndUpdate(
+    { $or: [{ _id: userId }, { id: userId }] },
+    { $set: { planId } },
+    { returnDocument: 'after' }
+  );
+  const doc = res && (res.value || res._id ? (res.value || res) : null);
+  if (!doc) return null;
+  const { _id, senha, ...rest } = doc;
+  return { id: doc.id || _id, ...rest, planId };
+}
+
+/**
  * Limpeza oportunística de tokens expirados há mais de 7 dias
  */
 async function cleanExpiredSecurityTokens(retentionMs = 7 * 24 * 60 * 60 * 1000) {
@@ -1185,5 +1203,6 @@ module.exports = {
   getDefaultPlan,
   savePlan,
   updatePlan,
-  setDefaultPlan
+  setDefaultPlan,
+  updateUserPlan
 };

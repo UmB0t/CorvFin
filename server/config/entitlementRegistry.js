@@ -108,7 +108,9 @@ function validatePlanEntitlements(entitlements, requireAllResources = false) {
   // 1. Rejeita qualquer chave de recurso desconhecida
   for (const resourceKey of Object.keys(entitlements)) {
     if (!ENTITLEMENT_REGISTRY[resourceKey]) {
-      throw new Error(`Unknown resource in entitlements: "${resourceKey}"`);
+      const err = new Error(`Unknown resource in entitlements: "${resourceKey}"`);
+      err.code = 'UNKNOWN_RESOURCE';
+      throw err;
     }
   }
 
@@ -157,7 +159,9 @@ function validatePlanEntitlements(entitlements, requireAllResources = false) {
       for (const [limitKey, limitValue] of Object.entries(resourceConfig.limits)) {
         const limitDef = availableLimits.find(l => l.key === limitKey);
         if (!limitDef) {
-          throw new Error(`Unknown limit key "${limitKey}" for resource "${resourceKey}"`);
+          const err = new Error(`Unknown limit key "${limitKey}" for resource "${resourceKey}"`);
+          err.code = 'UNKNOWN_LIMIT';
+          throw err;
         }
 
         if (limitValue === null) {

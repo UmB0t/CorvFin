@@ -19,6 +19,7 @@ module.exports = {
   getUserByEmail: (...args) => getActiveStorage().getUserByEmail(...args),
   saveUsers: (...args) => getActiveStorage().saveUsers(...args),
   updateUserPassword: (...args) => getActiveStorage().updateUserPassword(...args),
+  updateUserPlan: (...args) => getActiveStorage().updateUserPlan(...args),
 
   // Permissions Storage Helpers
   getPermissions: (...args) => getActiveStorage().getPermissions(...args),

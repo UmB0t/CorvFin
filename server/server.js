@@ -21,6 +21,7 @@ const {
   getUserByEmail,
   saveUsers,
   updateUserPassword,
+  updateUserPlan,
   getPermissions,
   savePermissions,
   getDefaultPermissions,
@@ -44,6 +45,8 @@ const {
 const { authMiddleware, adminOnlyMiddleware } = require('./middleware/auth');
 const { sanitizeFinancePayload, applyRbacModulePreservation } = require('./services/financeValidation');
 const planService = require('./services/planService');
+const entitlementService = require('./services/entitlementService');
+const { ENTITLEMENT_REGISTRY } = require('./config/entitlementRegistry');
 const cryptoService = require('./services/cryptoService');
 const mailService = require('./services/mailService');
 const {
@@ -1728,6 +1731,502 @@ const saveDefaultPermissionsHandler = async (req, res) => {
 
 app.post('/api/admin/default-permissions', authMiddleware, adminOnlyMiddleware, saveDefaultPermissionsHandler);
 app.put('/api/admin/default-permissions', authMiddleware, adminOnlyMiddleware, saveDefaultPermissionsHandler);
+
+/* ==========================================================================
+   ADMIN ROUTES: PLANS & ENTITLEMENTS (LOTE 5D)
+   ========================================================================== */
+
+// 1. GET /api/admin/plans/registry - Metadados do registry comercial canônico
+app.get('/api/admin/plans/registry', authMiddleware, adminOnlyMiddleware, (req, res) => {
+  const resources = Object.entries(ENTITLEMENT_REGISTRY).map(([key, def]) => ({
+    key,
+    label: def.label || key,
+    description: def.description || def.label || key,
+    supportsAccessToggle: !!def.supportsAccessToggle,
+    availableLimits: Array.isArray(def.availableLimits)
+      ? def.availableLimits.map(lim => ({
+          key: lim.key,
+          label: lim.label || lim.key,
+          description: lim.description || lim.label || lim.key,
+          type: lim.type || 'integer',
+          min: typeof lim.min === 'number' ? lim.min : 0,
+          allowUnlimited: !!lim.allowUnlimited
+        }))
+      : []
+  }));
+
+  return res.json({ success: true, resources });
+});
+
+// 2. GET /api/admin/plans - Listar planos com filtros estritos e ordenação
+app.get('/api/admin/plans', authMiddleware, adminOnlyMiddleware, async (req, res) => {
+  try {
+    const { status, isDefault } = req.query;
+
+    if (status !== undefined) {
+      if (!['active', 'inactive', 'archived'].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_PLAN_STATUS',
+          message: 'Filtro status inválido. Valores aceitos: active, inactive, archived.'
+        });
+      }
+    }
+
+    if (isDefault !== undefined) {
+      if (isDefault !== 'true' && isDefault !== 'false') {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_REQUEST_FIELD',
+          message: 'Filtro isDefault inválido. Valores aceitos: true, false.'
+        });
+      }
+    }
+
+    const allPlans = await planService.getAllPlans();
+    let filteredPlans = allPlans;
+
+    if (status !== undefined) {
+      filteredPlans = filteredPlans.filter(p => p.status === status);
+    }
+
+    if (isDefault !== undefined) {
+      const targetIsDefault = isDefault === 'true';
+      filteredPlans = filteredPlans.filter(p => p.isDefault === targetIsDefault);
+    }
+
+    filteredPlans.sort((a, b) => {
+      const orderA = (a.metadata && typeof a.metadata.displayOrder === 'number') ? a.metadata.displayOrder : 0;
+      const orderB = (b.metadata && typeof b.metadata.displayOrder === 'number') ? b.metadata.displayOrder : 0;
+      if (orderA !== orderB) return orderA - orderB;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+
+    return res.json({ success: true, plans: filteredPlans });
+  } catch (err) {
+    console.error('Erro ao listar planos:', err);
+    return res.status(500).json({ success: false, message: 'Erro ao listar planos.' });
+  }
+});
+
+// 3. GET /api/admin/plans/:planId - Consultar plano por _id exato
+app.get('/api/admin/plans/:planId', authMiddleware, adminOnlyMiddleware, async (req, res) => {
+  try {
+    const plan = await planService.getPlanById(req.params.planId);
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        error: 'PLAN_NOT_FOUND',
+        message: `Plano "${req.params.planId}" não encontrado.`
+      });
+    }
+    return res.json({ success: true, plan });
+  } catch (err) {
+    console.error('Erro ao consultar plano:', err);
+    return res.status(500).json({ success: false, message: 'Erro ao consultar plano.' });
+  }
+});
+
+// 4. POST /api/admin/plans - Criar novo plano com whitelist estrita
+app.post('/api/admin/plans', authMiddleware, adminOnlyMiddleware, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const bodyKeys = Object.keys(body);
+
+    if (bodyKeys.includes('isDefault')) {
+      return res.status(400).json({
+        success: false,
+        error: 'PLAN_DEFAULT_CHANGE_REQUIRES_EXPLICIT_ENDPOINT',
+        message: 'A definição de plano padrão não é permitida na criação genérica. Utilize o endpoint explícito de troca de default.'
+      });
+    }
+
+    const allowedKeys = ['name', 'slug', 'description', 'status', 'pricing', 'entitlements', 'metadata'];
+    const unknownKeys = bodyKeys.filter(k => !allowedKeys.includes(k));
+    if (unknownKeys.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_REQUEST_FIELD',
+        message: `Campos não permitidos na criação de plano: ${unknownKeys.join(', ')}`
+      });
+    }
+
+    if (body.status !== undefined && !['active', 'inactive', 'archived'].includes(body.status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_PLAN_STATUS',
+        message: 'Status do plano inválido. Valores aceitos: active, inactive, archived.'
+      });
+    }
+
+    const created = await planService.createPlan(body);
+    return res.status(201).json({ success: true, plan: created });
+  } catch (err) {
+    if (err.code === 'SLUG_DUPLICATE') {
+      return res.status(400).json({
+        success: false,
+        error: 'SLUG_DUPLICATE',
+        message: err.message
+      });
+    }
+    if (err.code === 'UNKNOWN_RESOURCE' || err.code === 'UNKNOWN_LIMIT') {
+      return res.status(400).json({
+        success: false,
+        error: err.code,
+        message: err.message
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      error: err.code || 'PLAN_VALIDATION_ERROR',
+      message: err.message || 'Erro de validação ao criar plano.'
+    });
+  }
+});
+
+// 5. PUT /api/admin/plans/:planId - Editar plano com whitelist estrita
+app.put('/api/admin/plans/:planId', authMiddleware, adminOnlyMiddleware, async (req, res) => {
+  try {
+    const planId = req.params.planId;
+    const existing = await planService.getPlanById(planId);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: 'PLAN_NOT_FOUND',
+        message: `Plano "${planId}" não encontrado.`
+      });
+    }
+
+    const body = req.body || {};
+    const bodyKeys = Object.keys(body);
+
+    if (bodyKeys.includes('slug')) {
+      return res.status(400).json({
+        success: false,
+        error: 'PLAN_SLUG_IMMUTABLE',
+        message: 'O slug do plano é estritamente imutável após a criação.'
+      });
+    }
+
+    if (bodyKeys.includes('isDefault')) {
+      return res.status(400).json({
+        success: false,
+        error: 'PLAN_DEFAULT_CHANGE_REQUIRES_EXPLICIT_ENDPOINT',
+        message: 'A alteração de plano padrão requer o endpoint explícito de troca de default.'
+      });
+    }
+
+    if (bodyKeys.includes('status')) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_REQUEST_FIELD',
+        message: 'A alteração de status deve utilizar exclusivamente o endpoint PATCH /api/admin/plans/:planId/status.'
+      });
+    }
+
+    const allowedKeys = ['name', 'description', 'pricing', 'entitlements', 'metadata'];
+    const unknownKeys = bodyKeys.filter(k => !allowedKeys.includes(k));
+    if (unknownKeys.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_REQUEST_FIELD',
+        message: `Campos não permitidos na edição de plano: ${unknownKeys.join(', ')}`
+      });
+    }
+
+    const updated = await planService.updatePlan(planId, body);
+    return res.json({ success: true, plan: updated });
+  } catch (err) {
+    if (err.code === 'SLUG_IMMUTABLE') {
+      return res.status(400).json({
+        success: false,
+        error: 'PLAN_SLUG_IMMUTABLE',
+        message: err.message
+      });
+    }
+    if (err.code === 'UNKNOWN_RESOURCE' || err.code === 'UNKNOWN_LIMIT') {
+      return res.status(400).json({
+        success: false,
+        error: err.code,
+        message: err.message
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      error: err.code || 'PLAN_VALIDATION_ERROR',
+      message: err.message || 'Erro de validação ao editar plano.'
+    });
+  }
+});
+
+// 6. PATCH /api/admin/plans/:planId/status - Lifecycle de plano
+app.patch('/api/admin/plans/:planId/status', authMiddleware, adminOnlyMiddleware, async (req, res) => {
+  try {
+    const planId = req.params.planId;
+    const existing = await planService.getPlanById(planId);
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: 'PLAN_NOT_FOUND',
+        message: `Plano "${planId}" não encontrado.`
+      });
+    }
+
+    const body = req.body || {};
+    const bodyKeys = Object.keys(body);
+
+    if (!bodyKeys.includes('status')) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_PLAN_STATUS',
+        message: 'Campo "status" é obrigatório no payload.'
+      });
+    }
+
+    const extraKeys = bodyKeys.filter(k => k !== 'status');
+    if (extraKeys.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_REQUEST_FIELD',
+        message: `Campos não permitidos no endpoint de status: ${extraKeys.join(', ')}`
+      });
+    }
+
+    const { status } = body;
+    if (!['active', 'inactive', 'archived'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_PLAN_STATUS',
+        message: 'Status inválido. Valores aceitos: active, inactive, archived.'
+      });
+    }
+
+    if (existing.isDefault && status !== 'active') {
+      return res.status(409).json({
+        success: false,
+        error: 'DEFAULT_PLAN_MUST_BE_ACTIVE',
+        message: `Não é permitido alterar o status do plano padrão para "${status}". O plano padrão deve permanecer ativo.`
+      });
+    }
+
+    const updated = await planService.setPlanStatus(planId, status);
+    return res.json({ success: true, plan: updated });
+  } catch (err) {
+    return res.status(400).json({
+      success: false,
+      error: err.code || 'PLAN_VALIDATION_ERROR',
+      message: err.message || 'Erro ao alterar status do plano.'
+    });
+  }
+});
+
+// 7. POST /api/admin/plans/:planId/set-default - Troca explícita de default
+const setDefaultPlanHandler = async (req, res) => {
+  try {
+    const planId = req.params.planId;
+    const target = await planService.getPlanById(planId);
+    if (!target) {
+      return res.status(404).json({
+        success: false,
+        error: 'PLAN_NOT_FOUND',
+        message: `Plano "${planId}" não encontrado.`
+      });
+    }
+
+    if (target.status !== 'active') {
+      return res.status(409).json({
+        success: false,
+        error: 'DEFAULT_PLAN_MUST_BE_ACTIVE',
+        message: `Plano com status "${target.status}" não pode ser definido como padrão. Apenas planos com status "active" podem ser default.`
+      });
+    }
+
+    if (target.isDefault) {
+      return res.json({
+        success: true,
+        plan: target,
+        message: 'Plano já é o padrão do sistema.'
+      });
+    }
+
+    const updated = await planService.setDefaultPlan(planId);
+    return res.json({ success: true, plan: updated });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err.code || 'PLAN_DEFAULT_SWITCH_FAILED',
+      message: err.message || 'Erro ao definir plano padrão.'
+    });
+  }
+};
+
+app.post('/api/admin/plans/:planId/set-default', authMiddleware, adminOnlyMiddleware, setDefaultPlanHandler);
+
+// 8. PATCH /api/admin/users/:userId/plan - Atribuir plano a usuário
+app.patch('/api/admin/users/:userId/plan', authMiddleware, adminOnlyMiddleware, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const body = req.body || {};
+    const bodyKeys = Object.keys(body);
+
+    if (!bodyKeys.includes('planId')) {
+      return res.status(400).json({
+        success: false,
+        error: 'PLAN_VALIDATION_ERROR',
+        message: 'Campo "planId" é obrigatório no payload.'
+      });
+    }
+
+    const extraKeys = bodyKeys.filter(k => k !== 'planId');
+    if (extraKeys.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_REQUEST_FIELD',
+        message: `Campos não permitidos na atribuição de plano: ${extraKeys.join(', ')}`
+      });
+    }
+
+    const { planId } = body;
+    if (!planId || typeof planId !== 'string' || !planId.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'PLAN_VALIDATION_ERROR',
+        message: 'Campo "planId" deve ser uma string não vazia.'
+      });
+    }
+
+    const user = await getUserById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'USER_NOT_FOUND',
+        message: `Usuário "${userId}" não encontrado.`
+      });
+    }
+
+    const targetPlan = await planService.getPlanById(planId);
+    if (!targetPlan) {
+      return res.status(404).json({
+        success: false,
+        error: 'PLAN_NOT_FOUND',
+        message: `Plano "${planId}" não encontrado.`
+      });
+    }
+
+    // Se o usuário já estiver vinculado exatamente a esse plano: no-op idempotente (sem escrita no banco)
+    if (user.planId === planId) {
+      return res.json({
+        success: true,
+        userId: user.id || userId,
+        planId,
+        unchanged: true,
+        message: 'Usuário já está vinculado a este plano.'
+      });
+    }
+
+    // Para novas atribuições, o plano precisa estar estritamente "active"
+    if (targetPlan.status !== 'active') {
+      return res.status(409).json({
+        success: false,
+        error: 'PLAN_NOT_ASSIGNABLE',
+        message: `Planos com status "${targetPlan.status}" não podem receber novas atribuições.`
+      });
+    }
+
+    const updatedUser = await updateUserPlan(userId, planId);
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        error: 'USER_NOT_FOUND',
+        message: `Usuário "${userId}" não encontrado.`
+      });
+    }
+
+    return res.json({
+      success: true,
+      userId: updatedUser.id || userId,
+      planId: updatedUser.planId,
+      message: 'Plano do usuário atualizado com sucesso.'
+    });
+  } catch (err) {
+    console.error('Erro ao atribuir plano a usuário:', err);
+    return res.status(500).json({ success: false, message: 'Erro ao atribuir plano a usuário.' });
+  }
+});
+
+// 9. GET /api/admin/users/:userId/plan - Consultar plano e entitlements efetivos do usuário
+app.get('/api/admin/users/:userId/plan', authMiddleware, adminOnlyMiddleware, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const user = await getUserById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'USER_NOT_FOUND',
+        message: `Usuário "${userId}" não encontrado.`
+      });
+    }
+
+    let effectivePlan = null;
+    let inheritedFromDefault = false;
+
+    if (!user.planId) {
+      effectivePlan = await planService.getDefaultPlan();
+      if (!effectivePlan) {
+        return res.status(500).json({
+          success: false,
+          error: 'DEFAULT_PLAN_NOT_FOUND',
+          message: 'Nenhum plano padrão configurado no sistema.'
+        });
+      }
+      inheritedFromDefault = true;
+    } else {
+      effectivePlan = await planService.getPlanById(user.planId);
+      if (!effectivePlan) {
+        return res.status(409).json({
+          success: false,
+          error: 'PLAN_REFERENCE_INVALID',
+          message: `O plano vinculado ao usuário ("${user.planId}") não existe no catálogo.`
+        });
+      }
+      inheritedFromDefault = false;
+    }
+
+    let effectiveEntitlements = null;
+    try {
+      effectiveEntitlements = await entitlementService.getEffectiveEntitlements(user);
+    } catch (entErr) {
+      if (entErr.code === 'PLAN_REFERENCE_INVALID') {
+        return res.status(409).json({
+          success: false,
+          error: 'PLAN_REFERENCE_INVALID',
+          message: `O plano vinculado ao usuário ("${user.planId}") não existe no catálogo.`
+        });
+      }
+      throw entErr;
+    }
+
+    return res.json({
+      success: true,
+      userId: user.id || userId,
+      planId: user.planId || null,
+      inheritedFromDefault,
+      plan: {
+        id: effectivePlan._id,
+        _id: effectivePlan._id,
+        name: effectivePlan.name,
+        slug: effectivePlan.slug,
+        status: effectivePlan.status,
+        isDefault: effectivePlan.isDefault,
+        pricing: effectivePlan.pricing
+      },
+      effectiveEntitlements
+    });
+  } catch (err) {
+    console.error('Erro ao consultar plano de usuário:', err);
+    return res.status(500).json({ success: false, message: 'Erro ao consultar plano de usuário.' });
+  }
+});
 
 /* ==========================================================================
    SYSTEM & MAINTENANCE ROUTES

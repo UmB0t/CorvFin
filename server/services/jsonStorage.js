@@ -624,6 +624,21 @@ function updateUserPassword(userId, newHashedPassword) {
   return saveUsers(users);
 }
 
+/**
+ * Atualiza exclusivamente o vínculo comercial (planId) de um usuário.
+ * Preserva todos os demais campos e retorna o documento do usuário atualizado.
+ */
+function updateUserPlan(userId, planId) {
+  if (!userId || !planId) return null;
+  const users = getUsers();
+  const idx = users.findIndex(u => u.id === userId || u._id === userId);
+  if (idx === -1) return null;
+  users[idx].planId = planId;
+  saveUsers(users);
+  const { senha, ...rest } = users[idx];
+  return { id: users[idx].id || users[idx]._id, ...rest, planId };
+}
+
 function cleanExpiredSecurityTokens(retentionMs = 7 * 24 * 60 * 60 * 1000) {
   const tokens = getSecurityTokens();
   const cutoff = new Date(Date.now() - retentionMs).toISOString();
@@ -843,5 +858,6 @@ module.exports = {
   getDefaultPlan,
   savePlan,
   updatePlan,
-  setDefaultPlan
+  setDefaultPlan,
+  updateUserPlan
 };
