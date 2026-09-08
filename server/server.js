@@ -46,6 +46,7 @@ const { authMiddleware, adminOnlyMiddleware } = require('./middleware/auth');
 const { sanitizeFinancePayload, applyRbacModulePreservation } = require('./services/financeValidation');
 const planService = require('./services/planService');
 const entitlementService = require('./services/entitlementService');
+const quantitativeEntitlementService = require('./services/quantitativeEntitlementService');
 const { ENTITLEMENT_REGISTRY } = require('./config/entitlementRegistry');
 const cryptoService = require('./services/cryptoService');
 const mailService = require('./services/mailService');
@@ -999,7 +1000,14 @@ app.put('/api/finances', authMiddleware, async (req, res) => {
     // 4. Aplicação de RBAC com preservação de módulos não autorizados
     const finalData = applyRbacModulePreservation(sanitized, currentFinances, userPerms);
 
-    // 5. Restaura expectedRevision no payload para garantir o CAS no storage
+    // 5. Enforcement quantitativo de planos comerciais (Lote 5F)
+    await quantitativeEntitlementService.assertAllItemLimits({
+      user: req.user,
+      currentFinances,
+      incomingFinances: finalData
+    });
+
+    // 6. Restaura expectedRevision no payload para garantir o CAS no storage
     finalData.expectedRevision = expectedRevision;
 
     const saved = await saveUserFinances(req.user.id, finalData);
@@ -1011,6 +1019,19 @@ app.put('/api/finances', authMiddleware, async (req, res) => {
       data: saved
     });
   } catch (err) {
+    if (err.code === 'RESOURCE_LIMIT_REACHED' || err.status === 403) {
+      return res.status(err.status || 403).json({
+        success: false,
+        error: err.code || 'PLAN_ACCESS_DENIED',
+        code: err.code || 'PLAN_ACCESS_DENIED',
+        resource: err.resource,
+        limitKey: err.limitKey,
+        limit: err.limit,
+        currentCount: err.currentCount,
+        nextCount: err.nextCount,
+        message: err.message
+      });
+    }
     if (err.status === 400 || err.code === 'INVALID_FINANCE_PAYLOAD') {
       return res.status(400).json({
         success: false,
@@ -1228,6 +1249,16 @@ app.post('/api/ai/actions/expense/confirm', authMiddleware, async (req, res) => 
       });
     }
 
+    // Enforcement quantitativo de despesas (Lote 5F)
+    const finances = await getUserFinances(req.user.id);
+    await quantitativeEntitlementService.assertWithinItemLimit({
+      user: req.user,
+      resourceKey: 'despesas',
+      limitKey: 'maxItems',
+      currentFinances: finances,
+      explicitDelta: 1
+    });
+
     const confirmResult = await confirmExpenseProposal({
       userId: req.user.id,
       proposalId: proposalId.trim(),
@@ -1236,6 +1267,19 @@ app.post('/api/ai/actions/expense/confirm', authMiddleware, async (req, res) => 
 
     return res.json(confirmResult);
   } catch (err) {
+    if (err.code === 'RESOURCE_LIMIT_REACHED') {
+      return res.status(403).json({
+        success: false,
+        error: err.code,
+        code: err.code,
+        resource: err.resource,
+        limitKey: err.limitKey,
+        limit: err.limit,
+        currentCount: err.currentCount,
+        nextCount: err.nextCount,
+        message: err.message
+      });
+    }
     if (err.status === 404 || err.code === 'PROPOSAL_NOT_FOUND_OR_EXPIRED') {
       return res.status(404).json({
         success: false,
@@ -1321,6 +1365,16 @@ app.post('/api/ai/actions/benefit/confirm', authMiddleware, async (req, res) => 
       });
     }
 
+    // Enforcement quantitativo de benefícios (Lote 5F)
+    const finances = await getUserFinances(req.user.id);
+    await quantitativeEntitlementService.assertWithinItemLimit({
+      user: req.user,
+      resourceKey: 'beneficios',
+      limitKey: 'maxItems',
+      currentFinances: finances,
+      explicitDelta: 1
+    });
+
     const confirmResult = await confirmBenefitProposal({
       userId: req.user.id,
       proposalId: proposalId.trim(),
@@ -1329,6 +1383,19 @@ app.post('/api/ai/actions/benefit/confirm', authMiddleware, async (req, res) => 
 
     return res.json(confirmResult);
   } catch (err) {
+    if (err.code === 'RESOURCE_LIMIT_REACHED') {
+      return res.status(403).json({
+        success: false,
+        error: err.code,
+        code: err.code,
+        resource: err.resource,
+        limitKey: err.limitKey,
+        limit: err.limit,
+        currentCount: err.currentCount,
+        nextCount: err.nextCount,
+        message: err.message
+      });
+    }
     if (err.status === 404 || err.code === 'PROPOSAL_NOT_FOUND_OR_EXPIRED') {
       return res.status(404).json({
         success: false,

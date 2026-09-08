@@ -90,6 +90,102 @@ async function backfillUserPlans(options = {}) {
   };
 }
 
+/**
+ * Realiza evolução de schema/backfill nos documentos de planos existentes,
+ * garantindo que limites novos do registry canônico ausentes em planos já persistidos
+ * sejam preenchidos explicitamente com `null` (unlimited).
+ *
+ * Invariantes:
+ * - 100% idempotente;
+ * - Preserva estritamente limites existentes (0, N positivo, null);
+ * - Suporta options.dryRun (default: false);
+ * - NÃO executa automaticamente contra banco de produção/HML.
+ */
+async function backfillPlanEntitlements(options = {}) {
+  const driver = options.driver || (storageService.getDriver ? storageService.getDriver() : config.STORAGE_DRIVER);
+  const dryRun = !!options.dryRun;
+  const { normalizePlanEntitlements } = require('../config/entitlementRegistry');
+
+  let matchedCount = 0;
+  let modifiedCount = 0;
+
+  if (driver === 'mongodb') {
+    let db;
+    try {
+      db = getDB();
+    } catch (e) {
+      db = await connectDB();
+    }
+    const col = db.collection('plans');
+    const plans = await col.find({}).toArray();
+
+    for (const plan of plans) {
+      const originalEntitlements = JSON.stringify(plan.entitlements || {});
+      const normalizedEntitlements = normalizePlanEntitlements(JSON.parse(originalEntitlements));
+      const hasChanges = JSON.stringify(normalizedEntitlements) !== originalEntitlements;
+
+      if (hasChanges) {
+        matchedCount++;
+        if (!dryRun) {
+          await col.updateOne(
+            { _id: plan._id },
+            {
+              $set: {
+                entitlements: normalizedEntitlements,
+                updatedAt: new Date().toISOString()
+              }
+            }
+          );
+          modifiedCount++;
+        }
+      }
+    }
+
+    if (!dryRun && modifiedCount > 0) {
+      planService.invalidateCache();
+    }
+
+    return {
+      driver: 'mongodb',
+      dryRun,
+      matchedCount,
+      modifiedCount
+    };
+  }
+
+  // Driver JSON
+  const rawPlans = (driver === 'json') ? jsonStorage.getRawPlans() : await storageService.getPlans();
+  for (const plan of rawPlans) {
+    const originalEntitlements = JSON.stringify(plan.entitlements || {});
+    const normalizedEntitlements = normalizePlanEntitlements(JSON.parse(originalEntitlements));
+    const hasChanges = JSON.stringify(normalizedEntitlements) !== originalEntitlements;
+
+    if (hasChanges) {
+      matchedCount++;
+      if (!dryRun) {
+        plan.entitlements = normalizedEntitlements;
+        plan.updatedAt = new Date().toISOString();
+        modifiedCount++;
+      }
+    }
+  }
+
+  if (!dryRun && modifiedCount > 0) {
+    if (driver === 'json') {
+      jsonStorage.saveRawPlans(rawPlans);
+    }
+    planService.invalidateCache();
+  }
+
+  return {
+    driver: 'json',
+    dryRun,
+    matchedCount,
+    modifiedCount
+  };
+}
+
 module.exports = {
-  backfillUserPlans
+  backfillUserPlans,
+  backfillPlanEntitlements
 };

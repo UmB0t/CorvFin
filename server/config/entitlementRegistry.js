@@ -26,12 +26,28 @@ const ENTITLEMENT_REGISTRY = {
   despesas: {
     label: 'Despesas',
     supportsAccessToggle: true,
-    availableLimits: []
+    availableLimits: [
+      {
+        key: 'maxItems',
+        label: 'Limite de Despesas Cadastradas',
+        type: 'integer',
+        min: 0,
+        allowUnlimited: true
+      }
+    ]
   },
   extras: {
     label: 'Rendas Extras',
     supportsAccessToggle: true,
-    availableLimits: []
+    availableLimits: [
+      {
+        key: 'maxItems',
+        label: 'Limite de Rendas Extras Cadastradas',
+        type: 'integer',
+        min: 0,
+        allowUnlimited: true
+      }
+    ]
   },
   devedores: {
     label: 'Devedores e Cobranças',
@@ -62,12 +78,28 @@ const ENTITLEMENT_REGISTRY = {
   beneficios: {
     label: 'Benefícios',
     supportsAccessToggle: true,
-    availableLimits: []
+    availableLimits: [
+      {
+        key: 'maxItems',
+        label: 'Limite de Transações de Benefícios',
+        type: 'integer',
+        min: 0,
+        allowUnlimited: true
+      }
+    ]
   },
   compras: {
     label: 'Lista de Compras',
     supportsAccessToggle: true,
-    availableLimits: []
+    availableLimits: [
+      {
+        key: 'maxItems',
+        label: 'Limite de Listas de Compras',
+        type: 'integer',
+        min: 0,
+        allowUnlimited: true
+      }
+    ]
   },
   simulacao: {
     label: 'Simulação Financeira',
@@ -205,8 +237,63 @@ function getCompatibilityEntitlements() {
   return result;
 }
 
+/**
+ * Tabela canônica de Evoluções de Schema de Entitlements Versionadas.
+ * Cada lote declara explicitamente os pares [resourceKey, limitKey] introduzidos
+ * que são elegíveis a preenchimento retrocompatível com `null` (unlimited) caso ausentes.
+ *
+ * Limites anteriores (ex: devedores.maxItems, investimentos.maxItems, ai.questionsPerDay)
+ * NÃO estão nesta lista e portanto permanecem estritamente fail-closed caso ausentes em um plano.
+ */
+const PLAN_ENTITLEMENT_SCHEMA_EVOLUTIONS = {
+  '5F': [
+    ['despesas', 'maxItems'],
+    ['extras', 'maxItems'],
+    ['beneficios', 'maxItems'],
+    ['compras', 'maxItems']
+  ]
+};
+
+/**
+ * Evolui e normaliza os entitlements de um plano aplicando exclusivamente as migrações
+ * de schema versionadas e permitidas (allowlist).
+ *
+ * Invariantes:
+ * 1. Apenas os 4 limites introduzidos no Lote 5F recebem compatibilidade automática (null) se ausentes;
+ * 2. Limites pré-existentes ausentes (ex: devedores.maxItems, investimentos.maxItems, ai.questionsPerDay)
+ *    permanecem AUSENTES, garantindo fail-closed no runtime getLimit();
+ * 3. Qualquer valor já configurado (0, N positivo, null) é estritamente PRESERVADO sem sobrescrita.
+ */
+function normalizePlanEntitlements(entitlements) {
+  if (!entitlements || typeof entitlements !== 'object' || Array.isArray(entitlements)) {
+    return entitlements;
+  }
+
+  const evolutions = PLAN_ENTITLEMENT_SCHEMA_EVOLUTIONS['5F'] || [];
+
+  for (const [resourceKey, limitKey] of evolutions) {
+    const resource = entitlements[resourceKey];
+    if (!resource || typeof resource !== 'object' || Array.isArray(resource)) {
+      continue;
+    }
+
+    if (!resource.limits || typeof resource.limits !== 'object' || Array.isArray(resource.limits)) {
+      resource.limits = {};
+    }
+
+    // Somente preenche se a chave da allowlist 5F estiver estritamente ausente
+    if (!(limitKey in resource.limits)) {
+      resource.limits[limitKey] = null;
+    }
+  }
+
+  return entitlements;
+}
+
 module.exports = {
   ENTITLEMENT_REGISTRY,
+  PLAN_ENTITLEMENT_SCHEMA_EVOLUTIONS,
   validatePlanEntitlements,
-  getCompatibilityEntitlements
+  getCompatibilityEntitlements,
+  normalizePlanEntitlements
 };

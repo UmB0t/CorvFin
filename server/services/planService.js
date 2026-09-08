@@ -17,7 +17,8 @@ const storageService = require('./storageService');
 const {
   ENTITLEMENT_REGISTRY,
   validatePlanEntitlements,
-  getCompatibilityEntitlements
+  getCompatibilityEntitlements,
+  normalizePlanEntitlements
 } = require('../config/entitlementRegistry');
 
 const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -44,6 +45,18 @@ function invalidateCache() {
 function deepClone(obj) {
   if (!obj) return obj;
   return JSON.parse(JSON.stringify(obj));
+}
+
+/**
+ * Normaliza um documento de plano, garantindo evolução de schema controlada
+ * para limites novos do registry canônico sem sobrescrever configurações existentes.
+ */
+function normalizePlanDoc(planDoc) {
+  if (!planDoc || typeof planDoc !== 'object') return planDoc;
+  if (planDoc.entitlements) {
+    normalizePlanEntitlements(planDoc.entitlements);
+  }
+  return planDoc;
 }
 
 /**
@@ -135,15 +148,16 @@ async function getAllPlans(options = {}) {
   }
 
   const plans = await storageService.getPlans(options);
+  const normalizedPlans = plans.map(normalizePlanDoc);
   if (!options.status) {
-    cacheAllPlans = deepClone(plans);
+    cacheAllPlans = deepClone(normalizedPlans);
     for (const p of cacheAllPlans) {
       cacheById.set(p._id, p);
       cacheBySlug.set(p.slug, p);
       if (p.isDefault) cacheDefaultPlan = p;
     }
   }
-  return deepClone(plans);
+  return deepClone(normalizedPlans);
 }
 
 /**
@@ -157,7 +171,8 @@ async function getPlanById(id) {
 
   const plan = await storageService.getPlanById(id);
   if (plan) {
-    const cloned = deepClone(plan);
+    const normalized = normalizePlanDoc(plan);
+    const cloned = deepClone(normalized);
     cacheById.set(cloned._id, cloned);
     cacheBySlug.set(cloned.slug, cloned);
     if (cloned.isDefault) cacheDefaultPlan = cloned;
@@ -178,7 +193,8 @@ async function getPlanBySlug(rawSlug) {
 
   const plan = await storageService.getPlanBySlug(slug);
   if (plan) {
-    const cloned = deepClone(plan);
+    const normalized = normalizePlanDoc(plan);
+    const cloned = deepClone(normalized);
     cacheById.set(cloned._id, cloned);
     cacheBySlug.set(cloned.slug, cloned);
     if (cloned.isDefault) cacheDefaultPlan = cloned;
@@ -197,7 +213,8 @@ async function getDefaultPlan() {
 
   const plan = await storageService.getDefaultPlan();
   if (plan) {
-    const cloned = deepClone(plan);
+    const normalized = normalizePlanDoc(plan);
+    const cloned = deepClone(normalized);
     cacheDefaultPlan = cloned;
     cacheById.set(cloned._id, cloned);
     cacheBySlug.set(cloned.slug, cloned);
@@ -261,6 +278,7 @@ async function createPlan(planData) {
   const pricing = validatePricing(planData.pricing);
 
   // 7. Validação estrita de Entitlements (exige todos os 10 recursos MVP)
+  normalizePlanEntitlements(planData.entitlements);
   validatePlanEntitlements(planData.entitlements, true);
   const entitlements = planData.entitlements;
 
@@ -360,6 +378,7 @@ async function updatePlan(planId, updateData) {
   if (updateData.entitlements !== undefined) {
     validatePlanEntitlements(updateData.entitlements, false);
     payload.entitlements = Object.assign({}, existing.entitlements, updateData.entitlements);
+    normalizePlanEntitlements(payload.entitlements);
     // Valida o conjunto final combinado para garantir integridade completa
     validatePlanEntitlements(payload.entitlements, true);
   }
@@ -540,5 +559,6 @@ module.exports = {
   generatePlanId,
   normalizeSlug,
   validatePricing,
-  validateMetadata
+  validateMetadata,
+  normalizePlanDoc
 };
