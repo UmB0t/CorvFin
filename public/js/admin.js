@@ -5,6 +5,10 @@ const AdminModule = (() => {
   const USERS_PER_PAGE = 10;
   let currentUsersPage = 1;
   let usersList = [];
+  let plansList = [];
+  let plansRegistry = null;
+  let currentAdminSubTab = 'users'; // 'users' | 'plans'
+  let currentPlanFilter = ''; // '' | 'active' | 'inactive' | 'archived'
 
   const ALL_MODULES_CONFIG = [
     {
@@ -68,6 +72,65 @@ const AdminModule = (() => {
     } else if (typeof notify === 'function') {
       notify(msg, type);
     }
+  }
+
+  // Slugify helper (UX convenience)
+  function slugify(text) {
+    return String(text || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+  }
+
+  // Parse formatted currency string or number to integer amountCents (ex: "R$ 29,90" -> 2990, 0 -> 0)
+  function parseCurrencyToCents(val) {
+    if (val === null || val === undefined || val === '') return 0;
+    if (typeof val === 'number') {
+      if (isNaN(val) || val < 0 || !isFinite(val)) return null;
+      return Math.round(val * 100);
+    }
+    let str = String(val).trim().replace(/^R\$\s*/i, '').trim();
+    if (str.includes(',')) {
+      str = str.replace(/\./g, '').replace(',', '.');
+    }
+    const num = parseFloat(str);
+    if (isNaN(num) || num < 0 || !isFinite(num)) {
+      return null;
+    }
+    return Math.round(num * 100);
+  }
+
+  // Format integer amountCents (ex: 2990) to currency string (ex: "29,90")
+  function formatCentsToCurrency(cents) {
+    if (typeof cents !== 'number' || isNaN(cents) || cents < 0) return '0,00';
+    return (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  // Render Plan Badge for a User with strict semantics and NO N+1
+  function renderUserPlanBadge(user) {
+    const defaultPlan = (plansList || []).find(p => p.isDefault);
+    if (!user.planId) {
+      const defName = defaultPlan ? defaultPlan.name : 'Padrão';
+      return `<span class="badge neutral" data-tooltip="Herdado do plano padrão do sistema">${escapeHtml(defName)} (Herdado)</span>`;
+    }
+    const plan = (plansList || []).find(p => p._id === user.planId || p.id === user.planId);
+    if (plan) {
+      if (plan.status === 'active') {
+        return `<span class="badge success">${escapeHtml(plan.name)}</span>`;
+      }
+      if (plan.status === 'inactive') {
+        return `<span class="badge warning" data-tooltip="Plano inativo">${escapeHtml(plan.name)} (Inativo)</span>`;
+      }
+      if (plan.status === 'archived') {
+        return `<span class="badge danger" data-tooltip="Plano arquivado/descontinuado">${escapeHtml(plan.name)} (Arquivado)</span>`;
+      }
+      return `<span class="badge neutral">${escapeHtml(plan.name)}</span>`;
+    }
+    // PlanId presente mas inexistente no catálogo -> Referência Inválida (NÃO aplicar fallback!)
+    return `<span class="badge danger" data-tooltip="Plano referenciado '${escapeHtml(user.planId)}' não existe no catálogo">Inválido (${escapeHtml(user.planId)})</span>`;
   }
 
   // Load registered users from API
@@ -655,7 +718,7 @@ const AdminModule = (() => {
       if (pagedUsers.length === 0) {
         tableBody.innerHTML = `
           <tr>
-            <td colspan="6" style="padding:36px 16px; text-align:center; color:var(--muted);">
+            <td colspan="7" style="padding:36px 16px; text-align:center; color:var(--muted);">
               <div style="font-weight:700; font-size:0.95rem;">Nenhum usuário cadastrado.</div>
             </td>
           </tr>
@@ -686,6 +749,9 @@ const AdminModule = (() => {
                 </span>
               </td>
               <td style="padding:14px 16px; text-align:center;">
+                ${renderUserPlanBadge(u)}
+              </td>
+              <td style="padding:14px 16px; text-align:center;">
                 ${u.is_admin ? `
                   <span class="tag" style="background:var(--brand-soft); color:var(--brand-strong); font-weight:800; font-size:0.75rem; padding:4px 10px; border-radius:6px; display:inline-flex; align-items:center; gap:5px;">
                     <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -704,6 +770,10 @@ const AdminModule = (() => {
                 `}
               </td>
               <td style="padding:14px 16px; text-align:right; white-space:nowrap;">
+                <button type="button" class="btn soft small" data-assign-plan="${u.id}" style="margin-right:4px; display:inline-flex; align-items:center; gap:4px;" data-tooltip="Atribuir Plano Comercial" aria-label="Atribuir Plano Comercial">
+                  <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  Plano
+                </button>
                 <button type="button" class="btn soft small" data-edit-user="${u.id}" style="margin-right:4px; display:inline-flex; align-items:center; gap:4px;" data-tooltip="Editar Usuário" aria-label="Editar Usuário">
                   <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                   Editar
@@ -717,6 +787,13 @@ const AdminModule = (() => {
         }).join('');
 
         // Wire events in table
+        tableBody.querySelectorAll('[data-assign-plan]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const userId = btn.getAttribute('data-assign-plan');
+            openAssignPlanModal(userId);
+          });
+        });
+
         tableBody.querySelectorAll('[data-manage-modules]').forEach(btn => {
           btn.addEventListener('click', () => {
             const userId = btn.getAttribute('data-manage-modules');
@@ -814,6 +891,951 @@ const AdminModule = (() => {
     }
   }
 
+  // ==========================================
+  // GESTÃO DE SUBABAS & CATÁLOGO DE PLANOS (5E)
+  // ==========================================
+
+  function switchSubTab(tabName) {
+    currentAdminSubTab = tabName === 'plans' ? 'plans' : 'users';
+    const usersBtn = document.getElementById('adminUsersSubTabBtn');
+    const plansBtn = document.getElementById('adminPlansSubTabBtn');
+    const usersView = document.getElementById('adminViewUsers');
+    const plansView = document.getElementById('adminViewPlans');
+
+    if (usersBtn && plansBtn) {
+      if (currentAdminSubTab === 'users') {
+        usersBtn.className = 'btn small primary';
+        plansBtn.className = 'btn small soft';
+      } else {
+        usersBtn.className = 'btn small soft';
+        plansBtn.className = 'btn small primary';
+      }
+    }
+
+    if (usersView) usersView.hidden = (currentAdminSubTab !== 'users');
+    if (plansView) plansView.hidden = (currentAdminSubTab !== 'plans');
+
+    if (currentAdminSubTab === 'plans') {
+      if (!plansRegistry) {
+        loadPlansRegistry().then(() => renderPlansTable());
+      } else {
+        renderPlansTable();
+      }
+    }
+  }
+
+  // Carrega o registry comercial canônico do backend
+  async function loadPlansRegistry() {
+    if (plansRegistry && Array.isArray(plansRegistry.resources)) return plansRegistry;
+    if (typeof API !== 'undefined' && API.getPlansRegistry) {
+      try {
+        const res = await API.getPlansRegistry();
+        if (res && res.success && Array.isArray(res.resources)) {
+          plansRegistry = res;
+        }
+      } catch (err) {
+        console.error('Erro ao carregar registry de planos:', err);
+      }
+    }
+    return plansRegistry;
+  }
+
+  // Carrega o catálogo de planos comerciais
+  async function loadPlans(filters = {}) {
+    if (typeof API === 'undefined' || !API.getPlans) return [];
+    try {
+      const res = await API.getPlans(filters);
+      if (res && res.success && Array.isArray(res.plans)) {
+        plansList = res.plans;
+      }
+    } catch (err) {
+      console.error('Erro ao carregar planos comerciais:', err);
+    }
+    return plansList;
+  }
+
+  // Renderiza a tabela do catálogo de planos
+  function renderPlansTable() {
+    const tableBody = document.getElementById('adminPlansTableBody');
+    if (!tableBody) return;
+
+    let filtered = plansList || [];
+    if (currentPlanFilter) {
+      filtered = filtered.filter(p => p.status === currentPlanFilter);
+    }
+
+    if (filtered.length === 0) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="6" style="padding:36px 16px; text-align:center; color:var(--muted);">
+            <div style="font-weight:700; font-size:0.95rem;">Nenhum plano comercial encontrado${currentPlanFilter ? ' para o status selecionado' : ''}.</div>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tableBody.innerHTML = filtered.map(p => {
+      const isDefault = !!p.isDefault;
+      const statusBadge = p.status === 'active'
+        ? '<span class="badge success">Ativo</span>'
+        : p.status === 'inactive'
+          ? '<span class="badge warning">Inativo</span>'
+          : '<span class="badge danger">Arquivado</span>';
+
+      const pricingInterval = p.pricing?.interval === 'year'
+        ? 'ano'
+        : p.pricing?.interval === 'lifetime'
+          ? 'vitalício'
+          : 'mês';
+      const priceFormatted = `R$ ${formatCentsToCurrency(p.pricing?.amountCents || 0)} / ${pricingInterval}`;
+
+      // Contagem de recursos liberados
+      const ent = p.entitlements || {};
+      const enabledResKeys = Object.keys(ent).filter(k => ent[k]?.enabled);
+      const totalRegistryRes = plansRegistry?.resources?.length || 10;
+      const resSummary = `<span class="badge info">${enabledResKeys.length} de ${totalRegistryRes} liberados</span>`;
+
+      // Limites notáveis
+      const notableLimits = [];
+      if (ent.devedores?.limits?.maxItems !== undefined) {
+        notableLimits.push(`Devedores: ${ent.devedores.limits.maxItems === null ? 'Ilimitado' : ent.devedores.limits.maxItems}`);
+      }
+      if (ent.investimentos?.limits?.maxItems !== undefined) {
+        notableLimits.push(`Invest.: ${ent.investimentos.limits.maxItems === null ? 'Ilimitado' : ent.investimentos.limits.maxItems}`);
+      }
+      if (ent.ai?.limits?.questionsPerDay !== undefined) {
+        notableLimits.push(`IA: ${ent.ai.limits.questionsPerDay === null ? 'Ilimitado' : ent.ai.limits.questionsPerDay + '/dia'}`);
+      }
+      const limitsSummary = notableLimits.length > 0
+        ? notableLimits.map(l => `<span class="badge neutral" style="font-size:0.72rem; margin-right:4px;">${escapeHtml(l)}</span>`).join('')
+        : '<span style="color:var(--muted); font-size:0.8rem;">Padrão</span>';
+
+      const canSetDefault = p.status === 'active' && !isDefault;
+
+      return `
+        <tr style="border-bottom:1px solid var(--line); transition:background 0.15s ease;">
+          <td style="padding:14px 16px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <strong style="color:var(--text); font-size:0.92rem;">${escapeHtml(p.name)}</strong>
+              ${isDefault ? '<span class="badge info" style="font-size:0.68rem; font-weight:800;">Padrão</span>' : ''}
+            </div>
+            <div style="font-size:0.75rem; font-family:monospace; color:var(--muted); margin-top:2px;">
+              ${escapeHtml(p.slug)}
+            </div>
+            ${p.description ? `<div style="font-size:0.78rem; color:var(--muted); margin-top:2px;">${escapeHtml(p.description)}</div>` : ''}
+          </td>
+          <td style="padding:14px 16px; text-align:center;">
+            ${statusBadge}
+          </td>
+          <td style="padding:14px 16px; font-weight:700; color:var(--brand-strong); font-size:0.88rem;">
+            ${priceFormatted}
+          </td>
+          <td style="padding:14px 16px; text-align:center;">
+            ${resSummary}
+          </td>
+          <td style="padding:14px 16px;">
+            ${limitsSummary}
+          </td>
+          <td style="padding:14px 16px; text-align:right; white-space:nowrap;">
+            <button type="button" class="btn soft small" data-edit-plan="${p._id}" style="margin-right:4px; display:inline-flex; align-items:center; gap:4px;" data-tooltip="Editar Informações e Recursos" aria-label="Editar Plano">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+              Editar
+            </button>
+            <button type="button" class="btn soft small" data-status-plan="${p._id}" style="margin-right:4px; display:inline-flex; align-items:center; gap:4px;" data-tooltip="Alterar Status do Ciclo de Vida" aria-label="Status do Plano">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Status
+            </button>
+            <button type="button" class="btn small ${canSetDefault ? 'secondary' : 'soft'}" data-default-plan="${p._id}" ${canSetDefault ? '' : 'disabled style="opacity:0.4;"'} data-tooltip="${isDefault ? 'Este já é o plano padrão' : p.status !== 'active' ? 'Apenas planos ativos podem ser padrão' : 'Definir como plano padrão'}" aria-label="Definir como Padrão" style="display:inline-flex; align-items:center; gap:4px;">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="width:13px; height:13px; stroke-width:2.2;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              Padrão
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    // Wire events
+    tableBody.querySelectorAll('[data-edit-plan]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const planId = btn.getAttribute('data-edit-plan');
+        openEditPlanModal(planId);
+      });
+    });
+
+    tableBody.querySelectorAll('[data-status-plan]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const planId = btn.getAttribute('data-status-plan');
+        openPlanStatusModal(planId);
+      });
+    });
+
+    tableBody.querySelectorAll('[data-default-plan]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const planId = btn.getAttribute('data-default-plan');
+        handleSetDefaultPlan(planId);
+      });
+    });
+  }
+
+  // Gera a matriz dinâmica de entitlements a partir do registry canônico
+  function buildDynamicEntitlementsHtml(currentEntitlements = {}) {
+    const resources = plansRegistry?.resources || [];
+    if (resources.length === 0) {
+      return '<div class="empty" style="padding:16px;">Carregando recursos comerciais do sistema...</div>';
+    }
+
+    return `
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px;">
+        ${resources.map(res => {
+          const key = res.key;
+          const currentRes = currentEntitlements[key] || {};
+          const isEnabled = currentRes.enabled !== false;
+
+          const limitsHtml = (Array.isArray(res.availableLimits) && res.availableLimits.length > 0)
+            ? res.availableLimits.map(lim => {
+                const limKey = lim.key;
+                const currentLimVal = (currentRes.limits && currentRes.limits[limKey] !== undefined)
+                  ? currentRes.limits[limKey]
+                  : null;
+                const isUnlimited = currentLimVal === null || currentLimVal === undefined;
+                const numericVal = (!isUnlimited && typeof currentLimVal === 'number') ? currentLimVal : (lim.min || 0);
+
+                return `
+                  <div style="margin-top:8px; padding-top:8px; border-top:1px dashed var(--line); font-size:0.82rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                      <span style="font-weight:600; color:var(--text);">${escapeHtml(lim.label)}:</span>
+                      <label class="form-checkbox-label" style="font-size:0.75rem; margin:0; cursor:pointer;">
+                        <input type="checkbox" class="form-checkbox plan-limit-unlimited" data-res="${key}" data-lim="${limKey}" ${isUnlimited ? 'checked' : ''}>
+                        <span>Ilimitado</span>
+                      </label>
+                    </div>
+                    <input type="number" class="input plan-limit-input" data-res="${key}" data-lim="${limKey}" min="${lim.min || 0}" value="${numericVal}" ${isUnlimited ? 'disabled style="opacity:0.4;"' : ''} style="padding:4px 8px; font-size:0.82rem; width:100%;">
+                  </div>
+                `;
+              }).join('')
+            : '';
+
+          return `
+            <div class="card" style="padding:12px; background:var(--surface-2); border:1px solid var(--line); border-radius:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                <div>
+                  <strong style="font-size:0.88rem; color:var(--text);">${escapeHtml(res.label)}</strong>
+                  <div style="font-size:0.75rem; color:var(--muted); margin-top:2px;">${escapeHtml(res.description)}</div>
+                </div>
+                ${res.supportsAccessToggle ? `
+                  <label class="form-checkbox-label" style="margin:0; cursor:pointer;">
+                    <input type="checkbox" class="form-checkbox plan-res-toggle" data-res="${key}" ${isEnabled ? 'checked' : ''}>
+                    <span style="font-size:0.75rem;">Ativo</span>
+                  </label>
+                ` : `<span class="badge neutral" style="font-size:0.68rem;">Sempre Ativo</span>`}
+              </div>
+              ${limitsHtml}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  function wireLimitUnlimitedToggles(container) {
+    container.querySelectorAll('.plan-limit-unlimited').forEach(chk => {
+      chk.addEventListener('change', () => {
+        const resKey = chk.getAttribute('data-res');
+        const limKey = chk.getAttribute('data-lim');
+        const input = container.querySelector(`.plan-limit-input[data-res="${resKey}"][data-lim="${limKey}"]`);
+        if (input) {
+          input.disabled = chk.checked;
+          input.style.opacity = chk.checked ? '0.4' : '1';
+        }
+      });
+    });
+  }
+
+  function extractEntitlementsFromForm(container) {
+    const entitlements = {};
+    const resources = plansRegistry?.resources || [];
+
+    resources.forEach(res => {
+      const key = res.key;
+      const toggle = container.querySelector(`.plan-res-toggle[data-res="${key}"]`);
+      const isEnabled = res.supportsAccessToggle ? !!toggle?.checked : true;
+
+      const ent = { enabled: isEnabled };
+
+      if (Array.isArray(res.availableLimits) && res.availableLimits.length > 0) {
+        ent.limits = {};
+        res.availableLimits.forEach(lim => {
+          const limKey = lim.key;
+          const unlimitedChk = container.querySelector(`.plan-limit-unlimited[data-res="${key}"][data-lim="${limKey}"]`);
+          const input = container.querySelector(`.plan-limit-input[data-res="${key}"][data-lim="${limKey}"]`);
+
+          if (unlimitedChk && unlimitedChk.checked) {
+            ent.limits[limKey] = null; // null = ilimitado
+          } else if (input) {
+            const parsed = parseInt(input.value, 10);
+            ent.limits[limKey] = (!isNaN(parsed) && parsed >= 0) ? parsed : (lim.min || 0); // zero preservado!
+          } else {
+            ent.limits[limKey] = null;
+          }
+        });
+      }
+
+      entitlements[key] = ent;
+    });
+
+    return entitlements;
+  }
+
+  // Modal de Criação de Plano
+  async function openCreatePlanModal() {
+    await loadPlansRegistry();
+
+    let modal = document.getElementById('adminPlanCreateDialog');
+    if (!modal) {
+      modal = document.createElement('dialog');
+      modal.id = 'adminPlanCreateDialog';
+      modal.className = 'dialog-form dialog-form-long';
+      document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+      <form id="formAdminCreatePlan">
+        <div class="dialog-head">
+          <div class="dialog-head-group">
+            <div class="dialog-icon-badge">
+              <svg class="svg-icon" viewBox="0 0 24 24">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            </div>
+            <div>
+              <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:var(--text);">+ Criar Novo Plano Comercial</h3>
+              <p class="dialog-subtitle">Defina o nome, precificação e configure dinamicamente os recursos e limites</p>
+            </div>
+          </div>
+          <button type="button" class="icon-btn small" id="btnCloseCreatePlan" aria-label="Fechar">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px; stroke-width:2.5;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div class="dialog-body" style="display:flex; flex-direction:column; gap:16px;">
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px;">
+            <div class="field">
+              <label for="adminCreatePlanName">Nome Comercial do Plano *</label>
+              <input type="text" id="adminCreatePlanName" class="input" placeholder="Ex: CorvFin Pro" required>
+            </div>
+
+            <div class="field">
+              <label for="adminCreatePlanSlug">
+                Slug / Identificador Canônico *
+                <small style="color:var(--muted); font-size:0.72rem; margin-left:4px;">(Imutável após criação)</small>
+              </label>
+              <input type="text" id="adminCreatePlanSlug" class="input" placeholder="Ex: plan_pro" required>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="adminCreatePlanDesc">Descrição</label>
+            <input type="text" id="adminCreatePlanDesc" class="input" placeholder="Ex: Plano completo para investidores e famílias">
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px;">
+            <div class="field">
+              <label for="adminCreatePlanPrice">Preço (R$) *</label>
+              <input type="text" id="adminCreatePlanPrice" class="input" placeholder="Ex: 29,90 ou 0" value="0,00" required>
+            </div>
+
+            <div class="field">
+              <label for="adminCreatePlanInterval">Intervalo de Cobrança</label>
+              <select id="adminCreatePlanInterval" class="input">
+                <option value="month">Mensal (month)</option>
+                <option value="year">Anual (year)</option>
+                <option value="lifetime">Vitalício (lifetime)</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="adminCreatePlanOrder">Ordem de Exibição</label>
+              <input type="number" id="adminCreatePlanOrder" class="input" value="0" min="0">
+            </div>
+          </div>
+
+          <div class="dialog-divider-section">
+            <label class="dialog-divider-title">
+              <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+              Recursos & Limites do Registry Canônico
+            </label>
+            <div id="createPlanEntitlementsContainer">
+              ${buildDynamicEntitlementsHtml()}
+            </div>
+          </div>
+        </div>
+
+        <div class="dialog-foot actions-right">
+          <button type="button" class="btn soft" id="btnCancelCreatePlan">Cancelar</button>
+          <button type="submit" class="btn primary" id="btnSubmitCreatePlan">Criar Plano</button>
+        </div>
+      </form>
+    `;
+
+    wireLimitUnlimitedToggles(modal);
+
+    document.getElementById('btnCloseCreatePlan')?.addEventListener('click', () => modal.close());
+    document.getElementById('btnCancelCreatePlan')?.addEventListener('click', () => modal.close());
+
+    const nameInput = document.getElementById('adminCreatePlanName');
+    const slugInput = document.getElementById('adminCreatePlanSlug');
+    let slugTouched = false;
+
+    slugInput?.addEventListener('input', () => { slugTouched = true; });
+    nameInput?.addEventListener('input', () => {
+      if (!slugTouched && slugInput) {
+        const clean = slugify(nameInput.value);
+        slugInput.value = clean ? `plan_${clean}` : '';
+      }
+    });
+
+    document.getElementById('formAdminCreatePlan')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = nameInput.value.trim();
+      const slug = slugInput.value.trim();
+      const description = document.getElementById('adminCreatePlanDesc')?.value.trim() || '';
+      const priceStr = document.getElementById('adminCreatePlanPrice')?.value || '';
+      const interval = document.getElementById('adminCreatePlanInterval')?.value || 'month';
+      const orderVal = parseInt(document.getElementById('adminCreatePlanOrder')?.value || '0', 10);
+
+      const amountCents = parseCurrencyToCents(priceStr);
+      if (amountCents === null) {
+        showFeedback('Preço informado inválido. Informe um valor monetário positivo ou zero (ex: 29,90 ou 0).', 'error');
+        return;
+      }
+
+      const entitlements = extractEntitlementsFromForm(modal);
+
+      const payload = {
+        name,
+        slug,
+        description,
+        status: 'active',
+        pricing: {
+          amountCents,
+          currency: 'BRL',
+          interval
+        },
+        entitlements,
+        metadata: {
+          displayOrder: isNaN(orderVal) ? 0 : orderVal
+        }
+      };
+
+      const submitBtn = document.getElementById('btnSubmitCreatePlan');
+      const origText = submitBtn ? submitBtn.textContent : 'Criar Plano';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Criando...';
+      }
+
+      try {
+        const res = await API.createPlan(payload);
+        if (res && res.success) {
+          modal.close();
+          showFeedback(`Plano "${name}" criado com sucesso!`, 'success');
+          await loadPlans();
+          renderPlansTable();
+        } else {
+          showFeedback(res?.message || 'Erro ao criar plano.', 'error');
+        }
+      } catch (err) {
+        showFeedback('Erro de conexão ao criar plano.', 'error');
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = origText;
+        }
+      }
+    });
+
+    modal.showModal();
+  }
+
+  // Modal de Edição de Plano (slug, status e isDefault omitidos do PUT)
+  async function openEditPlanModal(planId) {
+    await loadPlansRegistry();
+    const plan = (plansList || []).find(p => p._id === planId || p.id === planId);
+    if (!plan) return;
+
+    let modal = document.getElementById('adminPlanEditDialog');
+    if (!modal) {
+      modal = document.createElement('dialog');
+      modal.id = 'adminPlanEditDialog';
+      modal.className = 'dialog-form dialog-form-long';
+      document.body.appendChild(modal);
+    }
+
+    const priceFormatted = formatCentsToCurrency(plan.pricing?.amountCents || 0);
+
+    modal.innerHTML = `
+      <form id="formAdminEditPlan">
+        <div class="dialog-head">
+          <div class="dialog-head-group">
+            <div class="dialog-icon-badge">
+              <svg class="svg-icon" viewBox="0 0 24 24">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            </div>
+            <div>
+              <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:var(--text);">Editar Plano Comercial</h3>
+              <p class="dialog-subtitle">
+                Plano: <strong>${escapeHtml(plan.name)}</strong> (${escapeHtml(plan.slug)})
+              </p>
+            </div>
+          </div>
+          <button type="button" class="icon-btn small" id="btnCloseEditPlan" aria-label="Fechar">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px; stroke-width:2.5;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div class="dialog-body" style="display:flex; flex-direction:column; gap:16px;">
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px;">
+            <div class="field">
+              <label for="adminEditPlanName">Nome Comercial do Plano *</label>
+              <input type="text" id="adminEditPlanName" class="input" value="${escapeHtml(plan.name)}" required>
+            </div>
+
+            <div class="field">
+              <label for="adminEditPlanSlug">
+                Slug / Identificador Canônico
+                <span class="badge neutral" style="font-size:0.68rem; margin-left:4px;">Imutável</span>
+              </label>
+              <input type="text" id="adminEditPlanSlug" class="input" value="${escapeHtml(plan.slug)}" disabled readonly style="background:var(--surface-2); opacity:0.8;">
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="adminEditPlanDesc">Descrição</label>
+            <input type="text" id="adminEditPlanDesc" class="input" value="${escapeHtml(plan.description || '')}">
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:14px;">
+            <div class="field">
+              <label for="adminEditPlanPrice">Preço (R$) *</label>
+              <input type="text" id="adminEditPlanPrice" class="input" value="${priceFormatted}" required>
+            </div>
+
+            <div class="field">
+              <label for="adminEditPlanInterval">Intervalo de Cobrança</label>
+              <select id="adminEditPlanInterval" class="input">
+                <option value="month" ${plan.pricing?.interval === 'month' ? 'selected' : ''}>Mensal (month)</option>
+                <option value="year" ${plan.pricing?.interval === 'year' ? 'selected' : ''}>Anual (year)</option>
+                <option value="lifetime" ${plan.pricing?.interval === 'lifetime' ? 'selected' : ''}>Vitalício (lifetime)</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="adminEditPlanOrder">Ordem de Exibição</label>
+              <input type="number" id="adminEditPlanOrder" class="input" value="${plan.metadata?.displayOrder || 0}" min="0">
+            </div>
+          </div>
+
+          <div style="background:var(--surface-2); padding:10px 14px; border-radius:10px; border:1px solid var(--line); font-size:0.8rem; color:var(--muted);">
+            Status atual: <strong>${plan.status === 'active' ? 'Ativo' : plan.status === 'inactive' ? 'Inativo' : 'Arquivado'}</strong>.
+            Para alterar o status ou definir como plano padrão, utilize as ações dedicadas na tabela de planos.
+          </div>
+
+          <div class="dialog-divider-section">
+            <label class="dialog-divider-title">
+              <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+              Recursos & Limites do Registry Canônico
+            </label>
+            <div id="editPlanEntitlementsContainer">
+              ${buildDynamicEntitlementsHtml(plan.entitlements || {})}
+            </div>
+          </div>
+        </div>
+
+        <div class="dialog-foot actions-right">
+          <button type="button" class="btn soft" id="btnCancelEditPlan">Cancelar</button>
+          <button type="submit" class="btn primary" id="btnSubmitEditPlan">Salvar Alterações</button>
+        </div>
+      </form>
+    `;
+
+    wireLimitUnlimitedToggles(modal);
+
+    document.getElementById('btnCloseEditPlan')?.addEventListener('click', () => modal.close());
+    document.getElementById('btnCancelEditPlan')?.addEventListener('click', () => modal.close());
+
+    document.getElementById('formAdminEditPlan')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('adminEditPlanName')?.value.trim();
+      const description = document.getElementById('adminEditPlanDesc')?.value.trim() || '';
+      const priceStr = document.getElementById('adminEditPlanPrice')?.value || '';
+      const interval = document.getElementById('adminEditPlanInterval')?.value || 'month';
+      const orderVal = parseInt(document.getElementById('adminEditPlanOrder')?.value || '0', 10);
+
+      const amountCents = parseCurrencyToCents(priceStr);
+      if (amountCents === null) {
+        showFeedback('Preço informado inválido. Informe um valor monetário positivo ou zero (ex: 29,90 ou 0).', 'error');
+        return;
+      }
+
+      const entitlements = extractEntitlementsFromForm(modal);
+
+      // Whitelist estrita do PUT: name, description, pricing, entitlements, metadata.
+      // OMITIR: slug, status, isDefault!
+      const payload = {
+        name,
+        description,
+        pricing: {
+          amountCents,
+          currency: 'BRL',
+          interval
+        },
+        entitlements,
+        metadata: {
+          displayOrder: isNaN(orderVal) ? 0 : orderVal
+        }
+      };
+
+      const submitBtn = document.getElementById('btnSubmitEditPlan');
+      const origText = submitBtn ? submitBtn.textContent : 'Salvar Alterações';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Salvando...';
+      }
+
+      try {
+        const res = await API.updatePlan(planId, payload);
+        if (res && res.success) {
+          modal.close();
+          showFeedback(`Plano "${name}" atualizado com sucesso!`, 'success');
+          await loadPlans();
+          renderPlansTable();
+          renderUsersTable();
+        } else {
+          showFeedback(res?.message || 'Erro ao editar plano.', 'error');
+        }
+      } catch (err) {
+        showFeedback('Erro de conexão ao editar plano.', 'error');
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = origText;
+        }
+      }
+    });
+
+    modal.showModal();
+  }
+
+  // Modal de Lifecycle de Plano (active, inactive, archived)
+  function openPlanStatusModal(planId) {
+    const plan = (plansList || []).find(p => p._id === planId || p.id === planId);
+    if (!plan) return;
+
+    let modal = document.getElementById('adminPlanStatusDialog');
+    if (!modal) {
+      modal = document.createElement('dialog');
+      modal.id = 'adminPlanStatusDialog';
+      modal.className = 'dialog-sm';
+      document.body.appendChild(modal);
+    }
+
+    const isDefault = !!plan.isDefault;
+
+    modal.innerHTML = `
+      <form id="formAdminPlanStatus">
+        <div class="dialog-head">
+          <div class="dialog-head-group">
+            <div class="dialog-icon-badge">
+              <svg class="svg-icon" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </div>
+            <div>
+              <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:var(--text);">Status do Ciclo de Vida</h3>
+              <p class="dialog-subtitle">Plano: <strong>${escapeHtml(plan.name)}</strong></p>
+            </div>
+          </div>
+          <button type="button" class="icon-btn small" id="btnClosePlanStatus" aria-label="Fechar">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px; stroke-width:2.5;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div class="dialog-body" style="display:flex; flex-direction:column; gap:14px;">
+          ${isDefault ? `
+            <div class="card" style="padding:12px; background:var(--warning-soft, #fef3c7); border:1px solid var(--warning, #f59e0b); border-radius:10px; font-size:0.82rem; color:var(--text);">
+              <strong>Atenção:</strong> Este é o <strong>Plano Padrão</strong> do sistema. O plano padrão deve permanecer estritamente com status "Ativo". Defina outro plano como padrão antes de inativar ou arquivar este.
+            </div>
+          ` : ''}
+
+          <div class="field">
+            <label for="adminSelectPlanStatus" style="font-weight:700; font-size:0.85rem;">Status do Plano</label>
+            <select id="adminSelectPlanStatus" class="input" style="width:100%;">
+              <option value="active" ${plan.status === 'active' ? 'selected' : ''}>Ativo (active) — Aceita novas contratações</option>
+              <option value="inactive" ${plan.status === 'inactive' ? 'selected' : ''} ${isDefault ? 'disabled' : ''}>Inativo (inactive) — Bloqueia novas contratações</option>
+              <option value="archived" ${plan.status === 'archived' ? 'selected' : ''} ${isDefault ? 'disabled' : ''}>Arquivado (archived) — Descontinuado</option>
+            </select>
+          </div>
+
+          <div id="planStatusEffectDesc" style="font-size:0.8rem; color:var(--muted); line-height:1.4;">
+            ${plan.status === 'active'
+              ? 'Planos ativos podem receber novas atribuições a usuários e serem definidos como padrão.'
+              : plan.status === 'inactive'
+                ? 'Planos inativos não recebem novas atribuições, mas usuários vinculados mantêm seu acesso.'
+                : 'Planos arquivados são descontinuados, não recebem novas atribuições, mas usuários existentes continuam com suas regras.'}
+          </div>
+        </div>
+
+        <div class="dialog-foot actions-right">
+          <button type="button" class="btn soft" id="btnCancelPlanStatus">Cancelar</button>
+          <button type="submit" class="btn primary" id="btnSavePlanStatus">Salvar Status</button>
+        </div>
+      </form>
+    `;
+
+    document.getElementById('btnClosePlanStatus')?.addEventListener('click', () => modal.close());
+    document.getElementById('btnCancelPlanStatus')?.addEventListener('click', () => modal.close());
+
+    const selectStatus = document.getElementById('adminSelectPlanStatus');
+    const effectDesc = document.getElementById('planStatusEffectDesc');
+    selectStatus?.addEventListener('change', () => {
+      const val = selectStatus.value;
+      if (effectDesc) {
+        if (val === 'active') {
+          effectDesc.textContent = 'Planos ativos podem receber novas atribuições a usuários e serem definidos como padrão.';
+        } else if (val === 'inactive') {
+          effectDesc.textContent = 'Planos inativos não recebem novas atribuições, mas usuários vinculados mantêm seu acesso.';
+        } else {
+          effectDesc.textContent = 'Planos arquivados são descontinuados, não recebem novas atribuições, mas usuários existentes continuam com suas regras.';
+        }
+      }
+    });
+
+    document.getElementById('formAdminPlanStatus')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newStatus = selectStatus ? selectStatus.value : '';
+
+      if (isDefault && newStatus !== 'active') {
+        showFeedback('O plano padrão deve permanecer ativo. Defina outro plano como padrão primeiro.', 'error');
+        return;
+      }
+
+      if (newStatus === plan.status) {
+        modal.close();
+        return;
+      }
+
+      if (newStatus === 'archived') {
+        if (!confirm(`Confirma o arquivamento do plano "${plan.name}"? Este plano ficará descontinuado.`)) {
+          return;
+        }
+      }
+
+      const saveBtn = document.getElementById('btnSavePlanStatus');
+      const origText = saveBtn ? saveBtn.textContent : 'Salvar';
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Alterando...';
+      }
+
+      try {
+        const res = await API.setPlanStatus(planId, newStatus);
+        if (res && res.success) {
+          modal.close();
+          showFeedback(`Status do plano atualizado para "${newStatus}"!`, 'success');
+          await loadPlans();
+          renderPlansTable();
+          renderUsersTable();
+        } else {
+          showFeedback(res?.message || 'Erro ao alterar status.', 'error');
+        }
+      } catch (err) {
+        showFeedback('Erro de conexão ao alterar status.', 'error');
+      } finally {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.textContent = origText;
+        }
+      }
+    });
+
+    modal.showModal();
+  }
+
+  // Definir Plano Padrão
+  async function handleSetDefaultPlan(planId) {
+    const plan = (plansList || []).find(p => p._id === planId || p.id === planId);
+    if (!plan) return;
+
+    if (plan.status !== 'active') {
+      showFeedback('Apenas planos com status "Ativo" podem ser definidos como padrão.', 'error');
+      return;
+    }
+
+    if (plan.isDefault) {
+      showFeedback('Este plano já é o padrão do sistema.', 'info');
+      return;
+    }
+
+    if (!confirm(`Deseja realmente definir o plano "${plan.name}" como o novo padrão do sistema? Novos usuários sem plano explícito herdarão as regras deste plano.`)) {
+      return;
+    }
+
+    try {
+      const res = await API.setDefaultPlan(planId);
+      if (res && res.success) {
+        showFeedback(`Plano "${plan.name}" definido como padrão com sucesso!`, 'success');
+        await loadPlans();
+        renderPlansTable();
+        renderUsersTable();
+      } else {
+        showFeedback(res?.message || 'Erro ao definir plano padrão.', 'error');
+      }
+    } catch (err) {
+      showFeedback('Erro de conexão ao definir plano padrão.', 'error');
+    }
+  }
+
+  // Modal de Atribuição de Plano para Usuário
+  function openAssignPlanModal(userId) {
+    const user = usersList.find(u => u.id === userId);
+    if (!user) return;
+
+    let modal = document.getElementById('adminAssignPlanDialog');
+    if (!modal) {
+      modal = document.createElement('dialog');
+      modal.id = 'adminAssignPlanDialog';
+      modal.className = 'dialog-sm';
+      document.body.appendChild(modal);
+    }
+
+    const defaultPlan = (plansList || []).find(p => p.isDefault);
+    const currentPlan = user.planId
+      ? (plansList || []).find(p => p._id === user.planId || p.id === user.planId)
+      : null;
+
+    let currentPlanDisplay = '';
+    if (!user.planId) {
+      currentPlanDisplay = `<span class="badge neutral">${escapeHtml(defaultPlan?.name || 'Padrão')} (Herdado do Padrão)</span>`;
+    } else if (currentPlan) {
+      const bClass = currentPlan.status === 'active' ? 'success' : currentPlan.status === 'inactive' ? 'warning' : 'danger';
+      const statusLabel = currentPlan.status === 'active' ? 'Ativo' : currentPlan.status === 'inactive' ? 'Inativo' : 'Arquivado';
+      currentPlanDisplay = `<span class="badge ${bClass}">${escapeHtml(currentPlan.name)} (${statusLabel})</span>`;
+    } else {
+      currentPlanDisplay = `<span class="badge danger">Referência Inválida (${escapeHtml(user.planId)})</span>`;
+    }
+
+    // Apenas planos ACTIVE podem ser selecionados para nova atribuição
+    const activePlans = (plansList || []).filter(p => p.status === 'active');
+
+    // Se o plano atual for inativo ou arquivado, exibe disabled como referência visual
+    let specialCurrentOption = '';
+    if (user.planId && currentPlan && currentPlan.status !== 'active') {
+      specialCurrentOption = `<option value="${escapeHtml(currentPlan._id)}" disabled selected>${escapeHtml(currentPlan.name)} (${currentPlan.status === 'inactive' ? 'Inativo' : 'Arquivado'} - Atual)</option>`;
+    }
+
+    const optionsHtml = activePlans.map(p => {
+      const isSelected = user.planId === p._id || (!user.planId && p.isDefault);
+      return `<option value="${escapeHtml(p._id)}" ${isSelected && !specialCurrentOption ? 'selected' : ''}>${escapeHtml(p.name)} (Ativo${p.isDefault ? ' - Padrão' : ''})</option>`;
+    }).join('');
+
+    modal.innerHTML = `
+      <form id="formAdminAssignPlan">
+        <div class="dialog-head">
+          <div class="dialog-head-group">
+            <div class="dialog-icon-badge">
+              <svg class="svg-icon" viewBox="0 0 24 24">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            </div>
+            <div>
+              <h3 style="margin:0; font-size:1.15rem; font-weight:800; color:var(--text);">Atribuir Plano Comercial</h3>
+              <p class="dialog-subtitle">
+                Usuário: <strong>${escapeHtml(user.nome)}</strong> (@${escapeHtml(user.login)})
+              </p>
+            </div>
+          </div>
+          <button type="button" class="icon-btn small" id="btnCloseAssignPlan" aria-label="Fechar">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px; height:14px; stroke-width:2.5;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div class="dialog-body" style="display:flex; flex-direction:column; gap:16px;">
+          <div style="background:var(--surface-2); padding:12px 14px; border-radius:10px; border:1px solid var(--line);">
+            <div style="font-size:0.78rem; color:var(--muted); font-weight:600; margin-bottom:4px;">Plano Atual:</div>
+            <div>${currentPlanDisplay}</div>
+          </div>
+
+          <div class="field">
+            <label for="adminAssignSelectPlan" style="font-size:0.85rem; font-weight:700; color:var(--text); margin-bottom:6px; display:block;">
+              Novo Plano Comercial (Apenas Ativos)
+            </label>
+            <select id="adminAssignSelectPlan" class="input" required style="width:100%;">
+              ${specialCurrentOption}
+              ${optionsHtml}
+            </select>
+            <small style="color:var(--muted); font-size:0.75rem; margin-top:4px; display:block;">
+              Somente planos com status "Ativo" estão disponíveis para nova atribuição.
+            </small>
+          </div>
+        </div>
+
+        <div class="dialog-foot actions-right">
+          <button type="button" class="btn soft" id="btnCancelAssignPlan">Cancelar</button>
+          <button type="submit" class="btn primary" id="btnSaveAssignPlan">Salvar Atribuição</button>
+        </div>
+      </form>
+    `;
+
+    document.getElementById('btnCloseAssignPlan')?.addEventListener('click', () => modal.close());
+    document.getElementById('btnCancelAssignPlan')?.addEventListener('click', () => modal.close());
+
+    document.getElementById('formAdminAssignPlan')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const select = document.getElementById('adminAssignSelectPlan');
+      const selectedPlanId = select ? select.value : '';
+      if (!selectedPlanId) {
+        showFeedback('Selecione um plano comercial ativo válido.', 'error');
+        return;
+      }
+
+      if (user.planId === selectedPlanId) {
+        modal.close();
+        showFeedback('Usuário já está vinculado a este plano.', 'info');
+        return;
+      }
+
+      const saveBtn = document.getElementById('btnSaveAssignPlan');
+      const origText = saveBtn ? saveBtn.textContent : 'Salvar Atribuição';
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Atribuindo...';
+      }
+
+      try {
+        const res = await API.assignUserPlan(userId, selectedPlanId);
+        if (res && res.success) {
+          user.planId = res.planId || selectedPlanId;
+          modal.close();
+          showFeedback(res.message || 'Plano atribuído com sucesso!', 'success');
+          renderUsersTable();
+        } else {
+          showFeedback(res?.message || 'Erro ao atribuir plano.', 'error');
+        }
+      } catch (err) {
+        showFeedback('Erro de conexão ao atribuir plano.', 'error');
+      } finally {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.textContent = origText;
+        }
+      }
+    });
+
+    modal.showModal();
+  }
+
   // Render Table in specified container
   async function render() {
     const loggedUser = (typeof API !== 'undefined' && API.getUser) ? API.getUser() : null;
@@ -839,8 +1861,47 @@ const AdminModule = (() => {
       return;
     }
 
-    await loadUsers();
+    // Carrega planos e usuários em paralelo (SEM N+1)
+    await Promise.all([loadPlans(), loadUsers()]);
+    loadPlansRegistry();
+
+    // Configura alternância de subabas
+    const usersSubTabBtn = document.getElementById('adminUsersSubTabBtn');
+    if (usersSubTabBtn) {
+      usersSubTabBtn.onclick = (e) => {
+        if (e) e.preventDefault();
+        switchSubTab('users');
+      };
+    }
+    const plansSubTabBtn = document.getElementById('adminPlansSubTabBtn');
+    if (plansSubTabBtn) {
+      plansSubTabBtn.onclick = (e) => {
+        if (e) e.preventDefault();
+        switchSubTab('plans');
+      };
+    }
+
+    // Filtro de status de planos
+    const planStatusFilter = document.getElementById('adminPlanStatusFilter');
+    if (planStatusFilter) {
+      planStatusFilter.value = currentPlanFilter;
+      planStatusFilter.onchange = () => {
+        currentPlanFilter = planStatusFilter.value;
+        renderPlansTable();
+      };
+    }
+
+    // Botão novo plano
+    const btnNewPlan = document.getElementById('btnAdminNewPlan');
+    if (btnNewPlan) {
+      btnNewPlan.onclick = (e) => {
+        if (e) e.preventDefault();
+        openCreatePlanModal();
+      };
+    }
+
     renderUsersTable();
+    renderPlansTable();
 
     const btnNew = document.getElementById('btnAdminNewUser');
     if (btnNew) {
@@ -1382,6 +2443,30 @@ const AdminModule = (() => {
     openManageModulesModal,
     handleDeleteUser,
     loadUsers,
+    renderPlansTable,
+    loadPlans,
+    loadPlansRegistry,
+    openCreatePlanModal,
+    openEditPlanModal,
+    openPlanStatusModal,
+    handleSetDefaultPlan,
+    openAssignPlanModal,
+    switchSubTab,
+    buildDynamicEntitlementsHtml,
+    wireLimitUnlimitedToggles,
+    extractEntitlementsFromForm,
+    parseCurrencyToCents,
+    formatCentsToCurrency,
+    slugify,
+    renderUserPlanBadge,
+    getPlansList: () => plansList,
+    setPlansList: (list) => { plansList = Array.isArray(list) ? list : []; },
+    getPlansRegistry: () => plansRegistry,
+    setPlansRegistry: (reg) => { plansRegistry = reg; },
+    getCurrentSubTab: () => currentAdminSubTab,
+    setCurrentSubTab: (tab) => { currentAdminSubTab = tab; },
+    getPlanFilter: () => currentPlanFilter,
+    setPlanFilter: (f) => { currentPlanFilter = f; },
     getCurrentPage: () => currentUsersPage,
     setCurrentPage: (p) => {
       const totalPages = Math.max(1, Math.ceil(usersList.length / USERS_PER_PAGE));

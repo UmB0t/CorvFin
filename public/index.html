@@ -1727,42 +1727,66 @@
 
       <!-- TAB 7: GESTÃO ADMINISTRATIVA DE USUÁRIOS & PERMISSÕES (ADMIN) -->
       <main id="tab-admin" class="tab-content" hidden>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; flex-wrap:wrap; gap:12px;">
-          <div>
-            <h2 style="margin:0; font-size:1.4rem; font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px;">
-              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:24px; height:24px;">
+        <!-- NAVEGAÇÃO DE SUBABAS: USUÁRIOS & PERMISSÕES / PLANOS COMERCIAIS -->
+        <div id="adminHeaderBar" class="module-header" style="margin-bottom: 20px;">
+          <div id="adminSubTabsWrap" class="subtabs-nav">
+            <button type="button" class="btn small primary" id="adminUsersSubTabBtn">
+              <svg class="svg-icon" viewBox="0 0 24 24">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                 <circle cx="9" cy="7" r="4" />
                 <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
                 <path d="M16 3.13a4 4 0 0 1 0 7.75" />
               </svg>
-              Gestão de Usuários & Permissões (RBAC)
-            </h2>
-            <p style="margin:4px 0 0; color:var(--muted); font-size:0.88rem;">Cadastre novos acessos, redefina senhas e controle o acesso modular de cada usuário.</p>
+              Usuários & Permissões
+            </button>
+            <button type="button" class="btn small soft" id="adminPlansSubTabBtn">
+              <svg class="svg-icon" viewBox="0 0 24 24">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+              Catálogo de Planos
+            </button>
           </div>
-          <button type="button" class="btn primary" id="btnAdminNewUser" style="border-radius:10px; font-weight:800;">
-            <svg class="svg-icon" viewBox="0 0 24 24">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            + Criar Novo Usuário
-          </button>
         </div>
 
-        <div class="card section-card full-width" style="padding:0; overflow:hidden;">
-          <div style="overflow-x:auto;">
-            <table class="fs-table" id="adminUsersTable" style="width:100%; border-collapse:collapse;">
-              <thead>
-                <tr>
-                  <th style="padding:14px 16px; text-align:left;">Usuário / Nome</th>
-                  <th style="padding:14px 16px; text-align:left;">Login</th>
-                  <th style="padding:14px 16px; text-align:left;">E-mail</th>
-                  <th style="padding:14px 16px; text-align:center;">Perfil</th>
-                  <th style="padding:14px 16px; text-align:center;">Módulos Liberados (RBAC)</th>
-                  <th style="padding:14px 16px; text-align:right;">Ações</th>
-                </tr>
-              </thead>
-              <tbody id="adminUsersTableBody">
+        <!-- SUBABA 1: GESTÃO DE USUÁRIOS & PERMISSÕES (RBAC) -->
+        <div id="adminViewUsers">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; flex-wrap:wrap; gap:12px;">
+            <div>
+              <h2 style="margin:0; font-size:1.4rem; font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px;">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:24px; height:24px;">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                Gestão de Usuários & Permissões (RBAC)
+              </h2>
+              <p style="margin:4px 0 0; color:var(--muted); font-size:0.88rem;">Cadastre novos acessos, redefina senhas e controle o acesso modular de cada usuário.</p>
+            </div>
+            <button type="button" class="btn primary" id="btnAdminNewUser" style="border-radius:10px; font-weight:800;">
+              <svg class="svg-icon" viewBox="0 0 24 24">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              + Criar Novo Usuário
+            </button>
+          </div>
+
+          <div class="card section-card full-width" style="padding:0; overflow:hidden;">
+            <div style="overflow-x:auto;">
+              <table class="fs-table" id="adminUsersTable" style="width:100%; border-collapse:collapse;">
+                <thead>
+                  <tr>
+                    <th style="padding:14px 16px; text-align:left;">Usuário / Nome</th>
+                    <th style="padding:14px 16px; text-align:left;">Login</th>
+                    <th style="padding:14px 16px; text-align:left;">E-mail</th>
+                    <th style="padding:14px 16px; text-align:center;">Perfil</th>
+                    <th style="padding:14px 16px; text-align:center;">Plano Comercial</th>
+                    <th style="padding:14px 16px; text-align:center;">Módulos Liberados (RBAC)</th>
+                    <th style="padding:14px 16px; text-align:right;">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="adminUsersTableBody">
                 <!-- Populado dinamicamente por AdminModule.render() -->
               </tbody>
             </table>
@@ -1944,7 +1968,58 @@
             <div id="smtp-action-feedback" style="display:none; padding:12px 16px; border-radius:10px; font-size:0.88rem; font-weight:600;"></div>
           </form>
         </div>
-      </main>
+      </div>
+
+      <!-- SUBABA 2: CATÁLOGO DE PLANOS COMERCIAIS (LOTE 5E) -->
+      <div id="adminViewPlans" hidden>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px; flex-wrap:wrap; gap:12px;">
+          <div>
+            <h2 style="margin:0; font-size:1.4rem; font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px;">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:24px; height:24px;">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+              Catálogo de Planos Comerciais
+            </h2>
+            <p style="margin:4px 0 0; color:var(--muted); font-size:0.88rem;">Gerencie ofertas de planos, precificação, ciclo de vida e limites de recursos do sistema.</p>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <select id="adminPlanStatusFilter" class="input" style="width:auto; padding:6px 12px; font-size:0.85rem; border-radius:10px;">
+              <option value="">Todos os Status</option>
+              <option value="active">Somente Ativos</option>
+              <option value="inactive">Somente Inativos</option>
+              <option value="archived">Somente Arquivados</option>
+            </select>
+            <button type="button" class="btn primary" id="btnAdminNewPlan" style="border-radius:10px; font-weight:800;">
+              <svg class="svg-icon" viewBox="0 0 24 24">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              + Criar Novo Plano
+            </button>
+          </div>
+        </div>
+
+        <div class="card section-card full-width" style="padding:0; overflow:hidden;">
+          <div style="overflow-x:auto;">
+            <table class="fs-table" id="adminPlansTable" style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr>
+                  <th style="padding:14px 16px; text-align:left;">Plano / Identificador</th>
+                  <th style="padding:14px 16px; text-align:center;">Status</th>
+                  <th style="padding:14px 16px; text-align:left;">Preço / Cobrança</th>
+                  <th style="padding:14px 16px; text-align:center;">Recursos Liberados</th>
+                  <th style="padding:14px 16px; text-align:left;">Limites Notáveis</th>
+                  <th style="padding:14px 16px; text-align:right;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="adminPlansTableBody">
+                <!-- Renderizado dinamicamente por AdminModule.renderPlansTable() -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
 
       <footer class="foot">
         <div id="footerMsgContainer">

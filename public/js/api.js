@@ -231,7 +231,24 @@
     // Email & SMTP endpoints (Security 6A)
     getEmailSettings: () => request('/api/admin/email-settings', { method: 'GET' }),
     saveEmailSettings: (settings) => request('/api/admin/email-settings', { method: 'PUT', body: JSON.stringify(settings) }),
-    testEmailSettings: (payload) => request('/api/admin/email-settings/test', { method: 'POST', body: JSON.stringify(payload || {}) })
+    testEmailSettings: (payload) => request('/api/admin/email-settings/test', { method: 'POST', body: JSON.stringify(payload || {}) }),
+
+    // Commercial Plans & Entitlements endpoints (Lote 5D/5E)
+    getPlansRegistry: () => request('/api/admin/plans/registry', { method: 'GET' }),
+    getPlans: (filters = {}) => {
+      const query = new URLSearchParams();
+      if (filters.status) query.set('status', filters.status);
+      if (filters.isDefault !== undefined && filters.isDefault !== null) query.set('isDefault', String(filters.isDefault));
+      const qs = query.toString();
+      return request(`/api/admin/plans${qs ? '?' + qs : ''}`, { method: 'GET' });
+    },
+    getPlanById: (planId) => request(`/api/admin/plans/${encodeURIComponent(planId)}`, { method: 'GET' }),
+    createPlan: (payload) => request('/api/admin/plans', { method: 'POST', body: JSON.stringify(payload) }),
+    updatePlan: (planId, payload) => request(`/api/admin/plans/${encodeURIComponent(planId)}`, { method: 'PUT', body: JSON.stringify(payload) }),
+    setPlanStatus: (planId, status) => request(`/api/admin/plans/${encodeURIComponent(planId)}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+    setDefaultPlan: (planId) => request(`/api/admin/plans/${encodeURIComponent(planId)}/set-default`, { method: 'POST' }),
+    assignUserPlan: (userId, planId) => request(`/api/admin/users/${encodeURIComponent(userId)}/plan`, { method: 'PATCH', body: JSON.stringify({ planId }) }),
+    getUserPlan: (userId) => request(`/api/admin/users/${encodeURIComponent(userId)}/plan`, { method: 'GET' })
   };
 
   // Helper centralizado de avaliação de política de senha para UX (Security 6B)
