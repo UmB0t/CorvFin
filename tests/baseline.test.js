@@ -19,6 +19,13 @@ const { requirePermission } = require('../server/middleware/permissions');
 const storageService = require('../server/services/storageService');
 const { getUserById } = storageService;
 
+const {
+  assertTestDatabaseName,
+  setupIsolatedTestMongo,
+  teardownIsolatedTestMongo
+} = require('./helpers/testDbIsolation');
+const planService = require('../server/services/planService');
+
 describe('OmniFin V3 - Baseline Contract Tests', () => {
   let server;
   let baseUrl;
@@ -26,18 +33,25 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
   let testAdminToken;
   let testUserId;
   let testAdminId;
+  let testDbInfo = null;
   const testSuffix = 'test_' + Date.now();
   const testUserLogin = `user_${testSuffix}`;
   const testAdminLogin = `admin_${testSuffix}`;
   const testPassword = 'Password@2026';
 
   before(async () => {
-    // 1. Conecta ao banco de homologação
-    const db = await connectDB();
+    // 1. Validação puramente estática/configuracional de ambiente (não muta nem conecta em HML)
     assert.strictEqual(config.STORAGE_DRIVER, 'mongodb', 'STORAGE_DRIVER deve ser mongodb');
-    assert.strictEqual(config.MONGODB_DB_NAME, 'omnifin_v3_hml', 'Banco deve ser omnifin_v3_hml');
+    assert.strictEqual(config.MONGODB_DB_NAME, 'omnifin_v3_hml', 'Configuração estática de ambiente deve declarar omnifin_v3_hml');
 
-    // 2. Inicia servidor em porta efêmera para os testes
+    // 2. Conecta ao banco descartável 100% isolado com fail-safe
+    testDbInfo = await setupIsolatedTestMongo('baseline');
+    const db = getDB();
+
+    // 3. Garante plano padrão no banco isolado para suporte ao registro de novos usuários
+    await planService.ensureDefaultPlan();
+
+    // 4. Inicia servidor em porta efêmera para os testes
     await new Promise((resolve) => {
       server = http.createServer(app).listen(0, () => {
         const port = server.address().port;
@@ -46,38 +60,7 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
       });
     });
 
-    // 3. Cadastra usuário comum de teste
-    const regRes = await fetch(`${baseUrl}/api/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        nome: 'Usuário Teste Baseline',
-        login: testUserLogin,
-        email: `${testUserLogin}@omnifin.test`,
-        senha: testPassword
-      })
-    });
-    const regData = await regRes.json();
-    assert.strictEqual(regRes.status, 201, 'Cadastro de usuário comum deve retornar 201');
-    testUserId = regData.user.id;
-
-    // Security 6B: Confirma o e-mail do usuário sintético no banco para habilitar login e emissão de sessão
-    await db.collection('users').updateOne(
-      { _id: testUserId },
-      { $set: { emailVerified: true, emailVerifiedAt: new Date().toISOString() } }
-    );
-
-    // Login inicial para emitir cookie de sessão do usuário de teste
-    const initLoginRes = await fetch(`${baseUrl}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ login: testUserLogin, senha: testPassword })
-    });
-    const initCookie = initLoginRes.headers.get('set-cookie') || '';
-    const initMatch = initCookie.match(/omnifin_session=([^;]+)/);
-    testUserToken = (initMatch && initMatch[1]) || '';
-
-    // 4. Cria admin sintético direto no banco para os testes de permissão/admin
+    // 5. Cria admin sintético direto no banco para os testes de permissão/admin
     testAdminId = `usr_admin_${testSuffix}`;
     const hashedAdminPwd = await hashPassword(testPassword);
     const usersCol = db.collection('users');
@@ -104,31 +87,49 @@ describe('OmniFin V3 - Baseline Contract Tests', () => {
     const adminCookie = adminLoginRes.headers.get('set-cookie') || '';
     const adminMatch = adminCookie.match(/omnifin_session=([^;]+)/);
     testAdminToken = (adminMatch && adminMatch[1]) || adminLoginData.token;
+
+    // 6. Cadastra usuário comum de teste (com o admin já cadastrado, isFirstUser é false)
+    const regRes = await fetch(`${baseUrl}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nome: 'Usuário Teste Baseline',
+        login: testUserLogin,
+        email: `${testUserLogin}@omnifin.test`,
+        senha: testPassword
+      })
+    });
+    const regData = await regRes.json();
+    assert.strictEqual(regRes.status, 201, 'Cadastro de usuário comum deve retornar 201');
+    testUserId = regData.user.id;
+
+    // Security 6B: Confirma o e-mail do usuário sintético no banco para habilitar login e emissão de sessão
+    await db.collection('users').updateOne(
+      { _id: testUserId },
+      { $set: { is_admin: false, emailVerified: true, emailVerifiedAt: new Date().toISOString() } }
+    );
+
+    // Login inicial para emitir cookie de sessão do usuário de teste
+    const initLoginRes = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login: testUserLogin, senha: testPassword })
+    });
+    const initCookie = initLoginRes.headers.get('set-cookie') || '';
+    const initMatch = initCookie.match(/omnifin_session=([^;]+)/);
+    testUserToken = (initMatch && initMatch[1]) || '';
   });
 
   after(async () => {
-    // Cleanup estritamente dos dados sintéticos criados para este teste
-    try {
-      const db = getDB();
-      if (testUserId) {
-        await db.collection('users').deleteOne({ _id: testUserId });
-        await db.collection('permissions').deleteOne({ _id: testUserId });
-        await db.collection('finances').deleteOne({ _id: testUserId });
-      }
-      if (testAdminId) {
-        await db.collection('users').deleteOne({ _id: testAdminId });
-        await db.collection('permissions').deleteOne({ _id: testAdminId });
-        await db.collection('finances').deleteOne({ _id: testAdminId });
-      }
-    } catch (e) {
-      console.warn('Erro no cleanup de dados sintéticos:', e);
-    }
-
-    // Fecha servidor HTTP de teste e conexão MongoDB
+    // 1. Fecha servidor HTTP de teste
     if (server) {
       await new Promise((resolve) => server.close(resolve));
     }
-    await closeDB();
+
+    // 2. Teardown completo e seguro do banco descartável do MongoDB
+    if (testDbInfo) {
+      await teardownIsolatedTestMongo(testDbInfo.testDbName);
+    }
   });
 
   test('1. Login válido retorna 200 e emite cookie HttpOnly de sessão', async () => {

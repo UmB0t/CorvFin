@@ -43,6 +43,7 @@ const {
 } = require('./services/storageService');
 const { authMiddleware, adminOnlyMiddleware } = require('./middleware/auth');
 const { sanitizeFinancePayload, applyRbacModulePreservation } = require('./services/financeValidation');
+const planService = require('./services/planService');
 const cryptoService = require('./services/cryptoService');
 const mailService = require('./services/mailService');
 const {
@@ -453,6 +454,16 @@ app.post('/api/auth/register', authRegisterLimiter, async (req, res) => {
     const isFirstUser = users.length === 0;
     const nowISO = new Date().toISOString();
 
+    // Obter plano default obrigatório para novos usuários (Lote 5C)
+    const defaultPlan = await planService.getDefaultPlan();
+    if (!defaultPlan || !defaultPlan._id) {
+      return res.status(500).json({
+        success: false,
+        error: 'DEFAULT_PLAN_NOT_FOUND',
+        message: 'Nenhum plano padrão configurado no sistema. Contate o administrador.'
+      });
+    }
+
     const newUser = {
       id: generateUserId(),
       nome: nome.trim(),
@@ -464,6 +475,7 @@ app.post('/api/auth/register', authRegisterLimiter, async (req, res) => {
       tokenVersion: 0,
       emailVerified: false,
       emailVerifiedAt: null,
+      planId: defaultPlan._id,
       createdAt: nowISO
     };
 
@@ -1457,6 +1469,16 @@ app.post('/api/admin/users', authMiddleware, adminOnlyMiddleware, async (req, re
     const hashedPassword = await hashPassword(senha);
     const nowISO = new Date().toISOString();
 
+    // Obter plano default obrigatório para novos usuários via admin (Lote 5C)
+    const defaultPlan = await planService.getDefaultPlan();
+    if (!defaultPlan || !defaultPlan._id) {
+      return res.status(500).json({
+        success: false,
+        error: 'DEFAULT_PLAN_NOT_FOUND',
+        message: 'Nenhum plano padrão configurado no sistema.'
+      });
+    }
+
     const newUser = {
       id: generateUserId(),
       nome: nome.trim(),
@@ -1468,6 +1490,7 @@ app.post('/api/admin/users', authMiddleware, adminOnlyMiddleware, async (req, re
       tokenVersion: 0,
       emailVerified: true,
       emailVerifiedAt: nowISO,
+      planId: defaultPlan._id,
       createdAt: nowISO
     };
 
@@ -2127,14 +2150,32 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start Server conditionally
-if (require.main === module) {
-  app.listen(config.PORT, () => {
-    console.log(`====================================================`);
-    console.log(`  Finanças Pro Server rodando na porta: ${config.PORT}`);
-    console.log(`  Acesse: http://localhost:${config.PORT}`);
-    console.log(`====================================================`);
-  });
+// Bootstrap explícito de domínio para inicialização e seed
+async function initDomainBootstrap() {
+  if (config.STORAGE_DRIVER === 'mongodb') {
+    const { connectDB } = require('./config/db');
+    await connectDB();
+  }
+  return await planService.ensureDefaultPlan();
 }
 
+// Start Server conditionally
+if (require.main === module) {
+  (async () => {
+    try {
+      await initDomainBootstrap();
+    } catch (err) {
+      console.error('[Bootstrap Error] Falha ao inicializar domínio e plano default:', err);
+      process.exit(1);
+    }
+    app.listen(config.PORT, () => {
+      console.log(`====================================================`);
+      console.log(`  Finanças Pro Server rodando na porta: ${config.PORT}`);
+      console.log(`  Acesse: http://localhost:${config.PORT}`);
+      console.log(`====================================================`);
+    });
+  })();
+}
+
+app.initDomainBootstrap = initDomainBootstrap;
 module.exports = app;

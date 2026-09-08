@@ -527,6 +527,7 @@ async function ensureMongoIndexes() {
   const usersCol = await getCollection('users');
   await usersCol.createIndex({ login: 1 }, { unique: true, collation: { locale: 'pt', strength: 2 } });
   await usersCol.createIndex({ email: 1 }, { unique: true, collation: { locale: 'pt', strength: 2 } });
+  await usersCol.createIndex({ planId: 1 });
 
   const permsCol = await getCollection('permissions');
   await permsCol.createIndex({ userId: 1 }, { unique: true });

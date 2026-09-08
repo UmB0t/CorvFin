@@ -5,10 +5,17 @@ let client = null;
 let dbInstance = null;
 
 /**
- * Conecta ao MongoDB caso ainda não esteja conectado.
+ * Conecta ao MongoDB caso ainda não esteja conectado ou seleciona o database especificado.
  * Reutiliza a instância singleton do MongoClient.
  */
-async function connectDB() {
+async function connectDB(overrideDbName) {
+  // Se foi solicitado explicitamente um database diferente do conectado, seleciona o novo database
+  if (overrideDbName && client && dbInstance && dbInstance.databaseName !== overrideDbName) {
+    dbInstance = client.db(overrideDbName);
+    return dbInstance;
+  }
+
+  // Se já há conexão ativa e não foi solicitada troca explícita, retorna a instância ativa
   if (dbInstance && client) {
     return dbInstance;
   }
@@ -27,10 +34,11 @@ async function connectDB() {
         serverSelectionTimeoutMS: 5000,
         connectTimeoutMS: 10000
       });
+      await client.connect();
     }
 
-    await client.connect();
-    dbInstance = client.db(config.MONGODB_DB_NAME || 'financas_pro');
+    const targetDbName = overrideDbName || config.MONGODB_DB_NAME || 'financas_pro';
+    dbInstance = client.db(targetDbName);
     return dbInstance;
   } catch (err) {
     // Sanitizar mensagem para garantir que credenciais contidas na URI não vazem

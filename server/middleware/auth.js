@@ -1,5 +1,6 @@
 const { verifyToken } = require('../services/authService');
 const { getUserById, getUserPermissions } = require('../services/storageService');
+const entitlementService = require('../services/entitlementService');
 const config = require('../config/config');
 
 async function authMiddleware(req, res, next) {
@@ -62,8 +63,30 @@ async function authMiddleware(req, res, next) {
       is_admin: !!user.is_admin,
       notificacoes_ativas: typeof user.notificacoes_ativas === 'boolean' ? user.notificacoes_ativas : true,
       tokenVersion: currentTokenVersion,
-      permissions
+      permissions,
+      planId: user.planId !== undefined ? user.planId : null
     };
+
+    // 9. Resolver plano efetivo e entitlements via EntitlementService (Lote 5C)
+    try {
+      const resolvedPlan = await entitlementService.getPlanForUser(req.user);
+      req.user.planId = resolvedPlan._id;
+      req.user.plan = {
+        id: resolvedPlan._id,
+        name: resolvedPlan.name,
+        slug: resolvedPlan.slug
+      };
+      req.user.entitlements = await entitlementService.getEffectiveEntitlements(req.user);
+    } catch (planErr) {
+      if (planErr.code === 'PLAN_REFERENCE_INVALID') {
+        return res.status(403).json({
+          success: false,
+          error: 'PLAN_REFERENCE_INVALID',
+          message: 'O plano vinculado ao usuário é inválido ou inexistente.'
+        });
+      }
+      throw planErr;
+    }
 
     next();
   } catch (err) {

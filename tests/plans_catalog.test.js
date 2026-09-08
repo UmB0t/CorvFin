@@ -37,7 +37,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const config = require('../server/config/config');
-const { connectDB, getDB, closeDB } = require('../server/config/db');
+const { getDB } = require('../server/config/db');
 const storageService = require('../server/services/storageService');
 const mongoStorage = require('../server/services/mongoStorage');
 const jsonStorage = require('../server/services/jsonStorage');
@@ -47,35 +47,29 @@ const {
   validatePlanEntitlements,
   getCompatibilityEntitlements
 } = require('../server/config/entitlementRegistry');
+const {
+  assertTestDatabaseName,
+  setupIsolatedTestMongo,
+  teardownIsolatedTestMongo
+} = require('./helpers/testDbIsolation');
 
 describe('Lote 5B — Foundations & Storage de Planos (CorvFin V2)', () => {
   const createdTestPlanIds = [];
   let isMongo = config.STORAGE_DRIVER === 'mongodb';
   let originalPlansFile = config.PLANS_FILE;
   const tempTestPlansFile = path.join(__dirname, `test_plans_${Date.now()}.json`);
+  let testDbInfo = null;
 
   before(async () => {
     if (isMongo) {
-      await connectDB();
-      const db = getDB();
-      // Garante índices do MongoDB
-      await mongoStorage.ensureMongoIndexes();
+      testDbInfo = await setupIsolatedTestMongo('plans');
     }
   });
 
   after(async () => {
-    // Cleanup de documentos de teste criados no MongoDB
-    if (isMongo) {
-      try {
-        const db = getDB();
-        if (createdTestPlanIds.length > 0) {
-          await db.collection('plans').deleteMany({
-            _id: { $in: createdTestPlanIds }
-          });
-        }
-      } catch (err) {
-        console.warn('Erro limpando plans de teste:', err.message);
-      }
+    // Teardown completo e seguro do banco descartável do MongoDB
+    if (isMongo && testDbInfo) {
+      await teardownIsolatedTestMongo(testDbInfo.testDbName);
     }
 
     // Cleanup de arquivo temporário se criado
@@ -85,10 +79,6 @@ describe('Lote 5B — Foundations & Storage de Planos (CorvFin V2)', () => {
       } catch (e) {}
     }
     config.PLANS_FILE = originalPlansFile;
-
-    if (isMongo) {
-      await closeDB();
-    }
   });
 
   beforeEach(() => {
