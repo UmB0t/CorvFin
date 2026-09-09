@@ -43,6 +43,7 @@ const {
   cleanExpiredSecurityTokens
 } = require('./services/storageService');
 const { authMiddleware, adminOnlyMiddleware } = require('./middleware/auth');
+const { conditionalMediaUpload, validateMediaFile, getBaseMimeType } = require('./middleware/mediaUpload');
 const { sanitizeFinancePayload, applyRbacModulePreservation } = require('./services/financeValidation');
 const planService = require('./services/planService');
 const entitlementService = require('./services/entitlementService');
@@ -1276,33 +1277,111 @@ app.post('/api/ai/chat', authMiddleware, async (req, res) => {
 });
 
 // POST /api/ai/actions/interpret - Interpretar intenção de despesa via n8n e gerar proposta segura
-app.post('/api/ai/actions/interpret', authMiddleware, async (req, res) => {
+app.post('/api/ai/actions/interpret', authMiddleware, conditionalMediaUpload, async (req, res) => {
   try {
-    const { message, conversationId, context, type, inputMode } = req.body || {};
-    const mode = (inputMode || type || 'text').trim().toLowerCase();
+    const rawMode = req.body?.inputMode || req.body?.type || (req.file ? (getBaseMimeType(req.file.mimetype).startsWith('audio/') ? 'audio' : 'image') : 'text');
+    const mode = typeof rawMode === 'string' ? rawMode.trim().toLowerCase() : 'text';
 
-    if (mode !== 'text') {
+    if (mode !== 'text' && mode !== 'audio' && mode !== 'image') {
       return res.status(400).json({
         success: false,
         error: 'UNSUPPORTED_INPUT_MODE',
+        code: 'UNSUPPORTED_INPUT_MODE',
         message: `A modalidade de entrada "${mode}" ainda não é suportada neste ambiente. Utilize entrada em texto.`
       });
     }
 
-    if (!message || typeof message !== 'string' || !message.trim()) {
+    const isMultimodal = mode === 'audio' || mode === 'image';
+
+    if (isMultimodal) {
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          error: 'AI_MEDIA_REQUIRED',
+          code: 'AI_MEDIA_REQUIRED',
+          message: 'Nenhum arquivo de mídia foi enviado para a interpretação multimodal.'
+        });
+      }
+      const mediaVal = validateMediaFile(req.file, mode);
+      if (!mediaVal.valid) {
+        const statusCode = mediaVal.code === 'AI_MEDIA_TOO_LARGE' ? 413 : 400;
+        return res.status(statusCode).json({
+          success: false,
+          error: mediaVal.code,
+          code: mediaVal.code,
+          message: mediaVal.message
+        });
+      }
+    }
+
+    const rawMessage = req.body?.message;
+    const cleanMessage = typeof rawMessage === 'string' ? rawMessage.trim() : '';
+
+    if (!isMultimodal && !cleanMessage) {
       return res.status(400).json({
         success: false,
         message: 'A mensagem do usuário é obrigatória para gerar uma proposta de lançamento.'
       });
     }
 
-    const cleanMessage = message.trim();
     if (cleanMessage.length > 2000) {
       return res.status(400).json({
         success: false,
         message: 'A mensagem excede o limite máximo permitido de 2000 caracteres.'
       });
     }
+
+    // Parse seguro de context (objeto, JSON string ou fallback escalar)
+    let parsedContext = req.body?.context;
+    let contextJsonInvalid = false;
+    if (typeof parsedContext === 'string') {
+      const trimmedCtx = parsedContext.trim();
+      if (trimmedCtx) {
+        try {
+          parsedContext = JSON.parse(trimmedCtx);
+        } catch (e) {
+          contextJsonInvalid = true;
+          parsedContext = null;
+        }
+      } else {
+        parsedContext = null;
+      }
+    }
+
+    if (contextJsonInvalid) {
+      const hasScalarFallback = req.body?.month !== undefined || req.body?.year !== undefined;
+      if (!hasScalarFallback) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_AI_CONTEXT',
+          code: 'INVALID_AI_CONTEXT',
+          message: 'O campo context enviado é inválido (formato JSON incorreto).'
+        });
+      }
+    }
+
+    if (parsedContext !== null && parsedContext !== undefined && (typeof parsedContext !== 'object' || Array.isArray(parsedContext))) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_AI_CONTEXT',
+        code: 'INVALID_AI_CONTEXT',
+        message: 'O campo context deve ser um objeto JSON válido.'
+      });
+    }
+
+    const effectiveMonth = parsedContext?.month ?? req.body?.month;
+    const effectiveYear = parsedContext?.year ?? req.body?.year;
+    const effectiveConvId = parsedContext?.conversationId ?? req.body?.conversationId;
+
+    const safeContext = (parsedContext || req.body?.month !== undefined || req.body?.year !== undefined) ? {
+      month: Number.isInteger(Number(effectiveMonth)) && Number(effectiveMonth) >= 1 && Number(effectiveMonth) <= 12 ? Number(effectiveMonth) : undefined,
+      year: Number.isInteger(Number(effectiveYear)) && Number(effectiveYear) >= 1900 && Number(effectiveYear) <= 2200 ? Number(effectiveYear) : undefined,
+      conversationId: typeof effectiveConvId === 'string' ? effectiveConvId.trim() : undefined
+    } : undefined;
+
+    const rawTargetModule = String(req.body?.targetModule || req.body?.intent || parsedContext?.targetModule || '').toLowerCase();
+    const isBenefitTarget = rawTargetModule.includes('benefic') || rawTargetModule === 'create_benefit';
+    const isExpenseTarget = rawTargetModule.includes('despes') || rawTargetModule === 'create_expense';
 
     // Asserção comercial de acesso ao módulo de IA (ai.enabled === true)
     await aiQuotaService.assertAiAccess(req.user);
@@ -1312,9 +1391,13 @@ app.post('/api/ai/actions/interpret', authMiddleware, async (req, res) => {
       userId: req.user.id,
       userName: req.user.nome,
       user: req.user,
-      conversationId,
-      context,
-      type: mode
+      conversationId: req.body?.conversationId,
+      context: safeContext,
+      type: mode,
+      inputMode: mode,
+      file: req.file,
+      targetModule: isBenefitTarget ? 'beneficios' : (isExpenseTarget ? 'despesas' : undefined),
+      intent: isBenefitTarget ? 'create_benefit' : (isExpenseTarget ? 'create_expense' : undefined)
     });
 
     return res.json(proposalResult);
@@ -1378,7 +1461,7 @@ app.post('/api/ai/actions/interpret', authMiddleware, async (req, res) => {
         message: 'Contexto financeiro não encontrado no servidor para esta ação.'
       });
     }
-    if (err.status === 502 || err.code === 'N8N_UPSTREAM_ERROR') {
+    if (err.status === 502 || err.code === 'N8N_UPSTREAM_ERROR' || err.code === 'N8N_INVALID_RESPONSE' || err.code === 'N8N_INVALID_CONTRACT') {
       return res.status(502).json({
         success: false,
         message: 'O serviço de interpretação encontrou uma instabilidade temporária. Tente novamente.'
@@ -1390,9 +1473,19 @@ app.post('/api/ai/actions/interpret', authMiddleware, async (req, res) => {
         message: err.message || 'Ação não suportada pelo assistente.'
       });
     }
-    if (err.status === 400) {
+    if (err.status === 413 || err.code === 'AI_MEDIA_TOO_LARGE') {
+      return res.status(413).json({
+        success: false,
+        error: 'AI_MEDIA_TOO_LARGE',
+        code: 'AI_MEDIA_TOO_LARGE',
+        message: err.message || 'O arquivo enviado excede o limite máximo permitido de 5MB.'
+      });
+    }
+    if (err.status === 400 || err.code === 'INVALID_AI_CONTEXT' || err.code === 'AI_MEDIA_REQUIRED' || err.code === 'AI_MEDIA_EMPTY' || err.code === 'AI_MEDIA_TYPE_UNSUPPORTED' || err.code === 'UNSUPPORTED_INPUT_MODE') {
       return res.status(400).json({
         success: false,
+        error: err.code || 'BAD_REQUEST',
+        code: err.code || 'BAD_REQUEST',
         message: err.message
       });
     }
@@ -1402,6 +1495,13 @@ app.post('/api/ai/actions/interpret', authMiddleware, async (req, res) => {
       success: false,
       message: 'Erro interno ao processar proposta de lançamento.'
     });
+  } finally {
+    if (req.file) {
+      if (req.file.buffer) {
+        req.file.buffer = null;
+      }
+      req.file = null;
+    }
   }
 });
 

@@ -31,7 +31,9 @@ const AI_CREDIT_POLICY = {
   'benefit_interpretation:image': 3
 };
 
-const SUPPORTED_INPUT_MODES = ['text'];
+const ALL_SUPPORTED_INPUT_MODES = ['text', 'audio', 'image'];
+const CHAT_SUPPORTED_MODES = ['text'];
+const SUPPORTED_INPUT_MODES = ALL_SUPPORTED_INPUT_MODES;
 
 function getCreditCost(operationType, inputMode = 'text') {
   const key = `${operationType}:${inputMode}`;
@@ -41,8 +43,11 @@ function getCreditCost(operationType, inputMode = 'text') {
   return null;
 }
 
-function isInputModeSupported(inputMode) {
-  return SUPPORTED_INPUT_MODES.includes(inputMode);
+function isInputModeSupported(inputMode, endpoint = 'chat') {
+  if (endpoint === 'interpret' || endpoint === 'actions') {
+    return ALL_SUPPORTED_INPUT_MODES.includes(inputMode);
+  }
+  return CHAT_SUPPORTED_MODES.includes(inputMode);
 }
 
 module.exports = {

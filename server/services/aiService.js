@@ -7,6 +7,25 @@
 const config = require('../config/config');
 const storageService = require('./storageService');
 const aiQuotaService = require('./aiQuotaService');
+const { getCreditCost } = require('../config/aiCreditPolicy');
+const { validateMediaFile, getBaseMimeType } = require('../middleware/mediaUpload');
+
+function getNormalizedFilename(baseMime, cleanMode) {
+  if (cleanMode === 'image') {
+    if (baseMime === 'image/jpeg') return 'image.jpg';
+    if (baseMime === 'image/png') return 'image.png';
+    if (baseMime === 'image/webp') return 'image.webp';
+    return 'image.jpg';
+  }
+  if (cleanMode === 'audio') {
+    if (baseMime === 'audio/webm') return 'audio.webm';
+    if (baseMime === 'audio/ogg') return 'audio.ogg';
+    if (baseMime === 'audio/mpeg') return 'audio.mp3';
+    if (baseMime === 'audio/mp4' || baseMime === 'audio/m4a' || baseMime === 'audio/x-m4a' || baseMime === 'audio/aac') return 'audio.mp4';
+    return 'audio.webm';
+  }
+  return 'media.bin';
+}
 
 const SYSTEM_GUIDE_CONTEXT = `
 CORVFIN V3 - GUIA E DIRETRIZES DO ASSISTENTE:
@@ -578,6 +597,7 @@ function extractDescriptionFromMessage(text) {
     return '';
   }
   // Remove triggers de benefício e forma de pagamento no início
+  str = str.replace(/^(?:tenho\s+\w+,\s*mas\s+paguei|tenho\s+\w+\s+mas\s+paguei|ia\s+pagar\s+no\s+\w+\s+mas\s+paguei)\s+(?:o|a|com|no|na|em)?\s*/i, '');
   str = str.replace(/^(?:usei|passei|gastei)\s+(?:meu|minha|o|a|com|no|na|em)?\s*(?:vr|va|vale(?:\s+refeicao|\s+refeição|\s+alimentacao|\s+alimentação)?)\s+(?:no|na|em|com|para)?\s*/i, '');
   // Remove triggers de ação no início
   str = str.replace(/^(comprei|gastei com|gastei no|gastei na|gastei em|gastei|paguei|assinei|fiz uma compra de|fiz uma compra|usei meu \w+ no|usei meu \w+ na|usei meu \w+ em|usei \w+ no|usei \w+ na|usei \w+ em|usei|passei no|passei na|passei|foi no|foi na|foi em|no|na)\s+/i, '');
@@ -585,7 +605,7 @@ function extractDescriptionFromMessage(text) {
   str = str.replace(/^(?:de|por|com)?\s*(?:r\$\s*|rs\s*|\$)?\s*\d+(?:[.,]\d+)?\s*(?:reais|real|conto|pila|mil|k)?\s+(?:no|na|em|com|para|de|num|numa)?\s*/i, '');
   // Remove sufixos de preço / forma de pagamento / datas no final
   str = str.replace(/\s+(?:por|de|com)\s+(?:r\$\s*|\$)?\d+.*$/i, '');
-  str = str.replace(/\s+(?:no|na|pelo|pela|via|com o|com a|com meu|com minha|com)\s+(?:pix|dinheiro|cartao|cartão|nubank|vr|va|vale|beneficio|benefício).*$/i, '');
+  str = str.replace(/\s+(?:e\s+paguei|mas\s+paguei|paguei|usando|com|via|no|na|em|pelo|pela)\s+(?:no|na|em|via|com|pelo|pela)?\s*(?:o\s+|a\s+|meu\s+|minha\s+)?(?:pix|dinheiro|cartao|cartão|debito|débito|credito|crédito|nubank|vr|va|vale transporte|vale refeicao|vale refeição|vale alimentacao|vale alimentação|vale|beneficio|benefício).*$/i, '');
   str = str.replace(/\s+(?:hoje|ontem|em abril|em maio|em junho|em julho|em agosto|em setembro|em outubro|em novembro|em dezembro|mes passado|mês passado).*$/i, '');
   str = str.replace(/[!?,.]+$/g, '').trim();
   // Remove artigos iniciais
@@ -594,7 +614,7 @@ function extractDescriptionFromMessage(text) {
   str = str.replace(/\b(mesmo|tambem|também|pae|cara|amigo)\b/gi, '').trim();
 
   const lowerDesc = normalizeSearchStr(str);
-  if (['pix', 'dinheiro', 'cartao', 'cartão', 'debito', 'débito', 'credito', 'crédito', 'nubank', 'vr', 'va', 'vale', 'despesa', 'gasto', 'compra', 'beneficio', 'verdade', 'meu vr', 'meu va', 'no vr', 'no va', 'com vr', 'com va'].includes(lowerDesc)) {
+  if (['pix', 'dinheiro', 'cartao', 'cartão', 'debito', 'débito', 'credito', 'crédito', 'cartao de credito', 'cartão de crédito', 'cartao de debito', 'cartão de débito', 'nubank', 'vr', 'va', 'vale', 'despesa', 'gasto', 'compra', 'beneficio', 'verdade', 'meu vr', 'meu va', 'no vr', 'no va', 'com vr', 'com va'].includes(lowerDesc)) {
     return '';
   }
 
@@ -659,27 +679,184 @@ function extractDestinationFromMessage(text, userDestinations = []) {
 function extractBenefitTypeFromMessage(text) {
   if (!text) return null;
   const lower = normalizeSearchStr(text);
-  if (/\b(vr|vale refeicao|vale refeição|refeicao|refeição|almoco|almoço|jantar|lanche|restaurante)\b/i.test(lower)) {
-    return 'vr';
-  }
-  if (/\b(va|vale alimentacao|vale alimentação|alimentacao|alimentação|mercado|supermercado|compras)\b/i.test(lower)) {
-    return 'va';
-  }
-  if (/\b(saude|saúde|medico|médico|consulta|exame|dentista|hospital|clinica)\b/i.test(lower)) {
-    return 'saude';
-  }
-  if (/\b(farmacia|farmácia|drogaria|remedio|remédio)\b/i.test(lower)) {
-    return 'farmacia';
-  }
-  if (/\b(transporte|vt|vale transporte|passagem|onibus|ônibus|metro|metrô)\b/i.test(lower)) {
+  // 1. Siglas e termos explícitos de benefício têm precedência sobre inferência contextual (Lote 5G-M.2.4)
+  if (/\b(vale\s+transporte|vt)\b/i.test(lower)) {
     return 'transporte';
   }
-  if (/\b(educacao|educação|curso|escola|faculdade|livro)\b/i.test(lower)) {
+  if (/\b(va|vale\s+alimenta[çc][ãa]o)\b/i.test(lower)) {
+    return 'va';
+  }
+  if (/\b(vr|vale\s+refei[çc][ãa]o)\b/i.test(lower)) {
+    return 'vr';
+  }
+  if (/\b(plano\s+de\s+sa[uú]de|sa[uú]de)\b/i.test(lower)) {
+    return 'saude';
+  }
+  if (/\b(farm[aá]cia|drogaria)\b/i.test(lower)) {
+    return 'farmacia';
+  }
+  if (/\b(educa[çc][ãa]o)\b/i.test(lower)) {
     return 'educacao';
   }
-  if (/\b(cultura|cinema|teatro|show)\b/i.test(lower)) {
+  if (/\b(cultura)\b/i.test(lower)) {
     return 'cultura';
   }
+
+  // 2. Inferência contextual secundária
+  if (/\b(transporte|passagem|[oô]nibus|metr[oô])\b/i.test(lower)) {
+    return 'transporte';
+  }
+  if (/\b(refei[çc][ãa]o|almo[çc]o|jantar|lanche|restaurante)\b/i.test(lower)) {
+    return 'vr';
+  }
+  if (/\b(alimenta[çc][ãa]o|mercado|supermercado|compras)\b/i.test(lower)) {
+    return 'va';
+  }
+  if (/\b(m[eé]dico|consulta|exame|dentista|hospital|cl[ií]nica)\b/i.test(lower)) {
+    return 'saude';
+  }
+  if (/\b(rem[eé]dio)\b/i.test(lower)) {
+    return 'farmacia';
+  }
+  if (/\b(curso|escola|faculdade|livro)\b/i.test(lower)) {
+    return 'educacao';
+  }
+  if (/\b(cinema|teatro|show)\b/i.test(lower)) {
+    return 'cultura';
+  }
+  return null;
+}
+
+const CANONICAL_BENEFIT_TYPES = new Set(['saude', 'vr', 'va', 'transporte', 'educacao', 'cultura', 'farmacia']);
+
+function normalizeBenefitType(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  const s = raw.trim().toLowerCase();
+  if (['transporte', 'vt', 'transporte_publico', 'transporte publico', 'vale_transporte', 'vale transporte'].includes(s)) return 'transporte';
+  if (['va', 'alimentacao', 'alimentação', 'vale_alimentacao', 'vale_alimentação', 'vale alimentacao', 'vale alimentação'].includes(s)) return 'va';
+  if (['vr', 'refeicao', 'refeição', 'vale_refeicao', 'vale_refeição', 'vale refeicao', 'vale refeição'].includes(s)) return 'vr';
+  if (['saude', 'saúde', 'plano_saude', 'plano_de_saude', 'plano de saude', 'plano de saúde', 'medico', 'médico'].includes(s)) return 'saude';
+  if (['farmacia', 'farmácia', 'drogaria', 'medicamento', 'medicamentos'].includes(s)) return 'farmacia';
+  if (['educacao', 'educação', 'escola', 'faculdade', 'curso'].includes(s)) return 'educacao';
+  if (['cultura', 'vale_cultura', 'vale cultura', 'livro', 'livros'].includes(s)) return 'cultura';
+  return null;
+}
+
+/**
+ * Analisa a semântica de intenção entre Despesa convencional e Benefício corporativo (Lote 5G-M.2.4).
+ * Regras:
+ * 1. Benefício corporativo explícito sem forma de pagamento convencional efetiva -> create_benefit
+ * 2. Forma de pagamento convencional explícita representando meio efetivamente utilizado -> create_expense
+ * 3. Ambiguidade genuína entre ambos -> requiresReview / proposta corrigível pelo usuário
+ */
+function analyzeExpenseVsBenefitIntent(message) {
+  if (!message || typeof message !== 'string') {
+    return { intent: 'create_expense', isAmbiguous: false };
+  }
+  const lower = normalizeSearchStr(message);
+
+  const hasBenefitWord = /\b(vr|va|vt|vale\s+refei[çc][ãa]o|vale\s+alimenta[çc][ãa]o|vale\s+transporte|benef[ií]cio(?:s)?|plano\s+de\s+sa[uú]de)\b/i.test(lower);
+  const hasConventionalPayment = /\b(pix|dinheiro|cart[aã]o|cr[eé]dito|d[eé]bito|boleto|transfer[eê]ncia|ted|doc|d[eé]bito\s+autom[aá]tico|nubank)\b/i.test(lower);
+
+  // Se nenhum dos dois foi citado
+  if (!hasBenefitWord && !hasConventionalPayment) {
+    return { intent: 'create_expense', isAmbiguous: false };
+  }
+
+  // Apenas benefício corporativo citado
+  if (hasBenefitWord && !hasConventionalPayment) {
+    return { intent: 'create_benefit', isAmbiguous: false };
+  }
+
+  // Apenas pagamento convencional citado
+  if (!hasBenefitWord && hasConventionalPayment) {
+    return { intent: 'create_expense', isAmbiguous: false };
+  }
+
+  // Ambos citados: interpretar qual foi efetivamente o meio utilizado
+  // 1. Padrões onde pagamento convencional foi o efetivo:
+  // "tenho VA, mas paguei no Pix", "ia pagar no VR mas foi no debito", "paguei o almoço no Pix", "e paguei no Pix"
+  const convEffectiveRegex = /(?:mas|porem|porém|contudo|so que|só que|na verdade|embora|apesar de)\s+.*?\b(?:pix|dinheiro|cart[aã]o|cr[eé]dito|d[eé]bito|boleto|transfer[eê]ncia|ted|doc|nubank)\b|\b(?:paguei|passei|foi|quitei)\b.*?\b(?:no|na|em|via|com|pelo|pela)\b.*?\b(?:pix|dinheiro|cart[aã]o|cr[eé]dito|d[eé]bito|boleto|transfer[eê]ncia|ted|doc|nubank)\b/i;
+
+  // 2. Padrões onde benefício foi o efetivo:
+  // "ia pagar no pix mas usei o VR", "tinha dinheiro mas paguei no VA", "e paguei no VR", "mas usei meu VR"
+  const benefitEffectiveRegex = /(?:mas|porem|porém|contudo|so que|só que|na verdade|embora|apesar de)\s+.*?\b(?:vr|va|vt|vale|benef[ií]cio|plano\s+de\s+sa[uú]de)\b|\b(?:paguei|passei|foi|quitei|usei)\b.*?\b(?:no|na|em|via|com|pelo|pela)\b.*?\b(?:vr|va|vt|vale|benef[ií]cio)\b/i;
+
+  const convEffective = convEffectiveRegex.test(lower);
+  const benefitEffective = benefitEffectiveRegex.test(lower);
+
+  if (convEffective && !benefitEffective) {
+    return { intent: 'create_expense', isAmbiguous: false };
+  }
+  if (benefitEffective && !convEffective) {
+    return { intent: 'create_benefit', isAmbiguous: false };
+  }
+
+  // Caso realmente ambíguo (ambos presentes sem indicador seguro de meio efetivo, ex: "almoço 35 vr pix")
+  return { intent: 'create_expense', isAmbiguous: true };
+}
+
+/**
+ * Resolve a forma de pagamento V2 a partir dos múltiplos sinais do provider, notes ou mensagem.
+ */
+function resolveExpensePaymentMethodFromData({ rawData = {}, cleanMessage = '', existingSlots = {}, userDestinations = [] }) {
+  // 1. Método explícito no retorno estruturado do n8n/provider
+  const rawMethod = safeTrim(rawData.payment?.method || rawData.paymentMethod || rawData.method || rawData.paymentMethodHint);
+  if (rawMethod) {
+    const norm = normalizeSearchStr(rawMethod);
+    if (norm.includes('pix')) return 'pix';
+    if (norm.includes('dinheiro') || norm.includes('cash')) return 'dinheiro';
+    if (norm.includes('debito') || norm.includes('débito')) return 'cartao_debito';
+    if (norm.includes('credito') || norm.includes('crédito') || norm.includes('cartao') || norm.includes('cartão')) return 'cartao_credito';
+    if (norm.includes('boleto')) return 'boleto';
+    if (norm.includes('transferencia') || norm.includes('transferência') || norm.includes('ted') || norm.includes('doc')) return 'transferencia';
+    if (norm.includes('automatico') || norm.includes('automático')) return 'debito_automatico';
+    if (['pix', 'dinheiro', 'cartao_credito', 'cartao_debito', 'boleto', 'transferencia', 'debito_automatico', 'outros'].includes(norm)) return norm;
+  }
+
+  // 2. Destino canônico no n8n (ex: destination === 'Pix' ou 'Dinheiro')
+  const destStr = safeTrim(rawData.destination);
+  if (destStr) {
+    const normDest = normalizeSearchStr(destStr);
+    if (normDest === 'pix') return 'pix';
+    if (normDest === 'dinheiro' || normDest === 'em dinheiro' || normDest === 'cash') return 'dinheiro';
+  }
+
+  // 3. Menção explícita em rawData.notes (ex: "pago no Pix", "paguei no Pix", "via Pix", "em dinheiro")
+  const rawNotes = safeTrim(rawData.notes);
+  if (rawNotes) {
+    const normNotes = normalizeSearchStr(rawNotes);
+    if (/\b(pix|no pix|via pix|pelo pix|pago no pix|paguei no pix)\b/i.test(normNotes)) return 'pix';
+    if (/\b(dinheiro|em dinheiro|no dinheiro|pago em dinheiro|paguei em dinheiro|cash)\b/i.test(normNotes)) return 'dinheiro';
+    if (/\b(cartao de debito|cartão de débito|no debito|no débito|debito|débito)\b/i.test(normNotes)) return 'cartao_debito';
+    if (/\b(cartao de credito|cartão de crédito|no credito|no crédito|credito|crédito)\b/i.test(normNotes)) return 'cartao_credito';
+    if (/\b(boleto|no boleto)\b/i.test(normNotes)) return 'boleto';
+    if (/\b(transferencia|transferência|ted|doc)\b/i.test(normNotes)) return 'transferencia';
+    if (/\b(debito automatico|débito automático)\b/i.test(normNotes)) return 'debito_automatico';
+  }
+
+  // 4. Mensagem textual do usuário (se houver texto)
+  if (cleanMessage) {
+    const normMsg = normalizeSearchStr(cleanMessage);
+    if (/\b(pix|no pix|via pix|pelo pix)\b/i.test(normMsg)) return 'pix';
+    if (/\b(dinheiro|em dinheiro|no dinheiro|cash)\b/i.test(normMsg)) return 'dinheiro';
+    if (/\b(cartao de debito|cartão de débito|no debito|no débito)\b/i.test(normMsg)) return 'cartao_debito';
+    if (/\b(cartao de credito|cartão de crédito|no credito|no crédito)\b/i.test(normMsg)) return 'cartao_credito';
+    if (/\b(boleto|no boleto)\b/i.test(normMsg)) return 'boleto';
+    if (/\b(transferencia|transferência|ted|doc)\b/i.test(normMsg)) return 'transferencia';
+    if (/\b(debito automatico|débito automático)\b/i.test(normMsg)) return 'debito_automatico';
+  }
+
+  // 5. Slots multi-turno existentes em pendingAction
+  if (existingSlots.paymentMethod || existingSlots.payment?.method) {
+    return existingSlots.paymentMethod || existingSlots.payment?.method;
+  }
+  if (existingSlots.destination) {
+    const normExist = normalizeSearchStr(existingSlots.destination);
+    if (normExist === 'pix') return 'pix';
+    if (normExist === 'dinheiro' || normExist === 'em dinheiro') return 'dinheiro';
+  }
+
   return null;
 }
 
@@ -688,7 +865,7 @@ function extractBenefitTypeFromMessage(text) {
  * Gerencia o ciclo de vida do pendingAction (collecting -> ready -> proposed -> confirmed/cancelled/expired),
  * faz merge incremental seguro de slots e gera a proposta com proposalId quando todos os dados estiverem prontos.
  */
-async function interpretExpenseAction({ message, userId, userName, user = null, conversationId: reqConvId, context, type = 'text' }) {
+async function interpretExpenseAction({ message, userId, userName, user = null, conversationId: reqConvId, context, type = 'text', inputMode = null, file = null, targetModule = null, intent = null }) {
   const webhookUrl = config.N8N_AI_ACTION_WEBHOOK_URL;
   const authUser = config.N8N_AI_ACTION_BASIC_AUTH_USER;
   const authPass = config.N8N_AI_ACTION_BASIC_AUTH_PASSWORD;
@@ -701,21 +878,65 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
     throw error;
   }
 
+  const cleanMode = (inputMode || type || 'text').trim().toLowerCase();
+  const isMultimodal = cleanMode === 'audio' || cleanMode === 'image';
+
+  if (cleanMode !== 'text' && cleanMode !== 'audio' && cleanMode !== 'image') {
+    const error = new Error(`A modalidade de entrada "${cleanMode}" ainda não é suportada neste ambiente. Utilize entrada em texto.`);
+    error.status = 400;
+    error.code = 'UNSUPPORTED_INPUT_MODE';
+    throw error;
+  }
+
+  if (isMultimodal) {
+    if (!file) {
+      const error = new Error('Nenhum arquivo de mídia foi enviado para a interpretação multimodal.');
+      error.status = 400;
+      error.code = 'AI_MEDIA_REQUIRED';
+      throw error;
+    }
+    const mediaVal = validateMediaFile(file, cleanMode);
+    if (!mediaVal.valid) {
+      const error = new Error(mediaVal.message);
+      error.status = mediaVal.code === 'AI_MEDIA_TOO_LARGE' ? 413 : 400;
+      error.code = mediaVal.code;
+      throw error;
+    }
+  }
+
   const cleanMessage = safeTrim(message);
-  if (!cleanMessage) {
+  if (!isMultimodal && !cleanMessage) {
     const error = new Error('Mensagem obrigatória para interpretação de despesa.');
     error.status = 400;
     throw error;
   }
 
-  const conversationId = safeTrim(reqConvId || context?.conversationId) || ('conv_' + userId);
-  const lowerMessage = normalizeSearchStr(cleanMessage);
+  if (cleanMessage && cleanMessage.length > 2000) {
+    const error = new Error('A mensagem excede o limite máximo permitido de 2000 caracteres.');
+    error.status = 400;
+    throw error;
+  }
+
+  let parsedContext = context;
+  if (typeof parsedContext === 'string') {
+    try {
+      parsedContext = JSON.parse(parsedContext);
+    } catch {
+      parsedContext = null;
+    }
+  }
+  if (!parsedContext || typeof parsedContext !== 'object' || Array.isArray(parsedContext)) {
+    parsedContext = null;
+  }
+
+  const conversationId = safeTrim(reqConvId || parsedContext?.conversationId) || ('conv_' + userId);
+  const lowerMessage = cleanMessage ? normalizeSearchStr(cleanMessage) : '';
 
   // Data atual real do sistema no formato ISO YYYY-MM-DD
   const now = new Date();
   const currentDateIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const targetMonth = Number(context?.month) || (now.getMonth() + 1);
-  const targetYear = Number(context?.year) || now.getFullYear();
+  const targetMonth = Number(parsedContext?.month) || (now.getMonth() + 1);
+  const targetYear = Number(parsedContext?.year) || now.getFullYear();
   const startTime = Date.now();
 
   // 1. Carrega pendingAction ativa para (userId, conversationId)
@@ -985,6 +1206,8 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
     paymentMethods: canonicalPaymentMethods,
     validAccounts,
     userDestinations: rawUserDestinations, // Campo LEGADO para compatibilidade n8n
+    month: targetMonth,
+    year: targetYear,
     context: {
       month: targetMonth,
       year: targetYear,
@@ -1008,16 +1231,23 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   const credentials = Buffer.from(`${authUser}:${authPass}`).toString('base64');
-  const headers = {
-    'Content-Type': 'application/json',
-    'User-Agent': 'CorvFin-Server/3.8.0',
-    'Authorization': `Basic ${credentials}`
-  };
+  console.log(`[AI ACTION] interpret request user=${userId} conv=${conversationId} mode=${cleanMode}`);
 
-  console.log(`[AI ACTION] interpret request user=${userId} conv=${conversationId}`);
+  const rawTarget = String(targetModule || intent || parsedContext?.targetModule || parsedContext?.intent || '').toLowerCase();
+  const explicitIsBenefit = rawTarget.includes('benefic') || rawTarget === 'create_benefit';
+  const explicitIsExpense = rawTarget.includes('despes') || rawTarget === 'create_expense';
 
-  const isBenefit = /\b(vr|va|vale refeicao|vale alimentacao|beneficio|vale transporte)\b/i.test(lowerMessage) || (pendingAction?.intent === 'create_benefit');
+  let isBenefit = explicitIsBenefit;
+  if (!isBenefit && !explicitIsExpense && !isMultimodal) {
+    if (pendingAction?.intent === 'create_benefit') {
+      isBenefit = true;
+    } else {
+      const intentAnalysis = analyzeExpenseVsBenefitIntent(cleanMessage);
+      isBenefit = intentAnalysis.intent === 'create_benefit';
+    }
+  }
   const operationType = isBenefit ? 'benefit_interpretation' : 'expense_interpretation';
+  const requiredCredits = getCreditCost(operationType, cleanMode) ?? (cleanMode === 'image' ? 3 : (cleanMode === 'audio' ? 2 : 1));
 
   let reservation = null;
   let providerStarted = false;
@@ -1026,10 +1256,43 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
     const quotaRes = await aiQuotaService.reserve({
       user,
       operationType,
-      inputMode: type || 'text',
-      credits: 1
+      inputMode: cleanMode,
+      credits: requiredCredits
     });
     reservation = quotaRes.reservation;
+  }
+
+  // Preparação de Headers e Body (JSON ou Multipart FormData nativo)
+  let requestBody;
+  const requestHeaders = {
+    'User-Agent': 'CorvFin-Server/3.8.0',
+    'Authorization': `Basic ${credentials}`
+  };
+
+  if (isMultimodal && file && file.buffer) {
+    const baseMime = getBaseMimeType(file.mimetype);
+    const filename = getNormalizedFilename(baseMime, cleanMode);
+    const fileBlob = new Blob([file.buffer], { type: baseMime });
+
+    const formData = new FormData();
+    formData.append('data', fileBlob, filename);
+    formData.append('type', cleanMode);
+    formData.append('authenticatedUserId', String(userId));
+    formData.append('conversationId', conversationId);
+    formData.append('currentDate', currentDateIso);
+    formData.append('context', JSON.stringify({
+      month: targetMonth,
+      year: targetYear
+    }));
+    formData.append('month', String(targetMonth));
+    formData.append('year', String(targetYear));
+    if (cleanMessage) {
+      formData.append('message', cleanMessage);
+    }
+    requestBody = formData;
+  } else {
+    requestHeaders['Content-Type'] = 'application/json';
+    requestBody = JSON.stringify(webhookPayload);
   }
 
   try {
@@ -1042,8 +1305,8 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
     try {
       response = await fetch(webhookUrl, {
         method: 'POST',
-        headers,
-        body: JSON.stringify(webhookPayload),
+        headers: requestHeaders,
+        body: requestBody,
         signal: controller.signal
       });
     } catch (fetchErr) {
@@ -1079,6 +1342,14 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
     const actionResult = Array.isArray(json) ? (json[0] || {}) : (json || {});
 
     // Validação Semântica do Contrato do Provedor
+    if (actionResult.success === false && (!actionResult.data || actionResult.code === 'AI_INVALID_RESPONSE')) {
+      providerFailed = true;
+      const failErr = new Error(actionResult.message || 'Falha ao interpretar.');
+      failErr.status = 502;
+      failErr.code = actionResult.code || 'N8N_INVALID_RESPONSE';
+      throw failErr;
+    }
+
     const hasContract = Boolean(
       actionResult.action ||
       (actionResult.data && typeof actionResult.data === 'object') ||
@@ -1109,37 +1380,75 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
       };
     }
 
-    // 8. Resolução de Intenção Ativa e Correções de Tipo
-    const existingSlots = pendingAction?.slots || {};
-    let activeIntent = pendingAction?.intent || (actionResult.action === 'create_benefit' ? 'create_benefit' : 'create_expense');
+    // 8. Resolução de Intenção Ativa e Correções de Tipo (Lote 5G-M.2.4)
+    const rawData = actionResult.data || {};
+    const isCollecting = pendingAction && pendingAction.status === 'collecting';
+    const isProposed = pendingAction && pendingAction.status === 'proposed';
 
-    const isBenefitText = /\b(vr|va|vale refeicao|vale refeição|vale alimentacao|vale alimentação|beneficio|benefício|vale transporte)\b/i.test(lowerMessage);
-    const isExpenseCorrection = /\b(pix|cartao|cartão|nubank|dinheiro|debito|débito|credito|crédito)\b/i.test(lowerMessage) && (lowerMessage.includes('nao') || lowerMessage.includes('não') || lowerMessage.includes('foi no') || lowerMessage.includes('no ') || lowerMessage.includes('via '));
+    const isExpenseCorrection = !isMultimodal && Boolean(cleanMessage) && /\b(pix|cartao|cartão|nubank|dinheiro|debito|débito|credito|crédito)\b/i.test(lowerMessage) && (lowerMessage.includes('nao') || lowerMessage.includes('não') || lowerMessage.includes('foi no') || lowerMessage.includes('no ') || lowerMessage.includes('via '));
 
-    if (isExpenseCorrection) {
-      activeIntent = 'create_expense';
-    } else if (isBenefitText || actionResult.action === 'create_benefit') {
+    const existingSlots = (isCollecting || (isProposed && isExpenseCorrection)) ? (pendingAction?.slots || {}) : {};
+
+    let activeIntent = 'create_expense';
+    let isAmbiguousClassification = false;
+
+    if (explicitIsBenefit) {
       activeIntent = 'create_benefit';
+    } else if (explicitIsExpense) {
+      activeIntent = 'create_expense';
+    } else if (actionResult.action === 'create_benefit') {
+      // 6-A: Ação explícita válida do provedor é soberana
+      activeIntent = 'create_benefit';
+    } else if (actionResult.action === 'create_expense') {
+      // 6-A: Ação explícita válida do provedor é soberana sobre benefitTypeHint
+      activeIntent = 'create_expense';
+    } else if (isMultimodal) {
+      // ÁUDIO / IMAGEM sem ação explícita:
+      // Fallback backend só ocorre se houver evidência estruturada suficiente (ex: benefitType canônico)
+      const VALID_BENEFIT_TYPES = ['saude', 'vr', 'va', 'transporte', 'educacao', 'cultura', 'farmacia'];
+      const returnedType = safeTrim(rawData.benefitType || rawData.benefitTypeHint || rawData.type || '').toLowerCase();
+      if (VALID_BENEFIT_TYPES.includes(returnedType)) {
+        activeIntent = 'create_benefit';
+      } else {
+        activeIntent = 'create_expense';
+      }
+    } else {
+      // TEXTO sem ação explícita do provedor:
+      if (isExpenseCorrection) {
+        activeIntent = 'create_expense';
+      } else if (isCollecting || isProposed) {
+        activeIntent = pendingAction?.intent || 'create_expense';
+      } else {
+        const textAnalysis = analyzeExpenseVsBenefitIntent(cleanMessage);
+        activeIntent = textAnalysis.intent;
+        isAmbiguousClassification = textAnalysis.isAmbiguous;
+      }
     }
 
     // 9. Extração e Merge Incremental de Slots
-    const rawData = actionResult.data || {};
-
     // Extração de Descrição
     let mergedDesc = null;
     const isGenericMsg = isGenericIntentPhrase(cleanMessage);
-    const rawN8nDesc = safeTrim(rawData.description);
+    const rawN8nDesc = safeTrim(rawData.description || rawData.merchant);
     const n8nDesc = (typeof rawN8nDesc === 'string' && rawN8nDesc.length <= 150) ? rawN8nDesc : (rawN8nDesc ? rawN8nDesc.slice(0, 150) : '');
     const isN8nDescGeneric = !n8nDesc || isGenericIntentPhrase(n8nDesc) || ['despesa', 'gasto', 'compra', 'beneficio', 'benefício', 'lancamento', 'lançamento'].includes(normalizeSearchStr(n8nDesc));
     const msgDesc = extractDescriptionFromMessage(cleanMessage);
     const isMsgDescGeneric = !msgDesc || isGenericIntentPhrase(msgDesc) || ['despesa', 'gasto', 'compra', 'beneficio', 'benefício'].includes(normalizeSearchStr(msgDesc));
 
-    if (!isN8nDescGeneric && !isGenericMsg) {
+    if (!isN8nDescGeneric && (!isGenericMsg || isMultimodal)) {
       mergedDesc = n8nDesc.toLocaleUpperCase('pt-BR');
     } else if (!isMsgDescGeneric && !isGenericMsg && !/^\d+/.test(msgDesc)) {
       mergedDesc = msgDesc.toLocaleUpperCase('pt-BR');
     } else if (existingSlots.description && !isGenericIntentPhrase(existingSlots.description)) {
       mergedDesc = existingSlots.description;
+    }
+
+    if (!mergedDesc) {
+      if (cleanMessage && /\b(comprei|compra)\b/i.test(cleanMessage)) {
+        mergedDesc = 'COMPRA';
+      } else if (cleanMessage && /\b(gastei|despesa)\b/i.test(cleanMessage)) {
+        mergedDesc = 'DESPESA';
+      }
     }
 
     // Extração de Valor (Amount)
@@ -1171,29 +1480,76 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
       };
     }
 
+    // Resolução de Dimensões de Pagamento e Favorecido V2
+    const mergedMethod = resolveExpensePaymentMethodFromData({
+      rawData,
+      cleanMessage,
+      existingSlots,
+      userDestinations
+    });
+
+    const rawPayee = safeTrim(rawData.payee || rawData.merchant || rawData.establishment || rawData.recipient || existingSlots.payee || null);
+    let mergedPayee = rawPayee || null;
+    if (!mergedPayee && cleanMessage) {
+      const payeeMatch = cleanMessage.match(/\b(?:na|no|em|para|pelo|pela)\s+([A-Za-zÀ-ÿ0-9\s&'-]+?)(?:\s+(?:no valor|por|de|com|via|em|pelo|dia|parcelad)|$)/i);
+      if (payeeMatch) {
+        const candidate = safeTrim(payeeMatch[1]);
+        const candNorm = normalizeSearchStr(candidate);
+        if (candidate && candidate.length >= 2 && candidate.length <= 50
+            && !NATIVE_METHODS.has(candNorm)
+            && !userCategories.some(c => normalizeSearchStr(c) === candNorm)
+            && !validAccounts.some(a => normalizeSearchStr(a) === candNorm)) {
+          mergedPayee = candidate;
+        }
+      }
+    }
+
+    const rawAcc = safeTrim(rawData.payment?.account || rawData.paymentAccount || rawData.account || existingSlots.paymentAccount || existingSlots.payment?.account || null);
+    let mergedAccount = null;
+    if (rawAcc) {
+      const match = validAccounts.find(a => normalizeSearchStr(a) === normalizeSearchStr(rawAcc));
+      mergedAccount = match ? (typeof match === 'string' ? match : match.name) : null;
+    }
+
     // Extração de Destino (para Despesa)
     let mergedDestination = null;
     const msgDest = extractDestinationFromMessage(cleanMessage, userDestinations);
     const n8nDest = safeTrim(rawData.destination);
     if (n8nDest) {
       const match = userDestinations.find(d => normalizeSearchStr(typeof d === 'string' ? d : d?.name) === normalizeSearchStr(n8nDest));
-      mergedDestination = match ? (typeof match === 'string' ? match : match.name) : n8nDest;
+      mergedDestination = match ? (typeof match === 'string' ? match : match.name) : null;
     } else if (msgDest) {
       mergedDestination = msgDest;
     } else if (existingSlots.destination && activeIntent === 'create_expense') {
       mergedDestination = existingSlots.destination;
+    } else if (mergedAccount) {
+      mergedDestination = mergedAccount;
+    } else if (mergedMethod === 'pix') {
+      const foundPix = userDestinations.find(d => normalizeSearchStr(typeof d === 'string' ? d : d?.name).includes('pix'));
+      mergedDestination = foundPix ? (typeof foundPix === 'string' ? foundPix : foundPix.name) : 'Pix';
+    } else if (mergedMethod === 'dinheiro') {
+      const foundCash = userDestinations.find(d => normalizeSearchStr(typeof d === 'string' ? d : d?.name).includes('dinheiro'));
+      mergedDestination = foundCash ? (typeof foundCash === 'string' ? foundCash : foundCash.name) : 'Dinheiro';
+    } else if (mergedMethod === 'cartao_credito' || mergedMethod === 'cartao_debito') {
+      mergedDestination = 'Cartão';
+    } else if (mergedMethod === 'boleto') {
+      mergedDestination = 'Boleto';
+    } else if (mergedMethod === 'transferencia') {
+      mergedDestination = 'Transferência';
+    } else if (mergedMethod === 'debito_automatico') {
+      mergedDestination = 'Débito Automático';
     }
 
-    // Extração de Tipo de Benefício (para Benefício)
+    // Extração de Tipo de Benefício (para Benefício — Fail-Closed)
     let mergedBenefitType = null;
     const msgBenType = extractBenefitTypeFromMessage(cleanMessage);
-    const n8nBenType = safeTrim(rawData.benefitType || rawData.type);
+    const n8nBenType = safeTrim(rawData.benefitType || rawData.benefitTypeHint || rawData.type);
     if (n8nBenType) {
-      mergedBenefitType = n8nBenType.toLowerCase();
+      mergedBenefitType = normalizeBenefitType(n8nBenType);
     } else if (msgBenType) {
-      mergedBenefitType = msgBenType;
+      mergedBenefitType = normalizeBenefitType(msgBenType);
     } else if (existingSlots.benefitType && activeIntent === 'create_benefit') {
-      mergedBenefitType = existingSlots.benefitType;
+      mergedBenefitType = normalizeBenefitType(existingSlots.benefitType);
     }
 
     // Resolução de Competência Temporal (3 Prioridades)
@@ -1245,7 +1601,10 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
     if (!mergedAmount || mergedAmount <= 0) missingFields.push('amount');
 
     if (activeIntent === 'create_expense') {
-      if (!mergedDestination) missingFields.push('destination');
+      // Destino / Forma de pagamento só é ausente se NENHUM método, conta ou destino foi identificado
+      if (!mergedDestination && !mergedMethod && !mergedAccount) {
+        missingFields.push('destination');
+      }
     } else if (activeIntent === 'create_benefit') {
       if (!mergedBenefitType) missingFields.push('benefitType');
     }
@@ -1255,9 +1614,16 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
       amount: mergedAmount,
       category: safeTrim(rawData.category) || existingSlots.category || null,
       destination: activeIntent === 'create_expense' ? mergedDestination : null,
+      paymentMethod: activeIntent === 'create_expense' ? (mergedMethod || null) : null,
+      paymentAccount: activeIntent === 'create_expense' ? (mergedAccount || null) : null,
+      payee: activeIntent === 'create_expense' ? (mergedPayee || null) : null,
+      payment: activeIntent === 'create_expense' && (mergedMethod || mergedAccount) ? {
+        method: mergedMethod || 'outros',
+        account: mergedAccount || null
+      } : (existingSlots.payment || null),
       benefitType: activeIntent === 'create_benefit' ? mergedBenefitType : null,
       competence: { month: compMonth, year: compYear },
-      day: Math.max(1, Math.min(31, Number(rawData.day) || existingSlots.day || now.getDate())),
+      day: Math.max(1, Math.min(31, Number(rawData.day) || (rawData.date ? parseInt(String(rawData.date).split('-')[2], 10) : 0) || existingSlots.day || now.getDate())),
       installments: Math.max(1, parseInt(rawData.installments, 10) || existingSlots.installments || 1),
       notes: safeTrim(rawData.notes) || existingSlots.notes || null
     };
@@ -1272,7 +1638,7 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
         status: 'collecting',
         slots: mergedSlots,
         missingFields,
-        source: actionResult.source || type || 'text',
+        source: actionResult.source || cleanMode || 'text',
         createdAt: pendingAction?.createdAt || now,
         updatedAt: now,
         expiresAt: new Date(now.getTime() + (config.AI_PENDING_ACTION_TTL_MS || 1800000))
@@ -1318,7 +1684,9 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
     }
 
     // 11. FLUXO B: AÇÃO COMPLETA -> GERA PROPOSTA ESTRUTURADA (status: 'proposed')
-    let rawWarnings = Array.isArray(actionResult.warnings) ? [...actionResult.warnings] : [];
+    let rawWarnings = Array.isArray(actionResult.warnings)
+      ? actionResult.warnings.filter(w => typeof w === 'string' && w.trim().length > 0).map(w => w.trim())
+      : [];
 
     // Limpa warnings de campos que já estão preenchidos e válidos no estado final
     if (mergedAmount && mergedAmount > 0) {
@@ -1334,20 +1702,42 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
       rawWarnings = rawWarnings.filter(w => !/(benef[ií]cio|tipo).*(informad|revisad|precisa)/i.test(w));
     }
 
-    let requiresReview = false;
+    if (isAmbiguousClassification) {
+      rawWarnings.push('Ambiguidade detectada entre forma de pagamento convencional e benefício corporativo. Verifique o tipo do lançamento.');
+    }
+
+    const providerRequiresReview = actionResult.requiresReview === true;
 
     // Geração de proposalId único
     const proposalId = 'prop_' + crypto.randomBytes(16).toString('hex');
     const expiresAt = new Date(now.getTime() + 15 * 60 * 1000); // 15 minutos
 
     if (activeIntent === 'create_benefit') {
+      const n8nBenType = safeTrim(rawData.benefitType || rawData.benefitTypeHint || rawData.type);
+      if (n8nBenType && !mergedBenefitType) {
+        rawWarnings.push(`O tipo de benefício "${n8nBenType}" não é válido no CorvFin. Escolha entre: transporte, va, vr, saude, farmacia, educacao ou cultura.`);
+      }
+      if (!mergedBenefitType) {
+        rawWarnings.push('O tipo de benefício precisa ser selecionado.');
+      }
+
+      const localBenefitRequiresReview =
+        !mergedDesc ||
+        !mergedAmount ||
+        mergedAmount <= 0 ||
+        !mergedBenefitType ||
+        !compMonth ||
+        !compYear;
+
+      const requiresReview = localBenefitRequiresReview || isAmbiguousClassification || providerRequiresReview || rawWarnings.length > 0;
+
       const proposalDoc = {
         _id: proposalId,
         userId,
         conversationId: conversationId || null,
         action: 'create_benefit',
         status: 'pending',
-        source: actionResult.source || type || 'text',
+        source: actionResult.source || cleanMode || 'text',
         proposal: {
           description: mergedDesc,
           amount: mergedAmount,
@@ -1448,12 +1838,28 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
       rawWarnings = rawWarnings.filter(w => !/categoria.*(n[aã]o identificada|n[aã]o encontrada|revisada)/i.test(w));
     }
 
-    // requiresReview deve refletir o estado real das pendências (categoria obrigatória)
-    requiresReview = !matchedCategory || rawWarnings.length > 0;
+    const hasPaymentInfo = Boolean(mergedDestination || mergedMethod || mergedAccount);
+    if (!hasPaymentInfo) {
+      if (!rawWarnings.some(w => /pagamento|destino|conta/i.test(w))) {
+        rawWarnings.push('A forma de pagamento ou conta/destino precisa ser informada.');
+      }
+    }
+
+    // requiresReview deve refletir o estado real das pendências com soberania da validação local
+    const localExpenseRequiresReview =
+      !matchedCategory ||
+      !mergedDesc ||
+      !mergedAmount ||
+      mergedAmount <= 0 ||
+      !hasPaymentInfo ||
+      !compMonth ||
+      !compYear;
+
+    requiresReview = localExpenseRequiresReview || isAmbiguousClassification || providerRequiresReview || rawWarnings.length > 0;
 
     // Resolução de Dimensões V2
     // 1. Favorecido
-    let resolvedPayee = safeTrim(rawData.payee || rawData.establishment || rawData.recipient || existingSlots.payee || null) || null;
+    let resolvedPayee = mergedPayee || safeTrim(rawData.payee || rawData.establishment || rawData.recipient || rawData.merchant || existingSlots.payee || null) || null;
     if (!resolvedPayee && cleanMessage) {
       const payeeMatch = cleanMessage.match(/\b(?:na|no|em|para|pelo|pela)\s+([A-Za-zÀ-ÿ0-9\s&'-]+?)(?:\s+(?:no valor|por|de|com|via|em|pelo|dia|parcelad)|$)/i);
       if (payeeMatch) {
@@ -1470,8 +1876,8 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
 
     // 2. Método de Pagamento V2
     let rawMethod = safeTrim(rawData.payment?.method || rawData.paymentMethod || rawData.method);
-    let resolvedMethod = null;
-    if (rawMethod) {
+    let resolvedMethod = mergedMethod || null;
+    if (!resolvedMethod && rawMethod) {
       const normRawMethod = normalizeSearchStr(rawMethod);
       if (normRawMethod.includes('pix')) resolvedMethod = 'pix';
       else if (normRawMethod.includes('dinheiro') || normRawMethod.includes('cash')) resolvedMethod = 'dinheiro';
@@ -1498,8 +1904,8 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
       else resolvedMethod = 'outros';
     }
 
-    // 3. Conta / Cartão V2
-    let resolvedAccount = safeTrim(rawData.payment?.account || rawData.account || null);
+    // 3. Conta / Cartão V2 (Canonicalização estrita contra allowedDestinations / validAccounts)
+    let resolvedAccount = mergedAccount || null;
     if (!resolvedAccount) {
       const matchAcc = validAccounts.find(acc => {
         const accNorm = normalizeSearchStr(acc);
@@ -1508,8 +1914,11 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
       });
       if (matchAcc) resolvedAccount = matchAcc;
     }
-    if (resolvedAccount && NATIVE_METHODS.has(normalizeSearchStr(resolvedAccount))) {
-      resolvedAccount = null;
+    if (resolvedAccount) {
+      const isCanonical = validAccounts.some(a => normalizeSearchStr(a) === normalizeSearchStr(resolvedAccount));
+      if (!isCanonical || NATIVE_METHODS.has(normalizeSearchStr(resolvedAccount))) {
+        resolvedAccount = null;
+      }
     }
 
     // 4. Temporalidade V2
@@ -1552,7 +1961,7 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
       conversationId: conversationId || null,
       action: 'create_expense',
       status: 'pending',
-      source: actionResult.source || type || 'text',
+      source: actionResult.source || cleanMode || 'text',
       proposal: {
         description: mergedDesc,
         amount: mergedAmount,
@@ -2020,10 +2429,12 @@ async function confirmExpenseProposalAsync({ userId, proposalId, data: userEdits
   });
 
   if (proposal.conversationId) {
-    await storageService.updateAiPendingAction(userId, proposal.conversationId, {
-      status: 'confirmed',
-      updatedAt: new Date()
-    }).catch(() => null);
+    try {
+      await storageService.updateAiPendingAction(userId, proposal.conversationId, {
+        status: 'confirmed',
+        updatedAt: new Date()
+      });
+    } catch (_) {}
   }
 
   console.log(`[AI ACTION] expense confirmed proposal=${proposalId}`);
@@ -2202,10 +2613,12 @@ async function confirmBenefitProposal({ userId, proposalId, data: userEdits = {}
   });
 
   if (proposal.conversationId) {
-    await storageService.updateAiPendingAction(userId, proposal.conversationId, {
-      status: 'confirmed',
-      updatedAt: new Date()
-    }).catch(() => null);
+    try {
+      await storageService.updateAiPendingAction(userId, proposal.conversationId, {
+        status: 'confirmed',
+        updatedAt: new Date()
+      });
+    } catch (_) {}
   }
 
   console.log(`[AI ACTION] benefit confirmed proposal=${cleanProposalId} id=${newBenefitId}`);

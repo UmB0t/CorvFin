@@ -102,7 +102,7 @@ function classifyAiOperation({ endpoint = 'chat', message = '', inputMode = 'tex
   const cleanMode = (inputMode || 'text').trim().toLowerCase();
 
   // 1. Validação de Modalidade de Entrada (5G-M preparação)
-  if (!isInputModeSupported(cleanMode)) {
+  if (!isInputModeSupported(cleanMode, endpoint)) {
     return {
       operationType: 'unsupported',
       inputMode: cleanMode,
@@ -118,9 +118,12 @@ function classifyAiOperation({ endpoint = 'chat', message = '', inputMode = 'tex
   // 2. Rota Transacional (/api/ai/actions/interpret)
   if (endpoint === 'interpret') {
     const norm = normalizeText(message);
-    const isBenefit = /\b(vr|va|vale refeicao|vale alimentacao|beneficio|vale transporte)\b/i.test(norm);
+    const isBenefit = cleanMode === 'text' && (
+      /\b(vr|va|vt|vale\s+refei[çc][ãa]o|vale\s+alimenta[çc][ãa]o|vale\s+transporte|benef[ií]cio|plano\s+de\s+sa[uú]de)\b/i.test(norm)
+      && !/(?:mas|porem|porém|so que|só que)\s+.*?\b(?:pix|dinheiro|cart[aã]o|cr[eé]dito|d[eé]bito|boleto)\b|\bpaguei\b.*?\b(?:no|na|em|via|com)\b.*?\b(?:pix|dinheiro|cart[aã]o|cr[eé]dito|d[eé]bito|boleto)\b/i.test(norm)
+    );
     const operationType = isBenefit ? 'benefit_interpretation' : 'expense_interpretation';
-    const creditCost = getCreditCost(operationType, cleanMode) ?? 1;
+    const creditCost = getCreditCost(operationType, cleanMode) ?? (cleanMode === 'image' ? 3 : (cleanMode === 'audio' ? 2 : 1));
 
     return {
       operationType,

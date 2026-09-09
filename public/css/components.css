@@ -1527,6 +1527,54 @@
       flex-shrink: 0;
     }
 
+    /* Seletor de Tipo: Despesa / Benefício */
+    .ai-module-selector {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 2px;
+      align-self: flex-start;
+      max-width: 100%;
+    }
+
+    .ai-module-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      line-height: 1.2;
+    }
+
+    .ai-module-btn:hover {
+      color: var(--text);
+    }
+
+    .ai-module-btn.active {
+      background: var(--brand);
+      color: #ffffff;
+      font-weight: 700;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    }
+
+    .ai-module-btn svg {
+      width: 12px;
+      height: 12px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+    }
+
     .ai-chat-input-row {
       display: flex;
       align-items: flex-end;
@@ -1585,6 +1633,275 @@
       fill: none;
     }
 
+    .ai-chat-media-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    }
+
+    .ai-chat-media-btn:hover:not(:disabled) {
+      background: var(--surface-2);
+      color: var(--brand);
+      border-color: var(--brand);
+      transform: translateY(-1px);
+    }
+
+    .ai-chat-media-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .ai-chat-media-btn svg {
+      width: 19px;
+      height: 19px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Menu de Anexo (Câmera / Galeria) */
+    .ai-attach-menu {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 0;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      z-index: 10;
+      min-width: 170px;
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      animation: aiFadeIn 0.15s ease forwards;
+    }
+
+    .ai-attach-menu.hidden {
+      display: none !important;
+    }
+
+    .ai-attach-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 0.80rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      width: 100%;
+      transition: background-color 0.12s ease;
+    }
+
+    .ai-attach-menu-item:hover {
+      background: var(--surface-2);
+      color: var(--brand);
+    }
+
+    .ai-attach-menu-item svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+    }
+
+    /* Linha de Gravação de Áudio (Estado REC) */
+    .ai-audio-rec-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: color-mix(in srgb, var(--danger, #ef4444) 8%, var(--surface));
+      border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 35%, transparent);
+      padding: 6px 12px;
+      border-radius: 12px;
+      min-height: 38px;
+      animation: aiFadeIn 0.2s ease forwards;
+    }
+
+    .ai-audio-rec-row.hidden {
+      display: none !important;
+    }
+
+    .ai-audio-rec-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .ai-rec-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--danger, #ef4444);
+      animation: recPulse 1s infinite ease-in-out;
+    }
+
+    @keyframes recPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(0.8); }
+    }
+
+    .ai-rec-label {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: var(--danger, #ef4444);
+      letter-spacing: 0.5px;
+    }
+
+    .ai-rec-timer {
+      font-size: 0.82rem;
+      font-weight: 750;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      margin-left: 4px;
+    }
+
+    .ai-rec-limit {
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ai-audio-rec-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .ai-audio-cancel-btn {
+      color: var(--danger, #ef4444);
+    }
+
+    .ai-audio-cancel-btn:hover {
+      background: color-mix(in srgb, var(--danger, #ef4444) 15%, transparent);
+    }
+
+    .ai-audio-stop-btn {
+      color: var(--brand);
+    }
+
+    .ai-audio-stop-btn:hover {
+      background: var(--brand-soft);
+    }
+
+    /* Área de Preview de Mídia */
+    .ai-media-preview-area {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      animation: aiFadeIn 0.2s ease forwards;
+    }
+
+    .ai-media-preview-area.hidden {
+      display: none !important;
+    }
+
+    .ai-media-preview-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 10px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      position: relative;
+    }
+
+    .ai-media-preview-thumb {
+      width: 38px;
+      height: 38px;
+      border-radius: 6px;
+      object-fit: cover;
+      border: 1px solid var(--line);
+      flex-shrink: 0;
+    }
+
+    .ai-media-preview-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 6px;
+      background: var(--brand-soft);
+      color: var(--brand-strong);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .ai-media-preview-icon svg {
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+    }
+
+    .ai-media-preview-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .ai-media-preview-name {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .ai-media-preview-size {
+      font-size: 0.68rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .ai-media-preview-remove-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.12s ease;
+    }
+
+    .ai-media-preview-remove-btn:hover {
+      background: color-mix(in srgb, var(--danger, #ef4444) 15%, transparent);
+      color: var(--danger, #ef4444);
+    }
+
+    .ai-media-preview-remove-btn svg {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.5;
+    }
+
     /* ==========================================================================
        AI ASSISTANT: CARD DE PROPOSTA DE TRANSAÇÃO (CONTROLLED WRITE)
        ========================================================================== */
@@ -1620,6 +1937,57 @@
       display: inline-flex;
       align-items: center;
       gap: 4px;
+    }
+
+    /* Seletor dinâmico Despesa / Benefício no Card de Proposta (5G-M.2.4) */
+    .ai-card-type-selector {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1px 2px;
+    }
+
+    .ai-card-type-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.70rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      line-height: 1.2;
+    }
+
+    .ai-card-type-btn:hover:not(:disabled) {
+      color: var(--text);
+    }
+
+    .ai-card-type-btn.active {
+      background: var(--brand);
+      color: #ffffff;
+      font-weight: 700;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+    }
+
+    .ai-card-type-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .ai-card-type-btn svg {
+      width: 11px;
+      height: 11px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
     }
 
     .ai-proposal-main {

@@ -55,6 +55,15 @@
       localStorage.removeItem(USER_KEY);
       localStorage.removeItem('user');
       localStorage.removeItem('financas_pro_user_info');
+      // Limpeza segura de histórico do Assistente no logout
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('corvfin_ai_conversation_')) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
     } catch (_) {}
   }
 
@@ -104,13 +113,20 @@
 
   // Base HTTP Request Wrapper com credentials: same-origin, header anti-CSRF e interceptor 401
   async function request(endpoint, options = {}) {
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+    const defaultHeaders = {
+      'X-Requested-With': 'XMLHttpRequest'
+    };
+    if (!isFormData) {
+      defaultHeaders['Content-Type'] = 'application/json';
+    }
     const headers = Object.assign(
-      {
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest'
-      },
+      defaultHeaders,
       options.headers || {}
     );
+    if (isFormData && headers['Content-Type'] === 'application/json') {
+      delete headers['Content-Type'];
+    }
 
     const resolvedUrl = resolveUrl(endpoint);
     const fetchOptions = Object.assign(
@@ -175,13 +191,22 @@
     // Generic HTTP Methods
     request: (endpoint, options) => request(endpoint, options),
     get: (url) => request(url, { method: 'GET' }),
-    post: (url, body) => request(url, { method: 'POST', body: JSON.stringify(body) }),
-    put: (url, body) => request(url, { method: 'PUT', body: JSON.stringify(body) }),
+    post: (url, body) => {
+      const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+      return request(url, { method: 'POST', body: isFormData ? body : JSON.stringify(body) });
+    },
+    put: (url, body) => {
+      const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+      return request(url, { method: 'PUT', body: isFormData ? body : JSON.stringify(body) });
+    },
     delete: (url) => request(url, { method: 'DELETE' }),
 
     // AI Assistant & Controlled Actions endpoints
     aiChat: (payload) => request('/api/ai/chat', { method: 'POST', body: JSON.stringify(payload) }),
-    aiInterpretAction: (payload) => request('/api/ai/actions/interpret', { method: 'POST', body: JSON.stringify(payload) }),
+    aiInterpretAction: (payload) => {
+      const isFormData = typeof FormData !== 'undefined' && payload instanceof FormData;
+      return request('/api/ai/actions/interpret', { method: 'POST', body: isFormData ? payload : JSON.stringify(payload) });
+    },
     aiConfirmExpense: (payload) => request('/api/ai/actions/expense/confirm', { method: 'POST', body: JSON.stringify(payload) }),
     aiCancelExpense: (payload) => request('/api/ai/actions/expense/cancel', { method: 'POST', body: JSON.stringify(payload) }),
     aiConfirmBenefit: (payload) => request('/api/ai/actions/benefit/confirm', { method: 'POST', body: JSON.stringify(payload) }),
