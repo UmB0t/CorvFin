@@ -2251,5 +2251,557 @@ describe('Lote 5G-M.1 — Backend Multimodal (Áudio / Imagem / Multipart / n8n)
     assert.equal(data.slots.benefitType, null, 'Slot de benefício não pode aceitar combustivel');
     assert.ok(data.missingFields.includes('benefitType'), 'Deve listar benefitType como pendente');
   });
+
+  // --------------------------------------------------------------------------
+  // LOTE 5G-M — TESTES DE REGRESSÃO (FOLLOW-UP E CONTRATO REAL)
+  // --------------------------------------------------------------------------
+
+  test('57. áudio/texto com "paguei no vale refeição" => create_benefit / vr (Normalizador e Backend)', async () => {
+    // 1. Validação no Normalizador n8n
+    const normResult = runNormalizer({
+      action: 'create_expense', // simulando IA que marcou create_expense mas notes contém benefício
+      description: 'compra de mentos',
+      amount: 2,
+      categoryHint: null,
+      destinationHint: null,
+      payment: { method: null, account: null },
+      notes: 'paguei no vale refeição',
+      requiresReview: true
+    })[0].json;
+
+    assert.equal(normResult.action, 'create_benefit', 'Ação deve ser normalizada para create_benefit');
+    assert.equal(normResult.data.benefitType, 'vr', 'benefitType deve ser extraído como vr');
+    assert.equal(normResult.data.amount, 2);
+
+    // 2. Validação no Backend interpret
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_benefit',
+        requiresReview: false,
+        warnings: [],
+        data: {
+          description: 'COMPRA DE MENTOS',
+          amount: 2,
+          benefitType: 'vr',
+          notes: 'paguei no vale refeição'
+        }
+      }]));
+    };
+
+    const res = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Comprei Mentos por R$ 2 e paguei no vale refeição',
+        conversationId: 'conv_turn1_vr_57'
+      })
+    });
+
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.success, true);
+    assert.equal(data.action, 'create_benefit', 'Backend deve propor create_benefit');
+    assert.equal(data.data.benefitType, 'vr', 'benefitType na proposta deve ser vr');
+  });
+
+  test('58. "usando VA" => create_benefit / va', async () => {
+    const normResult = runNormalizer({
+      action: 'create_benefit',
+      description: 'ALMOÇO',
+      amount: 35,
+      benefitTypeHint: 'va'
+    }, { type: 'text', message: 'Gastei 35 no almoço usando VA', month: 9, year: 2026 })[0].json;
+
+    assert.equal(normResult.action, 'create_benefit');
+    assert.equal(normResult.data.benefitType, 'va');
+
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_benefit',
+        data: { description: 'ALMOÇO', amount: 35, benefitType: 'va' }
+      }]));
+    };
+
+    const res = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Gastei 35 no almoço usando VA',
+        conversationId: 'conv_va_58'
+      })
+    });
+
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.action, 'create_benefit');
+    assert.equal(data.data.benefitType, 'va');
+  });
+
+  test('59. "vale transporte" => create_benefit / transporte', async () => {
+    const normResult = runNormalizer({
+      action: 'create_benefit',
+      description: 'UBER',
+      amount: 10,
+      benefitTypeHint: 'transporte'
+    }, { type: 'text', message: 'Uber de 10 reais no vale transporte', month: 9, year: 2026 })[0].json;
+
+    assert.equal(normResult.action, 'create_benefit');
+    assert.equal(normResult.data.benefitType, 'transporte');
+
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_benefit',
+        data: { description: 'UBER', amount: 10, benefitType: 'transporte' }
+      }]));
+    };
+
+    const res = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Uber de 10 reais no vale transporte',
+        conversationId: 'conv_vt_59'
+      })
+    });
+
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.action, 'create_benefit');
+    assert.equal(data.data.benefitType, 'transporte');
+  });
+
+  test('60. "tenho VA mas paguei no Pix" => create_expense / pix', async () => {
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_expense',
+        data: {
+          description: 'ALMOÇO',
+          amount: 35,
+          category: 'Alimentação',
+          payment: { method: 'pix', account: null },
+          destination: 'Pix'
+        }
+      }]));
+    };
+
+    const res = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Tenho VA, mas paguei o almoço no Pix',
+        conversationId: 'conv_va_pix_60'
+      })
+    });
+
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.action, 'create_expense', 'Deve ser create_expense devido ao Pix');
+    assert.equal(data.data.payment?.method, 'pix');
+    assert.equal(data.data.benefitType, null, 'benefitType deve ser null');
+  });
+
+  test('61. "comprei remédio na farmácia" => NÃO inferir benefit/farmacia', async () => {
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_expense',
+        data: {
+          description: 'REMÉDIO',
+          amount: 40,
+          category: 'Saúde',
+          payment: { method: 'cartao_debito', account: null },
+          destination: 'Cartão'
+        }
+      }]));
+    };
+
+    const res = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Comprei remédio na farmácia por 40 no débito',
+        conversationId: 'conv_farmacia_61'
+      })
+    });
+
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.action, 'create_expense');
+    assert.equal(data.data.benefitType, null, 'Não deve inferir benefitType farmacia');
+  });
+
+  test('62. "gastei com refeição" => NÃO inferir benefit/vr', async () => {
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_expense',
+        data: {
+          description: 'REFEIÇÃO',
+          amount: 30,
+          category: 'Alimentação',
+          payment: { method: 'dinheiro', account: null },
+          destination: 'Dinheiro'
+        }
+      }]));
+    };
+
+    const res = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Gastei 30 com refeição no dinheiro',
+        conversationId: 'conv_refeicao_62'
+      })
+    });
+
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.action, 'create_expense');
+    assert.equal(data.data.benefitType, null, 'Não deve inferir benefitType vr');
+  });
+
+  test('63. pending expense + follow-up "VR" => converte localmente para benefit/vr sem chamada provider e sem crédito adicional', async () => {
+    const convId = 'conv_followup_vr_63';
+    const dateKey = aiQuotaService.getDateKey();
+
+    // Turno 1: Envia "Comprei Mentos por 2 reais" (sem forma de pagamento)
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_expense',
+        requiresReview: false,
+        warnings: [],
+        data: {
+          description: 'Mentos',
+          amount: 2,
+          category: 'Alimentação',
+          payment: { method: null, account: null },
+          destination: null
+        }
+      }]));
+    };
+
+    const resTurn1 = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Comprei Mentos por 2 reais', conversationId: convId })
+    });
+    const dataTurn1 = await resTurn1.json();
+    assert.equal(dataTurn1.action, 'continue_collection');
+    assert.ok(dataTurn1.missingFields.includes('destination'));
+    assert.equal(dataTurn1.answer, 'E pagou como?');
+
+    const usageTurn1 = await jsonStorage.getAiDailyUsage(testUser.id, dateKey);
+    const creditsAfterTurn1 = usageTurn1 ? usageTurn1.creditsUsed : 0;
+
+    // Configura mock para FALHAR caso o provider seja chamado no Turno 2
+    let n8nCalledInTurn2 = false;
+    mockN8nHandler = (req, res) => {
+      n8nCalledInTurn2 = true;
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'N8N_CALLED_ERROR' }));
+    };
+
+    // Turno 2: Usuário responde "VR"
+    const resTurn2 = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'VR', conversationId: convId })
+    });
+    const dataTurn2 = await resTurn2.json();
+
+    assert.equal(resTurn2.status, 200);
+    assert.equal(dataTurn2.success, true);
+    assert.equal(dataTurn2.action, 'create_benefit', 'Proposta deve ser convertida para create_benefit');
+    assert.equal(dataTurn2.targetModule, 'beneficios', 'targetModule deve ser beneficios');
+    assert.equal(dataTurn2.data.benefitType, 'vr', 'benefitType deve ser vr');
+    assert.equal(dataTurn2.data.amount, 2, 'amount deve ser preservado');
+    assert.equal(dataTurn2.data.description.toUpperCase(), 'MENTOS', 'description deve ser preservada');
+    assert.equal(dataTurn2.data.category, null, 'category exclusiva de despesa deve ser null');
+    assert.equal(dataTurn2.data.destination, null, 'destination exclusiva de despesa deve ser null');
+    assert.equal(n8nCalledInTurn2, false, 'Provider externo NÃO pode ser chamado no follow-up determinístico');
+
+    const usageTurn2 = await jsonStorage.getAiDailyUsage(testUser.id, dateKey);
+    assert.equal(usageTurn2.creditsUsed, creditsAfterTurn1, 'Nenhum crédito adicional pode ser consumido no follow-up');
+  });
+
+  test('64. pending expense + follow-up "Pix" => payment.method pix sem chamada provider e sem crédito adicional', async () => {
+    const convId = 'conv_followup_pix_64';
+    const dateKey = aiQuotaService.getDateKey();
+
+    // Turno 1: "Comprei Mentos por 2 reais"
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_expense',
+        data: {
+          description: 'Mentos',
+          amount: 2,
+          category: 'Alimentação',
+          payment: { method: null, account: null },
+          destination: null
+        }
+      }]));
+    };
+
+    const resTurn1 = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Comprei Mentos por 2 reais', conversationId: convId })
+    });
+    const dataTurn1 = await resTurn1.json();
+    assert.equal(dataTurn1.action, 'continue_collection');
+
+    const usageTurn1 = await jsonStorage.getAiDailyUsage(testUser.id, dateKey);
+    const creditsAfterTurn1 = usageTurn1 ? usageTurn1.creditsUsed : 0;
+
+    let n8nCalledInTurn2 = false;
+    mockN8nHandler = (req, res) => {
+      n8nCalledInTurn2 = true;
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'N8N_CALLED_ERROR' }));
+    };
+
+    // Turno 2: "Pix"
+    const resTurn2 = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Pix', conversationId: convId })
+    });
+    const dataTurn2 = await resTurn2.json();
+
+    assert.equal(resTurn2.status, 200);
+    assert.equal(dataTurn2.success, true);
+    assert.equal(dataTurn2.action, 'create_expense');
+    assert.equal(dataTurn2.targetModule, 'despesas');
+    assert.equal(dataTurn2.data.payment?.method, 'pix');
+    assert.equal(dataTurn2.data.payment?.account, null, 'payment.account deve ser null quando nenhuma conta foi informada');
+    assert.equal(dataTurn2.data.paymentMethod, 'pix');
+    assert.equal(dataTurn2.data.destination, null, 'destination deve ser null quando nenhuma conta foi informada');
+    assert.equal(dataTurn2.data.amount, 2);
+    assert.equal(dataTurn2.requiresReview, false, 'proposta deve ser válida quanto ao pagamento');
+    assert.notEqual(dataTurn2.action, 'continue_collection');
+    assert.equal(dataTurn2.answer, undefined, 'não repete "E pagou como?"');
+    assert.equal(n8nCalledInTurn2, false, 'Provider externo NÃO pode ser chamado no follow-up Pix');
+
+    const usageTurn2 = await jsonStorage.getAiDailyUsage(testUser.id, dateKey);
+    assert.equal(usageTurn2.creditsUsed, creditsAfterTurn1, 'Nenhum crédito adicional consumido');
+  });
+
+  test('65. follow-up "VR" sem pendingAction => NÃO usar a heurística de complemento indevidamente', async () => {
+    let n8nCalled = false;
+    mockN8nHandler = (req, res) => {
+      n8nCalled = true;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_expense',
+        data: { description: null, amount: null, destination: null }
+      }]));
+    };
+
+    const res = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'VR',
+        conversationId: 'conv_no_pending_vr_65'
+      })
+    });
+
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(n8nCalled, true, 'Sem pendingAction compatível, a heurística de follow-up não deve ser ativada');
+  });
+
+  test('66. após follow-up válido, não repetir "E pagou como?"', async () => {
+    const convId = 'conv_no_repeat_question_66';
+
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_expense',
+        data: { description: 'Bala Mentos', amount: 3, destination: null, payment: { method: null } }
+      }]));
+    };
+
+    const res1 = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Bala Mentos por 3 reais', conversationId: convId })
+    });
+    const d1 = await res1.json();
+    assert.equal(d1.answer, 'E pagou como?');
+
+    // Follow-up "VR"
+    const res2 = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'VR', conversationId: convId })
+    });
+    const d2 = await res2.json();
+
+    assert.equal(d2.action, 'create_benefit');
+    assert.notEqual(d2.action, 'continue_collection', 'Não deve continuar coletando');
+    assert.equal(d2.answer, undefined, 'Não deve retornar pergunta textual "E pagou como?"');
+    assert.ok(d2.proposalId, 'Deve retornar proposalId para o card');
+  });
+
+  test('67. confirmação depois de VR grava somente benefício', async () => {
+    const convId = 'conv_confirm_benefit_only_67';
+
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_expense',
+        data: { description: 'Mentos', amount: 2, destination: null }
+      }]));
+    };
+
+    await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Mentos 2 reais', conversationId: convId })
+    });
+
+    const resFollowUp = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'VR', conversationId: convId })
+    });
+    const dataFollowUp = await resFollowUp.json();
+    const proposalId = dataFollowUp.proposalId;
+    assert.ok(proposalId);
+    assert.equal(dataFollowUp.action, 'create_benefit');
+
+    // Confirmação via endpoint oficial de benefício
+    const resConfirm = await fetch(`${corvfinUrl}/api/ai/actions/benefit/confirm`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ proposalId, data: dataFollowUp.data })
+    });
+    const dataConfirm = await resConfirm.json();
+    assert.equal(resConfirm.status, 200);
+    assert.equal(dataConfirm.success, true);
+    assert.ok(dataConfirm.benefit, 'Deve retornar o registro de benefício cadastrado');
+
+    // Verifica que foi gravado exclusivamente em benefício e NÃO em despesas
+    const finances = await storageService.getUserFinances(testUser.id);
+    const benefits = finances.benefitTransactions || [];
+    assert.ok(benefits.some(b => b.id === dataConfirm.benefit.id), 'Deve estar em benefitTransactions');
+    const expenses = finances.variable || [];
+    assert.equal(expenses.some(e => e.id === dataConfirm.benefit.id), false, 'Não deve gravar em despesas');
+  });
+
+  test('68. confirmação depois de Pix grava somente despesa', async () => {
+    const convId = 'conv_confirm_expense_only_68';
+
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_expense',
+        data: { description: 'Mentos', amount: 2, destination: null }
+      }]));
+    };
+
+    await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Mentos 2 reais', conversationId: convId })
+    });
+
+    const resFollowUp = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Pix', conversationId: convId })
+    });
+    const dataFollowUp = await resFollowUp.json();
+    const proposalId = dataFollowUp.proposalId;
+    assert.ok(proposalId);
+    assert.equal(dataFollowUp.action, 'create_expense');
+
+    // Confirmação via endpoint oficial de despesa
+    const resConfirm = await fetch(`${corvfinUrl}/api/ai/actions/expense/confirm`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ proposalId, data: dataFollowUp.data })
+    });
+    const dataConfirm = await resConfirm.json();
+    assert.equal(resConfirm.status, 200);
+    assert.equal(dataConfirm.success, true);
+    assert.ok(dataConfirm.expense, 'Deve retornar o registro de despesa cadastrado');
+
+    // Verifica que foi gravada despesa e NÃO benefício
+    const finances = await storageService.getUserFinances(testUser.id);
+    const expenses = finances.variable || [];
+    assert.ok(expenses.some(e => e.id === dataConfirm.expense.id), 'Deve estar em despesas');
+    const benefits = finances.benefitTransactions || [];
+    assert.equal(benefits.some(b => b.id === dataConfirm.expense.id), false, 'Não deve gravar em benefícios');
+  });
+
+  test('69. follow-up "Pix" preserva destination/account previamente informada na proposta pendente', async () => {
+    const convId = 'conv_pix_preserve_account_69';
+
+    // Turno 1: Despesa com conta informada, mas sem método explícito
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_expense',
+        data: {
+          description: 'Cinema',
+          amount: 50,
+          category: 'Lazer',
+          destination: 'Cartão Nubank',
+          payment: { method: null, account: 'Cartão Nubank' }
+        }
+      }]));
+    };
+
+    await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Comprei Cinema 50 no Cartão Nubank', conversationId: convId })
+    });
+
+    // Turno 2: Follow-up "Pix"
+    let n8nCalledInTurn2 = false;
+    mockN8nHandler = (req, res) => {
+      n8nCalledInTurn2 = true;
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'N8N_CALLED_ERROR' }));
+    };
+
+    const resTurn2 = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Pix', conversationId: convId })
+    });
+    const dataTurn2 = await resTurn2.json();
+
+    assert.equal(resTurn2.status, 200);
+    assert.equal(dataTurn2.success, true);
+    assert.equal(dataTurn2.action, 'create_expense');
+    assert.equal(dataTurn2.targetModule, 'despesas');
+    assert.equal(dataTurn2.data.payment?.method, 'pix');
+    assert.equal(dataTurn2.data.payment?.account, 'Cartão Nubank', 'Deve preservar account previamente informada');
+    assert.equal(dataTurn2.data.destination, 'Cartão Nubank', 'Deve preservar destination previamente informada');
+    assert.equal(n8nCalledInTurn2, false);
+  });
 });
 

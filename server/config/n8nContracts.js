@@ -495,7 +495,7 @@ if (!ai || typeof ai !== 'object') {
 // Normalização de Ação (create_expense vs create_benefit)
 // ------------------------------------------------------------
 
-const action = ai.action === 'create_benefit' ? 'create_benefit' : 'create_expense';
+let action = ai.action === 'create_benefit' ? 'create_benefit' : 'create_expense';
 
 const description =
   typeof ai.description === 'string' && ai.description.trim()
@@ -574,7 +574,24 @@ if (action === 'create_expense' && !hasPaymentInfo) {
 // Tipo de Benefício (aplicável a Benefício — Fail-Closed)
 // ------------------------------------------------------------
 
-const rawBenType = String(ai.benefitTypeHint || ai.benefitType || '').trim().toLowerCase();
+let rawBenType = String(ai.benefitTypeHint || ai.benefitType || '').trim().toLowerCase();
+if (!rawBenType && ai.notes) {
+  const notesStr = String(ai.notes).toLowerCase();
+  if (/\\b(vale\\s+refei[çc][ãa]o|vr)\\b/.test(notesStr)) rawBenType = 'vr';
+  else if (/\\b(vale\\s+alimenta[çc][ãa]o|va)\\b/.test(notesStr)) rawBenType = 'va';
+  else if (/\\b(vale\\s+transporte|vt)\\b/.test(notesStr)) rawBenType = 'transporte';
+  else if (/\\b(benef[ií]cio\\s+farm[aá]cia|vale\\s+farm[aá]cia)\\b/.test(notesStr)) rawBenType = 'farmacia';
+  else if (/\\b(benef[ií]cio\\s+sa[uú]de|plano\\s+de\\s+sa[uú]de)\\b/.test(notesStr)) rawBenType = 'saude';
+  else if (/\\b(benef[ií]cio\\s+educa[çc][ãa]o|vale\\s+educa[çc][ãa]o)\\b/.test(notesStr)) rawBenType = 'educacao';
+  else if (/\\b(benef[ií]cio\\s+cultura|vale\\s+cultura)\\b/.test(notesStr)) rawBenType = 'cultura';
+}
+if (!rawBenType && body.message) {
+  const msgStr = String(body.message).toLowerCase();
+  if (/\\b(vale\\s+refei[çc][ãa]o|vr)\\b/.test(msgStr)) rawBenType = 'vr';
+  else if (/\\b(vale\\s+alimenta[çc][ãa]o|va)\\b/.test(msgStr)) rawBenType = 'va';
+  else if (/\\b(vale\\s+transporte|vt)\\b/.test(msgStr)) rawBenType = 'transporte';
+}
+
 let benefitType = null;
 
 if (['transporte', 'vt', 'transporte_publico', 'transporte publico', 'vale_transporte', 'vale transporte'].includes(rawBenType)) {
@@ -591,6 +608,13 @@ if (['transporte', 'vt', 'transporte_publico', 'transporte publico', 'vale_trans
   benefitType = 'educacao';
 } else if (['cultura', 'vale_cultura', 'vale cultura', 'livro', 'livros'].includes(rawBenType)) {
   benefitType = 'cultura';
+}
+
+// Se o provedor marcou create_expense mas identificou benefício corporativo explícito sem meio convencional de pagamento:
+if (action === 'create_expense' && benefitType && !canonicalMethod && !destination) {
+  action = 'create_benefit';
+  const payWarnIdx = warnings.indexOf('A forma de pagamento ou conta/destino precisa ser informada.');
+  if (payWarnIdx >= 0) warnings.splice(payWarnIdx, 1);
 }
 
 if (action === 'create_benefit') {

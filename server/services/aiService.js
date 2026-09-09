@@ -679,8 +679,8 @@ function extractDestinationFromMessage(text, userDestinations = []) {
 function extractBenefitTypeFromMessage(text) {
   if (!text) return null;
   const lower = normalizeSearchStr(text);
-  // 1. Siglas e termos explícitos de benefício têm precedência sobre inferência contextual (Lote 5G-M.2.4)
-  if (/\b(vale\s+transporte|vt)\b/i.test(lower)) {
+  // 1. Siglas e termos explícitos de benefício corporativo (Lote 5G-M.2.4 / 5G-M)
+  if (/\b(vale\s+transporte|vt|cart[aã]o\s+(?:de\s+)?transporte)\b/i.test(lower)) {
     return 'transporte';
   }
   if (/\b(va|vale\s+alimenta[çc][ãa]o)\b/i.test(lower)) {
@@ -689,40 +689,117 @@ function extractBenefitTypeFromMessage(text) {
   if (/\b(vr|vale\s+refei[çc][ãa]o)\b/i.test(lower)) {
     return 'vr';
   }
-  if (/\b(plano\s+de\s+sa[uú]de|sa[uú]de)\b/i.test(lower)) {
+  if (/\b(plano\s+de\s+sa[uú]de|benef[ií]cio\s+sa[uú]de)\b/i.test(lower)) {
     return 'saude';
   }
-  if (/\b(farm[aá]cia|drogaria)\b/i.test(lower)) {
+  if (/\b(benef[ií]cio\s+farm[aá]cia|vale\s+farm[aá]cia)\b/i.test(lower)) {
     return 'farmacia';
   }
-  if (/\b(educa[çc][ãa]o)\b/i.test(lower)) {
+  if (/\b(benef[ií]cio\s+educa[çc][ãa]o|vale\s+educa[çc][ãa]o)\b/i.test(lower)) {
     return 'educacao';
   }
-  if (/\b(cultura)\b/i.test(lower)) {
+  if (/\b(benef[ií]cio\s+cultura|vale\s+cultura)\b/i.test(lower)) {
     return 'cultura';
+  }
+  return null;
+}
+
+/**
+ * Detecta resposta de follow-up curto do usuário informando forma de pagamento convencional
+ * ou tipo de benefício corporativo (Lote 5G-M).
+ * Apenas tokens curtos e inequívocos são correspondidos.
+ */
+function detectPaymentOrBenefitFollowUp(message, validAccounts = [], userDestinations = []) {
+  if (!message || typeof message !== 'string') return null;
+  const raw = message.trim();
+  if (raw.length > 80) return null;
+  if (/\b(comprei|gastei|paguei\s+\d|lan[çc]ar|adicionar|outra\s+compra)\b/i.test(raw)) return null;
+  if (/\b\d+([.,]\d+)?\s*(reais|real|conto|pila)\b/i.test(raw) || /R\$\s*\d+/i.test(raw)) return null;
+
+  const norm = normalizeSearchStr(raw);
+
+  // 1. Benefício corporativo explícito
+  if (/^(?:no\s+|paguei\s+no\s+|via\s+|foi\s+no\s+|com\s+|pelo\s+|usei\s+o\s+|usei\s+meu\s+)?(?:vr|vale\s+refei[çc][ãa]o)$/i.test(norm) ||
+      norm === 'vr' || norm === 'vale refeicao' || norm === 'vale refeição') {
+    return { kind: 'benefit', benefitType: 'vr' };
+  }
+  if (/^(?:no\s+|paguei\s+no\s+|via\s+|foi\s+no\s+|com\s+|pelo\s+|usei\s+o\s+|usei\s+meu\s+)?(?:va|vale\s+alimenta[çc][ãa]o)$/i.test(norm) ||
+      norm === 'va' || norm === 'vale alimentacao' || norm === 'vale alimentação') {
+    return { kind: 'benefit', benefitType: 'va' };
+  }
+  if (/^(?:no\s+|paguei\s+no\s+|via\s+|foi\s+no\s+|com\s+|pelo\s+|usei\s+o\s+|usei\s+meu\s+)?(?:vt|vale\s+transporte|cart[aã]o\s+(?:de\s+)?transporte)$/i.test(norm) ||
+      norm === 'vt' || norm === 'vale transporte') {
+    return { kind: 'benefit', benefitType: 'transporte' };
+  }
+  if (/^(?:no\s+|paguei\s+no\s+|via\s+|com\s+|usei\s+meu\s+)?(?:benef[ií]cio\s+farm[aá]cia|vale\s+farm[aá]cia)$/i.test(norm)) {
+    return { kind: 'benefit', benefitType: 'farmacia' };
+  }
+  if (/^(?:no\s+|paguei\s+no\s+|via\s+|com\s+|usei\s+meu\s+)?(?:benef[ií]cio\s+sa[uú]de|plano\s+de\s+sa[uú]de)$/i.test(norm)) {
+    return { kind: 'benefit', benefitType: 'saude' };
+  }
+  if (/^(?:no\s+|paguei\s+no\s+|via\s+|com\s+|usei\s+meu\s+)?(?:benef[ií]cio\s+educa[çc][ãa]o|vale\s+educa[çc][ãa]o)$/i.test(norm)) {
+    return { kind: 'benefit', benefitType: 'educacao' };
+  }
+  if (/^(?:no\s+|paguei\s+no\s+|via\s+|com\s+|usei\s+meu\s+)?(?:benef[ií]cio\s+cultura|vale\s+cultura)$/i.test(norm)) {
+    return { kind: 'benefit', benefitType: 'cultura' };
   }
 
-  // 2. Inferência contextual secundária
-  if (/\b(transporte|passagem|[oô]nibus|metr[oô])\b/i.test(lower)) {
-    return 'transporte';
+  // 2. Meio de pagamento convencional
+  if (/^(?:no\s+|paguei\s+no\s+|via\s+|foi\s+no\s+|com\s+|pelo\s+)?pix$/i.test(norm)) {
+    return { kind: 'payment', method: 'pix', destination: null, account: null };
   }
-  if (/\b(refei[çc][ãa]o|almo[çc]o|jantar|lanche|restaurante)\b/i.test(lower)) {
-    return 'vr';
+  if (/^(?:no\s+|paguei\s+no\s+|em\s+|paguei\s+em\s+|via\s+|foi\s+no\s+|com\s+|pelo\s+)?(?:dinheiro|cash)$/i.test(norm)) {
+    return { kind: 'payment', method: 'dinheiro', destination: 'Dinheiro', account: null };
   }
-  if (/\b(alimenta[çc][ãa]o|mercado|supermercado|compras)\b/i.test(lower)) {
-    return 'va';
+  if (/^(?:no\s+|paguei\s+no\s+|via\s+|com\s+|pelo\s+)?(?:cr[eé]dito|cart[aã]o\s+de\s+cr[eé]dito|no\s+cart[aã]o|cart[aã]o)$/i.test(norm)) {
+    return { kind: 'payment', method: 'cartao_credito', destination: 'Cartão', account: null };
   }
-  if (/\b(m[eé]dico|consulta|exame|dentista|hospital|cl[ií]nica)\b/i.test(lower)) {
-    return 'saude';
+  if (/^(?:no\s+|paguei\s+no\s+|via\s+|com\s+|pelo\s+)?(?:d[eé]bito|cart[aã]o\s+de\s+d[eé]bito)$/i.test(norm)) {
+    return { kind: 'payment', method: 'cartao_debito', destination: 'Cartão', account: null };
   }
-  if (/\b(rem[eé]dio)\b/i.test(lower)) {
-    return 'farmacia';
+  if (/^(?:no\s+|paguei\s+no\s+|via\s+|com\s+|pelo\s+)?boleto$/i.test(norm)) {
+    return { kind: 'payment', method: 'boleto', destination: 'Boleto', account: null };
   }
-  if (/\b(curso|escola|faculdade|livro)\b/i.test(lower)) {
-    return 'educacao';
+  if (/^(?:no\s+|paguei\s+no\s+|via\s+|com\s+|pelo\s+)?(?:transfer[eê]ncia|ted|doc)$/i.test(norm)) {
+    return { kind: 'payment', method: 'transferencia', destination: 'Transferência', account: null };
   }
-  if (/\b(cinema|teatro|show)\b/i.test(lower)) {
-    return 'cultura';
+  if (/^(?:no\s+|paguei\s+no\s+|via\s+|com\s+|pelo\s+)?(?:d[eé]bito\s+autom[aá]tico|debito\s+automatico)$/i.test(norm)) {
+    return { kind: 'payment', method: 'debito_automatico', destination: 'Débito Automático', account: null };
+  }
+
+  // 3. Match com conta/cartão específico do usuário
+  if (Array.isArray(validAccounts) && validAccounts.length > 0) {
+    const matchedAccount = validAccounts.find(acc => {
+      const accNorm = normalizeSearchStr(acc);
+      return norm === accNorm || norm === `no ${accNorm}` || norm === `na ${accNorm}` || norm === `pelo ${accNorm}` || norm === `pela ${accNorm}` || norm === `cartao ${accNorm}` || norm === `cartão ${accNorm}`;
+    });
+    if (matchedAccount) {
+      return { kind: 'payment', method: 'cartao_credito', destination: matchedAccount, account: matchedAccount };
+    }
+  }
+
+  return null;
+}
+
+function matchSemanticCategory(description, userCategories = []) {
+  if (!description || !Array.isArray(userCategories) || userCategories.length === 0) return null;
+  const descLower = normalizeSearchStr(description);
+  const SEMANTIC_CATEGORY_MAP = [
+    { keywords: ['almoco', 'almoço', 'jantar', 'lanche', 'pizza', 'restaurante', 'mercado', 'comida', 'alimentacao', 'alimentação', 'supermercado', 'ifood', 'ubereats', 'padaria', 'cafe', 'café', 'mcdonalds', 'burger', 'mentos', 'bala', 'doce', 'chocolate'], targets: ['alimentacao', 'alimentação', 'refeicao', 'refeição', 'restaurante', 'mercado'] },
+    { keywords: ['netflix', 'spotify', 'gemini', 'chatgpt', 'prime', 'youtube', 'assinatura', 'software', 'nuvem', 'hosting', 'mensalidade', 'apple', 'icloud', 'claude', 'disney', 'hbo', 'max'], targets: ['assinatura', 'assinaturas', 'servicos', 'serviços', 'software'] },
+    { keywords: ['farmacia', 'farmácia', 'remedio', 'remédio', 'medico', 'médico', 'consulta', 'exame', 'academia', 'dentista', 'hospital', 'saude', 'saúde', 'suplemento', 'drogaria'], targets: ['saude', 'saúde', 'farmacia', 'farmácia', 'academia'] },
+    { keywords: ['uber', '99', 'gasolina', 'combustivel', 'combustível', 'estacionamento', 'onibus', 'ônibus', 'metro', 'metrô', 'pedagio', 'pedágio', 'transporte', 'passagem', 'abastecimento'], targets: ['transporte', 'transportes', 'combustivel', 'combustível', 'veiculo', 'veículo'] },
+    { keywords: ['aluguel', 'condominio', 'condomínio', 'luz', 'agua', 'água', 'energia', 'gas', 'gás', 'internet', 'iptu', 'moradia', 'casa'], targets: ['moradia', 'habitacao', 'habitação', 'casa', 'contas fixas'] },
+    { keywords: ['cinema', 'viagem', 'hotel', 'passeio', 'show', 'livro', 'jogo', 'game', 'bolsa', 'roupa', 'shopping', 'lazer', 'presente', 'balada', 'festa', 'steam'], targets: ['lazer', 'lazer & entretenimento', 'compras', 'vestuario', 'vestuário', 'pessoal'] },
+    { keywords: ['investimento', 'tesouro', 'cdb', 'acoes', 'ações', 'fii', 'cripto', 'poupanca', 'poupança', 'aporte'], targets: ['investimento', 'investimentos', 'aplicacao', 'aplicação'] }
+  ];
+
+  for (const sem of SEMANTIC_CATEGORY_MAP) {
+    const matchesKeyword = sem.keywords.some(k => descLower.includes(k));
+    if (matchesKeyword) {
+      const found = userCategories.find(c => sem.targets.some(t => normalizeSearchStr(c) === t || normalizeSearchStr(c).includes(t)));
+      if (found) return found;
+    }
   }
   return null;
 }
@@ -1195,6 +1272,207 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
   const validAccounts = rawUserDestinations.filter(d => !NATIVE_METHODS.has(normalizeSearchStr(d)));
   const canonicalPaymentMethods = ['pix', 'dinheiro', 'cartao_credito', 'cartao_debito', 'boleto', 'transferencia', 'debito_automatico', 'outros'];
 
+  // 6.5. Resolução Determinística de Follow-up Curto de Pagamento / Benefício (0 créditos, 0 LLM)
+  // Quando existir uma proposta/pendingAction esperando especificamente informação de pagamento/tipo de benefício,
+  // uma resposta curta (ex.: "VR", "VA", "Pix", "dinheiro", "crédito") completa a proposta pendente sem nova chamada externa.
+  const hasCompatiblePending = pendingAction &&
+    (pendingAction.status === 'collecting' || pendingAction.status === 'proposed') &&
+    pendingAction.slots?.description &&
+    pendingAction.slots?.amount > 0;
+
+  const followUp = !isMultimodal && hasCompatiblePending
+    ? detectPaymentOrBenefitFollowUp(cleanMessage, validAccounts, userDestinations)
+    : null;
+
+  if (followUp) {
+    console.log(`[AI ACTION] deterministic follow-up resolved: kind=${followUp.kind} user=${userId}`);
+    const proposalId = pendingAction.proposalId || ('prop_' + crypto.randomBytes(16).toString('hex'));
+    const expiresAt = new Date(now.getTime() + 15 * 60 * 1000);
+
+    const compMonth = pendingAction.slots.competence?.month || targetMonth;
+    const compYear = pendingAction.slots.competence?.year || targetYear;
+    const compDay = pendingAction.slots.day || null;
+    const notes = pendingAction.slots.notes || null;
+
+    if (followUp.kind === 'benefit') {
+      const benefitProposalDoc = {
+        _id: proposalId,
+        userId,
+        conversationId: conversationId || null,
+        action: 'create_benefit',
+        status: 'pending',
+        source: pendingAction.source || 'text',
+        proposal: {
+          description: pendingAction.slots.description,
+          amount: pendingAction.slots.amount,
+          benefitType: followUp.benefitType,
+          category: null,
+          destination: null,
+          payment: null,
+          day: compDay,
+          competence: { month: compMonth, year: compYear },
+          notes,
+          requiresReview: false,
+          requiresConfirmation: true,
+          warnings: [],
+          confidence: {}
+        },
+        createdAt: now,
+        expiresAt,
+        consumedAt: null
+      };
+
+      await storageService.saveAiProposal(benefitProposalDoc);
+      await storageService.saveAiPendingAction({
+        _id: pendingAction._id || `pa_${userId}_${conversationId}`,
+        userId,
+        conversationId,
+        intent: 'create_benefit',
+        status: 'proposed',
+        proposalId,
+        slots: {
+          description: pendingAction.slots.description,
+          amount: pendingAction.slots.amount,
+          benefitType: followUp.benefitType,
+          day: compDay,
+          competence: { month: compMonth, year: compYear },
+          notes
+        },
+        missingFields: [],
+        createdAt: pendingAction.createdAt || now,
+        updatedAt: now,
+        expiresAt: new Date(now.getTime() + (config.AI_PENDING_ACTION_TTL_MS || 1800000))
+      });
+
+      return {
+        success: true,
+        proposalId,
+        action: 'create_benefit',
+        targetModule: 'beneficios',
+        intent: 'create_benefit',
+        requiresConfirmation: true,
+        requiresReview: false,
+        source: benefitProposalDoc.source,
+        data: benefitProposalDoc.proposal,
+        warnings: [],
+        confidence: {},
+        duration: Date.now() - startTime
+      };
+    } else if (followUp.kind === 'payment') {
+      let matchedCategory = null;
+      if (pendingAction.slots.category) {
+        const catNorm = normalizeSearchStr(pendingAction.slots.category);
+        matchedCategory = userCategories.find(c => normalizeSearchStr(c) === catNorm) || null;
+      }
+      if (!matchedCategory && pendingAction.slots.description) {
+        matchedCategory = matchSemanticCategory(pendingAction.slots.description, userCategories);
+      }
+
+      const rawWarnings = [];
+      if (!matchedCategory) {
+        rawWarnings.push('Categoria não identificada.');
+      }
+
+      const resolvedMethod = followUp.method;
+      const resolvedAccount = followUp.account
+        || (pendingAction.slots.payment && pendingAction.slots.payment.account)
+        || (pendingAction.slots.paymentAccount)
+        || null;
+
+      // Preservar destino/conta anterior válida se existir, mas NUNCA fabricar "Pix" como destination/account
+      let legacyDestination = null;
+      if (resolvedAccount) {
+        legacyDestination = resolvedAccount;
+      } else if (pendingAction.slots.destination && normalizeSearchStr(pendingAction.slots.destination) !== 'pix') {
+        legacyDestination = pendingAction.slots.destination;
+      } else if (followUp.destination && normalizeSearchStr(followUp.destination) !== 'pix') {
+        legacyDestination = followUp.destination;
+      } else if (resolvedMethod === 'dinheiro') {
+        legacyDestination = 'Dinheiro';
+      }
+
+      const expenseProposalDoc = {
+        _id: proposalId,
+        userId,
+        conversationId: conversationId || null,
+        action: 'create_expense',
+        status: 'pending',
+        source: pendingAction.source || 'text',
+        proposal: {
+          description: pendingAction.slots.description,
+          amount: pendingAction.slots.amount,
+          category: matchedCategory,
+          destination: legacyDestination,
+          paymentMethod: resolvedMethod,
+          paymentAccount: resolvedAccount,
+          payee: pendingAction.slots.payee || null,
+          payment: {
+            method: resolvedMethod,
+            account: resolvedAccount
+          },
+          temporal: {
+            date: null,
+            day: compDay,
+            competence: `${compYear}-${String(compMonth).padStart(2, '0')}`,
+            type: 'single'
+          },
+          competence: { month: compMonth, year: compYear },
+          benefitType: null,
+          installments: 1,
+          notes,
+          requiresReview: Boolean(rawWarnings.length > 0),
+          requiresConfirmation: true,
+          warnings: rawWarnings,
+          confidence: {}
+        },
+        createdAt: now,
+        expiresAt,
+        consumedAt: null
+      };
+
+      await storageService.saveAiProposal(expenseProposalDoc);
+      await storageService.saveAiPendingAction({
+        _id: pendingAction._id || `pa_${userId}_${conversationId}`,
+        userId,
+        conversationId,
+        intent: 'create_expense',
+        status: 'proposed',
+        proposalId,
+        slots: {
+          description: pendingAction.slots.description,
+          amount: pendingAction.slots.amount,
+          category: matchedCategory,
+          destination: legacyDestination,
+          paymentMethod: resolvedMethod,
+          paymentAccount: resolvedAccount,
+          payment: { method: resolvedMethod, account: resolvedAccount },
+          day: compDay,
+          competence: { month: compMonth, year: compYear },
+          notes
+        },
+        missingFields: [],
+        createdAt: pendingAction.createdAt || now,
+        updatedAt: now,
+        expiresAt: new Date(now.getTime() + (config.AI_PENDING_ACTION_TTL_MS || 1800000))
+      });
+
+      return {
+        success: true,
+        proposalId,
+        action: 'create_expense',
+        targetModule: 'despesas',
+        intent: 'create_expense',
+        requiresConfirmation: true,
+        requiresReview: Boolean(rawWarnings.length > 0),
+        source: expenseProposalDoc.source,
+        data: expenseProposalDoc.proposal,
+        warnings: rawWarnings,
+        confidence: {},
+        duration: Date.now() - startTime
+      };
+    }
+  }
+
   // 7. Chamada ao Webhook do n8n com contexto V2 explícito e pendingAction
   const webhookPayload = {
     type: type || 'text',
@@ -1400,8 +1678,20 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
       // 6-A: Ação explícita válida do provedor é soberana
       activeIntent = 'create_benefit';
     } else if (actionResult.action === 'create_expense') {
-      // 6-A: Ação explícita válida do provedor é soberana sobre benefitTypeHint
-      activeIntent = 'create_expense';
+      // 6-A: Ação do provedor com salvaguarda: se não houver pagamento convencional e
+      // houver menção inequívoca a benefício corporativo em notes ou message, normaliza para create_benefit
+      const msgOrNotes = [rawData.notes, cleanMessage].filter(Boolean).join(' ');
+      const explicitBenefitType = extractBenefitTypeFromMessage(msgOrNotes);
+      const hasConvPayment = Boolean(
+        rawData.payment?.method ||
+        rawData.destination ||
+        resolveExpensePaymentMethodFromData({ rawData, cleanMessage, existingSlots, userDestinations })
+      );
+      if (explicitBenefitType && !hasConvPayment) {
+        activeIntent = 'create_benefit';
+      } else {
+        activeIntent = 'create_expense';
+      }
     } else if (isMultimodal) {
       // ÁUDIO / IMAGEM sem ação explícita:
       // Fallback backend só ocorre se houver evidência estruturada suficiente (ex: benefitType canônico)
@@ -1542,7 +1832,7 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
 
     // Extração de Tipo de Benefício (para Benefício — Fail-Closed)
     let mergedBenefitType = null;
-    const msgBenType = extractBenefitTypeFromMessage(cleanMessage);
+    const msgBenType = extractBenefitTypeFromMessage([cleanMessage, rawData.notes].filter(Boolean).join(' '));
     const n8nBenType = safeTrim(rawData.benefitType || rawData.benefitTypeHint || rawData.type);
     if (n8nBenType) {
       mergedBenefitType = normalizeBenefitType(n8nBenType);
@@ -1805,27 +2095,8 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
     }
 
     if (!matchedCategory && mergedDesc) {
-      // Heurística de apoio semântico somente se mapear estritamente para uma categoria real do usuário
-      const SEMANTIC_CATEGORY_MAP = [
-        { keywords: ['almoco', 'almoço', 'jantar', 'lanche', 'pizza', 'restaurante', 'mercado', 'comida', 'alimentacao', 'alimentação', 'supermercado', 'ifood', 'ubereats', 'padaria', 'cafe', 'café', 'mcdonalds', 'burger'], targets: ['alimentacao', 'alimentação', 'refeicao', 'refeição', 'restaurante', 'mercado'] },
-        { keywords: ['netflix', 'spotify', 'gemini', 'chatgpt', 'prime', 'youtube', 'assinatura', 'software', 'nuvem', 'hosting', 'mensalidade', 'apple', 'icloud', 'claude', 'disney', 'hbo', 'max'], targets: ['assinatura', 'assinaturas', 'servicos', 'serviços', 'software'] },
-        { keywords: ['farmacia', 'farmácia', 'remedio', 'remédio', 'medico', 'médico', 'consulta', 'exame', 'academia', 'dentista', 'hospital', 'saude', 'saúde', 'suplemento', 'drogaria'], targets: ['saude', 'saúde', 'farmacia', 'farmácia', 'academia'] },
-        { keywords: ['uber', '99', 'gasolina', 'combustivel', 'combustível', 'estacionamento', 'onibus', 'ônibus', 'metro', 'metrô', 'pedagio', 'pedágio', 'transporte', 'passagem', 'abastecimento'], targets: ['transporte', 'transportes', 'combustivel', 'combustível', 'veiculo', 'veículo'] },
-        { keywords: ['aluguel', 'condominio', 'condomínio', 'luz', 'agua', 'água', 'energia', 'gas', 'gás', 'internet', 'iptu', 'moradia', 'casa'], targets: ['moradia', 'habitacao', 'habitação', 'casa', 'contas fixas'] },
-        { keywords: ['cinema', 'viagem', 'hotel', 'passeio', 'show', 'livro', 'jogo', 'game', 'bolsa', 'roupa', 'shopping', 'lazer', 'presente', 'balada', 'festa', 'steam'], targets: ['lazer', 'lazer & entretenimento', 'compras', 'vestuario', 'vestuário', 'pessoal'] },
-        { keywords: ['investimento', 'tesouro', 'cdb', 'acoes', 'ações', 'fii', 'cripto', 'poupanca', 'poupança', 'aporte'], targets: ['investimento', 'investimentos', 'aplicacao', 'aplicação'] }
-      ];
-
-      for (const sem of SEMANTIC_CATEGORY_MAP) {
-        const matchesKeyword = sem.keywords.some(k => descLower.includes(k) || (catInput && normalizeSearchStr(catInput).includes(k)));
-        if (matchesKeyword) {
-          const found = userCategories.find(c => sem.targets.some(t => normalizeSearchStr(c) === t || normalizeSearchStr(c).includes(t)));
-          if (found) {
-            matchedCategory = found;
-            break;
-          }
-        }
-      }
+      matchedCategory = matchSemanticCategory(mergedDesc, userCategories)
+        || (catInput ? matchSemanticCategory(catInput, userCategories) : null);
     }
 
     if (!matchedCategory) {
@@ -1974,6 +2245,7 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
         },
         temporal: resolvedTemporal,
         competence: { month: compMonth, year: compYear },
+        benefitType: null,
         installments: mergedSlots.installments,
         notes: mergedSlots.notes,
         requiresReview,
