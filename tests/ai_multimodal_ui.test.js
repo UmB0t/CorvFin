@@ -1964,5 +1964,54 @@ describe('CORVFIN V2 — LOTE 5G-M.2.4 Card Dinâmico Despesa/Benefício (38 Tes
     assert.equal(expWithDate.data.date, '2026-09-15');
   });
 
+  test('39. Card com descrição/observação longa não cria overflow horizontal e trunca visualmente com ellipsis', () => {
+    const { window } = createUiSandbox();
+    const longTextProposal = {
+      proposalId: 'prop_long_text_trunc',
+      action: 'create_expense',
+      status: 'pending',
+      requiresReview: false,
+      data: {
+        description: 'COMPRA SUPERMERCADO EXTRA HIPERMERCADO COM MUITOS ITENS LONGOS QUE ESTOURARIAM O CARD SE NAO TRUNCASSEM',
+        amount: 250.75,
+        category: 'Supermercado e Alimentação Variada da Semana',
+        payment: { method: 'cartao_credito' },
+        destination: 'Banco Inter Cartão Platinum Principal',
+        notes: 'OBSERVAÇÃO DETALHADA E LONGA SOBRE A COMPRA DIVIDIDA COM FAMILIARES NO FIM DE SEMANA',
+        competence: { month: 9, year: 2026 }
+      }
+    };
+    const html = window.renderProposalCardHtml(longTextProposal);
+
+    // Deve conter classes de proposta e atributos de acessibilidade (title) com o texto completo
+    assert.ok(html.includes('ai-proposal-desc'));
+    assert.ok(html.includes('title="COMPRA SUPERMERCADO EXTRA HIPERMERCADO'));
+    assert.ok(html.includes('title="OBSERVAÇÃO DETALHADA E LONGA'));
+    assert.ok(html.includes('ai-proposal-item-val'));
+
+    // Verifica regras de CSS em components.css
+    const componentsCss = fs.readFileSync(path.join(__dirname, '../public/css/components.css'), 'utf8');
+    assert.ok(componentsCss.includes('.ai-proposal-desc'));
+    assert.ok(componentsCss.includes('text-overflow: ellipsis;'));
+    assert.ok(componentsCss.includes('white-space: nowrap;'));
+    assert.ok(componentsCss.includes('min-width: 0;'));
+    assert.ok(componentsCss.includes('grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);'));
+  });
+
+  test('40. Mobile 360/390/430px sem overflow horizontal do card', () => {
+    const mobileCss = fs.readFileSync(path.join(__dirname, '../public/css/mobile.css'), 'utf8');
+    // Verifica bloco de responsividade @media (max-width: 480px) cobrindo 430, 390 e 360px
+    assert.ok(mobileCss.includes('.ai-proposal-card'));
+    assert.ok(mobileCss.includes('max-width: 100% !important;'));
+    assert.ok(mobileCss.includes('min-width: 0 !important;'));
+    assert.ok(mobileCss.includes('overflow: hidden !important;'));
+    assert.ok(mobileCss.includes('text-overflow: ellipsis !important;'));
+    assert.ok(mobileCss.includes('grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;'));
+
+    // Verifica bloco @media (max-width: 360px)
+    assert.ok(mobileCss.includes('@media (max-width: 360px)'));
+    assert.ok(mobileCss.includes('.ai-proposal-card'));
+  });
+
 });
 

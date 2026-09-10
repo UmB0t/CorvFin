@@ -1605,7 +1605,7 @@
           </div>
 
           <div class="ai-proposal-main">
-            <div class="ai-proposal-desc">${escapeHtmlText(descFormatted)}</div>
+            <div class="ai-proposal-desc" title="${escapeHtmlAttr(descFormatted)}">${escapeHtmlText(descFormatted)}</div>
             <div class="ai-proposal-amount">${escapeHtmlText(amtFormatted)}</div>
           </div>
 
@@ -1613,7 +1613,7 @@
             <div class="ai-proposal-item">
               <span class="ai-proposal-item-label">Tipo</span>
               ${d.benefitType ? `
-                <span class="ai-proposal-item-val" style="color:var(--text); font-weight:700;">
+                <span class="ai-proposal-item-val" title="${escapeHtmlAttr(typeLabel)}" style="color:var(--text); font-weight:700;">
                   ${escapeHtmlText(typeLabel)}
                 </span>
               ` : `
@@ -1627,15 +1627,15 @@
             </div>
             <div class="ai-proposal-item">
               <span class="ai-proposal-item-label">Dia</span>
-              <span class="ai-proposal-item-val">${d.day ? 'Dia ' + escapeHtmlText(d.day) : 'Hoje (Automático)'}</span>
+              <span class="ai-proposal-item-val" title="${d.day ? 'Dia ' + escapeHtmlAttr(d.day) : 'Hoje (Automático)'}">${d.day ? 'Dia ' + escapeHtmlText(d.day) : 'Hoje (Automático)'}</span>
             </div>
             <div class="ai-proposal-item">
               <span class="ai-proposal-item-label">Competência</span>
-              <span class="ai-proposal-item-val">${escapeHtmlText(competenceFormatted)}</span>
+              <span class="ai-proposal-item-val" title="${escapeHtmlAttr(competenceFormatted)}">${escapeHtmlText(competenceFormatted)}</span>
             </div>
             <div class="ai-proposal-item">
               <span class="ai-proposal-item-label">Observação</span>
-              <span class="ai-proposal-item-val">${escapeHtmlText(d.notes || 'Nenhuma')}</span>
+              <span class="ai-proposal-item-val" title="${escapeHtmlAttr(d.notes || 'Nenhuma')}">${escapeHtmlText(d.notes || 'Nenhuma')}</span>
             </div>
           </div>
 
@@ -1673,31 +1673,31 @@
         </div>
 
         <div class="ai-proposal-main">
-          <div class="ai-proposal-desc">${escapeHtmlText(descFormatted)}</div>
+          <div class="ai-proposal-desc" title="${escapeHtmlAttr(descFormatted)}">${escapeHtmlText(descFormatted)}</div>
           <div class="ai-proposal-amount">${escapeHtmlText(amtFormatted)}</div>
         </div>
 
         <div class="ai-proposal-grid">
           <div class="ai-proposal-item">
             <span class="ai-proposal-item-label">Método</span>
-            <span class="ai-proposal-item-val">${escapeHtmlText(methodName)}</span>
+            <span class="ai-proposal-item-val" title="${escapeHtmlAttr(methodName)}">${escapeHtmlText(methodName)}</span>
           </div>
           ${payeeVal ? `
             <div class="ai-proposal-item">
               <span class="ai-proposal-item-label">Favorecido</span>
-              <span class="ai-proposal-item-val">${escapeHtmlText(payeeVal)}</span>
+              <span class="ai-proposal-item-val" title="${escapeHtmlAttr(payeeVal)}">${escapeHtmlText(payeeVal)}</span>
             </div>
           ` : ''}
           ${accountVal ? `
             <div class="ai-proposal-item">
               <span class="ai-proposal-item-label">Conta / Cartão</span>
-              <span class="ai-proposal-item-val">${escapeHtmlText(accountVal)}</span>
+              <span class="ai-proposal-item-val" title="${escapeHtmlAttr(accountVal)}">${escapeHtmlText(accountVal)}</span>
             </div>
           ` : ''}
           <div class="ai-proposal-item">
             <span class="ai-proposal-item-label">Categoria</span>
             ${(d.category && !proposal._inlineEditingCategory) ? `
-              <span class="ai-proposal-item-val" style="color:var(--text); font-weight:700;">${escapeHtmlText(d.category)}</span>
+              <span class="ai-proposal-item-val" title="${escapeHtmlAttr(d.category)}" style="color:var(--text); font-weight:700;">${escapeHtmlText(d.category)}</span>
             ` : `
               <div style="display:flex; flex-direction:column; gap:4px; margin-top:2px;">
                 <select class="ai-proposal-cat-select" data-proposal-id="${escapeHtmlAttr(propId)}" style="font-size:0.78rem; padding:4px 6px; border-radius:6px; border:1px solid var(--warning, #f59e0b); background:var(--surface); color:var(--text); max-width:180px;">
@@ -1709,12 +1709,18 @@
           </div>
           <div class="ai-proposal-item">
             <span class="ai-proposal-item-label">Competência</span>
-            <span class="ai-proposal-item-val">${escapeHtmlText(competenceFormatted)}</span>
+            <span class="ai-proposal-item-val" title="${escapeHtmlAttr(competenceFormatted)}">${escapeHtmlText(competenceFormatted)}</span>
           </div>
           <div class="ai-proposal-item">
             <span class="ai-proposal-item-label">Temporalidade</span>
-            <span class="ai-proposal-item-val">${escapeHtmlText(temporalFormatted)}</span>
+            <span class="ai-proposal-item-val" title="${escapeHtmlAttr(temporalFormatted)}">${escapeHtmlText(temporalFormatted)}</span>
           </div>
+          ${d.notes ? `
+            <div class="ai-proposal-item">
+              <span class="ai-proposal-item-label">Observação</span>
+              <span class="ai-proposal-item-val" title="${escapeHtmlAttr(d.notes)}">${escapeHtmlText(d.notes)}</span>
+            </div>
+          ` : ''}
         </div>
 
         ${statusContent}

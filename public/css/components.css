@@ -1431,6 +1431,8 @@
       display: flex;
       flex-direction: column;
       max-width: 86%;
+      min-width: 0;
+      box-sizing: border-box;
       animation: aiFadeIn 0.2s ease forwards;
     }
 
@@ -1916,6 +1918,10 @@
       flex-direction: column;
       gap: 10px;
       text-align: left;
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow: hidden;
     }
 
     .ai-proposal-header {
@@ -1923,6 +1929,8 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+      min-width: 0;
+      max-width: 100%;
     }
 
     .ai-proposal-tag {
@@ -1994,12 +2002,20 @@
       display: flex;
       flex-direction: column;
       gap: 2px;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
     }
 
     .ai-proposal-desc {
       font-size: 0.95rem;
       font-weight: 800;
       color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+      max-width: 100%;
     }
 
     .ai-proposal-amount {
@@ -2007,21 +2023,33 @@
       font-size: 1.15rem;
       font-weight: 850;
       color: var(--brand);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+      max-width: 100%;
     }
 
     .ai-proposal-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 6px 12px;
       background: var(--surface-2);
       padding: 8px 10px;
       border-radius: 8px;
       font-size: 0.78rem;
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow: hidden;
     }
 
     .ai-proposal-item {
       display: flex;
       flex-direction: column;
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
     }
 
     .ai-proposal-item-label {
@@ -2029,14 +2057,21 @@
       font-size: 0.70rem;
       font-weight: 700;
       text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+      max-width: 100%;
     }
 
     .ai-proposal-item-val {
       font-weight: 750;
       color: var(--text);
+      white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      white-space: nowrap;
+      min-width: 0;
+      max-width: 100%;
     }
 
     .ai-proposal-alert {

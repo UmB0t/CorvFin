@@ -1933,9 +1933,50 @@
     padding: 3px 6px !important;
     font-size: 0.70rem !important;
   }
+
+  /* 3.22 RESPONSIVIDADE E TRUNCAMENTO DE CARDS DE PROPOSTA DA IA (MOBILE 360/390/430px) */
+  .ai-msg {
+    max-width: 95% !important;
+    min-width: 0 !important;
+  }
+
+  .ai-proposal-card {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    padding: 10px 10px !important;
+  }
+
+  .ai-proposal-main,
+  .ai-proposal-desc,
+  .ai-proposal-amount {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .ai-proposal-grid {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    overflow: hidden !important;
+  }
+
+  .ai-proposal-item,
+  .ai-proposal-item-val {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
 }
 
-/* 3.22 TELAS ULTRAPEQUENAS (<= 360px) */
+/* 3.23 TELAS ULTRAPEQUENAS (<= 360px) */
 @media (max-width: 360px) {
   .ai-module-selector,
   .ai-card-type-selector {
@@ -1951,5 +1992,12 @@
   .ai-module-btn span,
   .ai-card-type-btn span {
     font-size: 0.66rem !important;
+  }
+  .ai-proposal-card {
+    padding: 8px 8px !important;
+  }
+  .ai-proposal-grid {
+    padding: 6px 8px !important;
+    gap: 4px 8px !important;
   }
 }

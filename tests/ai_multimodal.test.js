@@ -1712,7 +1712,8 @@ describe('Lote 5G-M.1 — Backend Multimodal (Áudio / Imagem / Multipart / n8n)
     });
     const dataA = await resA.json();
     assert.equal(resA.status, 200);
-    assert.equal(dataA.data.competence.month, 11);
+    // Regra 5G-M: contexto da UI não define a competência padrão da IA; usa mês atual canônico (9)
+    assert.equal(dataA.data.competence.month, 9);
 
     // Caso B: context como JSON string
     const resB = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
@@ -1726,7 +1727,8 @@ describe('Lote 5G-M.1 — Backend Multimodal (Áudio / Imagem / Multipart / n8n)
     });
     const dataB = await resB.json();
     assert.equal(resB.status, 200);
-    assert.equal(dataB.data.competence.month, 12);
+    // Regra 5G-M: contexto da UI não define a competência padrão da IA; usa mês atual canônico (9)
+    assert.equal(dataB.data.competence.month, 9);
 
     // Caso C: context como JSON inválido com escalares month/year de fallback -> NÃO QUEBRA (200 OK)
     const formData = new FormData();
@@ -1745,7 +1747,8 @@ describe('Lote 5G-M.1 — Backend Multimodal (Áudio / Imagem / Multipart / n8n)
     const dataC = await resC.json();
     assert.equal(resC.status, 200);
     assert.equal(dataC.success, true);
-    assert.equal(dataC.data.competence.month, 10);
+    // Regra 5G-M: usa mês atual canônico (9)
+    assert.equal(dataC.data.competence.month, 9);
   });
 
   test('47. Ação explícita válida do provedor é soberana sobre benefitTypeHint (Lote 5G-M.2.4)', async () => {
@@ -2802,6 +2805,315 @@ describe('Lote 5G-M.1 — Backend Multimodal (Áudio / Imagem / Multipart / n8n)
     assert.equal(dataTurn2.data.payment?.account, 'Cartão Nubank', 'Deve preservar account previamente informada');
     assert.equal(dataTurn2.data.destination, 'Cartão Nubank', 'Deve preservar destination previamente informada');
     assert.equal(n8nCalledInTurn2, false);
+  });
+
+  test('70. mês selecionado na UI = outubro/2026, data atual canônica = setembro/2026, mensagem sem mês explícito => payload enviado ao n8n tem month=9, year=2026, context.month=9, context.year=2026 e competence final=9/2026', async () => {
+    const convId = 'conv_ui_month_ignored_70';
+
+    mockN8nHandler = (req, res) => {
+      // ASSERT ponta a ponta do payload real recebido pelo provider
+      assert.equal(Number(lastN8nRequest.body.month), 9, 'body.month deve ser o mês atual canônico (9), não o da UI (10)');
+      assert.equal(Number(lastN8nRequest.body.year), 2026, 'body.year deve ser o ano atual canônico (2026)');
+      assert.equal(Number(lastN8nRequest.body.context?.month), 9, 'context.month deve ser o mês atual canônico (9), não o da UI (10)');
+      assert.equal(Number(lastN8nRequest.body.context?.year), 2026, 'context.year deve ser o ano atual canônico (2026)');
+
+      // Simula o provider devolvendo competence baseada estritamente na referência recebida
+      const refMonth = Number(lastN8nRequest.body.month);
+      const refYear = Number(lastN8nRequest.body.year);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_expense',
+        data: {
+          description: 'Pastel na feira',
+          amount: 12,
+          category: 'Alimentação',
+          destination: 'Pix',
+          payment: { method: 'pix', account: null },
+          competence: { month: refMonth, year: refYear }
+        }
+      }]));
+    };
+
+    const res = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Comprei pastel na feira por 12 no pix',
+        conversationId: convId,
+        month: 10,
+        year: 2026,
+        context: { month: 10, year: 2026 }
+      })
+    });
+
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.success, true);
+    assert.equal(data.data.competence.month, 9, 'Deve usar o mês atual canônico (setembro=9) e não outubro (10)');
+    assert.equal(data.data.competence.year, 2026);
+  });
+
+  test('70b. Multipart/form-data: UI envia month=10 => payload enviado ao n8n despacha month="9", year="2026", context.month=9, context.year=2026', async () => {
+    const convId = 'conv_ui_month_ignored_70b';
+
+    mockN8nHandler = (req, res) => {
+      assert.equal(lastN8nRequest.isMultipart, true);
+      assert.equal(Number(lastN8nRequest.body.month), 9, 'form-data month deve ser 9');
+      assert.equal(Number(lastN8nRequest.body.year), 2026, 'form-data year deve ser 2026');
+
+      const parsedCtx = typeof lastN8nRequest.body.context === 'string'
+        ? JSON.parse(lastN8nRequest.body.context)
+        : lastN8nRequest.body.context;
+      assert.equal(Number(parsedCtx.month), 9, 'form-data context.month deve ser 9');
+      assert.equal(Number(parsedCtx.year), 2026, 'form-data context.year deve ser 2026');
+
+      const refMonth = Number(lastN8nRequest.body.month);
+      const refYear = Number(lastN8nRequest.body.year);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_expense',
+        data: {
+          description: 'Café da manhã padaria',
+          amount: 18,
+          category: 'Alimentação',
+          destination: 'Pix',
+          payment: { method: 'pix', account: null },
+          competence: { month: refMonth, year: refYear }
+        }
+      }]));
+    };
+
+    const formData = new FormData();
+    formData.append('data', new Blob([VALID_WEBM_AUDIO], { type: 'audio/webm' }), 'audio_test_comp.webm');
+    formData.append('inputMode', 'audio');
+    formData.append('conversationId', convId);
+    formData.append('month', '10');
+    formData.append('year', '2026');
+    formData.append('context', JSON.stringify({ month: 10, year: 2026 }));
+
+    const res = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}` },
+      body: formData
+    });
+
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.success, true);
+    assert.equal(data.data.competence.month, 9, 'Competência final deve ser setembro (9)');
+    assert.equal(data.data.competence.year, 2026);
+  });
+
+  test('71. mensagem explícita "em agosto" => competence agosto/2026', async () => {
+    const convId = 'conv_explicit_month_71';
+
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_expense',
+        data: {
+          description: 'Almoço em família',
+          amount: 50,
+          category: 'Alimentação',
+          destination: 'Pix',
+          payment: { method: 'pix', account: null },
+          competence: { month: 8, year: 2026 }
+        }
+      }]));
+    };
+
+    const res = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Gastei 50 em agosto no almoço em família no pix',
+        conversationId: convId
+      })
+    });
+
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.success, true);
+    assert.equal(data.data.competence.month, 8, 'Deve resolver competência agosto (8)');
+    assert.equal(data.data.competence.year, 2026);
+  });
+
+  test('72. mensagem explícita "agosto de 2025" => competence agosto/2025', async () => {
+    const convId = 'conv_explicit_year_72';
+
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_expense',
+        data: {
+          description: 'Compra antiga',
+          amount: 50,
+          category: 'Lazer',
+          destination: 'Pix',
+          payment: { method: 'pix', account: null }
+        }
+      }]));
+    };
+
+    const res = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Gastei 50 em agosto de 2025 no pix',
+        conversationId: convId
+      })
+    });
+
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.success, true);
+    assert.equal(data.data.competence.month, 8, 'Deve resolver mês agosto (8)');
+    assert.equal(data.data.competence.year, 2025, 'Deve resolver ano explícito 2025');
+  });
+
+  test('73. provider sem competence => backend aplica mês atual', async () => {
+    const convId = 'conv_provider_no_comp_73';
+
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_expense',
+        data: {
+          description: 'Café expresso',
+          amount: 5,
+          category: 'Alimentação',
+          destination: 'Pix',
+          payment: { method: 'pix', account: null },
+          competence: null
+        }
+      }]));
+    };
+
+    const res = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Café 5 reais no pix',
+        conversationId: convId
+      })
+    });
+
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.success, true);
+    assert.equal(data.data.competence.month, 9, 'Deve aplicar mês atual (9)');
+    assert.equal(data.data.competence.year, 2026, 'Deve aplicar ano atual (2026)');
+  });
+
+  test('74. provider com competence válida => backend preserva valor explícito', async () => {
+    const convId = 'conv_provider_valid_comp_74';
+
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_expense',
+        data: {
+          description: 'Passagem aérea antiga',
+          amount: 350,
+          category: 'Transporte',
+          destination: 'Cartão Nubank',
+          payment: { method: 'cartao_credito', account: 'Cartão Nubank' },
+          competence: { month: 7, year: 2026 }
+        }
+      }]));
+    };
+
+    const res = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Passagem aérea 350 no Cartão Nubank',
+        conversationId: convId
+      })
+    });
+
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.success, true);
+    assert.equal(data.data.competence.month, 7, 'Deve preservar month=7 fornecido pelo provedor');
+    assert.equal(data.data.competence.year, 2026, 'Deve preservar year=2026 fornecido pelo provedor');
+  });
+
+  test('75. benefício sem competência explícita => usa mês atual', async () => {
+    const convId = 'conv_benefit_no_comp_75';
+
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_benefit',
+        data: {
+          description: 'Almoço no restaurante',
+          amount: 28,
+          benefitType: 'vr',
+          competence: null
+        }
+      }]));
+    };
+
+    const res = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Almoço 28 no VR',
+        conversationId: convId
+      })
+    });
+
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.success, true);
+    assert.equal(data.action, 'create_benefit');
+    assert.equal(data.data.competence.month, 9, 'Benefício deve usar mês atual canônico (9)');
+    assert.equal(data.data.competence.year, 2026);
+  });
+
+  test('76. despesa sem competência explícita => usa mês atual', async () => {
+    const convId = 'conv_expense_no_comp_76';
+
+    mockN8nHandler = (req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([{
+        success: true,
+        action: 'create_expense',
+        data: {
+          description: 'Cinema no shopping',
+          amount: 45,
+          category: 'Lazer',
+          destination: 'Pix',
+          payment: { method: 'pix', account: null }
+        }
+      }]));
+    };
+
+    const res = await fetch(`${corvfinUrl}/api/ai/actions/interpret`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Cinema 45 no pix',
+        conversationId: convId
+      })
+    });
+
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.success, true);
+    assert.equal(data.action, 'create_expense');
+    assert.equal(data.data.competence.month, 9, 'Despesa deve usar mês atual canônico (9)');
+    assert.equal(data.data.competence.year, 2026);
   });
 });
 

@@ -1009,11 +1009,24 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
   const conversationId = safeTrim(reqConvId || parsedContext?.conversationId) || ('conv_' + userId);
   const lowerMessage = cleanMessage ? normalizeSearchStr(cleanMessage) : '';
 
-  // Data atual real do sistema no formato ISO YYYY-MM-DD
+  // Data atual real do sistema no fuso horário canônico (APP_TIMEZONE)
   const now = new Date();
-  const currentDateIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  const targetMonth = Number(parsedContext?.month) || (now.getMonth() + 1);
-  const targetYear = Number(parsedContext?.year) || now.getFullYear();
+  const timeZone = config.APP_TIMEZONE || 'America/Fortaleza';
+  const currentDateIso = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(now);
+  const [currY, currM, currD] = currentDateIso.split('-').map(Number);
+  const canonicalCurrentMonth = !isNaN(currM) && currM >= 1 && currM <= 12 ? currM : (now.getMonth() + 1);
+  const canonicalCurrentYear = !isNaN(currY) && currY >= 2000 ? currY : now.getFullYear();
+  const canonicalCurrentDay = !isNaN(currD) && currD >= 1 && currD <= 31 ? currD : now.getDate();
+
+  // Regra Canônica 5G-M: A autoridade temporal é o backend via APP_TIMEZONE.
+  // O mês de navegação selecionado na interface do usuário NUNCA é usado como competência padrão da IA.
+  const targetMonth = canonicalCurrentMonth;
+  const targetYear = canonicalCurrentYear;
   const startTime = Date.now();
 
   // 1. Carrega pendingAction ativa para (userId, conversationId)
@@ -1842,10 +1855,9 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
       mergedBenefitType = normalizeBenefitType(existingSlots.benefitType);
     }
 
-    // Resolução de Competência Temporal (3 Prioridades)
-    const [currY, currM] = currentDateIso.split('-').map(Number);
-    const currentSystemMonth = !isNaN(currM) && currM >= 1 && currM <= 12 ? currM : (now.getMonth() + 1);
-    const currentSystemYear = !isNaN(currY) && currY >= 2000 ? currY : now.getFullYear();
+    // Resolução de Competência Temporal (Prioridades Canônicas 5G-M)
+    const currentSystemMonth = canonicalCurrentMonth;
+    const currentSystemYear = canonicalCurrentYear;
 
     let compMonth = null;
     let compYear = null;
@@ -1862,27 +1874,32 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
       return reg.test(lowerMessage);
     });
 
+    const explicitYearMatch = cleanMessage.match(/\b(20\d{2})\b/);
+    const explicitYearVal = explicitYearMatch ? Number(explicitYearMatch[1]) : null;
+
     if (explicitMonthMatch) {
       compMonth = explicitMonthMatch.m;
-      compYear = currentSystemYear;
+      compYear = explicitYearVal || (rawData.competence?.year ? Number(rawData.competence.year) : currentSystemYear);
     } else if (/\b(mes passado|mês passado)\b/i.test(lowerMessage)) {
       compMonth = currentSystemMonth === 1 ? 12 : (currentSystemMonth - 1);
-      compYear = currentSystemMonth === 1 ? (currentSystemYear - 1) : currentSystemYear;
+      compYear = currentSystemMonth === 1 ? (currentSystemYear - 1) : (explicitYearVal || currentSystemYear);
     } else if (/\b(mes que vem|mês que vem|proximo mes|próximo mês)\b/i.test(lowerMessage)) {
       compMonth = currentSystemMonth === 12 ? 1 : (currentSystemMonth + 1);
-      compYear = currentSystemMonth === 12 ? (currentSystemYear + 1) : currentSystemYear;
-    } else if (/\b(hoje|ontem|esse mes|esse mês|neste mes|neste mês|agora)\b/i.test(lowerMessage) || /\b(comprei|gastei|paguei|assinei|usei)\b/i.test(lowerMessage)) {
+      compYear = currentSystemMonth === 12 ? (currentSystemYear + 1) : (explicitYearVal || currentSystemYear);
+    } else if (/\b(hoje|ontem|esse mes|esse mês|neste mes|neste mês|agora)\b/i.test(lowerMessage)) {
       compMonth = currentSystemMonth;
       compYear = currentSystemYear;
     } else if (existingSlots.competence?.month) {
       compMonth = existingSlots.competence.month;
       compYear = existingSlots.competence.year || currentSystemYear;
-    } else if (rawData.competence?.month) {
+    } else if (rawData.competence?.month && Number.isInteger(Number(rawData.competence.month)) && Number(rawData.competence.month) >= 1 && Number(rawData.competence.month) <= 12) {
       compMonth = Number(rawData.competence.month);
-      compYear = Number(rawData.competence.year) || currentSystemYear;
+      compYear = (rawData.competence.year && Number.isInteger(Number(rawData.competence.year)) && Number(rawData.competence.year) >= 2000)
+        ? Number(rawData.competence.year)
+        : currentSystemYear;
     } else {
-      compMonth = targetMonth;
-      compYear = targetYear;
+      compMonth = currentSystemMonth;
+      compYear = currentSystemYear;
     }
 
     // Avaliação de Slots Faltantes
@@ -1913,7 +1930,7 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
       } : (existingSlots.payment || null),
       benefitType: activeIntent === 'create_benefit' ? mergedBenefitType : null,
       competence: { month: compMonth, year: compYear },
-      day: Math.max(1, Math.min(31, Number(rawData.day) || (rawData.date ? parseInt(String(rawData.date).split('-')[2], 10) : 0) || existingSlots.day || now.getDate())),
+      day: Math.max(1, Math.min(31, Number(rawData.day) || (rawData.date ? parseInt(String(rawData.date).split('-')[2], 10) : 0) || existingSlots.day || canonicalCurrentDay)),
       installments: Math.max(1, parseInt(rawData.installments, 10) || existingSlots.installments || 1),
       notes: safeTrim(rawData.notes) || existingSlots.notes || null
     };
