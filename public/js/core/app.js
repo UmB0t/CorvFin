@@ -99,6 +99,18 @@
         return false;
       }
 
+      if (response && (response.status === 403 || response.code === 'RESOURCE_LIMIT_REACHED' || response.error === 'RESOURCE_LIMIT_REACHED')) {
+        if (typeof window.showResourceLimitModal === 'function') {
+          window.showResourceLimitModal(response);
+        } else if (typeof notify === 'function') {
+          notify(response.message || 'Limite do seu plano atingido.', 'warning');
+        }
+        if (typeof window.revalidateStateFromServer === 'function') {
+          window.revalidateStateFromServer().catch(() => {});
+        }
+        return false;
+      }
+
       if (response && response.success) {
         if (typeof response.revision === 'number') {
           state.revision = response.revision;
@@ -112,6 +124,17 @@
     } catch (err) {
       if (err.status === 409 || err.conflict || (err.message && err.message.includes('409'))) {
         await handleConcurrencyConflict(err);
+        return false;
+      }
+      if (err && (err.status === 403 || err.code === 'RESOURCE_LIMIT_REACHED' || err.error === 'RESOURCE_LIMIT_REACHED')) {
+        if (typeof window.showResourceLimitModal === 'function') {
+          window.showResourceLimitModal(err);
+        } else if (typeof notify === 'function') {
+          notify(err.message || 'Limite do seu plano atingido.', 'warning');
+        }
+        if (typeof window.revalidateStateFromServer === 'function') {
+          window.revalidateStateFromServer().catch(() => {});
+        }
         return false;
       }
       console.warn('Erro ao salvar no servidor:', err);
@@ -164,6 +187,9 @@
   function renderTabContent(tabId) {
     const isSimp = !!state.simplifiedView;
     if (window.checkModuleMaintenance && window.checkModuleMaintenance(tabId)) {
+      return;
+    }
+    if (window.checkModuleAccess && window.checkModuleAccess(tabId).allowed === false) {
       return;
     }
 

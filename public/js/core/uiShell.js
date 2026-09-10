@@ -243,7 +243,8 @@
     } catch (_) {}
     const u = user || (window.API && typeof API.getUser === 'function' ? API.getUser() : null) || localUser;
     for (const tabId of TAB_ORDER) {
-      if (hasTabPermission(tabId, u)) {
+      const access = getModuleCommercialAccess(tabId, u);
+      if (access.effectiveAllowed) {
         if (!isModuleInMaintenance(tabId)) {
           return tabId;
         }
@@ -257,6 +258,147 @@
     return TAB_TO_ROUTE[tabId] || '/dashboard';
   }
 
+  function getModuleCommercialAccess(tabOrModuleKey, user) {
+    const permKey = TAB_PERMISSION_MAP[tabOrModuleKey] || tabOrModuleKey;
+    const ctx = window._cachedCommercialContext;
+    let localUser = {};
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localUser = JSON.parse(localStorage.getItem('user_data') || localStorage.getItem('user') || '{}');
+      }
+    } catch (_) {}
+    const u = user || (window.API && typeof API.getUser === 'function' ? API.getUser() : null) || localUser;
+    const rbacAllowed = hasTabPermission(tabOrModuleKey, u);
+    if (!ctx || !ctx.access || !ctx.access[permKey]) {
+      return {
+        planAllowed: true,
+        permissionAllowed: rbacAllowed,
+        effectiveAllowed: rbacAllowed
+      };
+    }
+    const access = ctx.access[permKey];
+    return {
+      planAllowed: access.planAllowed !== false,
+      permissionAllowed: rbacAllowed,
+      effectiveAllowed: Boolean(access.planAllowed !== false && rbacAllowed)
+    };
+  }
+
+  function checkModuleAccess(tabId) {
+    if (!tabId || tabId === 'tab-profile') {
+      return { allowed: true, reason: null };
+    }
+    const container = $(`#${tabId}`);
+    if (!container) return { allowed: true, reason: null };
+
+    const access = getModuleCommercialAccess(tabId);
+    let accessOverlay = container.querySelector('.access-denied-screen-overlay');
+
+    if (!access.effectiveAllowed) {
+      // Oculta filhos originais preservando a árvore DOM e listeners intactos
+      Array.from(container.children).forEach(child => {
+        if (child !== accessOverlay && (!child.classList || !child.classList.contains('maintenance-screen-overlay'))) {
+          child.setAttribute('data-access-hidden', 'true');
+          child.style.display = 'none';
+        }
+      });
+
+      const moduleName = titleMap[tabId] || (typeof TAB_TITLES !== 'undefined' && TAB_TITLES[tabId]) || 'Módulo';
+      const isPlanDenied = (access.planAllowed === false);
+
+      if (!accessOverlay) {
+        accessOverlay = document.createElement('div');
+        accessOverlay.className = `access-denied-screen-overlay ${isPlanDenied ? 'plan-denied' : 'rbac-denied'}`;
+        container.appendChild(accessOverlay);
+      } else {
+        accessOverlay.style.display = 'block';
+        accessOverlay.className = `access-denied-screen-overlay ${isPlanDenied ? 'plan-denied' : 'rbac-denied'}`;
+      }
+
+      if (isPlanDenied) {
+        accessOverlay.innerHTML = `
+          <div class="card section-card full-width" style="padding:48px 24px; margin:20px 0; border-radius:14px; text-align:center; background:var(--surface);">
+            <div style="width:64px; height:64px; border-radius:50%; background:rgba(59, 130, 246, 0.12); display:inline-flex; align-items:center; justify-content:center; margin-bottom:16px;">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--primary, #3b82f6); width:32px; height:32px; stroke-width:2.2;">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+            </div>
+            <div style="font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--primary, #3b82f6); margin-bottom:8px;">Plano CorvFin</div>
+            <h2 style="font-size:1.4rem; font-weight:800; color:var(--text); margin:0 0 8px;">Este recurso não está disponível no seu plano.</h2>
+            <p style="font-size:0.92rem; color:var(--muted); max-width:440px; margin:0 auto 24px; line-height:1.5;">
+              O módulo <strong>${typeof escapeHtml === 'function' ? escapeHtml(moduleName) : moduleName}</strong> não faz parte do seu plano atual. Faça upgrade para desbloquear este e outros recursos.
+            </p>
+            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+              <button type="button" class="btn primary btn-open-commercial-plans" id="btnAccessDeniedUpgrade" style="border-radius:10px; font-weight:700;">
+                Ver Planos
+              </button>
+            </div>
+          </div>
+        `;
+        accessOverlay.querySelector('#btnAccessDeniedUpgrade')?.addEventListener('click', () => {
+          if (typeof window.openCommercialPlansModal === 'function') {
+            window.openCommercialPlansModal();
+          }
+        });
+      } else {
+        accessOverlay.innerHTML = `
+          <div class="card section-card full-width" style="padding:48px 24px; margin:20px 0; border-radius:14px; text-align:center; background:var(--surface);">
+            <div style="width:64px; height:64px; border-radius:50%; background:rgba(239, 68, 68, 0.12); display:inline-flex; align-items:center; justify-content:center; margin-bottom:16px;">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--danger, #ef4444); width:32px; height:32px; stroke-width:2.2;">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </div>
+            <div style="font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); margin-bottom:8px;">Acesso Restrito</div>
+            <h2 style="font-size:1.4rem; font-weight:800; color:var(--text); margin:0 0 8px;">Seu acesso a este recurso está restrito.</h2>
+            <p style="font-size:0.92rem; color:var(--muted); max-width:440px; margin:0 auto 24px; line-height:1.5;">
+              Você não tem permissão para acessar o módulo <strong>${typeof escapeHtml === 'function' ? escapeHtml(moduleName) : moduleName}</strong>.
+            </p>
+          </div>
+        `;
+      }
+
+      return { allowed: false, reason: isPlanDenied ? 'PLAN_DENIED' : 'RBAC_DENIED', access };
+    } else {
+      if (accessOverlay) {
+        accessOverlay.style.display = 'none';
+      }
+      if (container && container.children) {
+        Array.from(container.children).forEach(child => {
+          if (typeof child.getAttribute === 'function' && child.getAttribute('data-access-hidden') === 'true') {
+            child.removeAttribute('data-access-hidden');
+            child.style.display = '';
+          }
+        });
+      }
+      return { allowed: true, reason: null, access };
+    }
+  }
+
+  async function loadCommercialContext(options = {}) {
+    try {
+      if (typeof API !== 'undefined' && API.getCommercialContext) {
+        const forceRefresh = Boolean(options && (options.forceRefresh || options.refresh));
+        const res = await API.getCommercialContext({ forceRefresh });
+        if (res && res.success) {
+          const data = (res.data && res.data.plan) ? res.data : (res.plan ? res : res.data);
+          window._cachedCommercialContext = data;
+          const activeTab = document.querySelector('.tab-content:not([hidden])')?.id;
+          if (activeTab && typeof checkModuleAccess === 'function') {
+            checkModuleAccess(activeTab);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Falha ao carregar contexto comercial:', err);
+    }
+  }
+
+  window.getModuleCommercialAccess = getModuleCommercialAccess;
+  window.checkModuleAccess = checkModuleAccess;
+  window.loadCommercialContext = loadCommercialContext;
   window.getFirstAllowedRouteForUser = getFirstAllowedRoute;
   window.hasTabPermission = hasTabPermission;
   window.getFirstAllowedTab = getFirstAllowedTab;
@@ -406,9 +548,9 @@
   function activateTab(tabId, updateUrl = true) {
     let targetTabId = tabId || DEFAULT_TAB;
 
-    if (!hasTabPermission(targetTabId)) {
-      targetTabId = getFirstAllowedTab();
-    }
+    const accessCheck = (typeof checkModuleAccess === 'function')
+      ? checkModuleAccess(targetTabId)
+      : { allowed: true };
 
     // Atualiza links da sidebar, bottom navigation e mobile drawer
     document.querySelectorAll('[data-tab]').forEach(l => {
@@ -448,7 +590,7 @@
 
     // Controle explícito da barra de meses (Ribbon) por módulo/aba
     const TABS_WITH_MONTH_RIBBON = ['tab-dashboard', 'tab-expenses', 'tab-extras', 'tab-debtors', 'tab-benefits'];
-    const showRibbon = TABS_WITH_MONTH_RIBBON.includes(targetTabId);
+    const showRibbon = accessCheck.allowed && TABS_WITH_MONTH_RIBBON.includes(targetTabId);
     const ribbonSection = document.getElementById('ribbonSection') || (typeof $ === 'function' ? $('#ribbonSection') : null);
     if (ribbonSection) {
       ribbonSection.hidden = !showRibbon;
@@ -463,12 +605,18 @@
     if (titleEl) titleEl.textContent = titleMap[targetTabId] || (typeof TAB_TITLES !== 'undefined' && TAB_TITLES[targetTabId]) || 'CorvFin';
     if (subEl && subMap[targetTabId]) subEl.textContent = subMap[targetTabId];
 
-    if (targetTabId === 'tab-dashboard' && typeof window.renderConsolidatedDashboardTab === 'function') {
-      window.renderConsolidatedDashboardTab();
-    } else if (targetTabId === 'tab-profile' && typeof window.renderProfile === 'function') {
-      window.renderProfile();
-    } else if (targetTabId === 'tab-simulation' && typeof window.renderSimulationTab === 'function') {
-      window.renderSimulationTab();
+    if (accessCheck.allowed) {
+      if (targetTabId === 'tab-dashboard' && typeof window.renderConsolidatedDashboardTab === 'function') {
+        window.renderConsolidatedDashboardTab();
+      } else if (targetTabId === 'tab-profile') {
+        if (typeof window.renderProfile === 'function') {
+          window.renderProfile();
+        } else if (typeof window.renderProfilePlanCard === 'function') {
+          window.renderProfilePlanCard();
+        }
+      } else if (targetTabId === 'tab-simulation' && typeof window.renderSimulationTab === 'function') {
+        window.renderSimulationTab();
+      }
     }
 
     if (updateUrl) {
@@ -490,23 +638,16 @@
         window.history.replaceState({ tabId: targetTab }, '', getPathFromTab(targetTab));
       }
     } else {
-      if (!hasTabPermission(targetTab)) {
-        targetTab = getFirstAllowedTab();
+      let cleanPath = rawPath.replace(/\/+$/, '').toLowerCase();
+      const base = (window.API && typeof API.getBasePath === 'function')
+        ? API.getBasePath().toLowerCase()
+        : (typeof window.__BASE_PATH__ === 'string' ? window.__BASE_PATH__.toLowerCase() : '');
+      if (base && cleanPath.startsWith(base)) {
+        cleanPath = cleanPath.slice(base.length) || '/';
+      }
+      if (cleanPath === '/' || cleanPath === '' || cleanPath === '/index.html') {
         if (window.history && typeof window.history.replaceState === 'function') {
           window.history.replaceState({ tabId: targetTab }, '', getPathFromTab(targetTab));
-        }
-      } else {
-        let cleanPath = rawPath.replace(/\/+$/, '').toLowerCase();
-        const base = (window.API && typeof API.getBasePath === 'function')
-          ? API.getBasePath().toLowerCase()
-          : (typeof window.__BASE_PATH__ === 'string' ? window.__BASE_PATH__.toLowerCase() : '');
-        if (base && cleanPath.startsWith(base)) {
-          cleanPath = cleanPath.slice(base.length) || '/';
-        }
-        if (cleanPath === '/' || cleanPath === '' || cleanPath === '/index.html') {
-          if (window.history && typeof window.history.replaceState === 'function') {
-            window.history.replaceState({ tabId: targetTab }, '', getPathFromTab(targetTab));
-          }
         }
       }
     }
@@ -836,6 +977,9 @@
 
     // Carrega o status de manutenção do sistema de forma assíncrona no boot
     loadSystemMaintenance();
+
+    // Carrega o contexto comercial de forma assíncrona no boot
+    loadCommercialContext();
   }
 
   function openQuickActionSheet() {

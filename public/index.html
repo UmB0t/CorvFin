@@ -1480,6 +1480,9 @@
         </div>
 
         <div class="sections-grid">
+          <!-- CARD: PLANO ATUAL & BENEFÍCIOS DO PLANO (Fase 5H) -->
+          <div class="card section-card" id="profilePlanCard"></div>
+
           <div class="card section-card">
             <div class="section-head">
               <div class="section-title">
@@ -3883,6 +3886,76 @@
     </form>
   </dialog>
 
+  <!-- MODAL: COMPARATIVO DE PLANOS COMERCIAIS (Fase 5H) -->
+  <dialog id="plansModal" class="dialog-bordered dialog-form dialog-form-long" aria-labelledby="plansModalTitle">
+    <div class="dialog-head">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:36px; height:36px; border-radius:10px; background:var(--brand-soft); color:var(--brand); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="width:20px; height:20px; stroke:var(--brand);">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+          </svg>
+        </div>
+        <div>
+          <h3 id="plansModalTitle" style="margin:0; font-size:1.12rem; font-weight:850; color:var(--text);">Planos & Assinaturas CorvFin</h3>
+          <p style="margin:2px 0 0; color:var(--muted); font-size:.80rem; font-weight:600;">Conheça os planos disponíveis e os limites de cada categoria.</p>
+        </div>
+      </div>
+      <button type="button" class="icon-btn small" id="closePlansModalBtn" data-close="plansModal" aria-label="Fechar Planos">
+        <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="dialog-body" style="padding:18px 20px; max-height:calc(85vh - 130px); overflow-y:auto;">
+      <div id="plansModalContent" class="plans-modal-content">
+        <div id="currentLegacyPlanBanner" style="display:none;"></div>
+        <div class="plans-grid" id="plansGridContainer"></div>
+      </div>
+    </div>
+
+    <div class="dialog-foot">
+      <span style="font-size:0.78rem; color:var(--muted); font-weight:700;">CorvFin • Transparência e Flexibilidade</span>
+      <button type="button" class="btn soft" data-close="plansModal">Fechar</button>
+    </div>
+  </dialog>
+
+  <!-- MODAL: LIMITE DE RECURSO ATINGIDO (Fase 5H) -->
+  <dialog id="resourceLimitModal" class="dialog-bordered" aria-labelledby="resourceLimitTitle" style="max-width:440px;">
+    <div class="dialog-head">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:36px; height:36px; border-radius:10px; background:var(--warning-soft); color:var(--warning); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="width:20px; height:20px; stroke:var(--warning);">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </div>
+        <div>
+          <h3 id="resourceLimitTitle" style="margin:0; font-size:1.05rem; font-weight:850; color:var(--text);">Limite do Plano Atingido</h3>
+          <p id="resourceLimitSubtitle" style="margin:2px 0 0; color:var(--muted); font-size:.78rem; font-weight:600;">Você atingiu a cota máxima permitida.</p>
+        </div>
+      </div>
+      <button type="button" class="icon-btn small" data-close="resourceLimitModal" aria-label="Fechar">
+        <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="dialog-body" style="padding:16px 20px;">
+      <p id="resourceLimitMessage" style="margin:0; font-size:0.88rem; color:var(--text); line-height:1.5;"></p>
+      <div id="resourceLimitDetails" style="margin-top:12px; padding:10px 14px; background:var(--surface-2); border:1px solid var(--line); border-radius:10px; font-size:0.82rem; font-weight:600; color:var(--muted);"></div>
+    </div>
+
+    <div class="dialog-foot" style="justify-content:flex-end; gap:8px;">
+      <button type="button" class="btn soft" data-close="resourceLimitModal">Entendi</button>
+      <button type="button" class="btn primary" id="btnResourceLimitUpgrade">Ver Planos</button>
+    </div>
+  </dialog>
+
   <!-- MODAL: CENTRAL DE RELEASE NOTES / ATUALIZAÇÕES -->
   <dialog id="releaseNotesDialog" class="dialog-bordered">
     <div class="dialog-head">
@@ -3936,6 +4009,7 @@
   <script src="js/modules/simulation.js"></script>
   <script src="js/modules/reports.js"></script>
   <script src="js/modules/csvImport.js"></script>
+  <script src="js/modules/commercialPlansModal.js"></script>
   <script src="js/modules/profile.js"></script>
   <script src="js/modules/dashboard.js"></script>
   <script src="js/modules/expenseInstallments.js"></script>

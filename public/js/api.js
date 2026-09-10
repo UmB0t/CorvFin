@@ -48,6 +48,7 @@
   }
 
   function clearSession() {
+    clearCommercialContextCache();
     try {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem('token');
@@ -178,6 +179,44 @@
     }
   }
 
+  let commercialContextCache = null;
+  let commercialContextPromise = null;
+
+  async function getCommercialContext(options = {}) {
+    const forceRefresh = Boolean(options && (options.forceRefresh || options.refresh));
+    if (!forceRefresh && commercialContextCache) {
+      return commercialContextCache;
+    }
+    if (!forceRefresh && commercialContextPromise) {
+      return commercialContextPromise;
+    }
+
+    commercialContextPromise = (async () => {
+      try {
+        const res = await request('/api/me/commercial-context', { method: 'GET' });
+        if (res && res.success) {
+          commercialContextCache = res;
+          if (typeof window !== 'undefined') {
+            window._cachedCommercialContext = res.data || res;
+          }
+        }
+        return res;
+      } finally {
+        commercialContextPromise = null;
+      }
+    })();
+
+    return commercialContextPromise;
+  }
+
+  function clearCommercialContextCache() {
+    commercialContextCache = null;
+    commercialContextPromise = null;
+    if (typeof window !== 'undefined') {
+      window._cachedCommercialContext = null;
+    }
+  }
+
   const API = {
     getBasePath,
     resolveUrl,
@@ -231,6 +270,9 @@
       }
     },
     getMe: () => request('/api/auth/me', { method: 'GET' }),
+    getCommercialContext,
+    clearCommercialContextCache,
+    getActivePlans: () => request('/api/plans', { method: 'GET' }),
     updateProfile: (data) => request('/api/auth/profile', { method: 'PUT', body: JSON.stringify(data) }),
 
     // Finances endpoints
@@ -332,6 +374,7 @@
   // Garante disponibilidade global irrestrita
   window.API = API;
   window.withBasePath = resolveUrl;
+  window.clearCommercialContextCache = clearCommercialContextCache;
 })();
 
 // Global Notification & Toast System (Unified OmniFin V3 Architecture)

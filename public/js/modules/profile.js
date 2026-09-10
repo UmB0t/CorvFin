@@ -236,7 +236,251 @@
     });
   }
 
+  function formatCentsToCurrency(cents) {
+    if (typeof cents !== 'number' || isNaN(cents) || cents === 0) {
+      return 'R$ 0,00';
+    }
+    const val = (cents / 100).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    return `R$ ${val}`;
+  }
+
+  function formatBillingInterval(interval) {
+    switch (interval) {
+      case 'yearly':
+      case 'year':
+        return '/ ano';
+      case 'lifetime':
+        return ' (pagamento único)';
+      case 'monthly':
+      case 'month':
+      default:
+        return '/ mês';
+    }
+  }
+
+  async function renderProfilePlanCard(options = {}) {
+    const card = document.getElementById('profilePlanCard');
+    if (!card) return;
+
+    if (options?.loading !== false && (!card.innerHTML || card.innerHTML.trim() === '' || options?.forceRefresh)) {
+      card.innerHTML = `
+        <div style="padding:24px; text-align:center; color:var(--muted);">
+          <div class="spinner" style="margin:0 auto 10px auto;"></div>
+          <p style="font-size:0.88rem; font-weight:600;">Carregando informações do seu plano...</p>
+        </div>
+      `;
+    }
+
+    try {
+      const forceRefresh = Boolean(options && (options.forceRefresh || options.refresh));
+      let ctx = null;
+
+      if (window.API && typeof window.API.getCommercialContext === 'function') {
+        try {
+          const res = await window.API.getCommercialContext({ forceRefresh });
+          if (res && res.success) {
+            ctx = (res.data && res.data.plan) ? res.data : (res.plan ? res : res.data);
+            window._cachedCommercialContext = ctx;
+          } else if (res && (res.error === 'PLAN_REFERENCE_INVALID' || res.code === 'PLAN_REFERENCE_INVALID' || res.status === 403)) {
+            ctx = { error: 'PLAN_REFERENCE_INVALID', message: res.message || 'O plano vinculado à sua conta não foi encontrado no sistema.' };
+          } else if (res && !res.success) {
+            ctx = { error: res.error || 'SERVER_ERROR', message: res.message || 'Não foi possível carregar as informações do plano.' };
+          }
+        } catch (fetchErr) {
+          console.warn('[Profile] Erro ao buscar contexto comercial:', fetchErr);
+          ctx = { error: 'NETWORK_ERROR', message: 'Não foi possível carregar as informações do plano.' };
+        }
+      }
+
+      // Fail-closed para plano com referência inválida
+      if (ctx && ctx.error === 'PLAN_REFERENCE_INVALID') {
+        card.innerHTML = `
+          <div class="section-head">
+            <div class="section-title" style="color:var(--danger);">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--danger);">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              Plano — Referência Inválida
+            </div>
+          </div>
+          <div style="padding:18px;">
+            <p style="color:var(--danger); font-size:0.9rem; font-weight:700; margin:0 0 8px 0;">
+              ${escapeHtml(ctx.message || 'O plano vinculado à sua conta não foi encontrado no sistema.')}
+            </p>
+            <p style="color:var(--muted); font-size:0.82rem; margin:0;">
+              Por favor, entre em contato com o suporte ou administrador para regularizar seu cadastro comercial.
+            </p>
+          </div>
+        `;
+        return;
+      }
+
+      // Estado de erro genérico / 500 / rede (remove loading infinito)
+      if (!ctx || ctx.error) {
+        card.innerHTML = `
+          <div class="section-head">
+            <div class="section-title" style="color:var(--danger);">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--danger);">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              Erro ao carregar plano
+            </div>
+          </div>
+          <div style="padding:18px;">
+            <p style="color:var(--danger); font-size:0.9rem; font-weight:600; margin:0 0 12px 0;">
+              ${escapeHtml(ctx?.message || 'Não foi possível carregar as informações do plano.')}
+            </p>
+            <button type="button" class="btn soft small" id="btnRetryProfilePlan" style="font-weight:700;">
+              Tentar novamente
+            </button>
+          </div>
+        `;
+        document.getElementById('btnRetryProfilePlan')?.addEventListener('click', () => {
+          renderProfilePlanCard({ forceRefresh: true });
+        });
+        return;
+      }
+
+      const plan = ctx.plan || {};
+      const cents = plan.pricing?.amountCents ?? plan.pricing?.cents ?? 0;
+      const interval = plan.pricing?.interval || plan.pricing?.billingInterval || 'monthly';
+      const isFree = (cents === 0);
+      const priceFormatted = isFree
+        ? 'Gratuito'
+        : ((typeof window.formatCentsToCurrency === 'function')
+            ? window.formatCentsToCurrency(cents)
+            : formatCentsToCurrency(cents));
+      const intervalFormatted = isFree
+        ? ''
+        : ((typeof window.formatBillingInterval === 'function')
+            ? window.formatBillingInterval(interval)
+            : formatBillingInterval(interval));
+
+      // AI credits info
+      const aiUsage = ctx.usage?.ai || {};
+      let aiCreditsText = 'Sem créditos de IA';
+      if (aiUsage.unlimited) {
+        aiCreditsText = 'IA ilimitada';
+      } else if (aiUsage.enabled) {
+        aiCreditsText = `${aiUsage.remaining} de ${aiUsage.limit} créditos diários restantes hoje`;
+      }
+
+      // Verificação de restrições administrativas individuais (Ajuste 1 e 2)
+      const rbacRestricted = [];
+      if (ctx.access) {
+        Object.entries(ctx.access).forEach(([capKey, capData]) => {
+          if (capData && capData.planAllowed === true && capData.permissionAllowed === false) {
+            rbacRestricted.push(capKey);
+          }
+        });
+      }
+
+      const features = Array.isArray(plan.metadata?.featuresSummary) && plan.metadata.featuresSummary.length > 0
+        ? plan.metadata.featuresSummary
+        : [
+            aiCreditsText,
+            `Até ${(plan.limits?.maxExpensesPerMonth ?? 'Ilimitado')} despesas / mês`,
+            `Até ${(plan.limits?.maxActiveDebtors ?? 'Ilimitado')} devedores ativos`,
+            `Até ${(plan.limits?.maxMediaAttachments ?? 'Ilimitado')} comprovantes / mídia`
+          ];
+
+      card.innerHTML = `
+        <div class="section-head" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+          <div class="section-title">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand);">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+            Seu Plano Atual: <span style="color:var(--brand); margin-left:4px;">${escapeHtml(plan.name || 'CorvFin')}</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="badge ${plan.status === 'active' ? 'success' : 'warning'}" style="font-size:0.75rem; text-transform:uppercase;">
+              ${plan.status === 'active' ? 'Ativo' : 'Legado'}
+            </span>
+            <button type="button" class="btn soft small" id="btnProfileOpenPlansModal" style="font-weight:750; font-size:0.8rem; padding:6px 12px;">
+              Ver Planos
+            </button>
+          </div>
+        </div>
+
+        <div style="padding: 18px; display: grid; gap: 14px;">
+          <div style="display:flex; align-items:baseline; gap:6px;">
+            <span style="font-size:1.5rem; font-weight:850; color:var(--text);">${priceFormatted}</span>
+            <span style="font-size:0.85rem; font-weight:600; color:var(--muted);">${intervalFormatted}</span>
+          </div>
+
+          <p style="margin:0; font-size:0.88rem; color:var(--muted); line-height:1.45;">
+            ${escapeHtml(plan.description || 'Configuração padrão de recursos e capacidades.')}
+          </p>
+
+          <div style="background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:12px 14px;">
+            <div style="font-size:0.8rem; font-weight:800; color:var(--text); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.4px;">
+              Recursos & Limites do Plano
+            </div>
+            <ul style="list-style:none; padding:0; margin:0; display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:8px; font-size:0.84rem;">
+              <li style="display:flex; align-items:center; gap:6px; color:var(--text);">
+                <span style="color:var(--brand); font-weight:800;">✓</span>
+                <span>${escapeHtml(aiCreditsText)}</span>
+              </li>
+              ${features.filter(f => f !== aiCreditsText).map(f => `
+                <li style="display:flex; align-items:center; gap:6px; color:var(--text);">
+                  <span style="color:var(--brand); font-weight:800;">✓</span>
+                  <span>${escapeHtml(f)}</span>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+
+          ${rbacRestricted.length > 0 ? `
+            <div style="background:var(--warning-soft); border:1px solid var(--warning); border-radius:10px; padding:10px 12px; font-size:0.82rem; color:var(--warning-strong, #b45309);">
+              <strong>Nota sobre Permissões:</strong> Seu plano comercial inclui acesso aos recursos (${rbacRestricted.join(', ')}), mas seu perfil de usuário possui uma restrição administrativa individual definida pelo gestor da conta.
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      document.getElementById('btnProfileOpenPlansModal')?.addEventListener('click', () => {
+        if (typeof window.openCommercialPlansModal === 'function') {
+          window.openCommercialPlansModal();
+        }
+      });
+    } catch (err) {
+      console.warn('[Profile] Falha ao renderizar card de plano:', err);
+      card.innerHTML = `
+        <div class="section-head">
+          <div class="section-title" style="color:var(--danger);">
+            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--danger);">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            Erro ao carregar plano
+          </div>
+        </div>
+        <div style="padding:18px;">
+          <p style="color:var(--danger); font-size:0.9rem; font-weight:600; margin:0 0 12px 0;">
+            Não foi possível carregar as informações do plano.
+          </p>
+          <button type="button" class="btn soft small" id="btnRetryProfilePlan" style="font-weight:700;">
+            Tentar novamente
+          </button>
+        </div>
+      `;
+      document.getElementById('btnRetryProfilePlan')?.addEventListener('click', () => {
+        renderProfilePlanCard({ forceRefresh: true });
+      });
+    }
+  }
+
   function renderProfile() {
+    renderProfilePlanCard();
+
     if (typeof window.isStateHydrated === 'function' && !window.isStateHydrated()) return;
     const state = getState();
     if (!state) return;
@@ -685,5 +929,6 @@
   window.getDestMeta = getDestMeta;
   window.renderProfile = renderProfile;
   window.renderProfileTab = renderProfile;
+  window.renderProfilePlanCard = renderProfilePlanCard;
   window.initProfileModule = initProfileForm;
 })();

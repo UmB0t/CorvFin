@@ -474,6 +474,7 @@
             <span style="display:inline-flex; color:var(--brand);">${getAiIconSvg()}</span>
             <span>Assistente CorvFin</span>
             <span class="ai-badge">IA</span>
+            <span class="ai-credits-badge" id="aiCreditsBadge" style="display:none;" title="Créditos diários de IA"></span>
           </div>
           <div class="ai-chat-header-sub">Pergunte sobre suas finanças ou sobre o sistema.</div>
         </div>
@@ -915,6 +916,8 @@
     panel.classList.remove('hidden');
     panel.classList.add('open');
     isOpen = true;
+
+    refreshAiCredits();
 
     const input = document.getElementById('aiChatInput');
     if (input) {
@@ -1448,17 +1451,34 @@
     } catch (err) {
       console.error('[CorvFin AI Multimodal Error]', err);
       let friendlyError = 'Não foi possível enviar a mídia para análise. Verifique sua conexão e tente novamente.';
-      if (err && (err.status === 429 || err.code === 'AI_DAILY_QUOTA_REACHED' || err.error === 'AI_DAILY_QUOTA_REACHED')) {
-        friendlyError = err.message || 'Você não possui créditos de IA suficientes para esta operação hoje.';
-      } else if (err && (err.status === 403 || err.code === 'PLAN_ACCESS_DENIED')) {
-        friendlyError = err.message || 'Seu plano atual não possui acesso ao Assistente de IA.';
+      const isQuotaErr = Boolean(err && (err.status === 429 || err.code === 'AI_DAILY_QUOTA_REACHED' || err.error === 'AI_DAILY_QUOTA_REACHED'));
+      if (isQuotaErr) {
+        friendlyError = err.message || 'Você não possui créditos de IA suficientes para esta operação hoje. Seus créditos renovam à meia-noite.';
+        const qLimit = err.limit || err.data?.limit || 0;
+        messages.push({
+          id: 'msg_quota_' + Date.now(),
+          sender: 'assistant',
+          isQuotaExceeded: true,
+          quotaInfo: {
+            limit: qLimit,
+            used: err.used || err.data?.used,
+            resetsAt: err.resetsAt || err.data?.resetsAt
+          },
+          text: friendlyError,
+          time: formatTime()
+        });
+        updateAiBadge({ enabled: true, remaining: 0, limit: qLimit });
+      } else {
+        if (err && (err.status === 403 || err.code === 'PLAN_ACCESS_DENIED')) {
+          friendlyError = err.message || 'Seu plano atual não possui acesso ao Assistente de IA.';
+        }
+        messages.push({
+          id: 'msg_err_' + Date.now(),
+          sender: 'error',
+          text: friendlyError,
+          time: formatTime()
+        });
       }
-      messages.push({
-        id: 'msg_err_' + Date.now(),
-        sender: 'error',
-        text: friendlyError,
-        time: formatTime()
-      });
     } finally {
       isLoading = false;
       if (sendBtn) sendBtn.disabled = false;
@@ -1749,6 +1769,32 @@
       let proposalHtml = '';
       if (msg.proposal) {
         proposalHtml = renderProposalCardHtml(msg.proposal);
+      }
+
+      if (msg.isQuotaExceeded) {
+        return `
+          <div class="ai-msg assistant">
+            <div class="ai-quota-card">
+              <div class="ai-quota-card-header">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="width:18px; height:18px; stroke:var(--warning); flex-shrink:0;">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                <strong style="font-size:0.88rem; color:var(--text);">Limite Diário de IA Atingido</strong>
+              </div>
+              <p class="ai-quota-card-text" style="margin:6px 0 10px 0; font-size:0.82rem; color:var(--muted); line-height:1.45;">
+                ${escapeHtmlText(msg.text)}
+              </p>
+              <div class="ai-quota-card-actions">
+                <button type="button" class="btn primary small" onclick="if (typeof window.openCommercialPlansModal === 'function') window.openCommercialPlansModal();" style="font-size:0.8rem; font-weight:750; padding:6px 12px;">
+                  Ver Planos
+                </button>
+              </div>
+            </div>
+            <div class="ai-msg-time">${escapeHtmlText(msg.time)}</div>
+          </div>
+        `;
       }
 
       return `
@@ -2221,23 +2267,40 @@
         message: err?.message
       });
       let friendlyError = 'Não foi possível conectar ao Assistente de IA. Verifique sua conexão ou tente novamente.';
-      if (err && (err.status === 429 || err.code === 'AI_DAILY_QUOTA_REACHED' || err.error === 'AI_DAILY_QUOTA_REACHED')) {
-        friendlyError = err.message || 'Você não possui créditos de IA suficientes para esta operação hoje.';
-      } else if (err && (err.status === 403 || err.code === 'PLAN_ACCESS_DENIED' || err.code === 'PLAN_REFERENCE_INVALID')) {
-        friendlyError = err.message || 'Seu plano atual não possui acesso ao Assistente de IA.';
-      } else if (err && err.status === 503) {
-        friendlyError = 'O Assistente de IA não está ativado no servidor no momento.';
-      } else if (err && err.status === 504) {
-        friendlyError = 'O assistente demorou muito para responder (timeout). Tente uma pergunta mais específica.';
-      } else if (err && err.status === 502) {
-        friendlyError = 'O serviço do Assistente de IA encontrou uma instabilidade temporária. Tente novamente em instantes.';
+      const isQuotaErr = Boolean(err && (err.status === 429 || err.code === 'AI_DAILY_QUOTA_REACHED' || err.error === 'AI_DAILY_QUOTA_REACHED'));
+      if (isQuotaErr) {
+        friendlyError = err.message || 'Você não possui créditos de IA suficientes para esta operação hoje. Seus créditos renovam à meia-noite.';
+        const qLimit = err.limit || err.data?.limit || 0;
+        messages.push({
+          id: 'msg_quota_' + Date.now(),
+          sender: 'assistant',
+          isQuotaExceeded: true,
+          quotaInfo: {
+            limit: qLimit,
+            used: err.used || err.data?.used,
+            resetsAt: err.resetsAt || err.data?.resetsAt
+          },
+          text: friendlyError,
+          time: formatTime()
+        });
+        updateAiBadge({ enabled: true, remaining: 0, limit: qLimit });
+      } else {
+        if (err && (err.status === 403 || err.code === 'PLAN_ACCESS_DENIED' || err.code === 'PLAN_REFERENCE_INVALID')) {
+          friendlyError = err.message || 'Seu plano atual não possui acesso ao Assistente de IA.';
+        } else if (err && err.status === 503) {
+          friendlyError = 'O Assistente de IA não está ativado no servidor no momento.';
+        } else if (err && err.status === 504) {
+          friendlyError = 'O assistente demorou muito para responder (timeout). Tente uma pergunta mais específica.';
+        } else if (err && err.status === 502) {
+          friendlyError = 'O serviço do Assistente de IA encontrou uma instabilidade temporária. Tente novamente em instantes.';
+        }
+        messages.push({
+          id: 'msg_err_' + Date.now(),
+          sender: 'error',
+          text: friendlyError,
+          time: formatTime()
+        });
       }
-      messages.push({
-        id: 'msg_err_' + Date.now(),
-        sender: 'error',
-        text: friendlyError,
-        time: formatTime()
-      });
     } finally {
       isLoading = false;
       if (sendBtn) sendBtn.disabled = false;
@@ -2246,6 +2309,53 @@
       if (input) input.focus();
     }
   }
+
+  function updateAiBadge(aiUsage) {
+    const badge = document.getElementById('aiCreditsBadge');
+    if (!badge || !aiUsage) return;
+    badge.style.display = 'inline-flex';
+    if (aiUsage.unlimited) {
+      badge.textContent = '✨ IA: Ilimitada';
+      badge.title = 'Créditos de IA diários ilimitados no seu plano atual';
+      badge.classList.remove('ai-credits-badge--empty');
+    } else if (aiUsage.enabled !== false) {
+      const remaining = Number(aiUsage.remaining != null ? aiUsage.remaining : (aiUsage.limit - (aiUsage.used || 0)));
+      const limit = Number(aiUsage.limit || 0);
+      if (remaining <= 0) {
+        badge.classList.add('ai-credits-badge--empty');
+        badge.textContent = `⚠️ 0/${limit} hoje`;
+        badge.title = `Créditos diários de IA esgotados. Renovam às 00:00.`;
+      } else {
+        badge.classList.remove('ai-credits-badge--empty');
+        badge.textContent = `✨ ${remaining}/${limit} hoje`;
+        badge.title = `Créditos diários de IA (${remaining} de ${limit} restantes). Renovam às 00:00.`;
+      }
+    } else {
+      badge.textContent = 'IA Indisponível';
+      badge.classList.add('ai-credits-badge--empty');
+    }
+  }
+
+  async function refreshAiCredits(options = {}) {
+    const badge = document.getElementById('aiCreditsBadge');
+    if (!badge) return;
+
+    try {
+      const forceRefresh = Boolean(options && (options.forceRefresh || options.refresh));
+      let ctx = (window.API && typeof window.API.getCommercialContext === 'function')
+        ? await window.API.getCommercialContext({ forceRefresh })
+        : null;
+
+      const ai = ctx?.data?.usage?.ai || ctx?.usage?.ai;
+      if (ai) {
+        updateAiBadge(ai);
+      } else {
+        badge.style.display = 'none';
+      }
+    } catch (_) {}
+  }
+  window.refreshAiCredits = refreshAiCredits;
+  window.updateAiBadge = updateAiBadge;
 
   // Bridges públicas autorizadas
   window.initAiAssistant = initAiAssistant;

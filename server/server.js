@@ -62,6 +62,7 @@ const {
 } = require('./services/aiService');
 const aiQuotaService = require('./services/aiQuotaService');
 const { classifyAiOperation } = require('./services/aiClassificationService');
+const commercialService = require('./services/commercialService');
 
 const app = express();
 
@@ -869,6 +870,50 @@ app.get('/api/auth/me', authMiddleware, (req, res) => {
     success: true,
     user: req.user
   });
+});
+
+// GET /api/me/commercial-context - Contexto comercial e quotas de IA do usuário autenticado (Lote 5H.1)
+app.get('/api/me/commercial-context', authMiddleware, async (req, res) => {
+  try {
+    const context = await commercialService.getCommercialContext(req.user);
+    return res.json({
+      success: true,
+      data: context,
+      ...context
+    });
+  } catch (err) {
+    if (err.code === 'PLAN_REFERENCE_INVALID' || err.status === 403) {
+      return res.status(403).json({
+        success: false,
+        error: 'PLAN_REFERENCE_INVALID',
+        code: 'PLAN_REFERENCE_INVALID',
+        message: 'O plano vinculado ao usuário é inválido ou inexistente.'
+      });
+    }
+    console.error('Erro ao obter contexto comercial:', err);
+    return res.status(err.status || 500).json({
+      success: false,
+      error: err.code || 'COMMERCIAL_CONTEXT_ERROR',
+      message: err.message || 'Erro ao carregar informações comerciais.'
+    });
+  }
+});
+
+// GET /api/plans - Catálogo autenticado de planos ativos para consulta e comparação de upgrades (Lote 5H.7)
+app.get('/api/plans', authMiddleware, async (req, res) => {
+  try {
+    const plans = await commercialService.getActivePlans();
+    return res.json({
+      success: true,
+      plans
+    });
+  } catch (err) {
+    console.error('Erro ao obter planos ativos:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro ao carregar catálogo de planos.'
+    });
+  }
 });
 
 // PUT /api/auth/profile - Atualizar perfil do usuário logado
