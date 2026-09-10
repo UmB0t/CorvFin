@@ -3,3 +3,4 @@ node_modules/
 .env.*
 !.env.example
 server/data/backups/
+server/data/plans.json
