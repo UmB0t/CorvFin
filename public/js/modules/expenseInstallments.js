@@ -170,6 +170,7 @@ function convertVariableToFixed(varId) {
           const key = ymKey(state.year, state.month);
           const isPaidThisMonth = fixed.paidHistory && fixed.paidHistory[key] === true;
 
+          const count = mk(endYear, endMonth) - mk(state.year, state.month) + 1;
           const newVar = {
             id: uid(),
             name: fixed.name,
@@ -177,6 +178,10 @@ function convertVariableToFixed(varId) {
             note: fixed.note || '',
             dueDay: fixed.dueDay || null,
             amount: amount,
+            totalAmount: Math.round(amount * count * 100) / 100,
+            installmentAmount: amount,
+            installments: count,
+            amountInputMode: 'installment',
             destination: fixed.destination || 'Nubank',
             startMonth: state.month,
             startYear: state.year,
@@ -254,6 +259,11 @@ function buildExpenseAnalysisSummaryHtml(item, type, state) {
       if (mk(v.year, v.month) <= target) activeVer = v; else break;
     }
     activeAmount = activeVer ? Number(activeVer.amount) : Number(item.amount || 0);
+  } else if (nature === 'Parcelada') {
+    const resolvedInst = (typeof resolveInstallmentAmounts === 'function')
+      ? resolveInstallmentAmounts(item, y, m)
+      : null;
+    activeAmount = resolvedInst ? resolvedInst.currentInstallmentAmount : Number(item.amount || 0);
   } else {
     activeAmount = Number(item.amount || 0);
   }
@@ -305,10 +315,15 @@ function buildExpenseAnalysisSummaryHtml(item, type, state) {
       installmentText = `Concluída (${installmentsCount} de ${installmentsCount})`;
     }
 
-    gridFields.push({ label: 'Parcelamento', val: installmentText });
-    gridFields.push({ label: 'Valor da parcela', val: currency(activeAmount) });
+    const resolvedInst = (typeof resolveInstallmentAmounts === 'function')
+      ? resolveInstallmentAmounts(item, y, m)
+      : { totalAmount: activeAmount * installmentsCount, installmentAmount: activeAmount, currentInstallmentAmount: activeAmount };
+    const instDisplayAmount = resolvedInst.currentInstallmentAmount || resolvedInst.installmentAmount || activeAmount;
 
-    const totalContractAmount = activeAmount * installmentsCount;
+    gridFields.push({ label: 'Parcelamento', val: installmentText });
+    gridFields.push({ label: 'Valor da parcela', val: currency(instDisplayAmount) });
+
+    const totalContractAmount = resolvedInst.totalAmount !== undefined ? resolvedInst.totalAmount : (activeAmount * installmentsCount);
     gridFields.push({ label: 'Valor total', val: currency(totalContractAmount), highlight: true });
 
     gridFields.push({ label: 'Competência inicial', val: `${MONTH_ABBR[startM - 1]}/${startY}` });
@@ -499,7 +514,14 @@ function openExpenseTimeline(opts) {
       const target = mk(targetY, m);
       const isActive = target >= mk(startY, startM) && target <= mk(endY, endM);
       const idx = isActive ? (target - mk(startY, startM) + 1) : 0;
-      const amount = isActive ? Number(v.amount) : 0;
+      let amount = 0;
+      if (isActive) {
+        if (typeof resolveInstallmentAmounts === 'function') {
+          amount = resolveInstallmentAmounts(v, targetY, m).currentInstallmentAmount;
+        } else {
+          amount = Number(v.amount) || 0;
+        }
+      }
 
       const payInfo = (typeof getExpensePaymentInfo === 'function')
         ? getExpensePaymentInfo(v, targetY, m, amount)
@@ -533,8 +555,10 @@ function openExpenseTimeline(opts) {
     }
   }
 
+  annualPlanned = Math.round(annualPlanned * 100) / 100;
+  annualPaid = Math.round(annualPaid * 100) / 100;
   const pctAnnualPaid = annualPlanned > 0 ? Math.min(100, Math.round((annualPaid / annualPlanned) * 100)) : 0;
-  const remainingAnnual = Math.max(0, annualPlanned - annualPaid);
+  const remainingAnnual = Math.max(0, Math.round((annualPlanned - annualPaid) * 100) / 100);
 
   // 1. Cabecalho
   const titleEl = $('#timelineTitle');
@@ -653,17 +677,36 @@ function openExpenseTimeline(opts) {
 
         // Variable / Installment expenses
         state.variable.forEach(v => {
-          const totalMonths = mk(v.endYear, v.endMonth) - mk(v.startYear, v.startMonth) + 1;
-          const totalContract = Number(v.amount) * totalMonths;
+          const resolved = (typeof resolveInstallmentAmounts === 'function')
+            ? resolveInstallmentAmounts(v)
+            : null;
+          const totalMonths = resolved ? resolved.installments : (mk(v.endYear, v.endMonth) - mk(v.startYear, v.startMonth) + 1);
+          const totalContract = resolved ? resolved.totalAmount : (Number(v.amount) * totalMonths);
           grandContractTotal += totalContract;
 
           let paidMonthsCount = 0;
+          let paidAmount = 0;
           if (v.paidHistory) {
-            Object.values(v.paidHistory).forEach(p => { if (p === true) paidMonthsCount++; });
+            Object.entries(v.paidHistory).forEach(([k, p]) => {
+              const expectedMonthly = (resolved && resolved.schedule && resolved.schedule[k] !== undefined)
+                ? resolved.schedule[k]
+                : (resolved ? resolved.installmentAmount : Number(v.amount || 0));
+              if (p === true) {
+                paidMonthsCount++;
+                paidAmount += expectedMonthly;
+              } else if (typeof p === 'object' && p !== null) {
+                const pAmt = Number(p.paidAmount !== undefined ? p.paidAmount : (p.amount || 0));
+                if (pAmt > 0) {
+                  if (pAmt >= expectedMonthly - 0.01) {
+                    paidMonthsCount++;
+                  }
+                  paidAmount += pAmt;
+                }
+              }
+            });
           }
-
-          const paidAmount = paidMonthsCount * Number(v.amount);
-          const remainingAmount = Math.max(0, totalContract - paidAmount);
+          paidAmount = Math.round(paidAmount * 100) / 100;
+          const remainingAmount = Math.max(0, Math.round((totalContract - paidAmount) * 100) / 100);
           grandPaidTotal += paidAmount;
           grandRemainingTotal += remainingAmount;
 
@@ -740,6 +783,10 @@ function openExpenseTimeline(opts) {
             endYear: state.year
           });
         });
+
+        grandContractTotal = Math.round(grandContractTotal * 100) / 100;
+        grandPaidTotal = Math.round(grandPaidTotal * 100) / 100;
+        grandRemainingTotal = Math.round(grandRemainingTotal * 100) / 100;
 
         $('#expensesInstallmentsMetrics').innerHTML = `
       <div class="metric">

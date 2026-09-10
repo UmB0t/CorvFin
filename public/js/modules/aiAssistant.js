@@ -1518,9 +1518,21 @@
 
     const descFormatted = String(d.description || (isBenefit ? 'NOVO BENEFÍCIO' : 'NOVA DESPESA')).trim().toLocaleUpperCase('pt-BR');
 
-    const amtFormatted = (typeof formatCurrency === 'function' && d.amount)
-      ? formatCurrency(d.amount)
-      : ('R$ ' + Number(d.amount || 0).toFixed(2).replace('.', ','));
+    const isInstallmentCard = !isBenefit && (Number(d.installments) > 1);
+    const totalCardAmount = isInstallmentCard
+      ? (d.totalAmount !== undefined ? Number(d.totalAmount) : (Number(d.amount || 0) * Number(d.installments)))
+      : Number(d.amount || 0);
+    const instCardAmount = isInstallmentCard
+      ? (d.installmentAmount !== undefined ? Number(d.installmentAmount) : (d.totalAmount ? Math.round((Number(d.totalAmount) / Number(d.installments)) * 100) / 100 : Number(d.amount || 0)))
+      : Number(d.amount || 0);
+
+    const amtFormatted = (typeof formatCurrency === 'function')
+      ? formatCurrency(isInstallmentCard ? totalCardAmount : (d.amount || 0))
+      : ('R$ ' + Number(isInstallmentCard ? totalCardAmount : (d.amount || 0)).toFixed(2).replace('.', ','));
+
+    const installmentSubtitle = isInstallmentCard
+      ? `${d.installments}x de ${(typeof formatCurrency === 'function') ? formatCurrency(instCardAmount) : ('R$ ' + instCardAmount.toFixed(2).replace('.', ','))} • Total da compra`
+      : '';
 
     const monthName = (d.competence && d.competence.month >= 1 && d.competence.month <= 12)
       ? MONTH_NAMES_PT[d.competence.month - 1]
@@ -1626,7 +1638,10 @@
 
           <div class="ai-proposal-main">
             <div class="ai-proposal-desc" title="${escapeHtmlAttr(descFormatted)}">${escapeHtmlText(descFormatted)}</div>
-            <div class="ai-proposal-amount">${escapeHtmlText(amtFormatted)}</div>
+            <div class="ai-proposal-amount">
+            ${escapeHtmlText(amtFormatted)}
+            ${installmentSubtitle ? `<span style="display:block; font-size:0.75rem; font-weight:600; color:var(--muted); margin-top:2px;">${escapeHtmlText(installmentSubtitle)}</span>` : ''}
+          </div>
           </div>
 
           <div class="ai-proposal-grid">
@@ -1673,7 +1688,7 @@
     if (d.temporal?.type === 'fixed' || d.isRecurring || d.paymentType === 'fixed') {
       temporalFormatted = 'Fixa';
     } else if (d.temporal?.type === 'installment' || (d.installments && d.installments > 1)) {
-      temporalFormatted = `Parcelada (${d.installments}x)`;
+      temporalFormatted = `Parcelada (${d.installments}x de ${(typeof formatCurrency === 'function') ? formatCurrency(instCardAmount) : ('R$ ' + instCardAmount.toFixed(2).replace('.', ','))})`;
     }
 
     const state = (typeof getState === 'function') ? getState() : (window.FP_STATE || {});
@@ -1787,7 +1802,7 @@
                 ${escapeHtmlText(msg.text)}
               </p>
               <div class="ai-quota-card-actions">
-                <button type="button" class="btn primary small" onclick="if (typeof window.openCommercialPlansModal === 'function') window.openCommercialPlansModal();" style="font-size:0.8rem; font-weight:750; padding:6px 12px;">
+                <button type="button" class="btn primary small btn-open-plans" style="font-size:0.8rem; font-weight:750; padding:6px 12px;">
                   Ver Planos
                 </button>
               </div>
@@ -1806,6 +1821,14 @@
         </div>
       `;
     }).join('');
+
+    list.querySelectorAll('.btn-open-plans').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (typeof window.openCommercialPlansModal === 'function') {
+          window.openCommercialPlansModal();
+        }
+      });
+    });
 
     if (isLoading) {
       const loadingEl = document.createElement('div');

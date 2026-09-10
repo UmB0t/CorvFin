@@ -47,6 +47,9 @@ Formato obrigatório de resposta:
     "year": null
   },
   "installments": 1,
+  "totalAmount": null,
+  "installmentAmount": null,
+  "amountInputMode": "total",
   "notes": null,
   "requiresReview": false,
   "warnings": [],
@@ -81,6 +84,11 @@ Regras Fundamentais:
 3. VALORES E PARCELAS:
    - "amount" deve ser número estrito, sem "R$" e com ponto decimal (ex.: 35.50). Nunca invente valores. Se ausente, retorne null.
    - "installments" deve ser número inteiro >= 1.
+   - Para despesa parcelada (installments > 1):
+     * Regra padrão: "amountInputMode" = "total", "totalAmount" = valor total da compra informado pelo usuário.
+     * Se o usuário indicar expressamente o valor por parcela (ex.: "10 parcelas de 300"): preencha "amountInputMode" = "installment", "installmentAmount" = 300, "totalAmount" = 3000.
+     * Se houver menção consistente de ambos ("3000 em 10x de 300"): "amountInputMode" = "total", "totalAmount" = 3000, "installmentAmount" = 300.
+     * Se houver divergência entre o total e a soma das parcelas ("3000 em 10x de 350"): preencha "requiresReview" = true e adicione aviso explicativo em "warnings".
 
 4. DATAS E COMPETÊNCIA:
    - "day": número inteiro do dia do mês (1 a 31), especialmente relevante quando for benefício ("create_benefit") ou quando apenas o dia for mencionado.
@@ -738,6 +746,9 @@ return [{
       description,
       merchant,
       amount: amount && amount > 0 ? amount : null,
+      totalAmount: (ai.totalAmount !== undefined && ai.totalAmount !== null) ? parseMoney(ai.totalAmount) : (amount && amount > 0 ? amount : null),
+      installmentAmount: (ai.installmentAmount !== undefined && ai.installmentAmount !== null) ? parseMoney(ai.installmentAmount) : null,
+      amountInputMode: (ai.amountInputMode === 'installment') ? 'installment' : 'total',
       category: action === 'create_expense' ? category : null,
       destination: action === 'create_expense' ? destination : null,
       payment: action === 'create_expense' ? {

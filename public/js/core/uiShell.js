@@ -284,6 +284,266 @@
     };
   }
 
+  const MODULE_DYNAMIC_SELECTORS = {
+    'tab-expenses': {
+      lists: ['#listFixed', '#listVariable', '#simpExpensesList'],
+      tables: [{ selector: '#installmentsTableBody', cols: 7, rows: 2 }],
+      charts: ['#insightsContainer', '#destChartBars', '#destUnifiedChartContent', '#categoryUnifiedChartContent'],
+      totals: [
+        '#sumFixed', '#sumVariable', '#sumInstallmentsTotal', '#destChartTotal',
+        '#categoryChartTotalIncome', '#simpTotalExpenses', '#simpPaidExpenses',
+        '#simpPendingExpenses', '#simpSobraValue', '#simpSumAll'
+      ],
+      metricContainers: ['#dashboardMetrics', '#expensesInstallmentsMetrics']
+    },
+    'tab-extras': {
+      lists: ['#listExtra'],
+      tables: [],
+      charts: ['#extrasOriginChartContainer', '#extrasYearChartContainer'],
+      totals: [
+        '#sumExtra', '#extrasOriginTotalBadge', '#extrasYearTotalBadge',
+        '#extrasAvgSummaryText', '#extrasTotalYearSummaryText'
+      ],
+      metricContainers: ['#extraMetrics']
+    },
+    'tab-debtors': {
+      lists: ['#listDebtors'],
+      tables: [{ selector: '#debtorsTotalsTableBody', cols: 6, rows: 2 }],
+      charts: ['#debtorPersonChartContent', '#debtorDestChartContent'],
+      totals: ['#sumDebtors', '#sumDebtorsGrandTotal', '#debtorPersonTotal', '#debtorDestTotal'],
+      metricContainers: ['#debtorMetrics', '#debtorsTotalsMetrics']
+    },
+    'tab-investments': {
+      lists: ['#assetGridList'],
+      listType: 'cards',
+      tables: [],
+      charts: ['#simResultsContainer', '#investChartsGrid'],
+      totals: [],
+      metricContainers: ['#investMetrics']
+    },
+    'tab-benefits': {
+      lists: ['#listBenefits'],
+      tables: [],
+      charts: ['#benefitTypeChartContainer', '#benefitDailyChartContainer'],
+      totals: [
+        '#sumBenefits', '#benefitTypeTotalBadge',
+        '#benefitSpentSummaryText', '#benefitBaseSummaryText'
+      ],
+      metricContainers: ['#benefitMetrics']
+    },
+    'tab-shopping': {
+      lists: ['#shoppingListsGrid'],
+      listType: 'cards',
+      tables: [],
+      charts: [],
+      totals: [],
+      metricContainers: [],
+      cleanup: (container) => {
+        const detail = container.querySelector('#shoppingListDetail, .shopping-list-detail-wrap');
+        if (detail) detail.remove();
+        const grid = container.querySelector('#shoppingListsGrid');
+        if (grid) grid.style.display = '';
+      }
+    },
+    'tab-simulation': {
+      lists: ['#simRealList', '#simInjectedList'],
+      tables: [],
+      charts: ['#simMonthlyBarsContainer'],
+      totals: ['#simRealTotal', '#simInjectedTotal', '#savedSimulationsCountBadge'],
+      cleanup: (container) => {
+        const savedList = container.querySelector('#savedSimulationsList');
+        if (savedList) {
+          savedList.innerHTML = '<div class="module-locked-placeholder-text" style="color:var(--muted); text-align:center; padding:16px; font-size:0.85rem;">Nenhum cenário salvo</div>';
+        }
+      },
+      metricContainers: ['#simMetrics']
+    }
+  };
+
+  function createSkeletonRowHtml(count = 3, height = '44px') {
+    let html = '';
+    for (let i = 0; i < count; i++) {
+      html += `<div class="module-locked-skeleton-row" style="height:${height}; background:var(--surface-2, rgba(255,255,255,0.05)); border-radius:8px; margin-bottom:8px; opacity:0.5;"></div>`;
+    }
+    return html;
+  }
+
+  function createSkeletonCardHtml(count = 2, height = '90px') {
+    let html = '';
+    for (let i = 0; i < count; i++) {
+      html += `<div class="card module-locked-skeleton-card" style="height:${height}; background:var(--surface-2, rgba(255,255,255,0.05)); border-radius:12px; margin-bottom:12px; opacity:0.5;"></div>`;
+    }
+    return html;
+  }
+
+  function createSkeletonTableRowsHtml(cols = 6, rows = 2) {
+    let html = '';
+    for (let r = 0; r < rows; r++) {
+      html += `<tr class="module-locked-skeleton-tr">`;
+      for (let c = 0; c < cols; c++) {
+        html += `<td style="padding:12px;"><div style="height:14px; background:var(--surface-2, rgba(255,255,255,0.06)); border-radius:4px; opacity:0.5;"></div></td>`;
+      }
+      html += `</tr>`;
+    }
+    return html;
+  }
+
+  function sanitizeLockedModulePreview(container, tabId) {
+    if (!container || !tabId) return;
+    const config = MODULE_DYNAMIC_SELECTORS[tabId];
+    if (!config) return;
+
+    // 1. Substituir listas por skeletons neutros
+    if (Array.isArray(config.lists)) {
+      config.lists.forEach(sel => {
+        const el = container.querySelector(sel);
+        if (el) {
+          if (config.listType === 'cards') {
+            el.innerHTML = createSkeletonCardHtml(2, '90px');
+          } else {
+            el.innerHTML = createSkeletonRowHtml(3, '44px');
+          }
+        }
+      });
+    }
+
+    // 2. Substituir tabelas por linhas skeleton neutras
+    if (Array.isArray(config.tables)) {
+      config.tables.forEach(t => {
+        const tbody = container.querySelector(t.selector);
+        if (tbody) {
+          tbody.innerHTML = createSkeletonTableRowsHtml(t.cols || 6, t.rows || 2);
+        }
+      });
+    }
+
+    // 3. Limpar gráficos e seções de insights
+    if (Array.isArray(config.charts)) {
+      config.charts.forEach(sel => {
+        const chart = container.querySelector(sel);
+        if (chart) {
+          chart.innerHTML = '';
+        }
+      });
+    }
+
+    // 4. Resetar totais e badges para placeholders neutros
+    if (Array.isArray(config.totals)) {
+      config.totals.forEach(sel => {
+        const tot = container.querySelector(sel);
+        if (tot) {
+          if (sel.includes('SummaryText')) {
+            tot.textContent = sel.includes('Avg') ? 'Média: R$ 0,00' : 'Total: R$ 0,00';
+          } else if (sel.includes('CountBadge')) {
+            tot.textContent = '0 cenários';
+          } else {
+            tot.textContent = 'R$ 0,00';
+          }
+        }
+      });
+    }
+
+    // 5. Resetar contêineres de métricas
+    if (Array.isArray(config.metricContainers)) {
+      config.metricContainers.forEach(sel => {
+        const mWrap = container.querySelector(sel);
+        if (mWrap) {
+          const subSelectors = ['.metric-val', '.metric-value', '.metric-num', '.stat-value', '.num', 'span', 'h3', 'p'];
+          subSelectors.forEach(subSel => {
+            mWrap.querySelectorAll(subSel).forEach(el => {
+              if ((/R\$|\d/.test(el.textContent)) && (!el.children || el.children.length === 0)) {
+                el.textContent = 'R$ 0,00';
+              }
+            });
+          });
+        }
+      });
+    }
+
+    // 6. Cleanup customizado por módulo se houver
+    if (typeof config.cleanup === 'function') {
+      config.cleanup(container);
+    }
+
+    // 7. Limpar valores de inputs e formulários dentro do módulo
+    container.querySelectorAll('input, textarea').forEach(input => {
+      if (input.type === 'text' || input.type === 'search' || input.tagName === 'TEXTAREA') {
+        input.value = '';
+      }
+    });
+  }
+
+  function clearLockedModuleSkeletons(container, tabId) {
+    if (!container || !tabId) return;
+    const config = MODULE_DYNAMIC_SELECTORS[tabId];
+    if (!config) return;
+
+    if (Array.isArray(config.lists)) {
+      config.lists.forEach(sel => {
+        const el = container.querySelector(sel);
+        if (el) {
+          const skeletons = el.querySelectorAll('.module-locked-skeleton-row, .module-locked-skeleton-card');
+          if (skeletons && skeletons.length > 0) {
+            el.innerHTML = '';
+          }
+        }
+      });
+    }
+
+    if (Array.isArray(config.tables)) {
+      config.tables.forEach(t => {
+        const tbody = container.querySelector(t.selector);
+        if (tbody) {
+          const skeletons = tbody.querySelectorAll('.module-locked-skeleton-tr');
+          if (skeletons && skeletons.length > 0) {
+            tbody.innerHTML = '';
+          }
+        }
+      });
+    }
+
+    const placeholder = container.querySelector('.module-locked-placeholder-text');
+    if (placeholder) {
+      placeholder.remove();
+    }
+  }
+
+  function ensureModulePreviewShell(container, tabId) {
+    if (!container) return;
+    const nonOverlayChildren = Array.from(container.children).filter(c =>
+      !c.classList || (!c.classList.contains('access-denied-screen-overlay') && !c.classList.contains('maintenance-screen-overlay'))
+    );
+    if (nonOverlayChildren.length > 0) return;
+
+    if (tabId === 'tab-shopping') {
+      const shell = document.createElement('div');
+      shell.className = 'module-preview-structural-shell';
+      shell.innerHTML = `
+        <div class="module-header">
+          <div>
+            <h2 style="font-size:1.4rem; font-weight:800; margin:0;">Lista de Compras</h2>
+            <p style="margin:2px 0 0; color:var(--muted); font-size:.84rem; font-weight:600;">Planejamento e controle de itens de compras com comparativo de preços e categorias.</p>
+          </div>
+          <div class="toolbar-group">
+            <button type="button" class="btn primary small pill">+ Nova Lista</button>
+          </div>
+        </div>
+        <div class="card section-card full-width" style="padding:16px 20px; margin-bottom:20px; border-radius:14px;">
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <input type="text" placeholder="Ex: Compras do Mês, Supermercado..." disabled style="flex:1; min-width:200px; padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
+            <button type="button" class="btn primary" disabled style="border-radius:10px; font-weight:800;">+ Criar Nova Lista</button>
+          </div>
+        </div>
+        <div class="sections-grid">
+          <div class="card" style="padding:24px; text-align:center; color:var(--muted); border-radius:14px;">
+            <p style="margin:0; font-weight:600;">Suas listas de compras organizadas por categoria e status de aquisição.</p>
+          </div>
+        </div>
+      `;
+      container.insertBefore(shell, container.firstChild);
+    }
+  }
+
   function checkModuleAccess(tabId) {
     if (!tabId || tabId === 'tab-profile') {
       return { allowed: true, reason: null };
@@ -295,54 +555,97 @@
     let accessOverlay = container.querySelector('.access-denied-screen-overlay');
 
     if (!access.effectiveAllowed) {
-      // Oculta filhos originais preservando a árvore DOM e listeners intactos
-      Array.from(container.children).forEach(child => {
-        if (child !== accessOverlay && (!child.classList || !child.classList.contains('maintenance-screen-overlay'))) {
-          child.setAttribute('data-access-hidden', 'true');
-          child.style.display = 'none';
-        }
-      });
-
       const moduleName = titleMap[tabId] || (typeof TAB_TITLES !== 'undefined' && TAB_TITLES[tabId]) || 'Módulo';
       const isPlanDenied = (access.planAllowed === false);
-
-      if (!accessOverlay) {
-        accessOverlay = document.createElement('div');
-        accessOverlay.className = `access-denied-screen-overlay ${isPlanDenied ? 'plan-denied' : 'rbac-denied'}`;
-        container.appendChild(accessOverlay);
-      } else {
-        accessOverlay.style.display = 'block';
-        accessOverlay.className = `access-denied-screen-overlay ${isPlanDenied ? 'plan-denied' : 'rbac-denied'}`;
-      }
+      const safeModuleName = typeof escapeHtml === 'function' ? escapeHtml(moduleName) : String(moduleName || '').replace(/[&<>"']/g, '');
 
       if (isPlanDenied) {
+        // 1. Sanitização obrigatória de dados financeiros previamente renderizados no DOM
+        sanitizeLockedModulePreview(container, tabId);
+
+        // 2. Experiência de Preview Seguro (PLAN_DENIED)
+        container.classList.add('tab-content--plan-locked');
+
+        ensureModulePreviewShell(container, tabId);
+
+        // Filhos reais permanecem no DOM como preview visual de fundo, mas totalmente inertes e inacessíveis
+        Array.from(container.children).forEach(child => {
+          if (child !== accessOverlay && (!child.classList || !child.classList.contains('maintenance-screen-overlay'))) {
+            child.removeAttribute('data-access-hidden');
+            child.style.display = '';
+            child.setAttribute('aria-hidden', 'true');
+            child.setAttribute('inert', '');
+            child.inert = true;
+            if (child.classList && !child.classList.contains('module-locked-preview-inert')) {
+              child.classList.add('module-locked-preview-inert');
+            }
+          }
+        });
+
+        if (!accessOverlay) {
+          accessOverlay = document.createElement('div');
+          accessOverlay.className = 'access-denied-screen-overlay plan-denied module-locked-overlay';
+          container.appendChild(accessOverlay);
+        } else {
+          accessOverlay.style.display = 'flex';
+          accessOverlay.className = 'access-denied-screen-overlay plan-denied module-locked-overlay';
+        }
+
         accessOverlay.innerHTML = `
-          <div class="card section-card full-width" style="padding:48px 24px; margin:20px 0; border-radius:14px; text-align:center; background:var(--surface);">
-            <div style="width:64px; height:64px; border-radius:50%; background:rgba(59, 130, 246, 0.12); display:inline-flex; align-items:center; justify-content:center; margin-bottom:16px;">
-              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--primary, #3b82f6); width:32px; height:32px; stroke-width:2.2;">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          <div class="module-locked-card" role="region" aria-labelledby="lockedCardTitle" aria-describedby="lockedCardDesc">
+            <div class="module-locked-icon-wrap" aria-hidden="true">
+              <svg class="svg-icon svg-locked-hero" viewBox="0 0 24 24">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
               </svg>
             </div>
-            <div style="font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--primary, #3b82f6); margin-bottom:8px;">Plano CorvFin</div>
-            <h2 style="font-size:1.4rem; font-weight:800; color:var(--text); margin:0 0 8px;">Este recurso não está disponível no seu plano.</h2>
-            <p style="font-size:0.92rem; color:var(--muted); max-width:440px; margin:0 auto 24px; line-height:1.5;">
-              O módulo <strong>${typeof escapeHtml === 'function' ? escapeHtml(moduleName) : moduleName}</strong> não faz parte do seu plano atual. Faça upgrade para desbloquear este e outros recursos.
+            <div class="module-locked-eyebrow">Plano CorvFin</div>
+            <h2 id="lockedCardTitle" class="module-locked-title">Este recurso não está disponível no seu plano.</h2>
+            <p id="lockedCardDesc" class="module-locked-desc">
+              O recurso <strong>${safeModuleName}</strong> está disponível em outros planos. Faça upgrade para desbloquear ${safeModuleName} e aproveitar mais recursos do CorvFin.
             </p>
-            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-              <button type="button" class="btn primary btn-open-commercial-plans" id="btnAccessDeniedUpgrade" style="border-radius:10px; font-weight:700;">
+            <div class="module-locked-actions">
+              <button type="button" class="btn primary btn-open-commercial-plans" id="btnAccessDeniedUpgrade">
                 Ver Planos
               </button>
             </div>
           </div>
         `;
-        accessOverlay.querySelector('#btnAccessDeniedUpgrade')?.addEventListener('click', () => {
+
+        const upgradeBtn = accessOverlay.querySelector('#btnAccessDeniedUpgrade');
+        upgradeBtn?.addEventListener('click', () => {
           if (typeof window.openCommercialPlansModal === 'function') {
             window.openCommercialPlansModal();
           }
         });
+
+        if (upgradeBtn && typeof upgradeBtn.focus === 'function') {
+          try { upgradeBtn.focus({ preventScroll: true }); } catch (_) {}
+        }
       } else {
+        // 2. Experiência de Acesso Restrito Neutro (RBAC_DENIED)
+        container.classList.remove('tab-content--plan-locked');
+
+        Array.from(container.children).forEach(child => {
+          if (child !== accessOverlay && (!child.classList || !child.classList.contains('maintenance-screen-overlay'))) {
+            child.setAttribute('data-access-hidden', 'true');
+            child.style.display = 'none';
+            child.removeAttribute('aria-hidden');
+            child.removeAttribute('inert');
+            child.inert = false;
+            if (child.classList) child.classList.remove('module-locked-preview-inert');
+          }
+        });
+
+        if (!accessOverlay) {
+          accessOverlay = document.createElement('div');
+          accessOverlay.className = 'access-denied-screen-overlay rbac-denied';
+          container.appendChild(accessOverlay);
+        } else {
+          accessOverlay.style.display = 'block';
+          accessOverlay.className = 'access-denied-screen-overlay rbac-denied';
+        }
+
         accessOverlay.innerHTML = `
           <div class="card section-card full-width" style="padding:48px 24px; margin:20px 0; border-radius:14px; text-align:center; background:var(--surface);">
             <div style="width:64px; height:64px; border-radius:50%; background:rgba(239, 68, 68, 0.12); display:inline-flex; align-items:center; justify-content:center; margin-bottom:16px;">
@@ -354,7 +657,7 @@
             <div style="font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); margin-bottom:8px;">Acesso Restrito</div>
             <h2 style="font-size:1.4rem; font-weight:800; color:var(--text); margin:0 0 8px;">Seu acesso a este recurso está restrito.</h2>
             <p style="font-size:0.92rem; color:var(--muted); max-width:440px; margin:0 auto 24px; line-height:1.5;">
-              Você não tem permissão para acessar o módulo <strong>${typeof escapeHtml === 'function' ? escapeHtml(moduleName) : moduleName}</strong>.
+              Você não tem permissão para acessar o módulo <strong>${safeModuleName}</strong>.
             </p>
           </div>
         `;
@@ -362,19 +665,125 @@
 
       return { allowed: false, reason: isPlanDenied ? 'PLAN_DENIED' : 'RBAC_DENIED', access };
     } else {
+      const wasLocked = container.classList.contains('tab-content--plan-locked');
       if (accessOverlay) {
         accessOverlay.style.display = 'none';
       }
+      container.classList.remove('tab-content--plan-locked');
       if (container && container.children) {
         Array.from(container.children).forEach(child => {
-          if (typeof child.getAttribute === 'function' && child.getAttribute('data-access-hidden') === 'true') {
-            child.removeAttribute('data-access-hidden');
-            child.style.display = '';
+          if (child !== accessOverlay && (!child.classList || !child.classList.contains('maintenance-screen-overlay'))) {
+            if (typeof child.getAttribute === 'function' && child.getAttribute('data-access-hidden') === 'true') {
+              child.removeAttribute('data-access-hidden');
+              child.style.display = '';
+            }
+            child.removeAttribute('aria-hidden');
+            child.removeAttribute('inert');
+            child.inert = false;
+            if (child.classList) child.classList.remove('module-locked-preview-inert');
           }
         });
       }
+
+      // Se o módulo estava previamente bloqueado por plano e voltou a ser permitido,
+      // limpar skeletons e acionar a reconstrução normal de dados
+      if (wasLocked) {
+        clearLockedModuleSkeletons(container, tabId);
+        if (!container.hidden && typeof window.renderTabContent === 'function') {
+          try {
+            window.renderTabContent(tabId);
+          } catch (_) {}
+        }
+      }
+
       return { allowed: true, reason: null, access };
     }
+  }
+
+  function updateSidebarCommercialBadges() {
+    let localUser = {};
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localUser = JSON.parse(localStorage.getItem('user_data') || localStorage.getItem('user') || '{}');
+      }
+    } catch (_) {}
+    const user = (window.API && typeof API.getUser === 'function') ? API.getUser() : localUser;
+
+    // 1. Sidebar desktop
+    document.querySelectorAll('.sidebar-link[data-tab]').forEach(link => {
+      const tabId = link.getAttribute('data-tab');
+      if (!tabId || tabId === 'tab-profile') return;
+
+      const access = getModuleCommercialAccess(tabId, user);
+      const isPlanLocked = (access.planAllowed === false && access.permissionAllowed === true);
+
+      let badge = link.querySelector('.sidebar-plan-lock-badge');
+
+      if (isPlanLocked) {
+        link.classList.add('sidebar-link--plan-locked');
+        if (link.style.display === 'none') {
+          link.style.display = '';
+        }
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'sidebar-plan-lock-badge';
+          badge.setAttribute('title', 'Não disponível no seu plano atual');
+          badge.setAttribute('aria-label', 'Não disponível no seu plano atual');
+          badge.innerHTML = `
+            <svg class="svg-icon svg-lock" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          `;
+          link.appendChild(badge);
+        } else {
+          badge.style.display = 'inline-flex';
+        }
+      } else {
+        link.classList.remove('sidebar-link--plan-locked');
+        if (badge) {
+          badge.style.display = 'none';
+        }
+      }
+    });
+
+    // 2. Barra inferior e drawer mobile
+    document.querySelectorAll('.bottom-nav-item[data-tab], .mobile-drawer-card[data-tab]').forEach(link => {
+      const tabId = link.getAttribute('data-tab');
+      if (!tabId || tabId === 'tab-profile') return;
+
+      const access = getModuleCommercialAccess(tabId, user);
+      const isPlanLocked = (access.planAllowed === false && access.permissionAllowed === true);
+
+      let badge = link.querySelector('.nav-plan-lock-badge') || link.querySelector('.sidebar-plan-lock-badge');
+
+      if (isPlanLocked) {
+        link.classList.add('nav-item--plan-locked');
+        if (link.classList.contains('mobile-drawer-card') && link.style.display === 'none') {
+          link.style.display = '';
+        }
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'nav-plan-lock-badge';
+          badge.setAttribute('title', 'Não disponível no seu plano atual');
+          badge.setAttribute('aria-label', 'Não disponível no seu plano atual');
+          badge.innerHTML = `
+            <svg class="svg-icon svg-lock" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          `;
+          link.appendChild(badge);
+        } else {
+          badge.style.display = 'inline-flex';
+        }
+      } else {
+        link.classList.remove('nav-item--plan-locked');
+        if (badge) {
+          badge.style.display = 'none';
+        }
+      }
+    });
   }
 
   async function loadCommercialContext(options = {}) {
@@ -385,6 +794,7 @@
         if (res && res.success) {
           const data = (res.data && res.data.plan) ? res.data : (res.plan ? res : res.data);
           window._cachedCommercialContext = data;
+          updateSidebarCommercialBadges();
           const activeTab = document.querySelector('.tab-content:not([hidden])')?.id;
           if (activeTab && typeof checkModuleAccess === 'function') {
             checkModuleAccess(activeTab);
@@ -398,7 +808,10 @@
 
   window.getModuleCommercialAccess = getModuleCommercialAccess;
   window.checkModuleAccess = checkModuleAccess;
+  window.sanitizeLockedModulePreview = sanitizeLockedModulePreview;
+  window.clearLockedModuleSkeletons = clearLockedModuleSkeletons;
   window.loadCommercialContext = loadCommercialContext;
+  window.updateSidebarCommercialBadges = updateSidebarCommercialBadges;
   window.getFirstAllowedRouteForUser = getFirstAllowedRoute;
   window.hasTabPermission = hasTabPermission;
   window.getFirstAllowedTab = getFirstAllowedTab;
@@ -417,6 +830,7 @@
     if (typeof renderMobileBottomNav === 'function') {
       renderMobileBottomNav();
     }
+    updateSidebarCommercialBadges();
   }
   window.applyPermissions = applyPermissions;
 
@@ -1251,6 +1665,7 @@
     renderMobileDrawerGrid(activeFavTabIds);
 
     updateSidebarMaintenanceBadges();
+    updateSidebarCommercialBadges();
   }
   window.renderMobileBottomNav = renderMobileBottomNav;
 
@@ -1622,6 +2037,9 @@
     checkModuleMaintenance,
     loadSystemMaintenance,
     updateSidebarMaintenanceBadges,
+    updateSidebarCommercialBadges,
+    sanitizeLockedModulePreview,
+    clearLockedModuleSkeletons,
     isModuleInMaintenance,
     initGlobalTooltips,
     calculateTooltipPosition,

@@ -542,6 +542,39 @@
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
     }
 
+    .entry-amount-mode-selector {
+      display: flex;
+      gap: 6px;
+      padding: 4px;
+      border-radius: 12px;
+      background: var(--surface-3, rgba(255, 255, 255, 0.04));
+      border: 1px solid var(--line);
+    }
+
+    .entry-amount-mode-btn {
+      flex: 1;
+      padding: 7px 8px;
+      font-size: 0.8rem;
+      font-weight: 750;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: transparent;
+      color: var(--muted);
+      transition: all 0.2s ease;
+    }
+
+    .entry-amount-mode-btn:hover {
+      color: var(--text);
+    }
+
+    .entry-amount-mode-btn.active,
+    .entry-amount-mode-btn[aria-pressed="true"] {
+      background: var(--surface);
+      color: var(--brand, var(--text));
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    }
+
     .recurrence-duration-group {
       display: grid;
       gap: 10px;

@@ -1319,8 +1319,33 @@
         </div>
       </main>
 
-      <!-- TAB 6: SIMULAÇÃO DE DESPESAS (SANDBOX) -->
-      <main id="tab-shopping" class="tab-content" hidden></main>
+      <main id="tab-shopping" class="tab-content" hidden>
+        <div class="module-header">
+          <div>
+            <h2 style="font-size:1.4rem; font-weight:800; margin:0;">Lista de Compras</h2>
+            <p style="margin:2px 0 0; color:var(--muted); font-size:.84rem; font-weight:600;">Planejamento e controle de itens de compras com comparativo de preços e categorias.</p>
+          </div>
+          <div class="toolbar-group">
+            <button type="button" class="btn primary small pill" id="btnNewShoppingListStub">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Nova Lista
+            </button>
+          </div>
+        </div>
+
+        <div class="card section-card full-width" style="padding:16px 20px; margin-bottom:20px; border-radius:14px;">
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <input type="text" placeholder="Ex: Compras do Mês, Supermercado..." disabled style="flex:1; min-width:240px; padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.92rem;">
+            <button type="button" class="btn primary" disabled style="border-radius:10px; font-weight:800;">+ Criar Nova Lista</button>
+          </div>
+        </div>
+
+        <div class="sections-grid" id="shoppingListsGrid">
+          <div class="card" style="padding:24px; text-align:center; color:var(--muted); border-radius:14px;">
+            <p style="margin:0; font-weight:600;">Suas listas de compras organizadas por categoria e status de aquisição.</p>
+          </div>
+        </div>
+      </main>
 
       <main id="tab-simulation" class="tab-content" hidden>
         <!-- CABEÇALHO & BARRA DE AÇÕES DO SANDBOX -->
@@ -2835,6 +2860,20 @@
 
           <!-- PAINEL CONDICIONAL B: PARCELADO -->
           <div id="panelTypeInstallment" style="display:none; gap:12px; background:var(--surface-2); padding:14px; border-radius:12px; border:1px solid var(--line);">
+            <!-- Seletor de Modo de Entrada: Total da Compra ou Valor da Parcela -->
+            <div class="field" id="entryAmountModeWrap" style="margin-bottom:4px;">
+              <label style="font-size:.72rem; color:var(--muted); font-weight:750;">Valor informado representa:</label>
+              <div class="entry-amount-mode-selector" id="entryAmountModeSelector" role="group" aria-label="Modo de entrada de valor">
+                <button type="button" class="btn small entry-amount-mode-btn active" data-amount-mode="total" id="entryAmountModeTotalBtn" aria-pressed="true">
+                  Total da compra
+                </button>
+                <button type="button" class="btn small entry-amount-mode-btn" data-amount-mode="installment" id="entryAmountModeInstallmentBtn" aria-pressed="false">
+                  Valor da parcela
+                </button>
+              </div>
+              <input type="hidden" id="entryAmountInputMode" value="total">
+            </div>
+
             <div class="field-grid" style="grid-template-columns: 1.5fr 1fr; gap: 8px;">
               <div class="field">
                 <label style="font-size:.72rem; color:var(--muted);">Mês Inicial (1ª Parcela)</label>

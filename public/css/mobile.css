@@ -2032,3 +2032,65 @@
     font-size: 1.1rem !important;
   }
 }
+
+/* --------------------------------------------------------------------------
+   FASE 5H.1 — RESPONSIVIDADE MOBILE: LOCKED MODULE EXPERIENCE
+   -------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .access-denied-screen-overlay.plan-denied.module-locked-overlay {
+    padding: 24px 14px 40px !important;
+    align-items: center !important;
+  }
+  .module-locked-card {
+    padding: 28px 18px !important;
+    border-radius: 14px !important;
+    max-width: 100% !important;
+  }
+  .module-locked-title {
+    font-size: 1.18rem !important;
+  }
+  .module-locked-desc {
+    font-size: 0.86rem !important;
+    margin-bottom: 20px !important;
+  }
+  .module-locked-icon-wrap {
+    width: 52px !important;
+    height: 52px !important;
+    margin-bottom: 12px !important;
+  }
+  .module-locked-icon-wrap .svg-locked-hero {
+    width: 24px !important;
+    height: 24px !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .module-locked-card {
+    padding: 24px 14px !important;
+  }
+  .module-locked-title {
+    font-size: 1.12rem !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .access-denied-screen-overlay.plan-denied.module-locked-overlay {
+    padding: 16px 10px 32px !important;
+  }
+  .module-locked-card {
+    padding: 20px 12px !important;
+    border-radius: 12px !important;
+  }
+  .module-locked-title {
+    font-size: 1.05rem !important;
+  }
+  .module-locked-desc {
+    font-size: 0.82rem !important;
+    line-height: 1.45 !important;
+  }
+  .module-locked-actions .btn-open-commercial-plans {
+    width: 100% !important;
+    padding: 10px 16px !important;
+    font-size: 0.88rem !important;
+  }
+}

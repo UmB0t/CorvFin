@@ -263,6 +263,32 @@ function validateFinanceSemantics(payload) {
     }
   }
 
+  function checkInstallmentSchedule(sched, parentName) {
+    if (!sched || typeof sched !== 'object' || Array.isArray(sched)) {
+      const err = new Error(`INVALID_FINANCE_PAYLOAD: "${parentName}.installmentSchedule" deve ser um objeto.`);
+      err.status = 400;
+      err.code = 'INVALID_FINANCE_PAYLOAD';
+      throw err;
+    }
+    const ymRegex = /^\d{4}-(0?[1-9]|1[0-2])$/;
+    const keys = Object.keys(sched);
+    if (keys.length > MAX_INSTALLMENTS) {
+      const err = new Error(`INVALID_FINANCE_PAYLOAD: "${parentName}.installmentSchedule" excede o limite de ${MAX_INSTALLMENTS} competências.`);
+      err.status = 400;
+      err.code = 'INVALID_FINANCE_PAYLOAD';
+      throw err;
+    }
+    for (const k of keys) {
+      if (!ymRegex.test(k)) {
+        const err = new Error(`INVALID_FINANCE_PAYLOAD: formato de competência inválido "${k}" em "${parentName}.installmentSchedule". Esperado YYYY-MM.`);
+        err.status = 400;
+        err.code = 'INVALID_FINANCE_PAYLOAD';
+        throw err;
+      }
+      checkFiniteNumber(sched[k], `${parentName}.installmentSchedule[${k}]`, true, true);
+    }
+  }
+
   // 1. Validação de coleções de arrays e unicidade de IDs por coleção
   for (const colName of TRACKED_ARRAY_COLLECTIONS) {
     const arr = payload[colName];
@@ -388,6 +414,26 @@ function validateFinanceSemantics(payload) {
           err.code = 'INVALID_FINANCE_PAYLOAD';
           throw err;
         }
+      }
+
+      if (v.totalAmount !== undefined && v.totalAmount !== null) {
+        checkFiniteNumber(v.totalAmount, 'variable.totalAmount', true, false);
+      }
+      if (v.installmentAmount !== undefined && v.installmentAmount !== null) {
+        checkFiniteNumber(v.installmentAmount, 'variable.installmentAmount', true, false);
+      }
+      if (v.amountInputMode !== undefined && v.amountInputMode !== null) {
+        checkString(v.amountInputMode, 20, 'variable.amountInputMode');
+        if (v.amountInputMode !== 'total' && v.amountInputMode !== 'installment') {
+          const err = new Error(`INVALID_FINANCE_PAYLOAD: amountInputMode inválido (${v.amountInputMode}). Deve ser 'total' ou 'installment'.`);
+          err.status = 400;
+          err.code = 'INVALID_FINANCE_PAYLOAD';
+          throw err;
+        }
+      }
+
+      if (v.installmentSchedule !== undefined && v.installmentSchedule !== null) {
+        checkInstallmentSchedule(v.installmentSchedule, 'variable');
       }
     }
   }

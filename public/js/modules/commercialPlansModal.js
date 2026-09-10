@@ -96,12 +96,16 @@
     }
     if (window.API && typeof window.API.getActivePlans === 'function') {
       const res = await window.API.getActivePlans();
-      if (res && res.success && Array.isArray(res.data)) {
-        cachedPlans = res.data;
-        return res.data;
+      if (res && res.success) {
+        const rawList = Array.isArray(res.plans) ? res.plans : (Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : []));
+        cachedPlans = rawList;
+        return rawList;
       }
+      const err = new Error(res?.message || 'Erro ao carregar catálogo de planos.');
+      err.status = res?.status || 500;
+      throw err;
     }
-    return [];
+    throw new Error('API getActivePlans indisponível.');
   }
 
   /**

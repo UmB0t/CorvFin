@@ -905,7 +905,8 @@ app.get('/api/plans', authMiddleware, async (req, res) => {
     const plans = await commercialService.getActivePlans();
     return res.json({
       success: true,
-      plans
+      plans,
+      data: plans
     });
   } catch (err) {
     console.error('Erro ao obter planos ativos:', err);

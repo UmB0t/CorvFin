@@ -2730,3 +2730,173 @@
 .plan-card-actions {
   margin-top: auto;
 }
+
+/* --------------------------------------------------------------------------
+   FASE 5H.1 — LOCKED MODULE EXPERIENCE: CADEADO NA SIDEBAR & PREVIEW BLOQUEADO
+   -------------------------------------------------------------------------- */
+.sidebar-plan-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+  opacity: 0.75;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+.sidebar-link:hover .sidebar-plan-lock-badge,
+.sidebar-link.active .sidebar-plan-lock-badge {
+  opacity: 1;
+  color: var(--brand);
+}
+
+.sidebar-plan-lock-badge .svg-lock,
+.nav-plan-lock-badge .svg-lock {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  fill: none;
+}
+
+.nav-plan-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+/* Container da aba bloqueada por plano — respeita geometria natural da página */
+.tab-content.tab-content--plan-locked {
+  position: relative !important;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+/* Atenuação e bloqueio total de interação dos elementos em preview de fundo — perceptível e suave */
+.tab-content.tab-content--plan-locked > *:not(.access-denied-screen-overlay) {
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-select: none;
+  filter: blur(2px);
+  opacity: 0.52;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+/* Overlay sobreposto com card central — camada translúcida leve sem chapa cinza opaca */
+.access-denied-screen-overlay.plan-denied.module-locked-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 20px 60px;
+  z-index: 35;
+  pointer-events: auto;
+  background: rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="dark"] .access-denied-screen-overlay.plan-denied.module-locked-overlay {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+/* Card central visualmente forte, nítido e contrastante */
+.module-locked-card {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 36px 28px;
+  text-align: center;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--line);
+  margin: 0 auto;
+  box-sizing: border-box;
+  z-index: 40;
+}
+
+.module-locked-icon-wrap {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--brand-soft);
+  color: var(--brand-strong, var(--brand));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.22);
+}
+
+.module-locked-icon-wrap .svg-locked-hero {
+  width: 28px;
+  height: 28px;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  fill: none;
+}
+
+.module-locked-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--brand-strong, var(--brand));
+  margin-bottom: 8px;
+}
+
+.module-locked-title {
+  font-size: 1.32rem;
+  font-weight: 850;
+  color: var(--text);
+  margin: 0 0 10px;
+  line-height: 1.3;
+}
+
+.module-locked-desc {
+  font-size: 0.90rem;
+  color: var(--muted);
+  margin: 0 auto 24px;
+  line-height: 1.5;
+  max-width: 400px;
+}
+
+.module-locked-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.module-locked-actions .btn-open-commercial-plans {
+  border-radius: 10px;
+  font-weight: 700;
+  padding: 11px 24px;
+  font-size: 0.92rem;
+  min-height: 44px;
+}
+
+/* Skeletons neutros para preview de fundo seguro */
+.module-locked-skeleton-row,
+.module-locked-skeleton-card {
+  animation: pulsePreviewSkeleton 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes pulsePreviewSkeleton {
+  0% { opacity: 0.35; }
+  100% { opacity: 0.6; }
+}
+
+.module-locked-placeholder-text {
+  user-select: none;
+  pointer-events: none;
+}

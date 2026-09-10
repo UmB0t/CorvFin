@@ -510,7 +510,10 @@ function buildEntryRow({
       subtitle = itemName;
     } else if (type === 'variable') {
       item = state.variable.find(v => v.id === idKey);
-      totalAmount = item ? Number(item.amount) : 0;
+      const resolved = (item && typeof resolveInstallmentAmounts === 'function')
+        ? resolveInstallmentAmounts(item, y, m)
+        : null;
+      totalAmount = resolved ? resolved.currentInstallmentAmount : (item ? Number(item.amount) : 0);
       itemName = item?.name || 'Despesa Variável';
       dialogTitle = 'Pagamento de Despesa';
       subtitle = itemName;
@@ -602,7 +605,10 @@ function buildEntryRow({
       totalAmount = active ? Number(active.amount) : (item?.versions && item.versions[0] ? Number(item.versions[0].amount) : 0);
     } else if (type === 'variable') {
       item = state.variable.find(v => v.id === idKey);
-      totalAmount = item ? Number(item.amount) : 0;
+      const resolved = (item && typeof resolveInstallmentAmounts === 'function')
+        ? resolveInstallmentAmounts(item, y, m)
+        : null;
+      totalAmount = resolved ? resolved.currentInstallmentAmount : (item ? Number(item.amount) : 0);
     } else if (type === 'debtor') {
       item = (state.debtors || []).find(d => d.id === idKey);
       totalAmount = item ? Number(item.amount) : 0;
@@ -1187,6 +1193,7 @@ function renderExpensesLists() {
 
     if (stepNumber === 1) {
       if (simplifiedFlow) {
+      if ($('#amountLabel')) $('#amountLabel').textContent = 'Valor (R$) *';
         if (next1) next1.style.display = 'none';
         if (submitBtn) {
           submitBtn.style.display = 'inline-flex';
@@ -1523,6 +1530,7 @@ function renderExpensesLists() {
         }
       }
     } else if (isRecurring) {
+      if ($('#amountLabel')) $('#amountLabel').textContent = 'Valor por mês / ocorrência (R$) *';
       if (destHint) {
         if (isPixOrCash) {
           destHint.textContent = '⚡ O lançamento atual será quitado automaticamente. Os próximos lançamentos da recorrência permanecerão pendentes até o pagamento.';
@@ -1554,6 +1562,12 @@ function renderExpensesLists() {
       }
       updateRecDurationView();
     } else if (isInstallment) {
+      const mode = getEntryAmountInputMode();
+      if ($('#amountLabel')) {
+        $('#amountLabel').textContent = (mode === 'installment')
+          ? 'Valor da parcela (R$) *'
+          : 'Valor total da compra (R$) *';
+      }
       if (noteStep1Wrap) noteStep1Wrap.style.display = 'none';
       if (dueWrap) dueWrap.style.display = 'grid';
       if (typeSelectorWrap) typeSelectorWrap.style.display = 'none';
@@ -1578,6 +1592,7 @@ function renderExpensesLists() {
       }
       updateVarInstallments();
     } else {
+      if ($('#amountLabel')) $('#amountLabel').textContent = 'Valor (R$) *';
       if (noteStep1Wrap) noteStep1Wrap.style.display = 'none';
       if (dueWrap) dueWrap.style.display = 'grid';
       if (typeSelectorWrap) typeSelectorWrap.style.display = 'none';
@@ -1655,6 +1670,15 @@ function renderExpensesLists() {
         const sy = Number($('#varStartYear')?.value) || state.year;
         const em = Number($('#varEndMonth')?.value) || sm;
         const ey = Number($('#varEndYear')?.value) || sy;
+        const mode = getEntryAmountInputMode();
+        const total = (mode === 'installment') ? Math.round(amount * count * 100) / 100 : amount;
+        const parcel = (mode === 'installment') ? amount : (count > 0 ? Math.round((total / count) * 100) / 100 : 0);
+
+        if ($('#summaryAmount')) {
+          $('#summaryAmount').textContent = (mode === 'installment')
+            ? `${currency(parcel)} / parcela (${currency(total)} total)`
+            : `${currency(total)} total (${count}x de aprox. ${currency(parcel)})`;
+        }
         $('#summaryType').textContent = `Parcelado (${count}x)`;
         $('#summaryPeriod').textContent = `${MONTH_ABBR[sm - 1]}/${sy} a ${MONTH_ABBR[em - 1]}/${ey}`;
       } else {
@@ -1698,12 +1722,53 @@ function renderExpensesLists() {
     }
   }
 
+  function getEntryAmountInputMode() {
+    return ($('#entryAmountInputMode')?.value === 'installment') ? 'installment' : 'total';
+  }
+
+  function setEntryAmountInputMode(mode) {
+    const m = (mode === 'installment') ? 'installment' : 'total';
+    if ($('#entryAmountInputMode')) $('#entryAmountInputMode').value = m;
+
+    const totalBtn = $('#entryAmountModeTotalBtn');
+    const instBtn = $('#entryAmountModeInstallmentBtn');
+    if (totalBtn) {
+      totalBtn.classList.toggle('active', m === 'total');
+      totalBtn.setAttribute('aria-pressed', m === 'total' ? 'true' : 'false');
+    }
+    if (instBtn) {
+      instBtn.classList.toggle('active', m === 'installment');
+      instBtn.setAttribute('aria-pressed', m === 'installment' ? 'true' : 'false');
+    }
+
+    const isInstallmentNature = (entryDlgState.recurrence === 'installment' || entryDlgState.type === 'installment');
+    if (isInstallmentNature && $('#amountLabel')) {
+      $('#amountLabel').textContent = (m === 'installment')
+        ? 'Valor da parcela (R$) *'
+        : 'Valor total da compra (R$) *';
+    }
+
+    updateVarInstallments();
+  }
+
   function updateVarInstallments() {
     const state = getState();
     const sm = Number($('#varStartMonth')?.value) || state.month || 1;
     const sy = Number($('#varStartYear')?.value) || state.year || 2026;
     const count = Math.max(1, parseInt($('#varInstallmentsCount')?.value, 10) || 1);
-    const amount = Number($('#entryAmount')?.value) || 0;
+    const inputValue = Number($('#entryAmount')?.value) || 0;
+    const mode = getEntryAmountInputMode();
+
+    let totalAmount = 0;
+    let installmentAmount = 0;
+
+    if (mode === 'installment') {
+      installmentAmount = inputValue;
+      totalAmount = Math.round(installmentAmount * count * 100) / 100;
+    } else {
+      totalAmount = inputValue;
+      installmentAmount = count > 0 ? (Math.round((totalAmount / count) * 100) / 100) : 0;
+    }
 
     const endMonthIdx = (sm - 1) + (count - 1);
     const ey = sy + Math.floor(endMonthIdx / 12);
@@ -1715,13 +1780,28 @@ function renderExpensesLists() {
     const badge = $('#varInstallmentsBadge');
     if (!badge) return;
 
-    const totalAmount = amount * count;
     if (count === 1) {
       badge.classList.remove('invalid', 'error');
-      badge.innerHTML = `<span>Parcela única em ${MONTH_ABBR[sm - 1]}/${sy} • Total: ${currency(amount)}</span>`;
-    } else {
+      badge.innerHTML = `<span>Parcela única em ${MONTH_ABBR[sm - 1]}/${sy} • Total: ${currency(totalAmount)}</span>`;
+    } else if (mode === 'installment') {
       badge.classList.remove('invalid', 'error');
-      badge.innerHTML = `<span>Vigência calculada: <strong>${MONTH_ABBR[sm - 1]}/${sy} a ${MONTH_ABBR[em - 1]}/${ey}</strong> (${count}x de ${currency(amount)} • Total: ${currency(totalAmount)})</span>`;
+      badge.innerHTML = `<span>Vigência calculada: <strong>${MONTH_ABBR[sm - 1]}/${sy} a ${MONTH_ABBR[em - 1]}/${ey}</strong> (${count}x de ${currency(installmentAmount)} • Total da compra: ${currency(totalAmount)})</span>`;
+    } else {
+      const totalCents = Math.round(totalAmount * 100);
+      const baseCents = Math.floor(totalCents / count);
+      const remCents = totalCents - (baseCents * count);
+      const firstInst = (baseCents + remCents) / 100;
+      const otherInst = baseCents / 100;
+
+      let detailText = '';
+      if (remCents !== 0) {
+        detailText = `Total: ${currency(totalAmount)} (${count} parcelas: 1ª ${currency(firstInst)}, demais ${currency(otherInst)})`;
+      } else {
+        detailText = `Total: ${currency(totalAmount)} (${count}x de ${currency(otherInst)})`;
+      }
+
+      badge.classList.remove('invalid', 'error');
+      badge.innerHTML = `<span>Vigência calculada: <strong>${MONTH_ABBR[sm - 1]}/${sy} a ${MONTH_ABBR[em - 1]}/${ey}</strong> • ${detailText}</span>`;
     }
   }
 
@@ -1857,6 +1937,7 @@ function renderExpensesLists() {
 
       const defaultDest = sortedDests[0]?.name || 'Pix';
       $('#entryDestination').value = defaultDest;
+      setEntryAmountInputMode('total');
       setEntryRecurrence(entryDlgState.recurrence);
       setEntryExpenseType(entryDlgState.type);
       syncDestinationRules();
@@ -1940,7 +2021,16 @@ function renderExpensesLists() {
       $('#entryName').value = v.name;
       $('#entryGroup').value = v.group || firstCatName;
       setEntryNote(v.note || '');
-      $('#entryAmount').value = v.amount;
+      const resolvedInst = (isInstallment && typeof resolveInstallmentAmounts === 'function')
+        ? resolveInstallmentAmounts(v)
+        : null;
+      const recordMode = v.amountInputMode || (v.totalAmount !== undefined ? 'total' : 'installment');
+      setEntryAmountInputMode(recordMode);
+      if (recordMode === 'installment') {
+        $('#entryAmount').value = resolvedInst ? resolvedInst.installmentAmount : v.amount;
+      } else {
+        $('#entryAmount').value = resolvedInst ? resolvedInst.totalAmount : (v.totalAmount !== undefined ? v.totalAmount : v.amount);
+      }
       $('#entryDestination').value = v.destination || 'Nubank';
       $('#entryDueDay').value = v.dueDay || '';
 
@@ -2100,6 +2190,9 @@ function renderExpensesLists() {
     });
 
     $('#btnBackStep3')?.addEventListener('click', () => setWizardStep(2));
+
+    $('#entryAmountModeTotalBtn')?.addEventListener('click', () => setEntryAmountInputMode('total'));
+    $('#entryAmountModeInstallmentBtn')?.addEventListener('click', () => setEntryAmountInputMode('installment'));
 
     ['#varStartMonth', '#varStartYear', '#varInstallmentsCount', '#entryAmount'].forEach(id => {
       const el = $(id);
@@ -2330,53 +2423,206 @@ function renderExpensesLists() {
           ? { type: 'installment', installments: count, startYear: sYear, startMonth: sMonth, endYear: eYear, endMonth: eMonth }
           : { type: 'cash', year: sYear, month: sMonth };
 
-        if (v) {
-          v.name = name;
-          v.amount = amount;
-          v.group = group;
-          v.destination = destination; // Bridge V1
-          v.payment = { method: paymentMethod, account: account || null };
-          v.payee = payee;
-          v.temporal = temporalData;
-          v.dueDay = dueDay;
-          v.note = note;
-          v.startMonth = sMonth;
-          v.startYear = sYear;
-          v.endMonth = eMonth;
-          v.endYear = eYear;
-          v.installments = count;
-          v.paymentType = pType;
-        } else {
-          const newId = uid();
-          state.variable.push({
-            id: newId,
-            name,
-            amount,
-            group,
-            destination, // Bridge V1
-            payment: { method: paymentMethod, account: account || null },
-            payee,
-            temporal: temporalData,
-            dueDay,
-            note,
-            startMonth: sMonth,
-            startYear: sYear,
-            endMonth: eMonth,
-            endYear: eYear,
-            installments: count,
-            paymentType: pType,
-            paidHistory: {}
-          });
-          v = state.variable.find(x => x.id === newId);
-        }
+        if (pType === 'installment') {
+          const chosenMode = getEntryAmountInputMode();
+          let totalAmount = 0;
+          let nominalInstallmentAmount = 0;
 
-        if (v) {
-          if (typeof setExpensePayment === 'function') {
-            setExpensePayment(v, sYear, sMonth, status === 'pago' ? amount : 0, amount);
+          if (chosenMode === 'installment') {
+            nominalInstallmentAmount = amount;
+            totalAmount = Math.round(nominalInstallmentAmount * count * 100) / 100;
           } else {
-            v.paidHistory = v.paidHistory || {};
-            const expenseKey = ymKey(sYear, sMonth);
-            v.paidHistory[expenseKey] = (status === 'pago');
+            totalAmount = amount;
+            nominalInstallmentAmount = count > 0 ? (Math.round((totalAmount / count) * 100) / 100) : 0;
+          }
+
+          if (v) {
+            let paidCount = 0;
+            let sumPaid = 0;
+            if (v.paidHistory) {
+              const existingResolved = (typeof resolveInstallmentAmounts === 'function')
+                ? resolveInstallmentAmounts(v)
+                : null;
+              Object.entries(v.paidHistory).forEach(([k, p]) => {
+                const expectedMonthly = (existingResolved && existingResolved.schedule && existingResolved.schedule[k] !== undefined)
+                  ? existingResolved.schedule[k]
+                  : (existingResolved ? existingResolved.installmentAmount : Number(v.amount || 0));
+
+                if (p === true) {
+                  paidCount++;
+                  sumPaid += expectedMonthly;
+                } else if (typeof p === 'object' && p !== null) {
+                  const pAmt = Number(p.paidAmount !== undefined ? p.paidAmount : (p.amount || 0));
+                  if (pAmt > 0) {
+                    if (pAmt >= expectedMonthly - 0.01) {
+                      paidCount++;
+                    }
+                    sumPaid += pAmt;
+                  }
+                }
+              });
+            }
+            sumPaid = Math.round(sumPaid * 100) / 100;
+
+            if (count < paidCount) {
+              if (typeof notify === 'function') {
+                notify(`Não é possível reduzir para ${count} parcelas pois ${paidCount} já possuem pagamento registrado.`, 'error');
+              }
+              return;
+            }
+            if (totalAmount < sumPaid) {
+              if (typeof notify === 'function') {
+                notify(`O valor total (${currency(totalAmount)}) não pode ser inferior ao valor já quitado (${currency(sumPaid)}).`, 'error');
+              }
+              return;
+            }
+
+            // Recálculo canônico do schedule com partição exata do saldo remanescente em centavos inteiros
+            const calculated = (typeof calculateInstallmentSchedule === 'function')
+              ? calculateInstallmentSchedule(v, totalAmount, count, sYear, sMonth, true)
+              : null;
+
+            const newSchedule = calculated ? calculated.schedule : null;
+            let futureInstallment = nominalInstallmentAmount;
+
+            if (calculated && calculated.openKeys && calculated.openKeys.length > 0) {
+              const firstOpenKey = calculated.openKeys[0];
+              futureInstallment = (newSchedule && newSchedule[firstOpenKey] !== undefined)
+                ? newSchedule[firstOpenKey]
+                : nominalInstallmentAmount;
+            } else if (newSchedule && Object.keys(newSchedule).length > 0) {
+              const schedKeys = Object.keys(newSchedule);
+              futureInstallment = newSchedule[schedKeys[schedKeys.length - 1]];
+            }
+
+            v.name = name;
+            v.amount = (paidCount > 0) ? futureInstallment : nominalInstallmentAmount;
+            v.totalAmount = totalAmount;
+            v.installmentAmount = nominalInstallmentAmount;
+            v.amountInputMode = chosenMode;
+            if (newSchedule) {
+              v.installmentSchedule = newSchedule;
+            }
+            v.group = group;
+            v.destination = destination;
+            v.payment = { method: paymentMethod, account: account || null };
+            v.payee = payee;
+            v.temporal = temporalData;
+            v.dueDay = dueDay;
+            v.note = note;
+            v.startMonth = sMonth;
+            v.startYear = sYear;
+            v.endMonth = eMonth;
+            v.endYear = eYear;
+            v.installments = count;
+            v.paymentType = pType;
+          } else {
+            const newId = uid();
+            const newExpense = {
+              id: newId,
+              name,
+              amount: nominalInstallmentAmount,
+              totalAmount,
+              installmentAmount: nominalInstallmentAmount,
+              amountInputMode: chosenMode,
+              group,
+              destination,
+              payment: { method: paymentMethod, account: account || null },
+              payee,
+              temporal: temporalData,
+              dueDay,
+              note,
+              startMonth: sMonth,
+              startYear: sYear,
+              endMonth: eMonth,
+              endYear: eYear,
+              installments: count,
+              paymentType: pType,
+              paidHistory: {}
+            };
+            if (typeof calculateInstallmentSchedule === 'function') {
+              const calcNew = calculateInstallmentSchedule(newExpense, totalAmount, count, sYear, sMonth, false);
+              if (calcNew && calcNew.schedule) {
+                newExpense.installmentSchedule = calcNew.schedule;
+                const firstK = calcNew.keys && calcNew.keys[0];
+                if (firstK && calcNew.schedule[firstK] !== undefined) {
+                  newExpense.amount = calcNew.schedule[firstK];
+                }
+              }
+            }
+            state.variable.push(newExpense);
+            v = state.variable.find(x => x.id === newId);
+          }
+
+          if (v) {
+            const resolvedInit = (typeof resolveInstallmentAmounts === 'function')
+              ? resolveInstallmentAmounts(v, sYear, sMonth)
+              : null;
+            const currentDue = resolvedInit ? resolvedInit.currentInstallmentAmount : nominalInstallmentAmount;
+
+            if (typeof setExpensePayment === 'function') {
+              setExpensePayment(v, sYear, sMonth, status === 'pago' ? currentDue : 0, currentDue);
+            } else {
+              v.paidHistory = v.paidHistory || {};
+              const expenseKey = ymKey(sYear, sMonth);
+              v.paidHistory[expenseKey] = (status === 'pago');
+            }
+          }
+        } else {
+          if (v) {
+            v.name = name;
+            v.amount = amount;
+            v.totalAmount = amount;
+            v.installmentAmount = amount;
+            v.amountInputMode = 'total';
+            v.group = group;
+            v.destination = destination; // Bridge V1
+            v.payment = { method: paymentMethod, account: account || null };
+            v.payee = payee;
+            v.temporal = temporalData;
+            v.dueDay = dueDay;
+            v.note = note;
+            v.startMonth = sMonth;
+            v.startYear = sYear;
+            v.endMonth = eMonth;
+            v.endYear = eYear;
+            v.installments = count;
+            v.paymentType = pType;
+          } else {
+            const newId = uid();
+            state.variable.push({
+              id: newId,
+              name,
+              amount,
+              totalAmount: amount,
+              installmentAmount: amount,
+              amountInputMode: 'total',
+              group,
+              destination, // Bridge V1
+              payment: { method: paymentMethod, account: account || null },
+              payee,
+              temporal: temporalData,
+              dueDay,
+              note,
+              startMonth: sMonth,
+              startYear: sYear,
+              endMonth: eMonth,
+              endYear: eYear,
+              installments: count,
+              paymentType: pType,
+              paidHistory: {}
+            });
+            v = state.variable.find(x => x.id === newId);
+          }
+
+          if (v) {
+            if (typeof setExpensePayment === 'function') {
+              setExpensePayment(v, sYear, sMonth, status === 'pago' ? amount : 0, amount);
+            } else {
+              v.paidHistory = v.paidHistory || {};
+              const expenseKey = ymKey(sYear, sMonth);
+              v.paidHistory[expenseKey] = (status === 'pago');
+            }
           }
         }
       }
@@ -2504,6 +2750,9 @@ function renderExpensesLists() {
         id: uid(),
         name,
         amount,
+        totalAmount: amount,
+        installmentAmount: amount,
+        amountInputMode: 'total',
         group,
         destination, // Bridge V1
         payment: { method: qMethod, account: qAccount },
@@ -2639,6 +2888,9 @@ function renderExpensesLists() {
   window.setEntryExpenseType = setEntryExpenseType;
   window.setWizardStep = setWizardStep;
   window.syncDestinationRules = syncDestinationRules;
+  window.getEntryAmountInputMode = getEntryAmountInputMode;
+  window.setEntryAmountInputMode = setEntryAmountInputMode;
+  window.updateVarInstallments = updateVarInstallments;
   window.updateStep3Summary = updateStep3Summary;
   window.updatePaymentMethodSelect = updatePaymentMethodSelect;
   window.updateAccountSelect = updateAccountSelect;

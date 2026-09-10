@@ -942,6 +942,138 @@ function resolveExpensePaymentMethodFromData({ rawData = {}, cleanMessage = '', 
  * Gerencia o ciclo de vida do pendingAction (collecting -> ready -> proposed -> confirmed/cancelled/expired),
  * faz merge incremental seguro de slots e gera a proposta com proposalId quando todos os dados estiverem prontos.
  */
+/**
+ * Resolve a semântica de parcelamento para a IA local (V2):
+ * - amountInputMode = 'total' | 'installment'
+ * - totalAmount
+ * - installmentAmount
+ * - monthlyAmount (amount)
+ * - isConflict (se houver divergência entre total informado e count * parcela informada)
+ */
+function resolveAiInstallmentSemantics({
+  rawData = {},
+  cleanMessage = '',
+  installments = 1,
+  amount = 0
+}) {
+  const msg = String(cleanMessage || '').toLowerCase();
+
+  // 1. Detecta número de parcelas
+  let count = Math.max(1, parseInt(installments, 10) || 1);
+  const instCountMatch = msg.match(/\b(\d+)\s*(?:x|vezes|parcelas?|presta[çc][õo]es)\b/i);
+  if (instCountMatch && count <= 1) {
+    count = Math.max(1, parseInt(instCountMatch[1], 10) || 1);
+  }
+
+  // Se não é parcelado, retorna estrutura direta
+  if (count <= 1) {
+    const amt = Number(rawData.totalAmount !== undefined ? rawData.totalAmount : (amount || rawData.amount || 0));
+    return {
+      installments: 1,
+      totalAmount: amt,
+      installmentAmount: amt,
+      amount: amt,
+      amountInputMode: 'total',
+      isConflict: false,
+      warning: null
+    };
+  }
+
+  // 2. Extrai valores explícitos do texto ou do rawData
+  let explicitInstallmentAmount = null;
+  let explicitTotalAmount = null;
+
+  if (rawData.amountInputMode === 'installment' && (rawData.installmentAmount || rawData.amount)) {
+    explicitInstallmentAmount = Number(rawData.installmentAmount || rawData.amount);
+    if (rawData.totalAmount) explicitTotalAmount = Number(rawData.totalAmount);
+  } else if (rawData.amountInputMode === 'total' && (rawData.totalAmount || rawData.amount)) {
+    explicitTotalAmount = Number(rawData.totalAmount || rawData.amount);
+    if (rawData.installmentAmount) explicitInstallmentAmount = Number(rawData.installmentAmount);
+  } else {
+    if (rawData.installmentAmount) explicitInstallmentAmount = Number(rawData.installmentAmount);
+    if (rawData.totalAmount) explicitTotalAmount = Number(rawData.totalAmount);
+  }
+
+  // Análise de padrões combinados no texto:
+  // Exemplo: "3000 em 10x de 350" ou "3000 em 10x de 300"
+  const comboMatch = msg.match(/(?:r\$\s*)?(\d+(?:[.,]\d+)?)\s*(?:reais)?\s*(?:em|dividido em)\s*(\d+)\s*(?:x|vezes|parcelas?|presta[çc][õo]es)(?:\s*de\s*(?:r\$\s*)?(\d+(?:[.,]\d+)?))?/i);
+  if (comboMatch) {
+    const rawTot = parseFloat(comboMatch[1].replace(',', '.'));
+    const rawCnt = parseInt(comboMatch[2], 10);
+    const rawInst = comboMatch[3] ? parseFloat(comboMatch[3].replace(',', '.')) : null;
+    if (rawCnt > 1) count = rawCnt;
+    if (rawTot > 0) explicitTotalAmount = rawTot;
+    if (rawInst && rawInst > 0) explicitInstallmentAmount = rawInst;
+  }
+
+  // Padrão de parcela explícita: "São 10 parcelas de 300" / "10x de 300" / "parcelas de 300"
+  if (explicitInstallmentAmount === null) {
+    const instOnlyMatch = msg.match(/\b(\d+)\s*(?:x|vezes|parcelas?|presta[çc][õo]es)\s*de\s*(?:r\$\s*)?(\d+(?:[.,]\d+)?)/i);
+    if (instOnlyMatch) {
+      const rawCnt = parseInt(instOnlyMatch[1], 10);
+      const rawInst = parseFloat(instOnlyMatch[2].replace(',', '.'));
+      if (rawCnt > 1) count = rawCnt;
+      if (rawInst > 0) explicitInstallmentAmount = rawInst;
+    }
+  }
+
+  // Padrão de total explícito: "Comprei um celular de 1200 em 12x" / "compra de 1200 em 12x"
+  if (explicitTotalAmount === null && explicitInstallmentAmount === null) {
+    const totalMatch = msg.match(/\b(?:de|valor de|custou|total de|por)\s*(?:r\$\s*)?(\d+(?:[.,]\d+)?)\s*(?:reais)?\s*(?:em|dividido em)?\s*(\d+)\s*(?:x|vezes|parcelas?)/i);
+    if (totalMatch) {
+      const rawTot = parseFloat(totalMatch[1].replace(',', '.'));
+      const rawCnt = parseInt(totalMatch[2], 10);
+      if (rawCnt > 1) count = rawCnt;
+      if (rawTot > 0) explicitTotalAmount = rawTot;
+    }
+  }
+
+  // Fallback com amount recebido:
+  if (explicitTotalAmount === null && explicitInstallmentAmount === null) {
+    explicitTotalAmount = Number(amount || 0);
+  }
+
+  // Avaliação de consistência e derivação:
+  let totalAmount = 0;
+  let installmentAmount = 0;
+  let amountInputMode = 'total';
+  let isConflict = false;
+  let warning = null;
+
+  if (explicitTotalAmount !== null && explicitInstallmentAmount !== null) {
+    // Ambos fornecidos! Verificar consistência.
+    const calculatedTotal = Math.round(explicitInstallmentAmount * count * 100) / 100;
+    const diff = Math.abs(calculatedTotal - explicitTotalAmount);
+    if (diff > 0.05) {
+      isConflict = true;
+      warning = `Conflito detectado entre o valor total (R$ ${explicitTotalAmount.toFixed(2).replace('.', ',')}) e a soma das ${count} parcelas de R$ ${explicitInstallmentAmount.toFixed(2).replace('.', ',')} (total de R$ ${calculatedTotal.toFixed(2).replace('.', ',')}). Por favor, revise o valor.`;
+    }
+    totalAmount = explicitTotalAmount;
+    installmentAmount = explicitInstallmentAmount;
+    amountInputMode = 'total';
+  } else if (explicitInstallmentAmount !== null) {
+    // Apenas valor da parcela fornecido (ex: "São 10 parcelas de 300")
+    installmentAmount = explicitInstallmentAmount;
+    totalAmount = Math.round(explicitInstallmentAmount * count * 100) / 100;
+    amountInputMode = 'installment';
+  } else {
+    // Padrão de produto: valor total informado (ex: "Comprei um celular de 1200 em 12x")
+    totalAmount = explicitTotalAmount !== null ? explicitTotalAmount : Number(amount || 0);
+    installmentAmount = count > 0 ? (Math.round((totalAmount / count) * 100) / 100) : 0;
+    amountInputMode = 'total';
+  }
+
+  return {
+    installments: count,
+    totalAmount,
+    installmentAmount,
+    amount: installmentAmount, // impacto mensal canônico
+    amountInputMode,
+    isConflict,
+    warning
+  };
+}
+
 async function interpretExpenseAction({ message, userId, userName, user = null, conversationId: reqConvId, context, type = 'text', inputMode = null, file = null, targetModule = null, intent = null }) {
   const webhookUrl = config.N8N_AI_ACTION_WEBHOOK_URL;
   const authUser = config.N8N_AI_ACTION_BASIC_AUTH_USER;
@@ -2209,19 +2341,42 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
       }
     }
 
-    // 4. Temporalidade V2
+    // 4. Temporalidade V2 e Semântica de Parcelas
     const isRecurring = Boolean(rawData.isRecurring || rawData.temporal?.type === 'fixed' || /\b(todo mes|todo mês|mensal|mensalmente|assinatura|recorrente)\b/i.test(lowerMessage));
-    const parsedInstallments = Math.max(1, parseInt(rawData.installments || mergedSlots.installments || 1, 10));
+    const rawInstallments = Math.max(1, parseInt(rawData.installments || mergedSlots.installments || 1, 10));
+
+    let instSemantics = {
+      installments: 1,
+      totalAmount: mergedAmount,
+      installmentAmount: mergedAmount,
+      amount: mergedAmount,
+      amountInputMode: 'total',
+      isConflict: false,
+      warning: null
+    };
+
     let resolvedTemporal = { type: 'cash' };
     if (isRecurring) {
       resolvedTemporal = {
         type: 'fixed',
         recurrence: { frequency: 'monthly', type: 'never' }
       };
-    } else if (parsedInstallments > 1) {
-      resolvedTemporal = {
-        type: 'installment'
-      };
+    } else {
+      instSemantics = resolveAiInstallmentSemantics({
+        rawData,
+        cleanMessage,
+        installments: rawInstallments,
+        amount: mergedAmount
+      });
+
+      if (instSemantics.installments > 1) {
+        resolvedTemporal = { type: 'installment' };
+        mergedSlots.installments = instSemantics.installments;
+        if (instSemantics.isConflict && instSemantics.warning) {
+          rawWarnings.push(instSemantics.warning);
+          requiresReview = true;
+        }
+      }
     }
 
     // 5. Bridge Legada Destination
@@ -2252,7 +2407,10 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
       source: actionResult.source || cleanMode || 'text',
       proposal: {
         description: mergedDesc,
-        amount: mergedAmount,
+        amount: (instSemantics.installments > 1) ? instSemantics.installmentAmount : mergedAmount,
+        totalAmount: (instSemantics.installments > 1) ? instSemantics.totalAmount : mergedAmount,
+        installmentAmount: (instSemantics.installments > 1) ? instSemantics.installmentAmount : mergedAmount,
+        amountInputMode: instSemantics.amountInputMode || 'total',
         category: matchedCategory,
         destination: legacyDestination,
         payee: resolvedPayee,
@@ -2263,7 +2421,7 @@ async function interpretExpenseAction({ message, userId, userName, user = null, 
         temporal: resolvedTemporal,
         competence: { month: compMonth, year: compYear },
         benefitType: null,
-        installments: mergedSlots.installments,
+        installments: (instSemantics.installments > 1) ? instSemantics.installments : 1,
         notes: mergedSlots.notes,
         requiresReview,
         requiresConfirmation: true,
@@ -2439,6 +2597,47 @@ function buildAiExpenseRecord({
   const parsedInstallments = Math.max(1, parseInt(rawInstallments, 10) || 1);
   const isInstallment = !isRecurringExpense && (parsedInstallments > 1);
 
+  let totalAmount = 0;
+  let installmentAmount = 0;
+  let monthlyAmount = resolvedAmount;
+  let amountInputMode = userEdits.amountInputMode || effectiveBase.amountInputMode || 'total';
+
+  if (isInstallment) {
+    if (userEdits.totalAmount !== undefined && userEdits.totalAmount !== null) {
+      totalAmount = Number(userEdits.totalAmount);
+    } else if (effectiveBase.totalAmount !== undefined && effectiveBase.totalAmount !== null) {
+      totalAmount = Number(effectiveBase.totalAmount);
+    } else if (amountInputMode === 'installment') {
+      totalAmount = Math.round(resolvedAmount * parsedInstallments * 100) / 100;
+    } else {
+      totalAmount = resolvedAmount;
+    }
+
+    if (userEdits.installmentAmount !== undefined && userEdits.installmentAmount !== null) {
+      installmentAmount = Number(userEdits.installmentAmount);
+    } else if (effectiveBase.installmentAmount !== undefined && effectiveBase.installmentAmount !== null) {
+      installmentAmount = Number(effectiveBase.installmentAmount);
+    } else if (amountInputMode === 'installment') {
+      installmentAmount = resolvedAmount;
+    } else {
+      installmentAmount = Math.round((totalAmount / parsedInstallments) * 100) / 100;
+    }
+
+    // Cronograma determinístico em centavos para a 1ª parcela (resíduo na 1ª competência)
+    const totalCents = Math.round(totalAmount * 100);
+    const baseCents = Math.floor(totalCents / parsedInstallments);
+    const remainderCents = totalCents - (baseCents * parsedInstallments);
+    const firstInstallmentCents = baseCents + remainderCents;
+    const initialDueAmount = Math.round(firstInstallmentCents) / 100;
+
+    monthlyAmount = initialDueAmount;
+  } else {
+    totalAmount = resolvedAmount;
+    installmentAmount = resolvedAmount;
+    monthlyAmount = resolvedAmount;
+    amountInputMode = 'total';
+  }
+
   // Status handling: respeita status explícito se fornecido; fallback inteligente de quitação para Pix/Dinheiro
   let statusResolved = 'pendente';
   if (userEdits.status) {
@@ -2452,7 +2651,7 @@ function buildAiExpenseRecord({
   const paidHistory = {};
   if (statusResolved === 'pago') {
     paidHistory[periodKey] = {
-      paidAmount: resolvedAmount,
+      paidAmount: monthlyAmount, // Quita exatamente a parcela devida do cronograma (ex: 33,34 para 100/3x)
       updatedAt: new Date().toISOString()
     };
   }
@@ -2495,7 +2694,10 @@ function buildAiExpenseRecord({
   return {
     id: newExpenseId,
     name: resolvedDesc,
-    amount: resolvedAmount,
+    amount: monthlyAmount,
+    totalAmount: totalAmount,
+    installmentAmount: installmentAmount,
+    amountInputMode: amountInputMode,
     group: resolvedCat,
     destination: legacyDestination,
     payee: explicitPayee ? String(explicitPayee).trim().slice(0, 150) : null,
@@ -2958,6 +3160,7 @@ module.exports = {
   interpretExpenseAction,
   confirmExpenseProposal,
   buildAiExpenseRecord,
+  resolveAiInstallmentSemantics,
   confirmBenefitProposal,
   cancelExpenseProposal
 };
