@@ -184,116 +184,126 @@
     'tab-admin'
   ];
 
+  const _isRenderingTab = {};
+
   function renderTabContent(tabId) {
-    const isSimp = !!state.simplifiedView;
-    if (window.checkModuleMaintenance && window.checkModuleMaintenance(tabId)) {
+    if (!tabId || _isRenderingTab[tabId]) {
       return;
     }
-    if (window.checkModuleAccess && window.checkModuleAccess(tabId).allowed === false) {
-      return;
-    }
-
-    if (tabId === 'tab-dashboard') {
-      if (typeof renderConsolidatedDashboardTab === 'function') {
-        renderConsolidatedDashboardTab();
+    _isRenderingTab[tabId] = true;
+    try {
+      const isSimp = !!state.simplifiedView;
+      if (window.checkModuleMaintenance && window.checkModuleMaintenance(tabId)) {
+        return;
       }
-    } else if (tabId === 'tab-expenses') {
-      const isInstallmentsSub = state.expensesSubView === 'installments' && !isSimp;
-      const expensesSubTabsWrap = $('#expensesSubTabsWrap');
-      if (expensesSubTabsWrap) expensesSubTabsWrap.hidden = isSimp;
-
-      const btnInsights = $('#toggleInsightsBtn');
-      if (btnInsights) btnInsights.hidden = isSimp;
-      const btnDest = $('#toggleDestChartBtn');
-      if (btnDest) btnDest.hidden = isSimp;
-      const btnCat = $('#toggleCategoryChartBtn');
-      if (btnCat) btnCat.hidden = isSimp;
-
-      const monthlyTabBtn = $('#expensesMonthlyTabBtn');
-      const instTabBtn = $('#expensesInstallmentsTabBtn');
-      const monthlyWrap = $('#expensesMonthlyViewWrap');
-      const instWrap = $('#expensesInstallmentsViewWrap');
-
-      if (monthlyTabBtn && instTabBtn) {
-        monthlyTabBtn.className = !isInstallmentsSub ? 'btn small primary' : 'btn small soft';
-        instTabBtn.className = isInstallmentsSub ? 'btn small primary' : 'btn small soft';
+      if (window.checkModuleAccess && window.checkModuleAccess(tabId).allowed === false) {
+        return;
       }
 
-      if (isInstallmentsSub) {
-        if (monthlyWrap) monthlyWrap.hidden = true;
-        if (instWrap) instWrap.hidden = false;
-        if (typeof renderExpensesInstallmentsTab === 'function') renderExpensesInstallmentsTab();
-      } else {
-        if (monthlyWrap) monthlyWrap.hidden = false;
-        if (instWrap) instWrap.hidden = true;
+      if (tabId === 'tab-dashboard') {
+        if (typeof renderConsolidatedDashboardTab === 'function') {
+          renderConsolidatedDashboardTab();
+        }
+      } else if (tabId === 'tab-expenses') {
+        const isInstallmentsSub = state.expensesSubView === 'installments' && !isSimp;
+        const expensesSubTabsWrap = $('#expensesSubTabsWrap');
+        if (expensesSubTabsWrap) expensesSubTabsWrap.hidden = isSimp;
 
-        const dashMetrics = $('#dashboardMetrics'); if (dashMetrics) dashMetrics.hidden = isSimp;
-        const insightsCard = $('#insightsSectionCard'); if (insightsCard) insightsCard.hidden = isSimp || !!state.collapsedSections.insights;
-        const destCard = $('#destChartSectionCard'); if (destCard) destCard.hidden = isSimp || !!state.collapsedSections.destChart;
-        const catCard = $('#categoryChartSectionCard'); if (catCard) catCard.hidden = isSimp || !!state.collapsedSections.categoryChart;
-        const normalGrid = $('#normalExpensesGrid'); if (normalGrid) normalGrid.hidden = isSimp;
+        const btnInsights = $('#toggleInsightsBtn');
+        if (btnInsights) btnInsights.hidden = isSimp;
+        const btnDest = $('#toggleDestChartBtn');
+        if (btnDest) btnDest.hidden = isSimp;
+        const btnCat = $('#toggleCategoryChartBtn');
+        if (btnCat) btnCat.hidden = isSimp;
 
-        if (btnInsights && !isSimp) btnInsights.classList.toggle('active', !state.collapsedSections.insights);
-        if (btnDest && !isSimp) btnDest.classList.toggle('active', !state.collapsedSections.destChart);
-        if (btnCat && !isSimp) btnCat.classList.toggle('active', !state.collapsedSections.categoryChart);
+        const monthlyTabBtn = $('#expensesMonthlyTabBtn');
+        const instTabBtn = $('#expensesInstallmentsTabBtn');
+        const monthlyWrap = $('#expensesMonthlyViewWrap');
+        const instWrap = $('#expensesInstallmentsViewWrap');
 
-        const simpContainer = $('#simplifiedExpensesContainer');
-        if (simpContainer) {
-          simpContainer.hidden = !isSimp;
-          if (isSimp) {
-            if (typeof renderSimplifiedExpenses === 'function') renderSimplifiedExpenses();
-          } else {
-            if (typeof renderDashboardMetrics === 'function') renderDashboardMetrics();
-            if (!state.collapsedSections.insights && typeof renderInsightsSection === 'function') renderInsightsSection();
-            if (!state.collapsedSections.destChart && typeof renderDestinationChart === 'function') renderDestinationChart();
-            if (!state.collapsedSections.categoryChart && typeof renderCategoryDistributionChart === 'function') renderCategoryDistributionChart();
-            if (typeof renderExpensesLists === 'function') renderExpensesLists();
+        if (monthlyTabBtn && instTabBtn) {
+          monthlyTabBtn.className = !isInstallmentsSub ? 'btn small primary' : 'btn small soft';
+          instTabBtn.className = isInstallmentsSub ? 'btn small primary' : 'btn small soft';
+        }
+
+        if (isInstallmentsSub) {
+          if (monthlyWrap) monthlyWrap.hidden = true;
+          if (instWrap) instWrap.hidden = false;
+          if (typeof renderExpensesInstallmentsTab === 'function') renderExpensesInstallmentsTab();
+        } else {
+          if (monthlyWrap) monthlyWrap.hidden = false;
+          if (instWrap) instWrap.hidden = true;
+
+          const dashMetrics = $('#dashboardMetrics'); if (dashMetrics) dashMetrics.hidden = isSimp;
+          const insightsCard = $('#insightsSectionCard'); if (insightsCard) insightsCard.hidden = isSimp || !!state.collapsedSections.insights;
+          const destCard = $('#destChartSectionCard'); if (destCard) destCard.hidden = isSimp || !!state.collapsedSections.destChart;
+          const catCard = $('#categoryChartSectionCard'); if (catCard) catCard.hidden = isSimp || !!state.collapsedSections.categoryChart;
+          const normalGrid = $('#normalExpensesGrid'); if (normalGrid) normalGrid.hidden = isSimp;
+
+          if (btnInsights && !isSimp) btnInsights.classList.toggle('active', !state.collapsedSections.insights);
+          if (btnDest && !isSimp) btnDest.classList.toggle('active', !state.collapsedSections.destChart);
+          if (btnCat && !isSimp) btnCat.classList.toggle('active', !state.collapsedSections.categoryChart);
+
+          const simpContainer = $('#simplifiedExpensesContainer');
+          if (simpContainer) {
+            simpContainer.hidden = !isSimp;
+            if (isSimp) {
+              if (typeof renderSimplifiedExpenses === 'function') renderSimplifiedExpenses();
+            } else {
+              if (typeof renderDashboardMetrics === 'function') renderDashboardMetrics();
+              if (!state.collapsedSections.insights && typeof renderInsightsSection === 'function') renderInsightsSection();
+              if (!state.collapsedSections.destChart && typeof renderDestinationChart === 'function') renderDestinationChart();
+              if (!state.collapsedSections.categoryChart && typeof renderCategoryDistributionChart === 'function') renderCategoryDistributionChart();
+              if (typeof renderExpensesLists === 'function') renderExpensesLists();
+            }
           }
         }
-      }
-    } else if (tabId === 'tab-extras') {
-      const extraMetrics = $('#extraMetrics'); if (extraMetrics) extraMetrics.hidden = isSimp;
-      if (typeof renderExtrasTab === 'function') renderExtrasTab();
-    } else if (tabId === 'tab-debtors') {
-      const isTotalsSub = state.debtorsSubView === 'totals';
-      const monthlyTabBtn = $('#debtorsMonthlyTabBtn');
-      const totalsTabBtn = $('#debtorsTotalsTabBtn');
-      const monthlyWrap = $('#debtorsMonthlyViewWrap');
-      const totalsWrap = $('#debtorsTotalsViewWrap');
+      } else if (tabId === 'tab-extras') {
+        const extraMetrics = $('#extraMetrics'); if (extraMetrics) extraMetrics.hidden = isSimp;
+        if (typeof renderExtrasTab === 'function') renderExtrasTab();
+      } else if (tabId === 'tab-debtors') {
+        const isTotalsSub = state.debtorsSubView === 'totals';
+        const monthlyTabBtn = $('#debtorsMonthlyTabBtn');
+        const totalsTabBtn = $('#debtorsTotalsTabBtn');
+        const monthlyWrap = $('#debtorsMonthlyViewWrap');
+        const totalsWrap = $('#debtorsTotalsViewWrap');
 
-      if (monthlyTabBtn && totalsTabBtn) {
-        monthlyTabBtn.className = !isTotalsSub ? 'btn small primary' : 'btn small soft';
-        totalsTabBtn.className = isTotalsSub ? 'btn small primary' : 'btn small soft';
-      }
+        if (monthlyTabBtn && totalsTabBtn) {
+          monthlyTabBtn.className = !isTotalsSub ? 'btn small primary' : 'btn small soft';
+          totalsTabBtn.className = isTotalsSub ? 'btn small primary' : 'btn small soft';
+        }
 
-      if (isTotalsSub) {
-        if (monthlyWrap) monthlyWrap.hidden = true;
-        if (totalsWrap) totalsWrap.hidden = false;
-        if (typeof renderDebtorsTotalsTab === 'function') renderDebtorsTotalsTab();
-      } else {
-        if (monthlyWrap) monthlyWrap.hidden = false;
-        if (totalsWrap) totalsWrap.hidden = true;
+        if (isTotalsSub) {
+          if (monthlyWrap) monthlyWrap.hidden = true;
+          if (totalsWrap) totalsWrap.hidden = false;
+          if (typeof renderDebtorsTotalsTab === 'function') renderDebtorsTotalsTab();
+        } else {
+          if (monthlyWrap) monthlyWrap.hidden = false;
+          if (totalsWrap) totalsWrap.hidden = true;
 
-        const debtorMetrics = $('#debtorMetrics'); if (debtorMetrics) debtorMetrics.hidden = isSimp;
-        if (typeof renderDebtorsTab === 'function') renderDebtorsTab();
+          const debtorMetrics = $('#debtorMetrics'); if (debtorMetrics) debtorMetrics.hidden = isSimp;
+          if (typeof renderDebtorsTab === 'function') renderDebtorsTab();
+        }
+      } else if (tabId === 'tab-investments') {
+        const investMetrics = $('#investMetrics'); if (investMetrics) investMetrics.hidden = isSimp;
+        const investSimCard = $('#investSimulatorCard'); if (investSimCard) investSimCard.hidden = isSimp;
+        const investChartsGrid = $('#investChartsGrid'); if (investChartsGrid) investChartsGrid.hidden = isSimp;
+        if (typeof renderInvestmentsTab === 'function') renderInvestmentsTab();
+      } else if (tabId === 'tab-benefits') {
+        if (typeof renderBenefitsTab === 'function') renderBenefitsTab();
+      } else if (tabId === 'tab-shopping') {
+        if (typeof renderShoppingTab === 'function') renderShoppingTab();
+      } else if (tabId === 'tab-simulation') {
+        if (typeof renderSimulationTab === 'function') renderSimulationTab();
+      } else if (tabId === 'tab-profile') {
+        if (typeof renderProfile === 'function') renderProfile();
+      } else if (tabId === 'tab-admin') {
+        if (window.AdminModule && window.AdminModule.render) {
+          window.AdminModule.render();
+        }
       }
-    } else if (tabId === 'tab-investments') {
-      const investMetrics = $('#investMetrics'); if (investMetrics) investMetrics.hidden = isSimp;
-      const investSimCard = $('#investSimulatorCard'); if (investSimCard) investSimCard.hidden = isSimp;
-      const investChartsGrid = $('#investChartsGrid'); if (investChartsGrid) investChartsGrid.hidden = isSimp;
-      if (typeof renderInvestmentsTab === 'function') renderInvestmentsTab();
-    } else if (tabId === 'tab-benefits') {
-      if (typeof renderBenefitsTab === 'function') renderBenefitsTab();
-    } else if (tabId === 'tab-shopping') {
-      if (typeof renderShoppingTab === 'function') renderShoppingTab();
-    } else if (tabId === 'tab-simulation') {
-      if (typeof renderSimulationTab === 'function') renderSimulationTab();
-    } else if (tabId === 'tab-profile') {
-      if (typeof renderProfile === 'function') renderProfile();
-    } else if (tabId === 'tab-admin') {
-      if (window.AdminModule && window.AdminModule.render) {
-        window.AdminModule.render();
-      }
+    } finally {
+      _isRenderingTab[tabId] = false;
     }
   }
   window.renderTabContent = renderTabContent;

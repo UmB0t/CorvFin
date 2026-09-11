@@ -4,3 +4,8 @@ node_modules/
 !.env.example
 server/data/backups/
 server/data/plans.json
+server/data/default_permissions.json
+server/data/email_settings.json
+server/data/finances_data.json
+server/data/permissions.json
+server/data/security_tokens.json

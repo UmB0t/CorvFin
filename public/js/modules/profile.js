@@ -349,8 +349,21 @@
       }
 
       const plan = ctx.plan || {};
-      const cents = plan.pricing?.amountCents ?? plan.pricing?.cents ?? 0;
-      const interval = plan.pricing?.interval || plan.pricing?.billingInterval || 'monthly';
+      let cents = 0;
+      let interval = 'monthly';
+
+      if (plan.pricing?.offers && typeof plan.pricing.offers === 'object') {
+        if (plan.pricing.offers.yearly?.enabled) {
+          cents = plan.pricing.offers.yearly.regularPriceCents ?? 0;
+          interval = 'year';
+        } else if (plan.pricing.offers.monthly?.enabled) {
+          cents = plan.pricing.offers.monthly.regularPriceCents ?? 0;
+          interval = 'month';
+        }
+      } else {
+        cents = plan.pricing?.amountCents ?? plan.pricing?.cents ?? 0;
+        interval = plan.pricing?.interval || plan.pricing?.billingInterval || 'monthly';
+      }
       const isFree = (cents === 0);
       const priceFormatted = isFree
         ? 'Gratuito'
@@ -382,14 +395,35 @@
         });
       }
 
+      const getLimitFmt = (resKey, limKey, label) => {
+        let val;
+        if (plan.entitlements && plan.entitlements[resKey]) {
+          const ent = plan.entitlements[resKey];
+          if (ent.enabled === false) return null;
+          val = ent.limits?.[limKey];
+        } else if (plan.limits) {
+          val = plan.limits[limKey];
+        }
+        if (val === null) return `${label} ilimitadas`;
+        if (Number.isInteger(val) && val > 0) return `Até ${val} ${label.toLowerCase()} cadastradas`;
+        if (val === 0) return `0 ${label.toLowerCase()} cadastradas`;
+        return null;
+      };
+
+      const despesasFmt = getLimitFmt('despesas', 'maxItems', 'Despesas') || (plan.limits?.maxExpensesPerMonth === null ? 'Despesas ilimitadas' : (Number.isInteger(plan.limits?.maxExpensesPerMonth) ? `Até ${plan.limits.maxExpensesPerMonth} despesas / mês` : null));
+      const devedoresFmt = getLimitFmt('devedores', 'maxItems', 'Devedores ativos') || (plan.limits?.maxActiveDebtors === null ? 'Devedores ativos ilimitados' : (Number.isInteger(plan.limits?.maxActiveDebtors) ? `Até ${plan.limits.maxActiveDebtors} devedores ativos` : null));
+      const extrasFmt = getLimitFmt('extras', 'maxItems', 'Rendas Extras') || (plan.limits?.maxExtras === null ? 'Rendas Extras ilimitadas' : (Number.isInteger(plan.limits?.maxExtras) ? `Até ${plan.limits.maxExtras} rendas extras cadastradas` : null));
+
+      const canonicalList = [
+        aiCreditsText,
+        despesasFmt,
+        extrasFmt,
+        devedoresFmt
+      ].filter(Boolean);
+
       const features = Array.isArray(plan.metadata?.featuresSummary) && plan.metadata.featuresSummary.length > 0
         ? plan.metadata.featuresSummary
-        : [
-            aiCreditsText,
-            `Até ${(plan.limits?.maxExpensesPerMonth ?? 'Ilimitado')} despesas / mês`,
-            `Até ${(plan.limits?.maxActiveDebtors ?? 'Ilimitado')} devedores ativos`,
-            `Até ${(plan.limits?.maxMediaAttachments ?? 'Ilimitado')} comprovantes / mídia`
-          ];
+        : (canonicalList.length > 0 ? canonicalList : ['Acesso aos recursos inclusos no plano']);
 
       card.innerHTML = `
         <div class="section-head" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">

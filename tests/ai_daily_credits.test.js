@@ -17,10 +17,11 @@
 
 'use strict';
 
-const { describe, test, beforeEach, after } = require('node:test');
+const { describe, test, before, beforeEach, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { closeDB } = require('../server/config/db');
 
 const {
@@ -44,10 +45,14 @@ const jsonStorage = require('../server/services/jsonStorage');
 const entitlementService = require('../server/services/entitlementService');
 const config = require('../server/config/config');
 
-// Diretório isolado para testes com JSON storage
-const TEST_DATA_DIR = path.resolve(__dirname, '..', 'data', 'test_5g_data');
-config.AI_USAGE_DAILY_FILE = path.join(TEST_DATA_DIR, 'ai_usage_daily.json');
-config.STORAGE_DRIVER = 'json';
+// Valores originais capturados antes de qualquer alteração de teste
+const originalStorageDriver = config.STORAGE_DRIVER;
+const originalAiUsageFile = config.AI_USAGE_DAILY_FILE;
+const originalPlansFile = config.PLANS_FILE;
+const originalUsersFile = config.USERS_FILE;
+
+// Diretório isolado para testes com JSON storage em os.tmpdir()
+const TEST_DATA_DIR = path.join(os.tmpdir(), `corvfin_test_5g_${Date.now()}_${Math.random().toString(36).slice(2)}`);
 
 function resetTestDataDir() {
   if (!fs.existsSync(TEST_DATA_DIR)) {
@@ -57,6 +62,30 @@ function resetTestDataDir() {
     fs.writeFileSync(config.AI_USAGE_DAILY_FILE, '{}', 'utf8');
   } catch (_) {}
 }
+
+before(() => {
+  if (!fs.existsSync(TEST_DATA_DIR)) {
+    fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  }
+  config.STORAGE_DRIVER = 'json';
+  config.AI_USAGE_DAILY_FILE = path.join(TEST_DATA_DIR, 'ai_usage_daily.json');
+  config.PLANS_FILE = path.join(TEST_DATA_DIR, 'plans.json');
+  config.USERS_FILE = path.join(TEST_DATA_DIR, 'users.json');
+  resetTestDataDir();
+});
+
+after(() => {
+  config.STORAGE_DRIVER = originalStorageDriver;
+  config.AI_USAGE_DAILY_FILE = originalAiUsageFile;
+  config.PLANS_FILE = originalPlansFile;
+  config.USERS_FILE = originalUsersFile;
+
+  if (fs.existsSync(TEST_DATA_DIR)) {
+    try {
+      fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+    } catch (_) {}
+  }
+});
 
 describe('Lote 5G — Entitlement Registry & Schema Evolution (Casos 1 a 6)', () => {
   test('1. questionsPerDay legado normaliza para creditsPerDay', () => {

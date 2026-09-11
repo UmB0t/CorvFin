@@ -2578,11 +2578,324 @@
 }
 
 /* Modais de Planos & Limites */
+#plansModal {
+  max-width: min(1180px, 96vw) !important;
+  width: 100%;
+}
+
+#plansModal .dialog-body {
+  padding: 18px 20px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  box-sizing: border-box;
+}
+
+#plansModal .plans-carousel-wrapper {
+  position: relative;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#plansModal .plans-carousel-viewport {
+  width: 100%;
+  overflow-x: hidden !important;
+  overflow-y: visible;
+  padding: 8px 0 16px 0;
+  box-sizing: border-box;
+}
+
+#plansModal .plans-carousel-nav {
+  display: none !important;
+}
+
+#plansModal .plans-grid,
+#plansModal .plans-carousel-track.plans-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 16px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  align-items: stretch;
+  box-sizing: border-box;
+}
+
+#plansModal .plan-card {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  flex: none !important;
+  box-sizing: border-box;
+  padding: 18px 16px;
+}
+
+/* Responsividade específica de colunas no #plansModal */
+@media (max-width: 1080px) {
+  #plansModal .plans-grid,
+  #plansModal .plans-carousel-track.plans-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 16px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  #plansModal .plans-grid,
+  #plansModal .plans-carousel-track.plans-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  #plansModal .plan-card {
+    padding: 16px !important;
+  }
+}
+
+.plans-billing-toggle-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+/* Segmented Control Unificado (Modal Ver Planos e Página Contextual PLAN_DENIED) */
+.plans-billing-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: var(--surface-2, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--line);
+  border-radius: 9999px;
+  padding: 3px;
+  gap: 2px;
+  box-sizing: border-box;
+  position: relative;
+  user-select: none;
+  max-width: 100%;
+}
+
+.plans-billing-toggle button,
+.plans-billing-toggle .plans-toggle-btn,
+.plans-billing-toggle .btn-interval-toggle,
+.plans-toggle-btn,
+.btn-interval-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  outline: none;
+  margin: 0;
+  padding: 7px 18px;
+  min-height: 36px;
+  height: 36px;
+  box-sizing: border-box;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.plans-billing-toggle button:hover:not(.active),
+.plans-billing-toggle .plans-toggle-btn:hover:not(.active),
+.plans-billing-toggle .btn-interval-toggle:hover:not(.active),
+.plans-toggle-btn:hover:not(.active),
+.btn-interval-toggle:hover:not(.active) {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.plans-billing-toggle button.active,
+.plans-billing-toggle .plans-toggle-btn.active,
+.plans-billing-toggle .btn-interval-toggle.active,
+.plans-toggle-btn.active,
+.btn-interval-toggle.active {
+  background: var(--brand);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+.plans-billing-toggle button:focus-visible,
+.plans-billing-toggle .plans-toggle-btn:focus-visible,
+.plans-billing-toggle .btn-interval-toggle:focus-visible,
+.plans-toggle-btn:focus-visible,
+.btn-interval-toggle:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.plans-toggle-discount-badge,
+.contextual-savings-badge {
+  display: inline-flex;
+  align-items: center;
+  background: var(--warning, #f59e0b);
+  color: #000000;
+  font-size: 0.70rem;
+  font-weight: 850;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+  margin-left: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Responsividade Mobile do Segmented Control (<= 480px, cobrindo 430px, 390px, 360px) */
+@media (max-width: 480px) {
+  .plans-billing-toggle {
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .plans-billing-toggle button,
+  .plans-billing-toggle .plans-toggle-btn,
+  .plans-billing-toggle .btn-interval-toggle,
+  .plans-toggle-btn,
+  .btn-interval-toggle {
+    padding: 6px 12px;
+    min-height: 36px;
+    height: 36px;
+    font-size: 0.80rem;
+    gap: 6px;
+  }
+
+  .plans-toggle-discount-badge,
+  .contextual-savings-badge {
+    font-size: 0.65rem;
+    padding: 1px 5px;
+    letter-spacing: 0.2px;
+  }
+
+  .contextual-plans-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .contextual-billing-toggle {
+    align-self: flex-start;
+  }
+}
+
+/* Single-Track Carousel Viewport */
+.plans-carousel-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.plans-carousel-viewport {
+  width: 100%;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 10px 4px 16px 4px;
+}
+
+.plans-carousel-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.plans-carousel-track.plans-grid {
+  display: flex;
+  gap: 16px;
+  flex-wrap: nowrap;
+  width: 100%;
+  align-items: stretch;
+}
+
 .plans-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 16px;
   align-items: stretch;
+}
+
+.plans-carousel-track .plan-card {
+  flex: 0 0 calc((100% - 48px) / 4);
+  min-width: 250px;
+  max-width: 320px;
+  box-sizing: border-box;
+}
+
+.plans-carousel-track:has(> .plan-card:nth-last-child(1):first-child) .plan-card {
+  max-width: 380px;
+  margin: 0 auto;
+}
+.plans-carousel-track:has(> .plan-card:nth-last-child(2):first-child) .plan-card {
+  flex: 0 0 calc((100% - 16px) / 2);
+  max-width: 360px;
+}
+.plans-carousel-track:has(> .plan-card:nth-last-child(3):first-child) .plan-card {
+  flex: 0 0 calc((100% - 32px) / 3);
+  max-width: 340px;
+}
+
+.plans-carousel-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  transition: background 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+}
+
+.plans-carousel-nav:hover:not(:disabled) {
+  background: var(--surface-2);
+  transform: translateY(-50%) scale(1.05);
+}
+
+.plans-carousel-nav.prev {
+  left: -18px;
+}
+
+.plans-carousel-nav.next {
+  right: -18px;
+}
+
+.plans-carousel-nav .svg-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.5;
+}
+
+.plan-promo-wrapper {
+  margin-bottom: 8px;
+}
+
+.plan-promo-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+
+.plan-card--unavailable {
+  opacity: 0.75;
+  filter: grayscale(0.2);
 }
 
 .plan-card {
@@ -2642,21 +2955,76 @@
 
 .plan-card-pricing {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  margin: 8px 0 12px 0;
+  min-height: 68px;
+}
+
+.plan-price-original-wrap {
+  display: flex;
+  align-items: center;
+  min-height: 18px;
+}
+
+.plan-price-original {
+  text-decoration: line-through;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.plan-price-primary {
+  display: inline-flex;
   align-items: baseline;
   gap: 4px;
-  margin: 8px 0;
+  flex-wrap: wrap;
+  line-height: 1.15;
 }
 
 .plan-price-value {
   font-size: 1.65rem;
   font-weight: 850;
   color: var(--text);
+  letter-spacing: -0.5px;
 }
 
 .plan-price-interval {
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--muted);
+}
+
+.plan-price-equivalent {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+.plan-price-equivalent-main {
+  color: var(--brand);
+  font-weight: 750;
+}
+
+.plan-price-equivalent-sub {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.plan-price-unavailable-notice {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.3;
+  font-weight: 550;
 }
 
 .plan-card-divider {
@@ -2775,128 +3143,260 @@
   opacity: 0.85;
 }
 
-/* Container da aba bloqueada por plano — respeita geometria natural da página */
+/* Container da aba bloqueada por plano — fluxo natural sem blur e sem overlay */
 .tab-content.tab-content--plan-locked {
   position: relative !important;
-  min-height: 100%;
-  overflow-x: hidden;
+  min-height: auto;
 }
 
-/* Atenuação e bloqueio total de interação dos elementos em preview de fundo — perceptível e suave */
-.tab-content.tab-content--plan-locked > *:not(.access-denied-screen-overlay) {
-  pointer-events: none !important;
-  user-select: none !important;
-  -webkit-user-select: none;
-  filter: blur(2px);
-  opacity: 0.52;
-  transition: opacity 0.2s ease, filter 0.2s ease;
-}
+/* --------------------------------------------------------------------------
+   FASE 5H.3 — CONTEXTUAL UPGRADE PAGE PARA MÓDULOS BLOQUEADOS (PLAN_DENIED)
+   Experiência sem blur, sem skeletons financeiros e sem modal flutuante
+   -------------------------------------------------------------------------- */
 
-/* Overlay sobreposto com card central — camada translúcida leve sem chapa cinza opaca */
-.access-denied-screen-overlay.plan-denied.module-locked-overlay {
-  position: absolute;
-  inset: 0;
+.module-contextual-upgrade-view {
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 48px 20px 60px;
-  z-index: 35;
-  pointer-events: auto;
-  background: rgba(15, 23, 42, 0.08);
-}
-
-[data-theme="dark"] .access-denied-screen-overlay.plan-denied.module-locked-overlay {
-  background: rgba(0, 0, 0, 0.28);
-}
-
-/* Card central visualmente forte, nítido e contrastante */
-.module-locked-card {
-  position: relative;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 36px 28px;
-  text-align: center;
-  max-width: 480px;
+  flex-direction: column;
+  gap: 24px;
+  padding: 0 0 40px 0;
   width: 100%;
-  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--line);
-  margin: 0 auto;
-  box-sizing: border-box;
-  z-index: 40;
+  animation: fadeInContextual 0.25s ease-out;
 }
 
-.module-locked-icon-wrap {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: var(--brand-soft);
-  color: var(--brand-strong, var(--brand));
-  display: inline-flex;
+@keyframes fadeInContextual {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Header contextual integrado quando o módulo não possui .module-header próprio */
+.module-contextual-header {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 16px;
+  margin-bottom: 4px;
+}
+
+.module-contextual-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.module-contextual-sub {
+  font-size: 0.92rem;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* Barra horizontal de aviso compacto sobre ausência do recurso no plano atual */
+.module-contextual-notice {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--surface-soft, rgba(59, 130, 246, 0.06));
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--brand);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.contextual-notice-icon {
+  display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 16px;
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.22);
-}
-
-.module-locked-icon-wrap .svg-locked-hero {
-  width: 28px;
-  height: 28px;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  fill: none;
-}
-
-.module-locked-eyebrow {
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: var(--brand-soft);
   color: var(--brand-strong, var(--brand));
-  margin-bottom: 8px;
+  flex-shrink: 0;
 }
 
-.module-locked-title {
-  font-size: 1.32rem;
-  font-weight: 850;
-  color: var(--text);
-  margin: 0 0 10px;
-  line-height: 1.3;
+.contextual-notice-icon svg {
+  width: 22px;
+  height: 22px;
 }
 
-.module-locked-desc {
-  font-size: 0.90rem;
-  color: var(--muted);
-  margin: 0 auto 24px;
-  line-height: 1.5;
-  max-width: 400px;
-}
-
-.module-locked-actions {
+.contextual-notice-content {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.contextual-notice-title {
+  font-size: 0.98rem;
+  font-weight: 750;
+  color: var(--text);
+}
+
+.contextual-notice-desc {
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+/* Seção de Planos que incluem o módulo */
+.contextual-plans-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.contextual-plans-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
-.module-locked-actions .btn-open-commercial-plans {
-  border-radius: 10px;
-  font-weight: 700;
-  padding: 11px 24px;
+.contextual-plans-title {
+  font-size: 1.15rem;
+  font-weight: 750;
+  color: var(--text);
+  margin: 0;
+}
+
+/* Estados assíncronos integrados */
+.contextual-plans-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  color: var(--muted);
+  font-size: 0.95rem;
+  background: var(--surface);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+}
+
+.contextual-plans-error {
+  text-align: center;
+  padding: 36px 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+}
+
+.contextual-plans-error p {
+  color: var(--muted);
   font-size: 0.92rem;
-  min-height: 44px;
+  margin: 8px 0 16px;
 }
 
-/* Skeletons neutros para preview de fundo seguro */
-.module-locked-skeleton-row,
-.module-locked-skeleton-card {
-  animation: pulsePreviewSkeleton 1.8s ease-in-out infinite alternate;
+.contextual-retry-btn {
+  border-radius: 8px;
+  font-weight: 600;
+  padding: 8px 18px;
 }
 
-@keyframes pulsePreviewSkeleton {
-  0% { opacity: 0.35; }
-  100% { opacity: 0.6; }
+.contextual-plans-empty {
+  text-align: center;
+  padding: 36px 24px;
+  background: var(--surface);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 0.92rem;
 }
 
-.module-locked-placeholder-text {
-  user-select: none;
-  pointer-events: none;
+.contextual-empty-actions {
+  margin-top: 16px;
+}
+
+/* Wrapper de carrossel de planos contextuais */
+.contextual-carousel-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.contextual-carousel-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 5;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  transition: all 0.2s ease;
+}
+
+.contextual-carousel-btn:hover {
+  background: var(--brand-soft);
+  color: var(--brand);
+  border-color: var(--brand);
+}
+
+.contextual-carousel-btn.prev-btn {
+  left: -16px;
+}
+
+.contextual-carousel-btn.next-btn {
+  right: -16px;
+}
+
+.contextual-plans-track {
+  display: flex;
+  gap: 20px;
+  width: 100%;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 8px 4px 16px;
+  scrollbar-width: thin;
+}
+
+.contextual-plans-track::-webkit-scrollbar {
+  height: 6px;
+}
+
+.contextual-plans-track::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+}
+
+/* Card contextual compacto */
+.plan-card.plan-card--contextual {
+  flex: 1 1 250px;
+  min-width: 240px;
+  max-width: 320px;
+  padding: 22px 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.plan-card.plan-card--contextual .plan-card-header {
+  margin-bottom: 12px;
+}
+
+.plan-card.plan-card--contextual .plan-card-title {
+  font-size: 1.12rem;
+}
+
+.plan-card.plan-card--contextual .plan-card-pricing {
+  margin-bottom: 14px;
+}
+
+.plan-card.plan-card--contextual .plan-features-list {
+  margin-bottom: 18px;
+}
+
+.plan-card.plan-card--contextual .plan-card-actions {
+  margin-top: auto;
 }

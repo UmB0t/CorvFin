@@ -12,6 +12,7 @@ const assert = require('node:assert');
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 
 const config = require('../server/config/config');
 const app = require('../server/server');
@@ -42,12 +43,21 @@ describe('Lote 5C — EntitlementService, Vínculo de Plano e Backfill (CorvFin 
   let defaultPlanInstance = null;
   let testDbInfo = null;
 
+  const originalStorageDriver = config.STORAGE_DRIVER;
   const originalPlansFile = config.PLANS_FILE;
-  const tempTestPlansFile = path.join(__dirname, `test_plans_5c_${Date.now()}.json`);
   const originalUsersFile = config.USERS_FILE;
-  const tempTestUsersFile = path.join(__dirname, `test_users_5c_${Date.now()}.json`);
+  const tempTestDir = path.join(os.tmpdir(), `corvfin_test_5c_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+  const tempTestPlansFile = path.join(tempTestDir, 'plans.json');
+  const tempTestUsersFile = path.join(tempTestDir, 'users.json');
 
   before(async () => {
+    if (!fs.existsSync(tempTestDir)) {
+      fs.mkdirSync(tempTestDir, { recursive: true });
+    }
+    // Protege server/data contra qualquer escrita acidental em modo JSON
+    config.PLANS_FILE = tempTestPlansFile;
+    config.USERS_FILE = tempTestUsersFile;
+
     if (isMongo) {
       testDbInfo = await setupIsolatedTestMongo('entitlements');
     }
@@ -76,18 +86,15 @@ describe('Lote 5C — EntitlementService, Vínculo de Plano e Backfill (CorvFin 
       await teardownIsolatedTestMongo(testDbInfo.testDbName);
     }
 
-    if (fs.existsSync(tempTestPlansFile)) {
-      try {
-        fs.unlinkSync(tempTestPlansFile);
-      } catch (e) {}
-    }
-    if (fs.existsSync(tempTestUsersFile)) {
-      try {
-        fs.unlinkSync(tempTestUsersFile);
-      } catch (e) {}
-    }
+    config.STORAGE_DRIVER = originalStorageDriver;
     config.PLANS_FILE = originalPlansFile;
     config.USERS_FILE = originalUsersFile;
+
+    if (fs.existsSync(tempTestDir)) {
+      try {
+        fs.rmSync(tempTestDir, { recursive: true, force: true });
+      } catch (e) {}
+    }
   });
 
   beforeEach(() => {
@@ -337,7 +344,7 @@ describe('Lote 5C — EntitlementService, Vínculo de Plano e Backfill (CorvFin 
   test('15. getLimit com inteiro positivo retorna o teto numérico', async () => {
     const ents = getCompatibilityEntitlements();
     ents.investimentos.limits.maxItems = 25;
-    ents.ai.limits.questionsPerDay = 50;
+    ents.ai.limits.creditsPerDay = 50;
 
     const plan = await createTrackedPlan({
       name: 'Plano Com Tetos',
@@ -350,7 +357,7 @@ describe('Lote 5C — EntitlementService, Vínculo de Plano e Backfill (CorvFin 
     const limitInv = await entitlementService.getLimit(user, 'investimentos', 'maxItems');
     assert.strictEqual(limitInv, 25);
 
-    const limitAi = await entitlementService.getLimit(user, 'ai', 'questionsPerDay');
+    const limitAi = await entitlementService.getLimit(user, 'ai', 'creditsPerDay');
     assert.strictEqual(limitAi, 50);
   });
 
@@ -663,7 +670,7 @@ describe('Lote 5C — EntitlementService, Vínculo de Plano e Backfill (CorvFin 
       const reloaded = jsonStorage.getUsers();
       assert.strictEqual(reloaded[0].planId, defaultPlanInstance._id);
     } finally {
-      config.USERS_FILE = originalUsersFile;
+      config.USERS_FILE = tempTestUsersFile;
     }
   });
 
@@ -682,7 +689,7 @@ describe('Lote 5C — EntitlementService, Vínculo de Plano e Backfill (CorvFin 
       const reloaded = jsonStorage.getUsers();
       assert.strictEqual(reloaded[0].planId, defaultPlanInstance._id);
     } finally {
-      config.USERS_FILE = originalUsersFile;
+      config.USERS_FILE = tempTestUsersFile;
     }
   });
 
@@ -701,7 +708,7 @@ describe('Lote 5C — EntitlementService, Vínculo de Plano e Backfill (CorvFin 
       const reloaded = jsonStorage.getUsers();
       assert.strictEqual(reloaded[0].planId, 'plan_pro_existente');
     } finally {
-      config.USERS_FILE = originalUsersFile;
+      config.USERS_FILE = tempTestUsersFile;
     }
   });
 
@@ -720,7 +727,7 @@ describe('Lote 5C — EntitlementService, Vínculo de Plano e Backfill (CorvFin 
       const reloaded = jsonStorage.getUsers();
       assert.strictEqual(reloaded[0].planId, 'plan_inexistente_nao_migrar');
     } finally {
-      config.USERS_FILE = originalUsersFile;
+      config.USERS_FILE = tempTestUsersFile;
     }
   });
 
@@ -740,7 +747,7 @@ describe('Lote 5C — EntitlementService, Vínculo de Plano e Backfill (CorvFin 
       const res2 = await backfillUserPlans({ driver: 'json' });
       assert.strictEqual(res2.modifiedCount, 0, 'Segunda execução deve modificar 0 registros');
     } finally {
-      config.USERS_FILE = originalUsersFile;
+      config.USERS_FILE = tempTestUsersFile;
     }
   });
 
@@ -761,7 +768,7 @@ describe('Lote 5C — EntitlementService, Vínculo de Plano e Backfill (CorvFin 
       assert.strictEqual(res.matchedCount, 3);
       assert.strictEqual(res.defaultPlanId, defaultPlanInstance._id);
     } finally {
-      config.USERS_FILE = originalUsersFile;
+      config.USERS_FILE = tempTestUsersFile;
     }
   });
 
@@ -783,7 +790,7 @@ describe('Lote 5C — EntitlementService, Vínculo de Plano e Backfill (CorvFin 
       assert.strictEqual(bootPlan.isDefault, true);
     } finally {
       config.STORAGE_DRIVER = originalDriver;
-      config.PLANS_FILE = originalPlansFile;
+      config.PLANS_FILE = tempTestPlansFile;
       planService.clearCache();
     }
   });
@@ -824,7 +831,7 @@ describe('Lote 5C — EntitlementService, Vínculo de Plano e Backfill (CorvFin 
       });
     } finally {
       config.STORAGE_DRIVER = originalDriver;
-      config.PLANS_FILE = originalPlansFile;
+      config.PLANS_FILE = tempTestPlansFile;
       planService.clearCache();
     }
   });

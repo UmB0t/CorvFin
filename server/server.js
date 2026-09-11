@@ -2240,6 +2240,10 @@ app.post('/api/admin/plans', authMiddleware, adminOnlyMiddleware, async (req, re
       });
     }
 
+    if (body.pricing !== undefined) {
+      body.pricing = planService.validatePricingInput(body.pricing);
+    }
+
     const created = await planService.createPlan(body);
     return res.status(201).json({ success: true, plan: created });
   } catch (err) {
@@ -2313,6 +2317,10 @@ app.put('/api/admin/plans/:planId', authMiddleware, adminOnlyMiddleware, async (
         error: 'INVALID_REQUEST_FIELD',
         message: `Campos não permitidos na edição de plano: ${unknownKeys.join(', ')}`
       });
+    }
+
+    if (body.pricing !== undefined) {
+      body.pricing = planService.validatePricingInput(body.pricing);
     }
 
     const updated = await planService.updatePlan(planId, body);

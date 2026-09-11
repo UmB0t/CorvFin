@@ -8,6 +8,7 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 
 const config = require('../server/config/config');
 const app = require('../server/server');
@@ -26,6 +27,11 @@ describe('Lote 5H — Commercial Context & Active Plans Catalog', () => {
   let baseUrl;
   const isMongo = config.STORAGE_DRIVER === 'mongodb';
   let testDbInfo = null;
+
+  const originalStorageDriver = config.STORAGE_DRIVER;
+  const originalPlansFile = config.PLANS_FILE;
+  const originalUsersFile = config.USERS_FILE;
+  const tempTestDir = path.join(os.tmpdir(), `corvfin_test_comm_context_${Date.now()}_${Math.random().toString(36).slice(2)}`);
 
   const testUserA = {
     id: 'usr_comm_tester_a',
@@ -51,6 +57,13 @@ describe('Lote 5H — Commercial Context & Active Plans Catalog', () => {
   let tokenB;
 
   before(async () => {
+    if (!fs.existsSync(tempTestDir)) {
+      fs.mkdirSync(tempTestDir, { recursive: true });
+    }
+    // Protege server/data contra qualquer escrita em fallback JSON
+    config.PLANS_FILE = path.join(tempTestDir, 'plans.json');
+    config.USERS_FILE = path.join(tempTestDir, 'users.json');
+
     if (isMongo) {
       testDbInfo = await setupIsolatedTestMongo('comm_context');
     }
@@ -92,6 +105,14 @@ describe('Lote 5H — Commercial Context & Active Plans Catalog', () => {
     if (isMongo && testDbInfo) {
       await teardownIsolatedTestMongo(testDbInfo.testDbName);
     }
+    config.STORAGE_DRIVER = originalStorageDriver;
+    config.PLANS_FILE = originalPlansFile;
+    config.USERS_FILE = originalUsersFile;
+    if (fs.existsSync(tempTestDir)) {
+      try {
+        fs.rmSync(tempTestDir, { recursive: true, force: true });
+      } catch (e) {}
+    }
   });
 
   test('1. GET /api/me/commercial-context requer autenticação (401 se sem token)', async () => {
@@ -116,9 +137,11 @@ describe('Lote 5H — Commercial Context & Active Plans Catalog', () => {
     assert.ok(data.plan.slug);
     assert.equal(data.plan.status, 'active');
     assert.ok(data.plan.pricing);
-    assert.equal(typeof data.plan.pricing.amountCents, 'number');
     assert.equal(data.plan.pricing.currency, 'BRL');
-    assert.ok(['month', 'year', 'lifetime'].includes(data.plan.pricing.interval));
+    assert.ok(data.plan.pricing.offers, 'Pricing deve retornar ofertas canônicas');
+    assert.ok(data.plan.pricing.offers.monthly || data.plan.pricing.offers.yearly, 'Deve conter oferta monthly ou yearly');
+    assert.equal(data.plan.pricing.amountCents, undefined, 'amountCents não deve fazer parte do contrato canônico público');
+    assert.equal(data.plan.pricing.interval, undefined, 'interval não deve fazer parte do contrato canônico público');
 
     // NUNCA expõe campos confidenciais ou de sistema
     assert.equal(data.plan.password, undefined);

@@ -8,6 +8,9 @@
 const { describe, test, before, after } = require('node:test');
 const assert = require('node:assert');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const config = require('../server/config/config');
 const { getDB } = require('../server/config/db');
 const app = require('../server/server');
@@ -31,12 +34,24 @@ describe('Lote 5D — API Administrativa de Planos (CorvFin V2)', () => {
   let testUserId;
   let testDbInfo = null;
 
+  const originalStorageDriver = config.STORAGE_DRIVER;
+  const originalPlansFile = config.PLANS_FILE;
+  const originalUsersFile = config.USERS_FILE;
+  const tempTestDir = path.join(os.tmpdir(), `corvfin_test_5d_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+
   const testSuffix = 'adm_' + Date.now();
   const testAdminLogin = `admin_${testSuffix}`;
   const testUserLogin = `user_${testSuffix}`;
   const testPassword = 'Password@2026';
 
   before(async () => {
+    if (!fs.existsSync(tempTestDir)) {
+      fs.mkdirSync(tempTestDir, { recursive: true });
+    }
+    // Protege server/data contra qualquer escrita em fallback JSON
+    config.PLANS_FILE = path.join(tempTestDir, 'plans.json');
+    config.USERS_FILE = path.join(tempTestDir, 'users.json');
+
     // 1. Conecta ao banco descartável 100% isolado com fail-safe
     testDbInfo = await setupIsolatedTestMongo('admin_plans');
     const db = getDB();
@@ -116,6 +131,14 @@ describe('Lote 5D — API Administrativa de Planos (CorvFin V2)', () => {
     if (testDbInfo) {
       await teardownIsolatedTestMongo(testDbInfo.testDbName);
     }
+    config.STORAGE_DRIVER = originalStorageDriver;
+    config.PLANS_FILE = originalPlansFile;
+    config.USERS_FILE = originalUsersFile;
+    if (fs.existsSync(tempTestDir)) {
+      try {
+        fs.rmSync(tempTestDir, { recursive: true, force: true });
+      } catch (e) {}
+    }
   });
 
   // Helper para headers autenticados
@@ -159,8 +182,8 @@ describe('Lote 5D — API Administrativa de Planos (CorvFin V2)', () => {
     const aiRes = data.resources.find(r => r.key === 'ai');
     assert.ok(aiRes, 'Recurso AI deve constar no registry');
     assert.ok(Array.isArray(aiRes.availableLimits));
-    const qpd = aiRes.availableLimits.find(l => l.key === 'questionsPerDay');
-    assert.ok(qpd);
+    const qpd = aiRes.availableLimits.find(l => l.key === 'creditsPerDay');
+    assert.ok(qpd, 'Limite creditsPerDay deve constar em ai.availableLimits');
     assert.strictEqual(qpd.type, 'integer');
     assert.strictEqual(qpd.allowUnlimited, true);
   });
@@ -262,9 +285,12 @@ describe('Lote 5D — API Administrativa de Planos (CorvFin V2)', () => {
       description: 'Plano profissional para testes',
       status: 'active',
       pricing: {
-        amountCents: 2990,
         currency: 'BRL',
-        interval: 'month'
+        offers: {
+          monthly: {
+            regularPriceCents: 2990
+          }
+        }
       },
       entitlements: getCompatibilityEntitlements(),
       metadata: {
@@ -284,6 +310,8 @@ describe('Lote 5D — API Administrativa de Planos (CorvFin V2)', () => {
     assert.strictEqual(data.plan.name, 'Plano Pro Teste');
     assert.strictEqual(data.plan.slug, 'pro-teste');
     assert.strictEqual(data.plan.isDefault, false, 'Novo plano não pode ser default');
+    assert.strictEqual(data.plan.pricing.offers.monthly.regularPriceCents, 2990);
+    assert.strictEqual(data.plan.pricing.amountCents, undefined, 'amountCents não deve estar no retorno canônico');
     createdProPlanId = data.plan._id;
   });
 
@@ -292,7 +320,12 @@ describe('Lote 5D — API Administrativa de Planos (CorvFin V2)', () => {
       name: 'Plano Com Default Indevido',
       slug: 'plan-def-fail',
       isDefault: true,
-      pricing: { amountCents: 1000, currency: 'BRL', interval: 'month' },
+      pricing: {
+        currency: 'BRL',
+        offers: {
+          monthly: { regularPriceCents: 1000 }
+        }
+      },
       entitlements: getCompatibilityEntitlements()
     };
 
@@ -311,7 +344,12 @@ describe('Lote 5D — API Administrativa de Planos (CorvFin V2)', () => {
       name: 'Plano Com Campo Injetado',
       slug: 'plan-extra-field',
       unknownCustomField: 'malicious',
-      pricing: { amountCents: 1000, currency: 'BRL', interval: 'month' },
+      pricing: {
+        currency: 'BRL',
+        offers: {
+          monthly: { regularPriceCents: 1000 }
+        }
+      },
       entitlements: getCompatibilityEntitlements()
     };
 
@@ -332,7 +370,12 @@ describe('Lote 5D — API Administrativa de Planos (CorvFin V2)', () => {
     const payload = {
       name: 'Plano Com Recurso Inválido',
       slug: 'plan-bad-res',
-      pricing: { amountCents: 1000, currency: 'BRL', interval: 'month' },
+      pricing: {
+        currency: 'BRL',
+        offers: {
+          monthly: { regularPriceCents: 1000 }
+        }
+      },
       entitlements: badEntitlements
     };
 
@@ -352,7 +395,12 @@ describe('Lote 5D — API Administrativa de Planos (CorvFin V2)', () => {
     const payload = {
       name: 'Plano Com Limite Inválido',
       slug: 'plan-bad-lim',
-      pricing: { amountCents: 1000, currency: 'BRL', interval: 'month' },
+      pricing: {
+        currency: 'BRL',
+        offers: {
+          monthly: { regularPriceCents: 1000 }
+        }
+      },
       entitlements: badEntitlements
     };
 
@@ -366,11 +414,16 @@ describe('Lote 5D — API Administrativa de Planos (CorvFin V2)', () => {
     assert.strictEqual(data.error, 'UNKNOWN_LIMIT');
   });
 
-  test('17. POST /api/admin/plans rejeita pricing inválido (amountCents negativo ou decimal)', async () => {
+  test('17. POST /api/admin/plans rejeita pricing inválido (regularPriceCents negativo ou decimal)', async () => {
     const payload = {
       name: 'Plano Preço Inválido',
       slug: 'plan-bad-price',
-      pricing: { amountCents: -50, currency: 'BRL', interval: 'month' },
+      pricing: {
+        currency: 'BRL',
+        offers: {
+          monthly: { regularPriceCents: -50 }
+        }
+      },
       entitlements: getCompatibilityEntitlements()
     };
 
@@ -382,11 +435,38 @@ describe('Lote 5D — API Administrativa de Planos (CorvFin V2)', () => {
     assert.strictEqual(res.status, 400);
   });
 
+  test('17b. POST /api/admin/plans rejeita pricing no formato legado amountCents/interval (AE)', async () => {
+    const payload = {
+      name: 'Plano Preço Legado Rejeitado',
+      slug: 'plan-legacy-reject',
+      pricing: {
+        amountCents: 1000,
+        currency: 'BRL',
+        interval: 'month'
+      },
+      entitlements: getCompatibilityEntitlements()
+    };
+
+    const res = await fetch(`${baseUrl}/api/admin/plans`, {
+      method: 'POST',
+      headers: authHeader(adminToken),
+      body: JSON.stringify(payload)
+    });
+    assert.strictEqual(res.status, 400);
+    const data = await res.json();
+    assert.strictEqual(data.error, 'LEGACY_PRICING_NOT_ACCEPTED');
+  });
+
   test('18. POST /api/admin/plans rejeita slug duplicado com 400 SLUG_DUPLICATE', async () => {
     const payload = {
       name: 'Plano Slug Duplicado',
       slug: 'pro-teste', // Já criado no teste 12
-      pricing: { amountCents: 2000, currency: 'BRL', interval: 'month' },
+      pricing: {
+        currency: 'BRL',
+        offers: {
+          monthly: { regularPriceCents: 2000 }
+        }
+      },
       entitlements: getCompatibilityEntitlements()
     };
 
@@ -409,9 +489,12 @@ describe('Lote 5D — API Administrativa de Planos (CorvFin V2)', () => {
       name: 'Plano Pro Renomeado',
       description: 'Nova descrição do plano pro',
       pricing: {
-        amountCents: 3990,
         currency: 'BRL',
-        interval: 'month'
+        offers: {
+          monthly: {
+            regularPriceCents: 3990
+          }
+        }
       }
     };
 
@@ -423,7 +506,8 @@ describe('Lote 5D — API Administrativa de Planos (CorvFin V2)', () => {
     assert.strictEqual(res.status, 200);
     const data = await res.json();
     assert.strictEqual(data.plan.name, 'Plano Pro Renomeado');
-    assert.strictEqual(data.plan.pricing.amountCents, 3990);
+    assert.strictEqual(data.plan.pricing.offers.monthly.regularPriceCents, 3990);
+    assert.strictEqual(data.plan.pricing.amountCents, undefined);
   });
 
   test('20. PUT /api/admin/plans/:planId rejeita alteração de slug com 400 PLAN_SLUG_IMMUTABLE', async () => {
@@ -481,7 +565,12 @@ describe('Lote 5D — API Administrativa de Planos (CorvFin V2)', () => {
     const planB = await planService.createPlan({
       name: 'Plano Secundário',
       slug: 'secundario',
-      pricing: { amountCents: 1000, currency: 'BRL', interval: 'month' },
+      pricing: {
+        currency: 'BRL',
+        offers: {
+          monthly: { regularPriceCents: 1000 }
+        }
+      },
       entitlements: getCompatibilityEntitlements()
     });
     createdSecondaryPlanId = planB._id;

@@ -217,6 +217,38 @@
     }
   }
 
+  let activePlansCache = null;
+  let activePlansPromise = null;
+
+  async function getActivePlans(options = {}) {
+    const forceRefresh = Boolean(options && (options.forceRefresh || options.refresh));
+    if (!forceRefresh && activePlansCache) {
+      return activePlansCache;
+    }
+    if (!forceRefresh && activePlansPromise) {
+      return activePlansPromise;
+    }
+
+    activePlansPromise = (async () => {
+      try {
+        const res = await request('/api/plans', { method: 'GET' });
+        if (res && res.success) {
+          activePlansCache = res;
+        }
+        return res;
+      } finally {
+        activePlansPromise = null;
+      }
+    })();
+
+    return activePlansPromise;
+  }
+
+  function clearActivePlansCache() {
+    activePlansCache = null;
+    activePlansPromise = null;
+  }
+
   const API = {
     getBasePath,
     resolveUrl,
@@ -272,7 +304,8 @@
     getMe: () => request('/api/auth/me', { method: 'GET' }),
     getCommercialContext,
     clearCommercialContextCache,
-    getActivePlans: () => request('/api/plans', { method: 'GET' }),
+    getActivePlans,
+    clearActivePlansCache,
     updateProfile: (data) => request('/api/auth/profile', { method: 'PUT', body: JSON.stringify(data) }),
 
     // Finances endpoints
@@ -397,7 +430,23 @@
     return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
   }
 
+  const _recentToasts = new Map();
+
   function createToast(msg, type = 'info') {
+    if (!msg) return null;
+    const now = Date.now();
+    const key = `${type}:${msg}`;
+    const lastShown = _recentToasts.get(key) || 0;
+    if (now - lastShown < 2000) {
+      return null;
+    }
+    _recentToasts.set(key, now);
+    if (_recentToasts.size > 50) {
+      for (const [k, t] of _recentToasts) {
+        if (now - t > 10000) _recentToasts.delete(k);
+      }
+    }
+
     const container = getOrCreateToastContainer();
     const toast = document.createElement('div');
     const typeClass = (type === 'error' || type === 'danger') ? 'error' : (type === 'success' ? 'success' : (type === 'warning' ? 'warning' : 'info'));

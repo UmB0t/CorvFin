@@ -360,109 +360,77 @@
     }
   };
 
-  function createSkeletonRowHtml(count = 3, height = '44px') {
-    let html = '';
-    for (let i = 0; i < count; i++) {
-      html += `<div class="module-locked-skeleton-row" style="height:${height}; background:var(--surface-2, rgba(255,255,255,0.05)); border-radius:8px; margin-bottom:8px; opacity:0.5;"></div>`;
-    }
-    return html;
-  }
-
-  function createSkeletonCardHtml(count = 2, height = '90px') {
-    let html = '';
-    for (let i = 0; i < count; i++) {
-      html += `<div class="card module-locked-skeleton-card" style="height:${height}; background:var(--surface-2, rgba(255,255,255,0.05)); border-radius:12px; margin-bottom:12px; opacity:0.5;"></div>`;
-    }
-    return html;
-  }
-
-  function createSkeletonTableRowsHtml(cols = 6, rows = 2) {
-    let html = '';
-    for (let r = 0; r < rows; r++) {
-      html += `<tr class="module-locked-skeleton-tr">`;
-      for (let c = 0; c < cols; c++) {
-        html += `<td style="padding:12px;"><div style="height:14px; background:var(--surface-2, rgba(255,255,255,0.06)); border-radius:4px; opacity:0.5;"></div></td>`;
-      }
-      html += `</tr>`;
-    }
-    return html;
-  }
-
-  function sanitizeLockedModulePreview(container, tabId) {
+  function sanitizeLockedModuleContent(container, tabId) {
     if (!container || !tabId) return;
     const config = MODULE_DYNAMIC_SELECTORS[tabId];
-    if (!config) return;
-
-    // 1. Substituir listas por skeletons neutros
-    if (Array.isArray(config.lists)) {
-      config.lists.forEach(sel => {
-        const el = container.querySelector(sel);
-        if (el) {
-          if (config.listType === 'cards') {
-            el.innerHTML = createSkeletonCardHtml(2, '90px');
-          } else {
-            el.innerHTML = createSkeletonRowHtml(3, '44px');
+    if (config) {
+      // 1. Limpar listas dinâmicas
+      if (Array.isArray(config.lists)) {
+        config.lists.forEach(sel => {
+          const el = container.querySelector(sel);
+          if (el) {
+            el.innerHTML = '';
           }
-        }
-      });
-    }
+        });
+      }
 
-    // 2. Substituir tabelas por linhas skeleton neutras
-    if (Array.isArray(config.tables)) {
-      config.tables.forEach(t => {
-        const tbody = container.querySelector(t.selector);
-        if (tbody) {
-          tbody.innerHTML = createSkeletonTableRowsHtml(t.cols || 6, t.rows || 2);
-        }
-      });
-    }
-
-    // 3. Limpar gráficos e seções de insights
-    if (Array.isArray(config.charts)) {
-      config.charts.forEach(sel => {
-        const chart = container.querySelector(sel);
-        if (chart) {
-          chart.innerHTML = '';
-        }
-      });
-    }
-
-    // 4. Resetar totais e badges para placeholders neutros
-    if (Array.isArray(config.totals)) {
-      config.totals.forEach(sel => {
-        const tot = container.querySelector(sel);
-        if (tot) {
-          if (sel.includes('SummaryText')) {
-            tot.textContent = sel.includes('Avg') ? 'Média: R$ 0,00' : 'Total: R$ 0,00';
-          } else if (sel.includes('CountBadge')) {
-            tot.textContent = '0 cenários';
-          } else {
-            tot.textContent = 'R$ 0,00';
+      // 2. Limpar tabelas
+      if (Array.isArray(config.tables)) {
+        config.tables.forEach(t => {
+          const tbody = container.querySelector(t.selector);
+          if (tbody) {
+            tbody.innerHTML = '';
           }
-        }
-      });
-    }
+        });
+      }
 
-    // 5. Resetar contêineres de métricas
-    if (Array.isArray(config.metricContainers)) {
-      config.metricContainers.forEach(sel => {
-        const mWrap = container.querySelector(sel);
-        if (mWrap) {
-          const subSelectors = ['.metric-val', '.metric-value', '.metric-num', '.stat-value', '.num', 'span', 'h3', 'p'];
-          subSelectors.forEach(subSel => {
-            mWrap.querySelectorAll(subSel).forEach(el => {
-              if ((/R\$|\d/.test(el.textContent)) && (!el.children || el.children.length === 0)) {
-                el.textContent = 'R$ 0,00';
-              }
+      // 3. Limpar gráficos e seções de insights
+      if (Array.isArray(config.charts)) {
+        config.charts.forEach(sel => {
+          const chart = container.querySelector(sel);
+          if (chart) {
+            chart.innerHTML = '';
+          }
+        });
+      }
+
+      // 4. Resetar totais e badges para placeholders neutros
+      if (Array.isArray(config.totals)) {
+        config.totals.forEach(sel => {
+          const tot = container.querySelector(sel);
+          if (tot) {
+            if (sel.includes('SummaryText')) {
+              tot.textContent = sel.includes('Avg') ? 'Média: R$ 0,00' : 'Total: R$ 0,00';
+            } else if (sel.includes('CountBadge')) {
+              tot.textContent = '0 cenários';
+            } else {
+              tot.textContent = 'R$ 0,00';
+            }
+          }
+        });
+      }
+
+      // 5. Resetar contêineres de métricas
+      if (Array.isArray(config.metricContainers)) {
+        config.metricContainers.forEach(sel => {
+          const mWrap = container.querySelector(sel);
+          if (mWrap) {
+            const subSelectors = ['.metric-val', '.metric-value', '.metric-num', '.stat-value', '.num', 'span', 'h3', 'p'];
+            subSelectors.forEach(subSel => {
+              mWrap.querySelectorAll(subSel).forEach(el => {
+                if ((/R\$|\d/.test(el.textContent)) && (!el.children || el.children.length === 0)) {
+                  el.textContent = 'R$ 0,00';
+                }
+              });
             });
-          });
-        }
-      });
-    }
+          }
+        });
+      }
 
-    // 6. Cleanup customizado por módulo se houver
-    if (typeof config.cleanup === 'function') {
-      config.cleanup(container);
+      // 6. Cleanup customizado por módulo se houver
+      if (typeof config.cleanup === 'function') {
+        config.cleanup(container);
+      }
     }
 
     // 7. Limpar valores de inputs e formulários dentro do módulo
@@ -471,77 +439,289 @@
         input.value = '';
       }
     });
+
+    // 8. Ocultar seções operacionais, filtros e formulários internos (preservando eventual header)
+    Array.from(container.children).forEach(child => {
+      if (!child.classList || (!child.classList.contains('module-contextual-upgrade-view') && !child.classList.contains('access-denied-screen-overlay') && !child.classList.contains('module-header'))) {
+        child.setAttribute('data-plan-denied-hidden', 'true');
+        child.style.display = 'none';
+        child.setAttribute('aria-hidden', 'true');
+        child.setAttribute('inert', '');
+        child.inert = true;
+      }
+    });
+
+    // Se houver .module-header existente, oculta seus botões e toolbar
+    const existingHeader = container.querySelector('.module-header');
+    if (existingHeader) {
+      existingHeader.querySelectorAll('.toolbar-group, button, .subtabs-nav').forEach(el => {
+        el.setAttribute('data-plan-denied-hidden', 'true');
+        el.style.display = 'none';
+      });
+    }
   }
 
+  // Alias retrocompatível
+  const sanitizeLockedModulePreview = sanitizeLockedModuleContent;
+
   function clearLockedModuleSkeletons(container, tabId) {
-    if (!container || !tabId) return;
-    const config = MODULE_DYNAMIC_SELECTORS[tabId];
-    if (!config) return;
-
-    if (Array.isArray(config.lists)) {
-      config.lists.forEach(sel => {
-        const el = container.querySelector(sel);
-        if (el) {
-          const skeletons = el.querySelectorAll('.module-locked-skeleton-row, .module-locked-skeleton-card');
-          if (skeletons && skeletons.length > 0) {
-            el.innerHTML = '';
-          }
-        }
-      });
-    }
-
-    if (Array.isArray(config.tables)) {
-      config.tables.forEach(t => {
-        const tbody = container.querySelector(t.selector);
-        if (tbody) {
-          const skeletons = tbody.querySelectorAll('.module-locked-skeleton-tr');
-          if (skeletons && skeletons.length > 0) {
-            tbody.innerHTML = '';
-          }
-        }
-      });
-    }
-
+    if (!container) return;
     const placeholder = container.querySelector('.module-locked-placeholder-text');
     if (placeholder) {
       placeholder.remove();
     }
   }
 
-  function ensureModulePreviewShell(container, tabId) {
-    if (!container) return;
-    const nonOverlayChildren = Array.from(container.children).filter(c =>
-      !c.classList || (!c.classList.contains('access-denied-screen-overlay') && !c.classList.contains('maintenance-screen-overlay'))
-    );
-    if (nonOverlayChildren.length > 0) return;
+  function escapeHtmlSafe(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
 
-    if (tabId === 'tab-shopping') {
-      const shell = document.createElement('div');
-      shell.className = 'module-preview-structural-shell';
-      shell.innerHTML = `
-        <div class="module-header">
-          <div>
-            <h2 style="font-size:1.4rem; font-weight:800; margin:0;">Lista de Compras</h2>
-            <p style="margin:2px 0 0; color:var(--muted); font-size:.84rem; font-weight:600;">Planejamento e controle de itens de compras com comparativo de preços e categorias.</p>
-          </div>
-          <div class="toolbar-group">
-            <button type="button" class="btn primary small pill">+ Nova Lista</button>
-          </div>
-        </div>
-        <div class="card section-card full-width" style="padding:16px 20px; margin-bottom:20px; border-radius:14px;">
-          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <input type="text" placeholder="Ex: Compras do Mês, Supermercado..." disabled style="flex:1; min-width:200px; padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:var(--surface-2); color:var(--text);">
-            <button type="button" class="btn primary" disabled style="border-radius:10px; font-weight:800;">+ Criar Nova Lista</button>
-          </div>
-        </div>
-        <div class="sections-grid">
-          <div class="card" style="padding:24px; text-align:center; color:var(--muted); border-radius:14px;">
-            <p style="margin:0; font-weight:600;">Suas listas de compras organizadas por categoria e status de aquisição.</p>
-          </div>
-        </div>
-      `;
-      container.insertBefore(shell, container.firstChild);
+  let contextualRequestTokenSeq = 0;
+
+  async function renderContextualUpgradePage(container, tabId, user, access) {
+    if (!container || !tabId) return;
+
+    const moduleName = titleMap[tabId] || (typeof TAB_TITLES !== 'undefined' && TAB_TITLES[tabId]) || 'Módulo';
+    const moduleSub = subMap[tabId] || '';
+    const safeModuleName = escapeHtmlSafe(moduleName);
+
+    // Resolve nome do plano atual (se disponível no commercial-context em cache)
+    let currentPlanName = '';
+    let currentPlanId = null;
+    let isLegacyCurrentPlan = false;
+    let cachedCtx = (typeof window !== 'undefined' && window._cachedCommercialContext) ? window._cachedCommercialContext : null;
+    if (!cachedCtx && typeof window !== 'undefined' && typeof window.fetchCommercialContext === 'function') {
+      try { cachedCtx = await window.fetchCommercialContext(false); } catch (_) {}
     }
+    if (cachedCtx && cachedCtx.plan) {
+      currentPlanName = cachedCtx.plan.name || '';
+      currentPlanId = cachedCtx.plan.id || cachedCtx.plan.slug;
+      isLegacyCurrentPlan = (cachedCtx.plan.status === 'inactive' || cachedCtx.plan.status === 'archived');
+    }
+
+    // 1. Sanitização estrita do conteúdo prévio
+    sanitizeLockedModuleContent(container, tabId);
+
+    // 2. Garante contêiner contextual
+    let contextualWrap = container.querySelector('.module-contextual-upgrade-view');
+    if (!contextualWrap) {
+      contextualWrap = document.createElement('div');
+      contextualWrap.className = 'module-contextual-upgrade-view';
+      container.appendChild(contextualWrap);
+    } else {
+      contextualWrap.style.display = 'flex';
+    }
+
+    // Se o container NÃO possuir .module-header no DOM, renderiza header contextual
+    const existingHeader = container.querySelector('.module-header');
+    const headerHtml = !existingHeader ? `
+      <div class="module-contextual-header">
+        <h2 class="module-contextual-title">${safeModuleName}</h2>
+        ${moduleSub ? `<p class="module-contextual-sub">${escapeHtmlSafe(moduleSub)}</p>` : ''}
+      </div>
+    ` : '';
+
+    const noticeDesc = currentPlanName
+      ? `Seu plano atual, <strong>${escapeHtmlSafe(currentPlanName)}</strong>, não inclui ${safeModuleName}. Este recurso está disponível nos planos abaixo.`
+      : `Seu plano atual não inclui ${safeModuleName}. Este recurso está disponível nos planos abaixo.`;
+
+    const wrapId = `ctx_${tabId}_${Date.now()}`;
+    contextualWrap.innerHTML = `
+      ${headerHtml}
+      <div class="module-contextual-notice" role="region" aria-label="Aviso de recurso bloqueado">
+        <div class="contextual-notice-icon" aria-hidden="true">
+          <svg class="svg-icon svg-lock" viewBox="0 0 24 24" style="width:22px;height:22px;stroke:currentColor;stroke-width:2.2;fill:none;">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        </div>
+        <div class="contextual-notice-content">
+          <div class="contextual-notice-title">Recurso não disponível no seu plano</div>
+          <p class="contextual-notice-desc">${noticeDesc}</p>
+        </div>
+      </div>
+
+      <div class="contextual-plans-section">
+        <div class="contextual-plans-header">
+          <div class="contextual-plans-title-wrap">
+            <h3 class="contextual-plans-title">Planos que incluem ${safeModuleName}</h3>
+          </div>
+          <div class="plans-billing-toggle contextual-billing-toggle" role="group" aria-label="Ciclo de cobrança">
+            <button type="button" class="plans-toggle-btn btn-interval-toggle btn-ctx-monthly active" aria-pressed="true">Mensal</button>
+            <button type="button" class="plans-toggle-btn btn-interval-toggle btn-ctx-yearly" aria-pressed="false">
+              Anual <span class="plans-toggle-discount-badge contextual-savings-badge" style="display:none;"></span>
+            </button>
+          </div>
+        </div>
+
+        <div class="contextual-carousel-wrapper">
+          <div class="contextual-carousel-viewport" id="ctxViewport_${wrapId}">
+            <div class="contextual-plans-track plans-carousel-track" id="ctxTrack_${wrapId}">
+              <div class="contextual-plans-loading" role="status" aria-live="polite" style="padding:32px 16px; text-align:center; width:100%;">
+                <p style="margin:0; font-size:0.90rem; color:var(--muted); font-weight:600;">Carregando planos disponíveis...</p>
+              </div>
+            </div>
+          </div>
+          <div class="contextual-carousel-nav" id="ctxNav_${wrapId}" style="display:none;">
+            <button type="button" class="btn-carousel-ctrl prev" id="ctxBtnPrev_${wrapId}" aria-label="Plano anterior" disabled>‹</button>
+            <button type="button" class="btn-carousel-ctrl next" id="ctxBtnNext_${wrapId}" aria-label="Próximo plano">›</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const trackEl = contextualWrap.querySelector(`#ctxTrack_${wrapId}`);
+    const viewportEl = contextualWrap.querySelector(`#ctxViewport_${wrapId}`);
+    const btnPrev = contextualWrap.querySelector(`#ctxBtnPrev_${wrapId}`);
+    const btnNext = contextualWrap.querySelector(`#ctxBtnNext_${wrapId}`);
+    const navEl = contextualWrap.querySelector(`#ctxNav_${wrapId}`);
+    const btnMonthly = contextualWrap.querySelector('.btn-ctx-monthly');
+    const btnYearly = contextualWrap.querySelector('.btn-ctx-yearly');
+    const savingsBadge = contextualWrap.querySelector('.contextual-savings-badge');
+
+    let contextualInterval = (typeof window !== 'undefined' && typeof window.getActiveInterval === 'function' ? window.getActiveInterval() : 'monthly') || 'monthly';
+    if (contextualInterval === 'yearly') {
+      btnYearly?.classList.add('active');
+      btnYearly?.setAttribute('aria-pressed', 'true');
+      btnMonthly?.classList.remove('active');
+      btnMonthly?.setAttribute('aria-pressed', 'false');
+    } else {
+      btnMonthly?.classList.add('active');
+      btnMonthly?.setAttribute('aria-pressed', 'true');
+      btnYearly?.classList.remove('active');
+      btnYearly?.setAttribute('aria-pressed', 'false');
+    }
+
+    // Race condition token
+    const token = ++contextualRequestTokenSeq;
+    container._contextualToken = token;
+
+    async function loadAndRenderPlans() {
+      let allPlans = [];
+      try {
+        if (typeof window !== 'undefined' && typeof window.fetchActivePlans === 'function') {
+          allPlans = await window.fetchActivePlans();
+        } else if (typeof API !== 'undefined' && typeof API.getActivePlans === 'function') {
+          const res = await API.getActivePlans();
+          allPlans = Array.isArray(res?.plans) ? res.plans : (Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []));
+        }
+      } catch (err) {
+        if (container._contextualToken !== token) return;
+        if (trackEl) {
+          trackEl.innerHTML = `
+            <div class="contextual-plans-error" style="text-align:center; padding:32px 16px; width:100%;">
+              <p style="margin:0 0 12px; font-size:0.90rem; color:var(--danger, #ef4444); font-weight:600;">Não foi possível carregar os planos no momento.</p>
+              <button type="button" class="btn soft small btn-retry-contextual">Tentar novamente</button>
+            </div>
+          `;
+          trackEl.querySelector('.btn-retry-contextual')?.addEventListener('click', () => {
+            loadAndRenderPlans();
+          });
+        }
+        return;
+      }
+
+      if (container._contextualToken !== token) return;
+      if (typeof window !== 'undefined' && window.currentActiveTab && window.currentActiveTab !== tabId) return;
+
+      const resourceKey = TAB_PERMISSION_MAP[tabId];
+      const eligiblePlans = (typeof window !== 'undefined' && typeof window.filterPlansByResource === 'function')
+        ? window.filterPlansByResource(allPlans, resourceKey)
+        : allPlans.filter(p => Array.isArray(p.includedResources) && p.includedResources.includes(resourceKey));
+
+      // Atualiza badge de economia anual
+      if (savingsBadge && typeof window !== 'undefined' && typeof window.calculateMaxAnnualSavings === 'function') {
+        const maxSavings = window.calculateMaxAnnualSavings(eligiblePlans);
+        if (maxSavings > 0) {
+          savingsBadge.style.display = 'inline-flex';
+          savingsBadge.textContent = `Economize até ${maxSavings}%`;
+        } else {
+          savingsBadge.style.display = 'none';
+        }
+      }
+
+      function doRender() {
+        if (!trackEl) return;
+        if (typeof window !== 'undefined' && typeof window.renderCommercialPlansView === 'function') {
+          window.renderCommercialPlansView(trackEl, eligiblePlans, {
+            mode: 'contextual',
+            resourceKey,
+            currentPlanId,
+            currentPlanName,
+            isLegacyCurrentPlan,
+            activeInterval: contextualInterval,
+            viewport: viewportEl,
+            btnPrev,
+            btnNext,
+            updateCarousel: false
+          });
+        }
+        updateContextualControls();
+      }
+
+      function updateContextualControls() {
+        if (!viewportEl || !btnPrev || !btnNext || !navEl) return;
+        const scrollWidth = viewportEl.scrollWidth || 0;
+        const clientWidth = viewportEl.clientWidth || 0;
+        const hasOverflow = scrollWidth > clientWidth + 8;
+        if (!hasOverflow || eligiblePlans.length <= 4) {
+          navEl.style.display = 'none';
+          btnPrev.style.display = 'none';
+          btnNext.style.display = 'none';
+          return;
+        }
+        navEl.style.display = 'flex';
+        btnPrev.style.display = 'flex';
+        btnNext.style.display = 'flex';
+        const scrollLeft = viewportEl.scrollLeft || 0;
+        btnPrev.disabled = scrollLeft <= 4;
+        btnPrev.style.opacity = btnPrev.disabled ? '0.35' : '1';
+        btnNext.disabled = (scrollLeft + clientWidth) >= (scrollWidth - 6);
+        btnNext.style.opacity = btnNext.disabled ? '0.35' : '1';
+      }
+
+      btnMonthly?.addEventListener('click', () => {
+        contextualInterval = 'monthly';
+        btnMonthly.classList.add('active');
+        btnMonthly.setAttribute('aria-pressed', 'true');
+        btnYearly?.classList.remove('active');
+        btnYearly?.setAttribute('aria-pressed', 'false');
+        doRender();
+      });
+
+      btnYearly?.addEventListener('click', () => {
+        contextualInterval = 'yearly';
+        btnYearly.classList.add('active');
+        btnYearly.setAttribute('aria-pressed', 'true');
+        btnMonthly?.classList.remove('active');
+        btnMonthly?.setAttribute('aria-pressed', 'false');
+        doRender();
+      });
+
+      btnPrev?.addEventListener('click', () => {
+        if (typeof viewportEl.scrollBy === 'function') {
+          viewportEl.scrollBy({ left: -320, behavior: 'smooth' });
+        }
+      });
+
+      btnNext?.addEventListener('click', () => {
+        if (typeof viewportEl.scrollBy === 'function') {
+          viewportEl.scrollBy({ left: 320, behavior: 'smooth' });
+        }
+      });
+
+      viewportEl?.addEventListener('scroll', updateContextualControls, { passive: true });
+
+      doRender();
+    }
+
+    loadAndRenderPlans();
   }
 
   function checkModuleAccess(tabId) {
@@ -560,71 +740,20 @@
       const safeModuleName = typeof escapeHtml === 'function' ? escapeHtml(moduleName) : String(moduleName || '').replace(/[&<>"']/g, '');
 
       if (isPlanDenied) {
-        // 1. Sanitização obrigatória de dados financeiros previamente renderizados no DOM
-        sanitizeLockedModulePreview(container, tabId);
-
-        // 2. Experiência de Preview Seguro (PLAN_DENIED)
-        container.classList.add('tab-content--plan-locked');
-
-        ensureModulePreviewShell(container, tabId);
-
-        // Filhos reais permanecem no DOM como preview visual de fundo, mas totalmente inertes e inacessíveis
-        Array.from(container.children).forEach(child => {
-          if (child !== accessOverlay && (!child.classList || !child.classList.contains('maintenance-screen-overlay'))) {
-            child.removeAttribute('data-access-hidden');
-            child.style.display = '';
-            child.setAttribute('aria-hidden', 'true');
-            child.setAttribute('inert', '');
-            child.inert = true;
-            if (child.classList && !child.classList.contains('module-locked-preview-inert')) {
-              child.classList.add('module-locked-preview-inert');
-            }
-          }
-        });
-
-        if (!accessOverlay) {
-          accessOverlay = document.createElement('div');
-          accessOverlay.className = 'access-denied-screen-overlay plan-denied module-locked-overlay';
-          container.appendChild(accessOverlay);
-        } else {
-          accessOverlay.style.display = 'flex';
-          accessOverlay.className = 'access-denied-screen-overlay plan-denied module-locked-overlay';
+        if (accessOverlay) {
+          accessOverlay.style.display = 'none';
         }
 
-        accessOverlay.innerHTML = `
-          <div class="module-locked-card" role="region" aria-labelledby="lockedCardTitle" aria-describedby="lockedCardDesc">
-            <div class="module-locked-icon-wrap" aria-hidden="true">
-              <svg class="svg-icon svg-locked-hero" viewBox="0 0 24 24">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-              </svg>
-            </div>
-            <div class="module-locked-eyebrow">Plano CorvFin</div>
-            <h2 id="lockedCardTitle" class="module-locked-title">Este recurso não está disponível no seu plano.</h2>
-            <p id="lockedCardDesc" class="module-locked-desc">
-              O recurso <strong>${safeModuleName}</strong> está disponível em outros planos. Faça upgrade para desbloquear ${safeModuleName} e aproveitar mais recursos do CorvFin.
-            </p>
-            <div class="module-locked-actions">
-              <button type="button" class="btn primary btn-open-commercial-plans" id="btnAccessDeniedUpgrade">
-                Ver Planos
-              </button>
-            </div>
-          </div>
-        `;
+        container.classList.add('tab-content--plan-locked', 'tab-content--plan-denied');
 
-        const upgradeBtn = accessOverlay.querySelector('#btnAccessDeniedUpgrade');
-        upgradeBtn?.addEventListener('click', () => {
-          if (typeof window.openCommercialPlansModal === 'function') {
-            window.openCommercialPlansModal();
-          }
-        });
-
-        if (upgradeBtn && typeof upgradeBtn.focus === 'function') {
-          try { upgradeBtn.focus({ preventScroll: true }); } catch (_) {}
-        }
+        renderContextualUpgradePage(container, tabId, null, access);
       } else {
-        // 2. Experiência de Acesso Restrito Neutro (RBAC_DENIED)
-        container.classList.remove('tab-content--plan-locked');
+        // RBAC_DENIED (Acesso Restrito Neutro)
+        container.classList.remove('tab-content--plan-locked', 'tab-content--plan-denied');
+        const contextualView = container.querySelector('.module-contextual-upgrade-view');
+        if (contextualView) {
+          contextualView.style.display = 'none';
+        }
 
         Array.from(container.children).forEach(child => {
           if (child !== accessOverlay && (!child.classList || !child.classList.contains('maintenance-screen-overlay'))) {
@@ -633,7 +762,6 @@
             child.removeAttribute('aria-hidden');
             child.removeAttribute('inert');
             child.inert = false;
-            if (child.classList) child.classList.remove('module-locked-preview-inert');
           }
         });
 
@@ -665,11 +793,23 @@
 
       return { allowed: false, reason: isPlanDenied ? 'PLAN_DENIED' : 'RBAC_DENIED', access };
     } else {
-      const wasLocked = container.classList.contains('tab-content--plan-locked');
+      // ALLOWED
+      const contextualView = container.querySelector('.module-contextual-upgrade-view');
+      if (contextualView) {
+        contextualView.style.display = 'none';
+        if (typeof contextualView.remove === 'function') {
+          contextualView.remove();
+        } else if (contextualView.parentNode) {
+          contextualView.parentNode.removeChild(contextualView);
+        }
+      }
+      container.classList.remove('tab-content--plan-denied');
+      container.classList.remove('tab-content--plan-locked');
+
       if (accessOverlay) {
         accessOverlay.style.display = 'none';
       }
-      container.classList.remove('tab-content--plan-locked');
+
       if (container && container.children) {
         Array.from(container.children).forEach(child => {
           if (child !== accessOverlay && (!child.classList || !child.classList.contains('maintenance-screen-overlay'))) {
@@ -677,24 +817,26 @@
               child.removeAttribute('data-access-hidden');
               child.style.display = '';
             }
+            if (typeof child.getAttribute === 'function' && child.getAttribute('data-plan-denied-hidden') === 'true') {
+              child.removeAttribute('data-plan-denied-hidden');
+              child.style.display = '';
+            }
             child.removeAttribute('aria-hidden');
             child.removeAttribute('inert');
             child.inert = false;
-            if (child.classList) child.classList.remove('module-locked-preview-inert');
           }
         });
       }
 
-      // Se o módulo estava previamente bloqueado por plano e voltou a ser permitido,
-      // limpar skeletons e acionar a reconstrução normal de dados
-      if (wasLocked) {
-        clearLockedModuleSkeletons(container, tabId);
-        if (!container.hidden && typeof window.renderTabContent === 'function') {
-          try {
-            window.renderTabContent(tabId);
-          } catch (_) {}
-        }
+      const existingH = container.querySelector('.module-header');
+      if (existingH) {
+        existingH.querySelectorAll('[data-plan-denied-hidden="true"]').forEach(el => {
+          el.removeAttribute('data-plan-denied-hidden');
+          el.style.display = '';
+        });
       }
+
+      clearLockedModuleSkeletons(container, tabId);
 
       return { allowed: true, reason: null, access };
     }
@@ -1020,16 +1162,20 @@
     if (subEl && subMap[targetTabId]) subEl.textContent = subMap[targetTabId];
 
     if (accessCheck.allowed) {
-      if (targetTabId === 'tab-dashboard' && typeof window.renderConsolidatedDashboardTab === 'function') {
-        window.renderConsolidatedDashboardTab();
-      } else if (targetTabId === 'tab-profile') {
-        if (typeof window.renderProfile === 'function') {
-          window.renderProfile();
-        } else if (typeof window.renderProfilePlanCard === 'function') {
-          window.renderProfilePlanCard();
+      if (typeof window.renderTabContent === 'function') {
+        window.renderTabContent(targetTabId);
+      } else {
+        if (targetTabId === 'tab-dashboard' && typeof window.renderConsolidatedDashboardTab === 'function') {
+          window.renderConsolidatedDashboardTab();
+        } else if (targetTabId === 'tab-profile') {
+          if (typeof window.renderProfile === 'function') {
+            window.renderProfile();
+          } else if (typeof window.renderProfilePlanCard === 'function') {
+            window.renderProfilePlanCard();
+          }
+        } else if (targetTabId === 'tab-simulation' && typeof window.renderSimulationTab === 'function') {
+          window.renderSimulationTab();
         }
-      } else if (targetTabId === 'tab-simulation' && typeof window.renderSimulationTab === 'function') {
-        window.renderSimulationTab();
       }
     }
 

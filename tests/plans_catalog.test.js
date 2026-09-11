@@ -35,6 +35,7 @@ const { test, describe, before, after, beforeEach, afterEach } = require('node:t
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 
 const config = require('../server/config/config');
 const { getDB } = require('../server/config/db');
@@ -56,11 +57,20 @@ const {
 describe('Lote 5B — Foundations & Storage de Planos (CorvFin V2)', () => {
   const createdTestPlanIds = [];
   let isMongo = config.STORAGE_DRIVER === 'mongodb';
+  const originalStorageDriver = config.STORAGE_DRIVER;
   let originalPlansFile = config.PLANS_FILE;
-  const tempTestPlansFile = path.join(__dirname, `test_plans_${Date.now()}.json`);
+  let originalUsersFile = config.USERS_FILE;
+  const tempTestDir = path.join(os.tmpdir(), `corvfin_test_5b_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+  const tempTestPlansFile = path.join(tempTestDir, 'plans.json');
   let testDbInfo = null;
 
   before(async () => {
+    if (!fs.existsSync(tempTestDir)) {
+      fs.mkdirSync(tempTestDir, { recursive: true });
+    }
+    config.PLANS_FILE = tempTestPlansFile;
+    config.USERS_FILE = path.join(tempTestDir, 'users.json');
+
     if (isMongo) {
       testDbInfo = await setupIsolatedTestMongo('plans');
     }
@@ -72,13 +82,15 @@ describe('Lote 5B — Foundations & Storage de Planos (CorvFin V2)', () => {
       await teardownIsolatedTestMongo(testDbInfo.testDbName);
     }
 
-    // Cleanup de arquivo temporário se criado
-    if (fs.existsSync(tempTestPlansFile)) {
+    config.STORAGE_DRIVER = originalStorageDriver;
+    config.PLANS_FILE = originalPlansFile;
+    config.USERS_FILE = originalUsersFile;
+
+    if (fs.existsSync(tempTestDir)) {
       try {
-        fs.unlinkSync(tempTestPlansFile);
+        fs.rmSync(tempTestDir, { recursive: true, force: true });
       } catch (e) {}
     }
-    config.PLANS_FILE = originalPlansFile;
   });
 
   beforeEach(() => {
@@ -120,36 +132,27 @@ describe('Lote 5B — Foundations & Storage de Planos (CorvFin V2)', () => {
     assert.strictEqual(ENTITLEMENT_REGISTRY.configuracoes, undefined);
   });
 
-  test('2. Limits permitidos por resource declaram metadados rigorosos e despesas não tem limits no MVP', () => {
+  test('2. Limits permitidos por resource declaram metadados rigorosos e despesas possui maxItems', () => {
     // Recursos sem limits
     assert.strictEqual(ENTITLEMENT_REGISTRY.dashboard.availableLimits.length, 0);
-    assert.strictEqual(ENTITLEMENT_REGISTRY.despesas.availableLimits.length, 0);
-    assert.strictEqual(ENTITLEMENT_REGISTRY.extras.availableLimits.length, 0);
-    assert.strictEqual(ENTITLEMENT_REGISTRY.beneficios.availableLimits.length, 0);
-    assert.strictEqual(ENTITLEMENT_REGISTRY.compras.availableLimits.length, 0);
     assert.strictEqual(ENTITLEMENT_REGISTRY.simulacao.availableLimits.length, 0);
     assert.strictEqual(ENTITLEMENT_REGISTRY.relatorios.availableLimits.length, 0);
 
-    // Devedores: apenas maxItems
-    assert.strictEqual(ENTITLEMENT_REGISTRY.devedores.availableLimits.length, 1);
-    const devLimit = ENTITLEMENT_REGISTRY.devedores.availableLimits[0];
-    assert.strictEqual(devLimit.key, 'maxItems');
-    assert.strictEqual(devLimit.type, 'integer');
-    assert.strictEqual(devLimit.min, 0);
-    assert.strictEqual(devLimit.allowUnlimited, true);
+    // Recursos quantitativos com maxItems (Fase 5F)
+    const quantitativeResources = ['despesas', 'extras', 'devedores', 'investimentos', 'beneficios', 'compras'];
+    for (const resKey of quantitativeResources) {
+      assert.strictEqual(ENTITLEMENT_REGISTRY[resKey].availableLimits.length, 1, `Recurso "${resKey}" deve ter exatamente 1 limite`);
+      const lim = ENTITLEMENT_REGISTRY[resKey].availableLimits[0];
+      assert.strictEqual(lim.key, 'maxItems', `Limite de "${resKey}" deve ser "maxItems"`);
+      assert.strictEqual(lim.type, 'integer');
+      assert.strictEqual(lim.min, 0);
+      assert.strictEqual(lim.allowUnlimited, true);
+    }
 
-    // Investimentos: apenas maxItems
-    assert.strictEqual(ENTITLEMENT_REGISTRY.investimentos.availableLimits.length, 1);
-    const invLimit = ENTITLEMENT_REGISTRY.investimentos.availableLimits[0];
-    assert.strictEqual(invLimit.key, 'maxItems');
-    assert.strictEqual(invLimit.type, 'integer');
-    assert.strictEqual(invLimit.min, 0);
-    assert.strictEqual(invLimit.allowUnlimited, true);
-
-    // IA: apenas questionsPerDay
+    // IA: creditsPerDay (Fase 5G)
     assert.strictEqual(ENTITLEMENT_REGISTRY.ai.availableLimits.length, 1);
     const aiLimit = ENTITLEMENT_REGISTRY.ai.availableLimits[0];
-    assert.strictEqual(aiLimit.key, 'questionsPerDay');
+    assert.strictEqual(aiLimit.key, 'creditsPerDay');
     assert.strictEqual(aiLimit.type, 'integer');
     assert.strictEqual(aiLimit.min, 0);
     assert.strictEqual(aiLimit.allowUnlimited, true);
@@ -180,9 +183,13 @@ describe('Lote 5B — Foundations & Storage de Planos (CorvFin V2)', () => {
     assert.ok(plan._id.startsWith('plan_'));
     assert.strictEqual(plan.name, 'Plano Profissional');
     assert.strictEqual(plan.slug, slug);
-    assert.strictEqual(plan.pricing.amountCents, 2990);
+    assert.ok(plan.pricing.offers, 'plan.pricing.offers deve existir');
+    assert.ok(plan.pricing.offers.monthly, 'plan.pricing.offers.monthly deve existir');
+    assert.strictEqual(plan.pricing.offers.monthly.regularPriceCents, 2990);
+    assert.strictEqual(plan.pricing.offers.monthly.interval, 'month');
     assert.strictEqual(plan.pricing.currency, 'BRL');
-    assert.strictEqual(plan.pricing.interval, 'month');
+    assert.strictEqual(plan.pricing.amountCents, undefined, 'amountCents legado não deve existir no pricing canônico');
+    assert.strictEqual(plan.pricing.interval, undefined, 'interval legado não deve existir no pricing canônico');
     assert.strictEqual(plan.status, 'active');
     assert.strictEqual(plan.isDefault, false);
   });
@@ -678,7 +685,7 @@ describe('Lote 5B — Foundations & Storage de Planos (CorvFin V2)', () => {
     // Limites de compatibilidade para rollout suave
     assert.strictEqual(compat.devedores.limits.maxItems, null);
     assert.strictEqual(compat.investimentos.limits.maxItems, null);
-    assert.strictEqual(compat.ai.limits.questionsPerDay, null);
+    assert.strictEqual(compat.ai.limits.creditsPerDay, null);
   });
 
   /* ========================================================================

@@ -3947,10 +3947,33 @@
       </button>
     </div>
 
-    <div class="dialog-body" style="padding:18px 20px; max-height:calc(85vh - 130px); overflow-y:auto;">
+    <div class="dialog-body" style="padding:18px 20px; max-height:calc(85vh - 130px); overflow-y:auto; overflow-x:hidden;">
       <div id="plansModalContent" class="plans-modal-content">
         <div id="currentLegacyPlanBanner" style="display:none;"></div>
-        <div class="plans-grid" id="plansGridContainer"></div>
+
+        <div class="plans-billing-toggle-wrapper">
+          <div class="plans-billing-toggle" role="group" aria-label="Ciclo de cobrança">
+            <button type="button" class="plans-toggle-btn active" id="btnIntervalMonthly" data-interval="monthly" aria-pressed="true">
+              Mensal
+            </button>
+            <button type="button" class="plans-toggle-btn" id="btnIntervalYearly" data-interval="yearly" aria-pressed="false">
+              Anual
+              <span class="plans-toggle-discount-badge" id="plansYearlySavingsBadge" style="display:none;"></span>
+            </button>
+          </div>
+        </div>
+
+        <div class="plans-carousel-wrapper">
+          <button type="button" class="plans-carousel-nav prev" id="btnPlansPrev" aria-label="Plano anterior" style="display:none;">
+            <svg class="svg-icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+          <div class="plans-carousel-viewport" id="plansCarouselViewport">
+            <div class="plans-grid plans-carousel-track" id="plansGridContainer"></div>
+          </div>
+          <button type="button" class="plans-carousel-nav next" id="btnPlansNext" aria-label="Próximo plano" style="display:none;">
+            <svg class="svg-icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
+        </div>
       </div>
     </div>
 
