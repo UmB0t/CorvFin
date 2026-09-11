@@ -49,6 +49,23 @@
     }
   }
 
+  /**
+   * Formata a copy da duração da promoção comercial de acordo com o período e o ciclo de cobrança.
+   *
+   * @param {number|string} periods - Quantidade de períodos/ciclos da promoção (ex: 1, 2, 12).
+   * @param {string} billingInterval - Intervalo de faturamento ('monthly' | 'yearly').
+   * @returns {string} Copy formatada (ex: "primeiro mês", "primeiros 2 meses", "primeiro ano", "primeiros 3 anos").
+   */
+  function formatPromotionDuration(periods, billingInterval) {
+    const num = parseInt(periods, 10);
+    const p = (!isNaN(num) && num > 0) ? num : 1;
+    const isYearly = String(billingInterval || '').toLowerCase() === 'yearly' || String(billingInterval || '').toLowerCase() === 'year';
+    if (isYearly) {
+      return p === 1 ? 'primeiro ano' : `primeiros ${p} anos`;
+    }
+    return p === 1 ? 'primeiro mês' : `primeiros ${p} meses`;
+  }
+
   function formatLimitValue(val) {
     if (val === null) return 'Ilimitado';
     if (typeof val === 'number') {
@@ -468,8 +485,8 @@
         effectiveCents = promoCents;
         originalPriceFormatted = formatCentsToCurrency(regularCents);
         priceFormatted = formatCentsToCurrency(promoCents);
-        const cycleUnit = cycles === 1 ? 'mês' : (activeInt === 'yearly' ? 'anos' : 'meses');
-        promoBadgeHtml = `<span class="badge info plan-promo-badge">Promoção: primeiros ${cycles} ${cycleUnit}</span>`;
+        const durationText = formatPromotionDuration(cycles, displayInterval);
+        promoBadgeHtml = `<span class="badge info plan-promo-badge">Promoção: ${durationText}</span>`;
       } else if (offer.campaign?.enabled && (offer.campaign.active || offer.campaign.status === 'active')) {
         const promoCents = offer.campaign.promotionalPriceCents ?? offer.campaign.priceCents;
         effectiveCents = promoCents;
@@ -964,4 +981,5 @@
   window.buildPlanFeatureHighlights = buildPlanFeatureHighlights;
   window.formatLimitValue = formatLimitValue;
   window.formatCommercialPlanName = formatCommercialPlanName;
+  window.formatPromotionDuration = formatPromotionDuration;
 })();

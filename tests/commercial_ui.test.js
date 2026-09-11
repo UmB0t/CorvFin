@@ -2763,3 +2763,186 @@ describe('CORVFIN V2 — Correção Layout Modal "Planos & Assinaturas" (Sem Ove
   });
 });
 
+describe('CORVFIN V2 — Regressão Copy de Duração Promocional por Ciclo de Cobrança', () => {
+  function setupPromoSandbox() {
+    const sandbox = {
+      window: {},
+      document: {
+        readyState: 'complete',
+        querySelectorAll: () => [],
+        getElementById: () => null,
+        addEventListener: () => {}
+      },
+      console: { log: () => {}, warn: () => {}, error: () => {} }
+    };
+    sandbox.window = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(plansModalJsCode, sandbox);
+    return sandbox;
+  }
+
+  // 1. monthly + 1 => "Promoção: primeiro mês"
+  test('1. monthly + 1 período gera copy "Promoção: primeiro mês"', () => {
+    const sandbox = setupPromoSandbox();
+    assert.equal(sandbox.window.formatPromotionDuration(1, 'monthly'), 'primeiro mês');
+
+    const plan = {
+      id: 'p_intro_1m',
+      name: 'CorvFin Test',
+      pricing: {
+        offers: {
+          monthly: {
+            enabled: true,
+            regularPriceCents: 2990,
+            intro: { enabled: true, promotionalPriceCents: 1490, cycles: 1 }
+          }
+        }
+      }
+    };
+    const html = sandbox.window.renderCommercialPlanCardHtml(plan, { activeInterval: 'monthly' });
+    assert.ok(html.includes('Promoção: primeiro mês'), 'Deve exibir "Promoção: primeiro mês"');
+    assert.ok(!html.includes('primeiros 1'), 'NÃO deve exibir "primeiros 1"');
+    assert.ok(!html.includes('primeiros 1 mês'), 'NÃO deve exibir "primeiros 1 mês"');
+  });
+
+  // 2. monthly + 2 => "Promoção: primeiros 2 meses"
+  test('2. monthly + 2 períodos gera copy "Promoção: primeiros 2 meses"', () => {
+    const sandbox = setupPromoSandbox();
+    assert.equal(sandbox.window.formatPromotionDuration(2, 'monthly'), 'primeiros 2 meses');
+    assert.equal(sandbox.window.formatPromotionDuration(12, 'monthly'), 'primeiros 12 meses');
+
+    const plan = {
+      id: 'p_intro_2m',
+      name: 'CorvFin Test',
+      pricing: {
+        offers: {
+          monthly: {
+            enabled: true,
+            regularPriceCents: 2990,
+            intro: { enabled: true, promotionalPriceCents: 1490, cycles: 2 }
+          }
+        }
+      }
+    };
+    const html = sandbox.window.renderCommercialPlanCardHtml(plan, { activeInterval: 'monthly' });
+    assert.ok(html.includes('Promoção: primeiros 2 meses'), 'Deve exibir "Promoção: primeiros 2 meses"');
+  });
+
+  // 3. yearly + 1 => "Promoção: primeiro ano"
+  test('3. yearly + 1 período gera copy "Promoção: primeiro ano"', () => {
+    const sandbox = setupPromoSandbox();
+    assert.equal(sandbox.window.formatPromotionDuration(1, 'yearly'), 'primeiro ano');
+
+    const plan = {
+      id: 'p_intro_1y',
+      name: 'CorvFin Test',
+      pricing: {
+        offers: {
+          yearly: {
+            enabled: true,
+            regularPriceCents: 29900,
+            intro: { enabled: true, promotionalPriceCents: 19900, cycles: 1 }
+          }
+        }
+      }
+    };
+    const html = sandbox.window.renderCommercialPlanCardHtml(plan, { activeInterval: 'yearly' });
+    assert.ok(html.includes('Promoção: primeiro ano'), 'Deve exibir "Promoção: primeiro ano"');
+    assert.ok(!html.includes('primeiros 1'), 'NÃO deve exibir "primeiros 1"');
+    assert.ok(!html.includes('Promoção: primeiro mês'), 'NÃO deve conter "Promoção: primeiro mês"');
+    assert.ok(!html.includes('primeiros 1 ano'), 'NÃO deve conter "primeiros 1 ano"');
+  });
+
+  // 4. yearly + 2 => "Promoção: primeiros 2 anos"
+  test('4. yearly + 2 períodos gera copy "Promoção: primeiros 2 anos"', () => {
+    const sandbox = setupPromoSandbox();
+    assert.equal(sandbox.window.formatPromotionDuration(2, 'yearly'), 'primeiros 2 anos');
+    assert.equal(sandbox.window.formatPromotionDuration(3, 'yearly'), 'primeiros 3 anos');
+
+    const plan = {
+      id: 'p_intro_2y',
+      name: 'CorvFin Test',
+      pricing: {
+        offers: {
+          yearly: {
+            enabled: true,
+            regularPriceCents: 29900,
+            intro: { enabled: true, promotionalPriceCents: 19900, cycles: 2 }
+          }
+        }
+      }
+    };
+    const html = sandbox.window.renderCommercialPlanCardHtml(plan, { activeInterval: 'yearly' });
+    assert.ok(html.includes('Promoção: primeiros 2 anos'), 'Deve exibir "Promoção: primeiros 2 anos"');
+  });
+
+  // 5 e 6. alternar Mensal -> Anual atualiza copy e Anual -> Mensal restaura copy
+  test('5 e 6. alternar Mensal -> Anual e Anual -> Mensal atualiza e restaura copy conforme oferta ativa', () => {
+    const sandbox = setupPromoSandbox();
+    const dualPlan = {
+      id: 'p_dual_intro',
+      name: 'CorvFin Dual',
+      pricing: {
+        offers: {
+          monthly: {
+            enabled: true,
+            regularPriceCents: 2990,
+            intro: { enabled: true, promotionalPriceCents: 1490, cycles: 1 }
+          },
+          yearly: {
+            enabled: true,
+            regularPriceCents: 29900,
+            intro: { enabled: true, promotionalPriceCents: 19900, cycles: 1 }
+          }
+        }
+      }
+    };
+
+    // Mensal ativo:
+    const htmlMonthly = sandbox.window.renderCommercialPlanCardHtml(dualPlan, { activeInterval: 'monthly' });
+    assert.ok(htmlMonthly.includes('Promoção: primeiro mês'), 'Mensal deve renderizar "Promoção: primeiro mês"');
+    assert.ok(!htmlMonthly.includes('primeiro ano'));
+
+    // Anual ativo:
+    const htmlYearly = sandbox.window.renderCommercialPlanCardHtml(dualPlan, { activeInterval: 'yearly' });
+    assert.ok(htmlYearly.includes('Promoção: primeiro ano'), 'Anual deve renderizar "Promoção: primeiro ano"');
+    assert.ok(!htmlYearly.includes('primeiro mês'));
+
+    // Alternar de volta para mensal:
+    const htmlRestored = sandbox.window.renderCommercialPlanCardHtml(dualPlan, { activeInterval: 'monthly' });
+    assert.ok(htmlRestored.includes('Promoção: primeiro mês'), 'Restauração deve renderizar "Promoção: primeiro mês"');
+  });
+
+  // 7. preço e cálculo promocional permanecem inalterados
+  test('7. preço e cálculo promocional permanecem inalterados', () => {
+    const sandbox = setupPromoSandbox();
+    const plan = {
+      id: 'p_check_calc',
+      name: 'CorvFin Calc Check',
+      pricing: {
+        offers: {
+          monthly: {
+            enabled: true,
+            regularPriceCents: 2990,
+            intro: { enabled: true, promotionalPriceCents: 1490, cycles: 1 }
+          },
+          yearly: {
+            enabled: true,
+            regularPriceCents: 35880,
+            intro: { enabled: true, promotionalPriceCents: 17940, cycles: 1 }
+          }
+        }
+      }
+    };
+
+    const htmlM = sandbox.window.renderCommercialPlanCardHtml(plan, { activeInterval: 'monthly' });
+    assert.ok(htmlM.includes('29,90'), 'Preço regular mensal R$ 29,90 riscado preservado');
+    assert.ok(htmlM.includes('14,90'), 'Preço promocional mensal R$ 14,90 preservado');
+
+    const htmlY = sandbox.window.renderCommercialPlanCardHtml(plan, { activeInterval: 'yearly' });
+    assert.ok(htmlY.includes('358,80'), 'Preço regular anual R$ 358,80 riscado preservado');
+    assert.ok(htmlY.includes('179,40'), 'Preço promocional anual R$ 179,40 preservado');
+    // Equivalente mensal de 17940 / 12 = 1495 cents = R$ 14,95
+    assert.ok(htmlY.replace(/\u00A0/g, ' ').includes('Equivalente a R$ 14,95/mês'), 'Cálculo de equivalência preservado');
+  });
+});
