@@ -63,6 +63,10 @@ const {
 const aiQuotaService = require('./services/aiQuotaService');
 const { classifyAiOperation } = require('./services/aiClassificationService');
 const commercialService = require('./services/commercialService');
+const {
+  projectFinancialMonth,
+  validatePeriod
+} = require('./services/financeProjectionService');
 
 const app = express();
 
@@ -1021,6 +1025,71 @@ app.get('/api/finances', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Erro ao obter finanças:', err);
     return res.status(500).json({ success: false, message: 'Erro ao carregar dados financeiros.' });
+  }
+});
+
+// GET /api/finances/calendar - Projeção canônica temporal mensal para calendário (Lote B)
+app.get('/api/finances/calendar', authMiddleware, async (req, res) => {
+  try {
+    const rawYear = req.query.year;
+    const rawMonth = req.query.month;
+
+    // 1. Validação de presença e tipo escalar
+    if (typeof rawYear !== 'string' || typeof rawMonth !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_QUERY_PARAMS',
+        message: 'Parâmetros "year" e "month" são obrigatórios e devem ser valores escalares.'
+      });
+    }
+
+    const trimmedYear = rawYear.trim();
+    const trimmedMonth = rawMonth.trim();
+
+    if (!trimmedYear || !trimmedMonth) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_QUERY_PARAMS',
+        message: 'Parâmetros "year" e "month" não podem ser vazios.'
+      });
+    }
+
+    // 2. Rejeição estrita de decimais ou valores não inteiros
+    if (!/^\d+$/.test(trimmedYear) || !/^\d+$/.test(trimmedMonth)) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_PROJECTION_PERIOD',
+        message: 'Parâmetros "year" e "month" devem ser números inteiros válidos.'
+      });
+    }
+
+    const y = parseInt(trimmedYear, 10);
+    const m = parseInt(trimmedMonth, 10);
+
+    // 3. Validação canônica de período do motor (range 2000..2100 e mês 1..12)
+    try {
+      validatePeriod(y, m);
+    } catch (valErr) {
+      return res.status(400).json({
+        success: false,
+        error: valErr.code || 'INVALID_PROJECTION_PERIOD',
+        message: valErr.message
+      });
+    }
+
+    // 4. Carregamento do documento financeiro do usuário autenticado (sempre próprio usuário)
+    const finances = await getUserFinances(req.user.id, req.user.nome);
+
+    // 5. Execução do motor canônico de projeção temporal
+    const projection = projectFinancialMonth(finances, y, m);
+
+    return res.json(projection);
+  } catch (err) {
+    console.error('Erro ao projetar calendário financeiro:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno ao gerar projeção do calendário financeiro.'
+    });
   }
 });
 
