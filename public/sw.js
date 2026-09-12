@@ -31,6 +31,7 @@ const STATIC_ASSETS = [
   './js/core/state.js',
   './js/core/storage.js',
   './js/core/dom.js',
+  './shared/financeDomain.js',
   './js/core/financeQueries.js',
   './js/core/uiShell.js',
   './js/core/dragDrop.js',

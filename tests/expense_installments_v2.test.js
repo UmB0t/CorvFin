@@ -34,6 +34,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
+const financeDomainCode = fs.readFileSync(path.join(__dirname, '..', 'shared', 'financeDomain.js'), 'utf-8');
 const financeQueriesCode = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'financeQueries.js'), 'utf-8');
 const expensesCode = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'modules', 'expenses.js'), 'utf-8');
 const expenseInstallmentsCode = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'modules', 'expenseInstallments.js'), 'utf-8');
@@ -81,6 +82,7 @@ describe('CorvFin V2 — Nova Semântica de Parcelamento (Valor Informado = Tota
     ctx.window = ctx;
 
     vm.createContext(ctx);
+    vm.runInContext(financeDomainCode, ctx);
     vm.runInContext(financeQueriesCode, ctx);
   });
 
@@ -820,6 +822,7 @@ describe('CorvFin V2 — Integração & UI: Hotfix Centavos & Dual Input Manual'
     ctx.window = ctx;
 
     vm.createContext(ctx);
+    vm.runInContext(financeDomainCode, ctx);
     vm.runInContext(financeQueriesCode, ctx);
     vm.runInContext(expensesCode, ctx);
     vm.runInContext(expenseInstallmentsCode, ctx);

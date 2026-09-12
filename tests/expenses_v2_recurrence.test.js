@@ -29,6 +29,7 @@ const htmlContent = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.
 const dialogsCss = fs.readFileSync(path.join(__dirname, '..', 'public', 'css', 'dialogs.css'), 'utf-8');
 const constantsJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'constants.js'), 'utf-8');
 const utilsJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'utils.js'), 'utf-8');
+const financeDomainJs = fs.readFileSync(path.join(__dirname, '..', 'shared', 'financeDomain.js'), 'utf-8');
 const financeQueriesJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'core', 'financeQueries.js'), 'utf-8');
 const expensesJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'modules', 'expenses.js'), 'utf-8');
 const aiAssistantJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'modules', 'aiAssistant.js'), 'utf-8');
@@ -221,6 +222,7 @@ describe('CorvFin V2 — Despesas Recorrentes com Pix/Dinheiro', () => {
     vm.createContext(ctx);
     vm.runInContext(constantsJs, ctx);
     vm.runInContext(utilsJs, ctx);
+    vm.runInContext(financeDomainJs, ctx);
     vm.runInContext(financeQueriesJs, ctx);
     vm.runInContext(expensesJs, ctx);
     vm.runInContext(expenseInstallmentsJs, ctx);

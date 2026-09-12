@@ -2966,8 +2966,10 @@ const staticOptions = {
 };
 
 if (config.BASE_PATH) {
+  app.use(`${config.BASE_PATH}/shared`, express.static(path.join(__dirname, '..', 'shared'), staticOptions));
   app.use(config.BASE_PATH, express.static(path.join(__dirname, '..', 'public'), staticOptions));
 }
+app.use('/shared', express.static(path.join(__dirname, '..', 'shared'), staticOptions));
 app.use(express.static(path.join(__dirname, '..', 'public'), staticOptions));
 
 /* ==========================================================================
