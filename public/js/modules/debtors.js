@@ -77,6 +77,7 @@ function normalizeSearchText(str) {
         destSelect.value = sortedDests[0].name;
       }
       if ($('#debtorStatus')) $('#debtorStatus').value = 'pendente';
+      if ($('#debtorReceiveDay')) $('#debtorReceiveDay').value = '';
       if ($('#debtorCountInTotal')) $('#debtorCountInTotal').checked = true;
       if ($('#debtorIncludeInSimulation')) $('#debtorIncludeInSimulation').checked = true;
       if ($('#debtorDescription')) $('#debtorDescription').value = '';
@@ -94,6 +95,7 @@ function normalizeSearchText(str) {
       if ($('#debtorEndMonth')) $('#debtorEndMonth').value = d.endMonth || state.month || 1;
       if ($('#debtorEndYear')) $('#debtorEndYear').value = d.endYear || state.year || 2026;
       if ($('#debtorStatus')) $('#debtorStatus').value = d.status || 'pendente';
+      if ($('#debtorReceiveDay')) $('#debtorReceiveDay').value = d.receiveDay != null ? d.receiveDay : '';
       if ($('#debtorCountInTotal')) $('#debtorCountInTotal').checked = d.countInTotal !== false;
       if ($('#debtorIncludeInSimulation')) $('#debtorIncludeInSimulation').checked = d.includeInSimulation !== false;
       if ($('#debtorDescription')) $('#debtorDescription').value = d.description || '';
@@ -983,6 +985,8 @@ window.renderDebtorsTab = renderDebtorsTab;
       const em = Number($('#debtorEndMonth')?.value) || state.month || 1;
       const ey = Number($('#debtorEndYear')?.value) || state.year || 2026;
       const status = $('#debtorStatus')?.value || 'pendente';
+      const rawReceiveDay = $('#debtorReceiveDay')?.value;
+      const receiveDay = (rawReceiveDay !== undefined && rawReceiveDay !== '' && !isNaN(Number(rawReceiveDay))) ? Number(rawReceiveDay) : null;
       const countInTotal = $('#debtorCountInTotal')?.checked !== false;
       const includeInSimulation = $('#debtorIncludeInSimulation')?.checked !== false;
       const description = $('#debtorDescription')?.value.trim() || '';
@@ -1016,9 +1020,11 @@ window.renderDebtorsTab = renderDebtorsTab;
           debtor.countInTotal = countInTotal;
           debtor.includeInSimulation = includeInSimulation;
           debtor.description = description;
+          if (receiveDay != null) debtor.receiveDay = receiveDay;
+          else delete debtor.receiveDay;
         }
       } else {
-        state.debtors.push({
+        const newDebtor = {
           id: uid(),
           title,
           debtorName: name,
@@ -1035,7 +1041,9 @@ window.renderDebtorsTab = renderDebtorsTab;
           includeInSimulation,
           description,
           paidHistory: {}
-        });
+        };
+        if (receiveDay != null) newDebtor.receiveDay = receiveDay;
+        state.debtors.push(newDebtor);
       }
 
       saveState();

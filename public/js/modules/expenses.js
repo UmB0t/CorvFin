@@ -1460,6 +1460,11 @@ function renderExpensesLists() {
     const typeSelectorWrap = $('#typeSelectorWrap');
     const accountWrap = $('#entryAccountWrap');
     const accountLabel = $('#entryAccountLabel');
+    const txDateWrap = $('#transactionDateWrap');
+
+    if (txDateWrap) {
+      txDateWrap.style.display = isRecurring ? 'none' : '';
+    }
 
     // Visibilidade contextual do seletor de Conta / Cartão
     if (accountWrap) {
@@ -1937,6 +1942,13 @@ function renderExpensesLists() {
 
       const defaultDest = sortedDests[0]?.name || 'Pix';
       $('#entryDestination').value = defaultDest;
+      if ($('#entryTransactionDate')) {
+        if (!isFixedInit && (type === 'cash' || type === 'pix' || defaultDest.toLowerCase() === 'pix' || defaultDest.toLowerCase() === 'dinheiro')) {
+          $('#entryTransactionDate').value = (typeof getTodayCivilDate === 'function') ? getTodayCivilDate() : '';
+        } else {
+          $('#entryTransactionDate').value = '';
+        }
+      }
       setEntryAmountInputMode('total');
       setEntryRecurrence(entryDlgState.recurrence);
       setEntryExpenseType(entryDlgState.type);
@@ -1966,6 +1978,7 @@ function renderExpensesLists() {
       $('#entryAmount').value = active.amount;
       $('#entryDestination').value = fixed.destination || 'Nubank';
       $('#entryDueDay').value = fixed.dueDay || '';
+      if ($('#entryTransactionDate')) $('#entryTransactionDate').value = '';
 
       const payeeVal = (typeof resolveExpensePayee === 'function') ? resolveExpensePayee(fixed) : (fixed.payee || '');
       if ($('#entryPayee')) $('#entryPayee').value = payeeVal || '';
@@ -2033,6 +2046,7 @@ function renderExpensesLists() {
       }
       $('#entryDestination').value = v.destination || 'Nubank';
       $('#entryDueDay').value = v.dueDay || '';
+      if ($('#entryTransactionDate')) $('#entryTransactionDate').value = v.transactionDate || '';
 
       const payeeVal = (typeof resolveExpensePayee === 'function') ? resolveExpensePayee(v) : (v.payee || '');
       if ($('#entryPayee')) $('#entryPayee').value = payeeVal || '';
@@ -2255,6 +2269,8 @@ function renderExpensesLists() {
       const simplifiedFlow = isPixOrCash && !isRecurring && !isInstallment;
       const type = isRecurring ? 'fixed' : (isInstallment ? 'installment' : 'cash');
       const dueDay = simplifiedFlow ? null : (Number($('#entryDueDay').value) || null);
+      const rawTxDate = $('#entryTransactionDate')?.value;
+      const transactionDate = (rawTxDate && typeof rawTxDate === 'string' && rawTxDate.trim() !== '') ? rawTxDate.trim() : null;
 
       // Ajuste 3: Metodo != Status. No fluxo rapido de criacao, status default para pix/dinheiro é pago se nao fornecido, respeitando selecao explicita.
       let status = $('#entryStatus')?.value;
@@ -2516,6 +2532,8 @@ function renderExpensesLists() {
             v.endYear = eYear;
             v.installments = count;
             v.paymentType = pType;
+            if (transactionDate) v.transactionDate = transactionDate;
+            else delete v.transactionDate;
           } else {
             const newId = uid();
             const newExpense = {
@@ -2540,6 +2558,7 @@ function renderExpensesLists() {
               paymentType: pType,
               paidHistory: {}
             };
+            if (transactionDate) newExpense.transactionDate = transactionDate;
             if (typeof calculateInstallmentSchedule === 'function') {
               const calcNew = calculateInstallmentSchedule(newExpense, totalAmount, count, sYear, sMonth, false);
               if (calcNew && calcNew.schedule) {
@@ -2588,9 +2607,11 @@ function renderExpensesLists() {
             v.endYear = eYear;
             v.installments = count;
             v.paymentType = pType;
+            if (transactionDate) v.transactionDate = transactionDate;
+            else delete v.transactionDate;
           } else {
             const newId = uid();
-            state.variable.push({
+            const newExpense = {
               id: newId,
               name,
               amount,
@@ -2611,7 +2632,9 @@ function renderExpensesLists() {
               installments: count,
               paymentType: pType,
               paidHistory: {}
-            });
+            };
+            if (transactionDate) newExpense.transactionDate = transactionDate;
+            state.variable.push(newExpense);
             v = state.variable.find(x => x.id === newId);
           }
 

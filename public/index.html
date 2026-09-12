@@ -1528,6 +1528,11 @@
                 <input id="profSalary" type="number" step="0.01" min="0" placeholder="0,00" required>
                 <p class="hint">Este valor será utilizado como salário base automático para todos os meses.</p>
               </div>
+              <div class="field">
+                <label for="profSalaryDay">Dia de Pagamento do Salário <small style="font-weight:600; color:var(--muted);">(Opcional)</small></label>
+                <input id="profSalaryDay" type="number" min="1" max="31" placeholder="Ex: 5">
+                <p class="hint">Dia fixo do mês em que você costuma receber seu salário (1 a 31).</p>
+              </div>
               <div style="border-top:1px solid var(--line); padding-top:12px; margin-top:6px;">
                 <div class="field">
                   <label>VALE BENEFÍCIO (R$ / MÊS)</label>
@@ -2962,6 +2967,13 @@
             </div>
           </div>
 
+          <!-- DATA DA MOVIMENTAÇÃO / COMPRA (CANÔNICA) -->
+          <div class="field" id="transactionDateWrap">
+            <label for="entryTransactionDate">Data da Compra / Movimentação <small style="font-weight:600; color:var(--muted);">(Opcional)</small></label>
+            <input type="date" id="entryTransactionDate" class="input">
+            <small style="font-size:0.75rem; color:var(--muted); margin-top:2px; display:block;">Dia civil da operação (ex: compra no cartão ou Pix). Não altera o vencimento ou a competência.</small>
+          </div>
+
           <!-- VENCIMENTO INTELIGENTE / HERDADO DO DESTINO -->
           <div class="field" id="dueDayWrap">
             <label>Dia do Vencimento</label>
@@ -3218,6 +3230,19 @@
           Período: 1 mês
         </div>
 
+        <div class="field-grid" id="extraTemporalGrid">
+          <div class="field" id="extraReceiveDateWrap">
+            <label for="extraReceiveDate">Data de Recebimento <small style="font-weight:600; color:var(--muted);">(Opcional, Entrada Única)</small></label>
+            <input id="extraReceiveDate" type="date">
+            <small style="font-size:0.73rem; color:var(--muted); display:block; margin-top:2px;">Data civil da entrada pontual (apenas para período de 1 mês).</small>
+          </div>
+          <div class="field" id="extraReceiveDayWrap" style="display:none;">
+            <label for="extraReceiveDay">Dia do Recebimento <small style="font-weight:600; color:var(--muted);">(1 a 31, Recorrente)</small></label>
+            <input id="extraReceiveDay" type="number" min="1" max="31" placeholder="Ex: 10">
+            <small style="font-size:0.73rem; color:var(--muted); display:block; margin-top:2px;">Dia de recebimento para rendas extras recorrentes.</small>
+          </div>
+        </div>
+
         <div class="field">
           <label>Status do Recebimento (Mês Atual)</label>
           <select id="extraStatus">
@@ -3299,6 +3324,11 @@
             <line x1="12" y1="22.08" x2="12" y2="12" />
           </svg>
           Quantidade de Parcelas: 1x
+        </div>
+
+        <div class="field">
+          <label for="debtorReceiveDay">Dia Previsto para Recebimento <small style="font-weight:600; color:var(--muted);">(1 a 31, Opcional)</small></label>
+          <input id="debtorReceiveDay" type="number" min="1" max="31" placeholder="Ex: 15">
         </div>
 
         <div class="field">

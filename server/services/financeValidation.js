@@ -5,6 +5,8 @@
 
 'use strict';
 
+const { isValidCanonicalDateString, parseCanonicalDate } = require('./temporalUtils');
+
 // 1. Allowlist estrita de campos persistíveis derivados do schema real do OmniFin
 const ALLOWED_TOP_LEVEL_FIELDS = new Set([
   'version',
@@ -227,6 +229,16 @@ function validateFinanceSemantics(payload) {
     }
   }
 
+  function checkCanonicalDateString(dateStr, fieldName) {
+    if (dateStr === undefined || dateStr === null) return;
+    if (typeof dateStr !== 'string' || !isValidCanonicalDateString(dateStr)) {
+      const err = new Error(`INVALID_FINANCE_PAYLOAD: data civil inválida (${dateStr}) em "${fieldName}". Deve ser uma data real no formato YYYY-MM-DD entre 2000 e 2100.`);
+      err.status = 400;
+      err.code = 'INVALID_FINANCE_PAYLOAD';
+      throw err;
+    }
+  }
+
   function checkPaidHistory(hist, parentName) {
     if (!hist || typeof hist !== 'object' || Array.isArray(hist)) return;
     const ymRegex = /^\d{4}-(0?[1-9]|1[0-2])$/;
@@ -399,6 +411,9 @@ function validateFinanceSemantics(payload) {
         checkString(v.temporal.type, 50, 'variable.temporal.type');
       }
       checkDueDay(v.dueDay, 'variable.dueDay');
+      if (v.transactionDate !== undefined && v.transactionDate !== null) {
+        checkCanonicalDateString(v.transactionDate, 'variable.transactionDate');
+      }
       checkFiniteNumber(v.amount, 'variable.amount', true, true);
       checkMonth(v.startMonth, 'variable.startMonth');
       checkMonth(v.endMonth, 'variable.endMonth');
@@ -445,6 +460,9 @@ function validateFinanceSemantics(payload) {
       checkString(d.title, STRING_LIMITS.NAME_MAX, 'debtors.title');
       checkString(d.debtorName || d.name, STRING_LIMITS.NAME_MAX, 'debtors.debtorName');
       checkString(d.description, STRING_LIMITS.DESCRIPTION_MAX, 'debtors.description');
+      if (d.receiveDay !== undefined && d.receiveDay !== null && d.receiveDay !== '') {
+        checkDueDay(d.receiveDay, 'debtors.receiveDay');
+      }
       checkFiniteNumber(d.amount, 'debtors.amount', true, true);
       checkMonth(d.startMonth, 'debtors.startMonth');
       checkMonth(d.endMonth, 'debtors.endMonth');
@@ -461,6 +479,46 @@ function validateFinanceSemantics(payload) {
       checkString(e.title, STRING_LIMITS.NAME_MAX, 'extras.title');
       checkString(e.source || e.sender, STRING_LIMITS.NAME_MAX, 'extras.source');
       checkString(e.description, STRING_LIMITS.DESCRIPTION_MAX, 'extras.description');
+      const isMultiMonth = (() => {
+        if (e.installments && Number(e.installments) > 1) return true;
+        if (e.startYear !== undefined && e.endYear !== undefined) {
+          const sy = Number(e.startYear);
+          const ey = Number(e.endYear);
+          const sm = Number(e.startMonth || 1);
+          const em = Number(e.endMonth || 1);
+          if (ey > sy || (ey === sy && em > sm)) return true;
+        }
+        return false;
+      })();
+
+      const hasReceiveDay = e.receiveDay !== undefined && e.receiveDay !== null && e.receiveDay !== '';
+      const hasReceiveDate = e.receiveDate !== undefined && e.receiveDate !== null && e.receiveDate !== '';
+
+      if (hasReceiveDay && hasReceiveDate) {
+        const err = new Error('INVALID_FINANCE_PAYLOAD: "receiveDay" e "receiveDate" são mutuamente exclusivos em extras.');
+        err.status = 400;
+        err.code = 'INVALID_FINANCE_PAYLOAD';
+        throw err;
+      }
+
+      if (hasReceiveDay) {
+        checkDueDay(e.receiveDay, 'extras.receiveDay');
+      }
+
+      if (hasReceiveDate) {
+        checkCanonicalDateString(e.receiveDate, 'extras.receiveDate');
+        const parsed = parseCanonicalDate(e.receiveDate);
+        if (parsed) {
+          if (e.startYear !== undefined && e.startMonth !== undefined) {
+            if (parsed.year !== Number(e.startYear) || parsed.month !== Number(e.startMonth)) {
+              const err = new Error(`INVALID_FINANCE_PAYLOAD: "receiveDate" (${e.receiveDate}) diverge da competência do extra (${e.startYear}-${String(e.startMonth).padStart(2, '0')}).`);
+              err.status = 400;
+              err.code = 'INVALID_FINANCE_PAYLOAD';
+              throw err;
+            }
+          }
+        }
+      }
       checkFiniteNumber(e.amount, 'extras.amount', true, true);
       checkMonth(e.startMonth, 'extras.startMonth');
       checkMonth(e.endMonth, 'extras.endMonth');
@@ -516,7 +574,27 @@ function validateFinanceSemantics(payload) {
 
   if (payload.profile && typeof payload.profile === 'object') {
     checkString(payload.profile.name, STRING_LIMITS.NAME_MAX, 'profile.name');
-    checkFiniteNumber(payload.profile.baseSalary, 'profile.baseSalary', true, true);
+    checkString(payload.profile.theme, 50, 'profile.theme');
+    if (payload.profile.baseSalary !== undefined && payload.profile.baseSalary !== null) {
+      checkFiniteNumber(payload.profile.baseSalary, 'profile.baseSalary', true, true);
+    }
+    if (payload.profile.salaryPayment !== undefined && payload.profile.salaryPayment !== null) {
+      if (typeof payload.profile.salaryPayment !== 'object' || Array.isArray(payload.profile.salaryPayment)) {
+        const err = new Error('INVALID_FINANCE_PAYLOAD: profile.salaryPayment deve ser um objeto.');
+        err.status = 400;
+        err.code = 'INVALID_FINANCE_PAYLOAD';
+        throw err;
+      }
+      const sp = payload.profile.salaryPayment;
+      checkString(sp.type, 50, 'profile.salaryPayment.type');
+      if (sp.type !== 'fixed_day') {
+        const err = new Error(`INVALID_FINANCE_PAYLOAD: tipo de pagamento salarial inválido ("${sp.type}") em "profile.salaryPayment.type". Esperado 'fixed_day'.`);
+        err.status = 400;
+        err.code = 'INVALID_FINANCE_PAYLOAD';
+        throw err;
+      }
+      checkDueDay(sp.day, 'profile.salaryPayment.day');
+    }
   }
 
   if (payload.incomes && typeof payload.incomes === 'object' && !Array.isArray(payload.incomes)) {

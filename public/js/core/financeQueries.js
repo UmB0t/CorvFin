@@ -13,7 +13,9 @@
       : (typeof resolveInstallmentAmounts === 'function' ? resolveInstallmentAmounts(item, year, month).currentInstallmentAmount : Number(item?.amount || 0));
     if (isNaN(totalAmount) || totalAmount < 0) totalAmount = 0;
 
-    const hist = (item && item.paidHistory) ? item.paidHistory[key] : undefined;
+    const hist = (typeof getPaidHistoryEntry === 'function')
+      ? getPaidHistoryEntry(item && item.paidHistory, year, month)
+      : ((item && item.paidHistory) ? (item.paidHistory[key] !== undefined ? item.paidHistory[key] : item.paidHistory[`${year}-${parseInt(month, 10)}`]) : undefined);
     let paidAmount = 0;
 
     if (hist === true) {
@@ -63,7 +65,14 @@
 
     item.paidHistory = item.paidHistory || {};
 
-    let targetPaid = Number(newPaidAmount || 0);
+    let targetPaid = 0;
+    if (newPaidAmount === true) {
+      targetPaid = totalAmount;
+    } else if (newPaidAmount === false) {
+      targetPaid = 0;
+    } else {
+      targetPaid = Number(newPaidAmount || 0);
+    }
     if (isNaN(targetPaid) || targetPaid < 0) targetPaid = 0;
     if (targetPaid > totalAmount) targetPaid = totalAmount;
     targetPaid = Math.round(targetPaid * 100) / 100;
@@ -73,6 +82,11 @@
       paidAmount: targetPaid,
       updatedAt: new Date().toISOString()
     };
+    // Limpeza de chave legada YYYY-M para evitar split-brain
+    const legacyKey = `${year}-${parseInt(month, 10)}`;
+    if (legacyKey !== key && item.paidHistory[legacyKey] !== undefined) {
+      delete item.paidHistory[legacyKey];
+    }
 
     return getExpensePaymentInfo(item, year, month, totalAmount);
   }
@@ -178,7 +192,10 @@
     let hasQuitadaDivergente = false;
 
     keys.forEach((k) => {
-      const hist = paidHistory[k];
+      const [kY, kM] = k.split('-').map(Number);
+      const hist = (typeof getPaidHistoryEntry === 'function')
+        ? getPaidHistoryEntry(paidHistory, kY, kM)
+        : (paidHistory[k] !== undefined ? paidHistory[k] : paidHistory[`${kY}-${kM}`]);
       let paidAmt = 0;
       let isFullyPaid = false;
       let isPartial = false;
@@ -245,7 +262,10 @@
     const schedule = {};
 
     paidKeys.forEach(k => {
-      const hist = paidHistory[k];
+      const [kY, kM] = k.split('-').map(Number);
+      const hist = (typeof getPaidHistoryEntry === 'function')
+        ? getPaidHistoryEntry(paidHistory, kY, kM)
+        : (paidHistory[k] !== undefined ? paidHistory[k] : paidHistory[`${kY}-${kM}`]);
       const prevExpected = (previousSchedule[k] !== undefined)
         ? Number(previousSchedule[k])
         : (expense.installmentAmount !== undefined ? Number(expense.installmentAmount) : (expense.amount || (totalAmount / count)));
@@ -470,23 +490,45 @@
     };
   }
 
+  const globalScope = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this);
+
   // APIs públicas do Core
-  window.getExpensePaymentInfo = getExpensePaymentInfo;
-  window.getDebtorPaymentInfo = getExpensePaymentInfo;
-  window.getExtraPaymentInfo = getExpensePaymentInfo;
-  window.getItemPaymentInfo = getExpensePaymentInfo;
-  window.getPaymentInfo = getExpensePaymentInfo;
+  globalScope.getExpensePaymentInfo = getExpensePaymentInfo;
+  globalScope.getDebtorPaymentInfo = getExpensePaymentInfo;
+  globalScope.getExtraPaymentInfo = getExpensePaymentInfo;
+  globalScope.getItemPaymentInfo = getExpensePaymentInfo;
+  globalScope.getPaymentInfo = getExpensePaymentInfo;
 
-  window.setExpensePayment = setExpensePayment;
-  window.setDebtorPayment = setExpensePayment;
-  window.setExtraPayment = setExpensePayment;
-  window.setItemPayment = setExpensePayment;
-  window.setPayment = setExpensePayment;
+  globalScope.setExpensePayment = setExpensePayment;
+  globalScope.setDebtorPayment = setExpensePayment;
+  globalScope.setExtraPayment = setExpensePayment;
+  globalScope.setItemPayment = setExpensePayment;
+  globalScope.setPayment = setExpensePayment;
 
-  window.activeFixedForMonth = activeFixedForMonth;
-  window.calculateInstallmentSchedule = calculateInstallmentSchedule;
-  window.resolveInstallmentAmounts = resolveInstallmentAmounts;
-  window.activeVariableForMonth = activeVariableForMonth;
-  window.monthTotals = monthTotals;
+  globalScope.activeFixedForMonth = activeFixedForMonth;
+  globalScope.calculateInstallmentSchedule = calculateInstallmentSchedule;
+  globalScope.resolveInstallmentAmounts = resolveInstallmentAmounts;
+  globalScope.activeVariableForMonth = activeVariableForMonth;
+  globalScope.monthTotals = monthTotals;
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+      getExpensePaymentInfo,
+      getDebtorPaymentInfo,
+      getExtraPaymentInfo,
+      getItemPaymentInfo,
+      getPaymentInfo,
+      setExpensePayment,
+      setDebtorPayment,
+      setExtraPayment,
+      setItemPayment,
+      setPayment,
+      activeFixedForMonth,
+      calculateInstallmentSchedule,
+      resolveInstallmentAmounts,
+      activeVariableForMonth,
+      monthTotals
+    };
+  }
 
 })();

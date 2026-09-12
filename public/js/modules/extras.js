@@ -12,9 +12,18 @@
     const sm = Number($('#extraStartMonth')?.value) || 1, sy = Number($('#extraStartYear')?.value) || 2026;
     const em = Number($('#extraEndMonth')?.value) || 1, ey = Number($('#extraEndYear')?.value) || 2026;
     const count = Math.max(1, (ey - sy) * 12 + (em - sm) + 1);
+    const isMulti = count > 1;
     const badge = $('#extraInstallmentsBadge');
     if (badge) {
       badge.innerHTML = `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Período: ${count} ${count > 1 ? 'meses' : 'mês'}`;
+    }
+    const dateWrap = $('#extraReceiveDateWrap');
+    const dateInput = $('#extraReceiveDate');
+    if (dateWrap) {
+      dateWrap.style.display = isMulti ? 'none' : '';
+    }
+    if (isMulti && dateInput) {
+      dateInput.value = '';
     }
   }
 
@@ -59,6 +68,8 @@
       if ($('#extraEndMonth')) $('#extraEndMonth').value = state.month || 1;
       if ($('#extraEndYear')) $('#extraEndYear').value = state.year || 2026;
       if ($('#extraStatus')) $('#extraStatus').value = 'pendente';
+      if ($('#extraReceiveDay')) $('#extraReceiveDay').value = '';
+      if ($('#extraReceiveDate')) $('#extraReceiveDate').value = '';
       if ($('#extraIncludeInSimulation')) $('#extraIncludeInSimulation').checked = true;
       if ($('#extraDescription')) $('#extraDescription').value = '';
       updateExtraInstallments();
@@ -75,6 +86,8 @@
       if ($('#extraEndMonth')) $('#extraEndMonth').value = e.endMonth || state.month || 1;
       if ($('#extraEndYear')) $('#extraEndYear').value = e.endYear || state.year || 2026;
       if ($('#extraStatus')) $('#extraStatus').value = e.status || 'pendente';
+      if ($('#extraReceiveDay')) $('#extraReceiveDay').value = e.receiveDay != null ? e.receiveDay : '';
+      if ($('#extraReceiveDate')) $('#extraReceiveDate').value = e.receiveDate || '';
       if ($('#extraIncludeInSimulation')) $('#extraIncludeInSimulation').checked = e.includeInSimulation !== false;
       if ($('#extraDescription')) $('#extraDescription').value = e.description || '';
       updateExtraInstallments();
@@ -327,6 +340,17 @@ function toggleExtraStatus(id) {
     const newExtraBtn = $('#newExtraBtn');
     if (newExtraBtn) newExtraBtn.addEventListener('click', () => openExtraDialog('new'));
 
+    $('#extraReceiveDate')?.addEventListener('input', () => {
+      if ($('#extraReceiveDate')?.value && $('#extraReceiveDay')) {
+        $('#extraReceiveDay').value = '';
+      }
+    });
+    $('#extraReceiveDay')?.addEventListener('input', () => {
+      if ($('#extraReceiveDay')?.value && $('#extraReceiveDate')) {
+        $('#extraReceiveDate').value = '';
+      }
+    });
+
     $('#extraForm')?.addEventListener('submit', (e) => {
       e.preventDefault();
       const state = getState();
@@ -340,6 +364,10 @@ function toggleExtraStatus(id) {
       const em = Number($('#extraEndMonth')?.value) || state.month || 1;
       const ey = Number($('#extraEndYear')?.value) || state.year || 2026;
       const status = $('#extraStatus')?.value || 'pendente';
+      const rawReceiveDay = $('#extraReceiveDay')?.value;
+      const receiveDay = (rawReceiveDay !== undefined && rawReceiveDay !== '' && !isNaN(Number(rawReceiveDay))) ? Number(rawReceiveDay) : null;
+      const rawReceiveDate = $('#extraReceiveDate')?.value;
+      const receiveDate = (rawReceiveDate && typeof rawReceiveDate === 'string' && rawReceiveDate.trim() !== '') ? rawReceiveDate.trim() : null;
       const description = $('#extraDescription')?.value.trim() || '';
       const includeInSimulation = $('#extraIncludeInSimulation')?.checked !== false;
 
@@ -354,6 +382,18 @@ function toggleExtraStatus(id) {
 
       state.extras = state.extras || [];
       const installments = Math.max(1, (ey - sy) * 12 + (em - sm) + 1);
+      const isMulti = installments > 1;
+
+      let finalReceiveDay = receiveDay;
+      let finalReceiveDate = receiveDate;
+
+      if (isMulti) {
+        finalReceiveDate = null;
+      } else {
+        if (finalReceiveDate) {
+          finalReceiveDay = null;
+        }
+      }
 
       if (extraDlgId) {
         const item = state.extras.find(x => x.id === extraDlgId);
@@ -370,9 +410,13 @@ function toggleExtraStatus(id) {
           item.description = description;
           item.installments = installments;
           item.includeInSimulation = includeInSimulation;
+          if (finalReceiveDay != null) item.receiveDay = finalReceiveDay;
+          else delete item.receiveDay;
+          if (finalReceiveDate) item.receiveDate = finalReceiveDate;
+          else delete item.receiveDate;
         }
       } else {
-        state.extras.push({
+        const newExtra = {
           id: uid(),
           title,
           source,
@@ -387,7 +431,10 @@ function toggleExtraStatus(id) {
           installments,
           includeInSimulation,
           paidHistory: {}
-        });
+        };
+        if (finalReceiveDay != null) newExtra.receiveDay = finalReceiveDay;
+        if (finalReceiveDate) newExtra.receiveDate = finalReceiveDate;
+        state.extras.push(newExtra);
       }
 
       saveState();

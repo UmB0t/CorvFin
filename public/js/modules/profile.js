@@ -520,6 +520,7 @@
     if (!state) return;
     const profName = $('#profName');
     const profSalary = $('#profSalary');
+    const profSalaryDay = $('#profSalaryDay');
     const profBen = $('#profBenefit');
 
     if (profName && document.activeElement !== profName) {
@@ -527,6 +528,12 @@
     }
     if (profSalary && document.activeElement !== profSalary) {
       profSalary.value = state.profile?.baseSalary != null ? state.profile.baseSalary : '';
+    }
+    if (profSalaryDay && document.activeElement !== profSalaryDay) {
+      const salDay = state.profile?.salaryPayment?.day != null
+        ? state.profile.salaryPayment.day
+        : (state.profile?.salaryDay != null ? state.profile.salaryDay : '');
+      profSalaryDay.value = salDay;
     }
     if (profBen && document.activeElement !== profBen) {
       profBen.value = state.benefitsConfig?.amount != null
@@ -846,6 +853,13 @@
       const state = getState();
       state.profile.name = $('#profName').value.trim();
       state.profile.baseSalary = Number($('#profSalary').value) || 0;
+      const rawSalDay = $('#profSalaryDay')?.value;
+      if (rawSalDay !== undefined && rawSalDay !== '' && !isNaN(Number(rawSalDay))) {
+        const numDay = Math.min(31, Math.max(1, parseInt(rawSalDay, 10)));
+        state.profile.salaryPayment = { type: 'fixed_day', day: numDay };
+      } else {
+        delete state.profile.salaryPayment;
+      }
       state.benefitsConfig = state.benefitsConfig || { amount: 0 };
       const benVal = Number($('#profBenefit')?.value) || 0;
       state.benefitsConfig.amount = benVal;
