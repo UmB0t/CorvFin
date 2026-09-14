@@ -21,6 +21,7 @@ RUN npm ci --omit=dev --ignore-scripts && \
 # Copy application source code
 COPY public ./public
 COPY server ./server
+COPY shared ./shared
 
 # Change ownership of the app directory to the unprivileged 'node' user
 RUN chown -R node:node /app
