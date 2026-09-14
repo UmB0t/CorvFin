@@ -810,10 +810,9 @@ describe('CORVFIN — UX1: EXPANDABLE SECTIONS + ANNUAL VIEW CONSOLIDATION', () 
       const currentDashJs = fs.readFileSync(path.join(__dirname, '../public/js/modules/dashboard.js'), 'utf8');
       const currentConsolidatedJs = fs.readFileSync(path.join(__dirname, '../public/js/modules/consolidatedDashboard.js'), 'utf8');
 
-      // Verifica que initExpandableSection não utiliza storage
+      // Verifica que initExpandableSection não utiliza sessionStorage e opera com storage opcional (UX2 storageKey)
       const helperSource = currentUiShellJs.slice(currentUiShellJs.indexOf('function initExpandableSection'), currentUiShellJs.indexOf('window.initExpandableSection ='));
       assert.ok(!helperSource.includes('sessionStorage'), 'initExpandableSection não usa sessionStorage');
-      assert.ok(!helperSource.includes('localStorage'), 'initExpandableSection não usa localStorage');
 
       // dashboard.js não usa storage para ribbon
       assert.ok(!currentDashJs.includes('sessionStorage.getItem("ribbon'), 'dashboard.js não lê ribbon de sessionStorage');

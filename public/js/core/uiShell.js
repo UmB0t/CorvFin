@@ -1163,14 +1163,27 @@
       ribbonSection.hidden = !showRibbon;
       ribbonSection.style.display = showRibbon ? '' : 'none';
       if (showRibbon) {
-        // Regra canônica UX1.8: ribbon inicia EXPANDIDO em toda entrada/troca de aba
-        // Obtém ou inicializa a API oficial do expandable de forma canônica
+        // Regra canônica UX2: ribbon respeita preferência global salva em localStorage (chave: corvfin_ribbon_expanded, default: expanded)
+        // Obtém ou inicializa a API oficial do expandable com a chave global
         let api = ribbonSection._expandableApi || ribbonSection.querySelector('.expandable-section__header')?._expandableApi;
         if (!api && typeof initExpandableSection === 'function') {
-          api = initExpandableSection(ribbonSection, { defaultExpanded: true });
+          api = initExpandableSection(ribbonSection, { defaultExpanded: true, storageKey: 'corvfin_ribbon_expanded' });
         }
-        if (api && typeof api.expand === 'function') {
-          api.expand();
+        if (api && !api._storageKey) {
+          api._storageKey = 'corvfin_ribbon_expanded';
+        }
+        // Sincroniza estado com a preferência global se houver divergência
+        if (api && api._storageKey && typeof localStorage !== 'undefined') {
+          try {
+            const saved = localStorage.getItem(api._storageKey);
+            if (saved !== null) {
+              const shouldBeExpanded = (saved === 'true');
+              if (api.isExpanded() !== shouldBeExpanded) {
+                if (shouldBeExpanded) api.expand();
+                else api.collapse();
+              }
+            }
+          } catch (_) {}
         }
         if (typeof renderRibbon === 'function') {
           renderRibbon(targetTabId);
@@ -2211,20 +2224,34 @@
       || container.querySelector('.expandable-section__content');
     if (!content) return null;
 
+    // Detecta storageKey opcional da options ou data-storage-key
+    const detectedStorageKey = options.storageKey
+      || (container.getAttribute && container.getAttribute('data-storage-key'))
+      || (container.dataset ? container.dataset.storageKey : null);
+
     // Idempotência: se já inicializado no container, header ou trigger, reutiliza a API existente e preserva o estado atual
     if (container._expandableApi) {
+      if (detectedStorageKey && !container._expandableApi._storageKey) {
+        container._expandableApi._storageKey = detectedStorageKey;
+      }
       if (typeof options.onToggle === 'function') {
         container._expandableApi._onToggle = options.onToggle;
       }
       return container._expandableApi;
     }
     if (header._expandableApi) {
+      if (detectedStorageKey && !header._expandableApi._storageKey) {
+        header._expandableApi._storageKey = detectedStorageKey;
+      }
       if (typeof options.onToggle === 'function') {
         header._expandableApi._onToggle = options.onToggle;
       }
       return header._expandableApi;
     }
     if (trigger && trigger !== header && trigger._expandableApi) {
+      if (detectedStorageKey && !trigger._expandableApi._storageKey) {
+        trigger._expandableApi._storageKey = detectedStorageKey;
+      }
       if (typeof options.onToggle === 'function') {
         trigger._expandableApi._onToggle = options.onToggle;
       }
@@ -2235,7 +2262,21 @@
     const existingExpandedAttr = (trigger && trigger.getAttribute && trigger.getAttribute('aria-expanded'))
       || (header.getAttribute && header.getAttribute('aria-expanded'));
     let isExpanded;
-    if (options.defaultExpanded !== undefined) {
+
+    // Se houver storageKey configurada, a preferência persistida em localStorage tem precedência
+    let persistedValue = null;
+    if (detectedStorageKey && typeof localStorage !== 'undefined') {
+      try {
+        const raw = localStorage.getItem(detectedStorageKey);
+        if (raw !== null) {
+          persistedValue = (raw === 'true');
+        }
+      } catch (_) {}
+    }
+
+    if (persistedValue !== null) {
+      isExpanded = persistedValue;
+    } else if (options.defaultExpanded !== undefined) {
       isExpanded = !!options.defaultExpanded;
     } else if (existingExpandedAttr !== null) {
       isExpanded = (existingExpandedAttr === 'true');
@@ -2261,6 +2302,14 @@
         container.classList.add('is-collapsed');
         content.hidden = true;
         content.setAttribute('hidden', '');
+      }
+
+      // Persistência em localStorage se storageKey estiver configurada
+      const effectiveStorageKey = (api && api._storageKey) || detectedStorageKey;
+      if (effectiveStorageKey && typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem(effectiveStorageKey, String(isExpanded));
+        } catch (_) {}
       }
 
       const callback = (api && api._onToggle) || options.onToggle;
@@ -2317,6 +2366,7 @@
       header,
       trigger,
       content,
+      _storageKey: detectedStorageKey || null,
       _onToggle: options.onToggle
     };
 
@@ -2334,6 +2384,14 @@
 
   function initAllExpandableSections(root = document) {
     if (!root || !root.querySelectorAll) return [];
+    // Ordem canônica: se o ribbon estiver presente no root e ainda não possuir _expandableApi,
+    // inicializa-o explicitamente com a chave canônica 'corvfin_ribbon_expanded'
+    const ribbonSection = (root.getElementById ? root.getElementById('ribbonSection') : null)
+      || (root.querySelector ? root.querySelector('#ribbonSection') : null);
+    if (ribbonSection && !ribbonSection._expandableApi) {
+      initExpandableSection(ribbonSection, { defaultExpanded: true, storageKey: 'corvfin_ribbon_expanded' });
+    }
+
     const containers = root.querySelectorAll('.expandable-section[data-expandable], [data-expandable-section]');
     const apis = [];
     containers.forEach(el => {

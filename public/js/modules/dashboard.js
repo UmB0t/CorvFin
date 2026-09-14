@@ -34,7 +34,8 @@
 
     // Inicialização defensiva do expandable caso ainda não inicializado
     if (!ribbonSection._expandableApi && typeof window.initExpandableSection === 'function') {
-      window.initExpandableSection(ribbonSection, { defaultExpanded: true });
+      // window.initExpandableSection(ribbonSection, { defaultExpanded: true })
+      window.initExpandableSection(ribbonSection, { defaultExpanded: true, storageKey: 'corvfin_ribbon_expanded' });
     }
 
     const titleMap = {

@@ -348,8 +348,207 @@
       .replace(/'/g, '&#39;');
   }
 
+  // Labels amigáveis para apresentação dos tipos de eventos do calendário
+  const SOURCE_TYPE_LABELS = {
+    fixed_expense: 'Despesa fixa',
+    variable_expense: 'Despesa variável',
+    extra_income: 'Renda extra',
+    debtor_receivable: 'Valor a receber',
+    salary: 'Salário',
+    benefit_transaction: 'Benefício',
+    benefit_credit: 'Crédito benefício'
+  };
+
+  function getCalendarSourceTypeLabel(sourceType) {
+    if (!sourceType || typeof sourceType !== 'string') return 'Movimentação';
+    return SOURCE_TYPE_LABELS[sourceType] || 'Movimentação';
+  }
+
+  // Estado Local de Projeção Temporal Canônica do Dashboard (UX2 - Nível 1 & Próximos Movimentos)
+  let currentProjectionData = null;
+  let projectionLoading = false;
+  let projectionError = false;
+  let projectionYear = null;
+  let projectionMonth = null;
+  let activeProjectionRequestId = 0;
+
   /**
-   * Renderizador Principal da Aba Dashboard Consolidado
+   * Helper puro de apresentação: constrói a lista HTML de eventos mais próximos (máximo 5).
+   * Semântica temporal:
+   * A) Mês civil atual: date >= hoje ("Próximos movimentos")
+   * B) Mês futuro: a partir do início da competência ("Próximos movimentos")
+   * C) Mês passado: histórico da competência ("Movimentações do período")
+   * Exclusivo: projection.events (ignora undated e benefícios)
+   */
+  function buildUpcomingEventsHtml(projection, year, month) {
+    if (!projection || !Array.isArray(projection.events)) {
+      if (projectionLoading) {
+        return '<div class="dash-upcoming-empty">Carregando movimentações...</div>';
+      }
+      return '<div class="dash-upcoming-empty">Nenhuma movimentação disponível.</div>';
+    }
+
+    const now = (typeof todayYM === 'function') ? todayYM() : { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
+    const todayDay = new Date().getDate();
+    const todayStr = (typeof window.getTodayCivilDate === 'function')
+      ? window.getTodayCivilDate()
+      : `${now.year}-${String(now.month).padStart(2, '0')}-${String(todayDay).padStart(2, '0')}`;
+
+    const isCurrent = (year === now.year && month === now.month);
+    const monthAbbrList = (typeof MONTH_ABBR !== 'undefined' && Array.isArray(MONTH_ABBR) && MONTH_ABBR.length === 12)
+      ? MONTH_ABBR
+      : ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+    // 1. Filtrar somente eventos datados válidos (projection.events já exclui undated e benefits)
+    const datedEvents = projection.events.filter(e => e && e.date && typeof e.date === 'string');
+
+    // 2. Ordenar por data ASC
+    const sorted = [...datedEvents].sort((a, b) => a.date.localeCompare(b.date));
+
+    // 3. Semântica temporal
+    let filtered;
+    if (isCurrent) {
+      filtered = sorted.filter(e => e.date >= todayStr);
+    } else {
+      filtered = sorted;
+    }
+
+    // 4. Limite estrito: máximo 5 ocorrências
+    const list = filtered.slice(0, 5);
+
+    if (list.length === 0) {
+      const emptyMsg = isCurrent
+        ? 'Nenhuma movimentação prevista a partir de hoje neste mês.'
+        : 'Nenhuma movimentação datada registrada nesta competência.';
+      return `<div class="dash-upcoming-empty">${escapeHtml(emptyMsg)}</div>`;
+    }
+
+    return list.map(ev => {
+      const parts = String(ev.date).split('-');
+      const day = parts[2] || '01';
+      const mNum = parseInt(parts[1] || '1', 10);
+      const mAbbr = monthAbbrList[mNum - 1] || 'Mês';
+      const dateDisplay = `${day} ${mAbbr}`;
+
+      const desc = ev.description || ev.name || 'Movimentação';
+      const sourceTypeLabel = getCalendarSourceTypeLabel(ev.sourceType);
+      const isOutflow = (ev.direction === 'outflow');
+      const amountPrefix = isOutflow ? '- ' : '+ ';
+      const amountClass = isOutflow ? 'dash-upcoming-amount--outflow' : 'dash-upcoming-amount--inflow';
+
+      return `
+        <div class="dash-upcoming-item">
+          <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
+            <span class="dash-upcoming-date-pill">${escapeHtml(dateDisplay)}</span>
+            <div style="min-width:0; flex:1;">
+              <div class="dash-upcoming-desc">${escapeHtml(desc)}</div>
+              <div class="dash-upcoming-source">${escapeHtml(sourceTypeLabel)}</div>
+            </div>
+          </div>
+          <div class="dash-upcoming-amount ${amountClass}">
+            ${amountPrefix}${formatMoney(ev.amount)}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  /**
+   * Atualiza a UI da projeção de forma cirúrgica (sem causar flicker nem re-render do restante)
+   */
+  function updateDashboardProjectionUI(res, year, month) {
+    const netEl = document.getElementById('dashNetResultValue');
+    const netSubEl = document.getElementById('dashNetResultSub');
+    const inEl = document.getElementById('dashInflowValue');
+    const outEl = document.getElementById('dashOutflowValue');
+    const upcomingListEl = document.getElementById('dashUpcomingList');
+
+    if (netEl && res && res.summary) {
+      const net = Number(res.summary.net || 0);
+      netEl.textContent = formatMoney(net);
+      netEl.className = `dash-hero-net ${net >= 0 ? 'dash-hero-net--positive' : 'dash-hero-net--negative'}`;
+      if (netSubEl) {
+        netSubEl.textContent = (net >= 0 ? 'Superávit previsto no período' : 'Déficit previsto no período');
+      }
+    }
+    if (inEl && res && res.summary) {
+      inEl.textContent = formatMoney(res.summary.inflow || 0);
+    }
+    if (outEl && res && res.summary) {
+      outEl.textContent = formatMoney(res.summary.outflow || 0);
+    }
+    if (upcomingListEl && res) {
+      upcomingListEl.innerHTML = buildUpcomingEventsHtml(res, year, month);
+    }
+  }
+
+  function updateDashboardProjectionError() {
+    const netEl = document.getElementById('dashNetResultValue');
+    const netSubEl = document.getElementById('dashNetResultSub');
+    const inEl = document.getElementById('dashInflowValue');
+    const outEl = document.getElementById('dashOutflowValue');
+    const upcomingListEl = document.getElementById('dashUpcomingList');
+
+    if (netEl) {
+      netEl.textContent = '—';
+      netEl.className = 'dash-hero-net';
+    }
+    if (netSubEl) netSubEl.textContent = 'Não foi possível carregar o resultado previsto.';
+    if (inEl) inEl.textContent = '—';
+    if (outEl) outEl.textContent = '—';
+    if (upcomingListEl) {
+      upcomingListEl.innerHTML = '<div class="dash-upcoming-empty">Erro ao carregar movimentações do calendário.</div>';
+    }
+  }
+
+  /**
+   * Carrega os dados canônicos da Calendar Projection API para a competência solicitada
+   */
+  async function loadDashboardProjection(year, month) {
+    const reqId = ++activeProjectionRequestId;
+    projectionLoading = true;
+    projectionError = false;
+
+    try {
+      let res = null;
+      if (typeof window !== 'undefined' && window.__MOCK_CALENDAR_PROJECTION__) {
+        res = window.__MOCK_CALENDAR_PROJECTION__;
+      } else if (window.API && typeof window.API.getCalendarProjection === 'function') {
+        res = await window.API.getCalendarProjection(year, month);
+      } else if (window.API && typeof window.API.get === 'function') {
+        res = await window.API.get(`/api/finances/calendar?year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}`);
+      } else if (typeof fetch === 'function') {
+        const fetchUrl = (window.API && typeof window.API.resolveUrl === 'function')
+          ? window.API.resolveUrl(`/api/finances/calendar?year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}`)
+          : `/api/finances/calendar?year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}`;
+        const r = await fetch(fetchUrl, { credentials: 'same-origin' });
+        res = await r.json();
+      }
+
+      if (reqId !== activeProjectionRequestId) return;
+
+      if (res && res.summary) {
+        currentProjectionData = res;
+        projectionYear = year;
+        projectionMonth = month;
+        projectionLoading = false;
+        projectionError = false;
+        updateDashboardProjectionUI(res, year, month);
+      } else {
+        projectionLoading = false;
+        projectionError = true;
+        updateDashboardProjectionError();
+      }
+    } catch (err) {
+      if (reqId !== activeProjectionRequestId) return;
+      projectionLoading = false;
+      projectionError = true;
+      updateDashboardProjectionError();
+    }
+  }
+
+  /**
+   * Renderizador Principal da Aba Dashboard Consolidado (UX2: Hierarquia de Informação em 3 Níveis)
    */
   function renderConsolidatedDashboardTab() {
     const container = document.getElementById('dashboardViewWrap') || document.getElementById('expensesConsolidatedViewWrap') || (typeof $ === 'function' ? ($('#dashboardViewWrap') || $('#expensesConsolidatedViewWrap')) : null);
@@ -359,12 +558,9 @@
     const year = Number(state.year) || 2026;
     const month = Number(state.month) || 1;
     const monthName = (typeof MONTH_NAMES !== 'undefined' && MONTH_NAMES[month - 1]) ? MONTH_NAMES[month - 1] : `Mês ${month}`;
-    const monthAbbrList = (typeof MONTH_ABBR !== 'undefined' && Array.isArray(MONTH_ABBR) && MONTH_ABBR.length === 12)
-      ? MONTH_ABBR
-      : ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    const monthAbbr = monthAbbrList[month - 1] || monthName.slice(0, 3);
     const now = (typeof todayYM === 'function') ? todayYM() : { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
-    const isCurrentMonth = (year === now.year && month === now.month);
+    const isCurrentCompetence = (year === now.year && month === now.month);
+    const isPastCompetence = (year < now.year || (year === now.year && month < now.month));
 
     // 1. Constrói dataset bruto da competência
     const rawDataset = buildConsolidatedDataset(state, year, month);
@@ -376,7 +572,7 @@
     // 2. Aplica filtros locais
     const dataset = filterConsolidatedDataset(rawDataset, localFilters);
 
-    // 3. Cálculos de totalizadores
+    // 3. Cálculos de totalizadores de contexto (Nível 2)
     const expensesItems = dataset.filter(i => i.isExpense);
     const debtorItems = dataset.filter(i => i.isDebtor);
 
@@ -388,144 +584,230 @@
     const totalPending = dataset.reduce((s, i) => s + (i.remainingAmount !== undefined ? i.remainingAmount : (i.status === 'pago' ? 0 : i.amount)), 0);
 
     const pctPaid = totalFiltered > 0 ? Math.min(100, Math.round((totalPaid / totalFiltered) * 100)) : 0;
-    const pctPending = totalFiltered > 0 ? Math.min(100, Math.round((totalPending / totalFiltered) * 100)) : 0;
 
-    // 4. Agregações
+    // 4. Agregações para análises internas (Nível 3)
     const catAgg = aggregateByCategory(dataset, totalFiltered);
     const destAgg = aggregateByDestination(dataset, totalFiltered);
     const matrixData = buildCategoryDestinationMatrix(dataset);
 
-    // Markup dos Filtros
+    // ==========================================
+    // MARKUP: FILTROS COMPACTOS REORGANIZADOS
+    // ==========================================
+    const hasActiveFilters = (localFilters.search || localFilters.status !== 'all' || localFilters.category !== 'all' || localFilters.destination !== 'all' || localFilters.sourceType !== 'all');
     const filtersHtml = `
-      <div class="card section-card full-width" style="padding:14px 18px; margin-bottom:20px; border-radius:14px;">
-        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand);"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-            <span style="font-weight:800; font-size:0.92rem;">Filtros da Visão Consolidada</span>
-            <span class="badge info" id="dashCompetenceBadge" style="font-size:0.72rem;">Competência: ${escapeHtml(monthName)}/${year}</span>
+      <div class="dash-filters-bar" id="dashFiltersBar">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:16px; height:16px;"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          <span style="font-weight:800; font-size:0.86rem;" title="Filtros da Visão Consolidada">Filtros</span>
+          <span class="badge info" id="dashCompetenceBadge" style="font-size:0.72rem;">${escapeHtml(monthName)}/${year}</span>
+        </div>
+
+        <div class="dash-filters-controls">
+          <input type="text" id="consolidatedSearchInput" placeholder="Buscar lançamentos..." value="${escapeHtml(localFilters.search)}"
+            style="padding:6px 12px; border-radius:999px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.80rem; min-width:160px; max-width:200px;">
+
+          <select id="consolidatedStatusFilter" style="padding:6px 10px; border-radius:999px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.80rem;">
+            <option value="all" ${localFilters.status === 'all' ? 'selected' : ''}>Todos os Status</option>
+            <option value="pago" ${localFilters.status === 'pago' ? 'selected' : ''}>Pago / Liquidado</option>
+            <option value="parcial" ${localFilters.status === 'parcial' ? 'selected' : ''}>Parcialmente Pago</option>
+            <option value="pendente" ${localFilters.status === 'pendente' ? 'selected' : ''}>Pendente</option>
+          </select>
+
+          <select id="consolidatedCategoryFilter" style="padding:6px 10px; border-radius:999px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.80rem;">
+            <option value="all" ${localFilters.category === 'all' ? 'selected' : ''}>Todas as Categorias</option>
+            ${distinctCategories.map(c => `<option value="${escapeHtml(c)}" ${localFilters.category === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+          </select>
+
+          <select id="consolidatedDestFilter" style="padding:6px 10px; border-radius:999px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.80rem;">
+            <option value="all" ${localFilters.destination === 'all' ? 'selected' : ''}>Todos os Destinos</option>
+            ${distinctDestinations.map(d => `<option value="${escapeHtml(d)}" ${localFilters.destination === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
+          </select>
+
+          <select id="consolidatedSourceFilter" style="padding:6px 10px; border-radius:999px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.80rem;">
+            <option value="all" ${localFilters.sourceType === 'all' ? 'selected' : ''}>Todas as Origens</option>
+            <option value="expenses" ${localFilters.sourceType === 'expenses' ? 'selected' : ''}>Apenas Despesas</option>
+            <option value="debtors" ${localFilters.sourceType === 'debtors' ? 'selected' : ''}>Apenas Devedores</option>
+          </select>
+
+          ${hasActiveFilters ? `
+            <button type="button" id="consolidatedClearFiltersBtn" class="btn small soft" style="border-radius:999px; font-size:0.74rem; padding:5px 10px;">
+              Limpar
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+
+    // ==========================================
+    // NÍVEL 1: VISÃO DO MÊS (HERO CARD)
+    // ==========================================
+    const hasProjection = (currentProjectionData && projectionYear === year && projectionMonth === month && !projectionLoading);
+    const netVal = hasProjection ? currentProjectionData.summary.net : null;
+    const inflowVal = hasProjection ? currentProjectionData.summary.inflow : null;
+    const outflowVal = hasProjection ? currentProjectionData.summary.outflow : null;
+
+    const netClass = (netVal !== null)
+      ? (netVal >= 0 ? 'dash-hero-net--positive' : 'dash-hero-net--negative')
+      : '';
+    const netStatusText = (netVal !== null)
+      ? (netVal >= 0 ? 'Superávit previsto no período' : 'Déficit previsto no período')
+      : 'Calculando projeção canônica...';
+
+    const heroHtml = `
+      <div class="dash-hero-card" id="dashHeroCard" data-legacy="TOTAL CONSOLIDADO">
+        <div class="dash-hero-grid">
+          <!-- Bloco Principal: RESULTADO PREVISTO -->
+          <div class="dash-hero-main">
+            <div class="dash-hero-label">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:16px; height:16px;">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 6v6l4 2" />
+              </svg>
+              <span>Resultado Previsto</span>
+            </div>
+            <div class="dash-hero-net ${netClass}" id="dashNetResultValue">
+              ${netVal !== null ? formatMoney(netVal) : '<span class="dash-skeleton-val"></span>'}
+            </div>
+            <div class="dash-hero-sub" id="dashNetResultSub">
+              ${escapeHtml(netStatusText)}
+            </div>
           </div>
-          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; flex:1; justify-content:flex-end;">
-            <input type="text" id="consolidatedSearchInput" placeholder="Buscar por descrição, categoria..." value="${escapeHtml(localFilters.search)}"
-              style="padding:7px 12px; border-radius:999px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.82rem; min-width:180px; flex:1; max-width:240px;">
 
-            <select id="consolidatedStatusFilter" style="padding:7px 10px; border-radius:999px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.82rem;">
-              <option value="all" ${localFilters.status === 'all' ? 'selected' : ''}>Todos os Status</option>
-              <option value="pago" ${localFilters.status === 'pago' ? 'selected' : ''}>Pago / Liquidado</option>
-              <option value="parcial" ${localFilters.status === 'parcial' ? 'selected' : ''}>Parcialmente Pago</option>
-              <option value="pendente" ${localFilters.status === 'pendente' ? 'selected' : ''}>Pendente</option>
-            </select>
+          <!-- Apoio 1: ENTRADAS PREVISTAS -->
+          <div class="dash-hero-sub-card">
+            <div class="dash-hero-sub-label">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--c-fixed, #10B981); width:14px; height:14px;">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                <polyline points="17 6 23 6 23 12" />
+              </svg>
+              <span>Entradas Previstas</span>
+            </div>
+            <div class="dash-hero-sub-val dash-hero-sub-val--inflow num" id="dashInflowValue">
+              ${inflowVal !== null ? formatMoney(inflowVal) : '<span class="dash-skeleton-sm"></span>'}
+            </div>
+          </div>
 
-            <select id="consolidatedCategoryFilter" style="padding:7px 10px; border-radius:999px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.82rem;">
-              <option value="all" ${localFilters.category === 'all' ? 'selected' : ''}>Todas as Categorias</option>
-              ${distinctCategories.map(c => `<option value="${escapeHtml(c)}" ${localFilters.category === c ? 'selected' : ''}>${escapeHtml(c)}</option>`).join('')}
-            </select>
-
-            <select id="consolidatedDestFilter" style="padding:7px 10px; border-radius:999px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.82rem;">
-              <option value="all" ${localFilters.destination === 'all' ? 'selected' : ''}>Todos os Destinos</option>
-              ${distinctDestinations.map(d => `<option value="${escapeHtml(d)}" ${localFilters.destination === d ? 'selected' : ''}>${escapeHtml(d)}</option>`).join('')}
-            </select>
-
-            <select id="consolidatedSourceFilter" style="padding:7px 10px; border-radius:999px; border:1px solid var(--line); background:var(--surface-2); color:var(--text); font-size:0.82rem;">
-              <option value="all" ${localFilters.sourceType === 'all' ? 'selected' : ''}>Todas as Origens</option>
-              <option value="expenses" ${localFilters.sourceType === 'expenses' ? 'selected' : ''}>Apenas Despesas</option>
-              <option value="debtors" ${localFilters.sourceType === 'debtors' ? 'selected' : ''}>Apenas Devedores</option>
-            </select>
-
-            ${(localFilters.search || localFilters.status !== 'all' || localFilters.category !== 'all' || localFilters.destination !== 'all' || localFilters.sourceType !== 'all') ? `
-              <button type="button" id="consolidatedClearFiltersBtn" class="btn small soft" style="border-radius:999px; font-size:0.76rem; padding:6px 10px;">
-                Limpar Filtros
-              </button>
-            ` : ''}
+          <!-- Apoio 2: SAÍDAS PREVISTAS -->
+          <div class="dash-hero-sub-card">
+            <div class="dash-hero-sub-label">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--danger, #EF4444); width:14px; height:14px;">
+                <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" />
+                <polyline points="17 18 23 18 23 12" />
+              </svg>
+              <span>Saídas Previstas</span>
+            </div>
+            <div class="dash-hero-sub-val dash-hero-sub-val--outflow num" id="dashOutflowValue">
+              ${outflowVal !== null ? formatMoney(outflowVal) : '<span class="dash-skeleton-sm"></span>'}
+            </div>
           </div>
         </div>
       </div>
     `;
 
-    // Markup dos Totalizadores
-    const metricsHtml = `
-      <section class="metrics" style="margin-bottom:22px;">
-        <!-- Card 1: TOTAL CONSOLIDADO -->
-        <div class="metric">
-          <div class="label">
-            <span>TOTAL CONSOLIDADO</span>
-            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:16px; height:16px;"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+    // ==========================================
+    // NÍVEL 2: CONTEXTO E PRÓXIMOS MOVIMENTOS
+    // ==========================================
+    const upcomingTitle = isPastCompetence ? 'Movimentações do período' : 'Próximos movimentos';
+    const upcomingBadgeText = isPastCompetence ? 'Histórico do período' : (isCurrentCompetence ? 'A partir de hoje' : `Competência ${monthName}`);
+    const upcomingEventsHtml = buildUpcomingEventsHtml(currentProjectionData, year, month);
+
+    const contextHtml = `
+      <div class="dash-context-grid">
+        <!-- COLUNA ESQUERDA: CONTEXTO CONSOLIDADO (3 CARDS COMPACTOS) -->
+        <div class="dash-context-cards">
+          <!-- Card 1: Despesas -->
+          <div class="dash-context-item">
+            <div class="dash-context-item-left">
+              <div class="dash-context-icon" style="background:rgba(16, 185, 129, 0.12); color:var(--c-fixed, #10B981);">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="width:20px; height:20px;">
+                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+                  <polyline points="17 6 23 6 23 12"/>
+                </svg>
+              </div>
+              <div>
+                <div class="dash-context-title">Despesas Operacionais</div>
+                <div class="dash-context-sub">${expensesItems.length} despesas na competência</div>
+              </div>
+            </div>
+            <div class="dash-context-item-right">
+              <div class="dash-context-val num">${formatMoney(totalExpenses)}</div>
+            </div>
           </div>
-          <div class="value num" style="color:var(--brand-strong); font-size:1.45rem;">${formatMoney(totalFiltered)}</div>
-          <div class="sub">Total considerado na visão ativa</div>
-          <div class="bar"><span style="width:100%; background:var(--brand);"></span></div>
+
+          <!-- Card 2: Devedores / A Receber -->
+          <div class="dash-context-item">
+            <div class="dash-context-item-left">
+              <div class="dash-context-icon" style="background:rgba(245, 158, 11, 0.12); color:var(--c-debt, #F59E0B);">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="width:20px; height:20px;">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <div>
+                <div class="dash-context-title">Cobranças a Receber</div>
+                <div class="dash-context-sub">${debtorItems.length} registros ativos</div>
+              </div>
+            </div>
+            <div class="dash-context-item-right">
+              <div class="dash-context-val num" style="color:var(--c-debt, #F59E0B);">${formatMoney(totalDebtors)}</div>
+            </div>
+          </div>
+
+          <!-- Card 3: Pendências / Quitação -->
+          <div class="dash-context-item">
+            <div class="dash-context-item-left">
+              <div class="dash-context-icon" style="background:rgba(59, 130, 246, 0.12); color:var(--brand);">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="width:20px; height:20px;">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </div>
+              <div>
+                <div class="dash-context-title">Pendências em Aberto</div>
+                <div class="dash-context-sub">${pctPaid}% liquidado (${formatMoney(totalPaid)})</div>
+              </div>
+            </div>
+            <div class="dash-context-item-right">
+              <div class="dash-context-val num" style="color:var(--warning);">${formatMoney(totalPending)}</div>
+            </div>
+          </div>
         </div>
 
-        <!-- Card 2: DESPESAS DA COMPETÊNCIA -->
-        <div class="metric">
-          <div class="label">
-            <span>DESPESAS</span>
-            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--c-fixed, #10B981); width:16px; height:16px;"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-          </div>
-          <div class="value num" style="font-size:1.45rem;">${formatMoney(totalExpenses)}</div>
-          <div class="sub">${expensesItems.length} despesas operacionais</div>
-          <div class="bar"><span style="width:${totalFiltered > 0 ? Math.round((totalExpenses / totalFiltered) * 100) : 0}%; background:var(--c-fixed, #10B981);"></span></div>
-        </div>
+        <!-- COLUNA DIREITA: PRÓXIMOS MOVIMENTOS (CALENDAR PROJECTION API) -->
+        <div class="dash-upcoming-card" id="dashUpcomingCard">
+          <div>
+            <div class="dash-upcoming-header">
+              <h3 class="dash-upcoming-title" id="dashUpcomingTitle">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:18px; height:18px;">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                <span id="dashUpcomingTitleText">${escapeHtml(upcomingTitle)}</span>
+              </h3>
+              <span class="badge info" id="dashUpcomingBadge" style="font-size:0.70rem;">${escapeHtml(upcomingBadgeText)}</span>
+            </div>
 
-        <!-- Card 3: DEVEDORES / RECEBÍVEIS -->
-        <div class="metric">
-          <div class="label">
-            <span>DEVEDORES / A RECEBER</span>
-            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--c-debt, #F59E0B); width:16px; height:16px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <div class="dash-upcoming-list" id="dashUpcomingList">
+              ${upcomingEventsHtml}
+            </div>
           </div>
-          <div class="value num" style="font-size:1.45rem; color:var(--c-debt, #F59E0B);">${formatMoney(totalDebtors)}</div>
-          <div class="sub">${debtorItems.length} cobranças no mês</div>
-          <div class="bar"><span style="width:${totalFiltered > 0 ? Math.round((totalDebtors / totalFiltered) * 100) : 0}%; background:var(--c-debt, #F59E0B);"></span></div>
-        </div>
 
-        <!-- Card 4: LIQUIDADO / PAGO -->
-        <div class="metric">
-          <div class="label">
-            <span>PAGO / RECEBIDO</span>
-            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--success); width:16px; height:16px;"><polyline points="20 6 9 17 4 12"/></svg>
+          <div class="dash-upcoming-footer">
+            <button type="button" class="btn small soft dash-upcoming-cta-btn" id="dashGoToCalendarBtn">
+              Ver calendário →
+            </button>
           </div>
-          <div class="value num" style="color:var(--success); font-size:1.45rem;">${formatMoney(totalPaid)}</div>
-          <div class="sub">${pctPaid}% liquidado</div>
-          <div class="bar"><span style="width:${pctPaid}%; background:var(--success);"></span></div>
         </div>
-
-        <!-- Card 5: PENDENTE -->
-        <div class="metric">
-          <div class="label">
-            <span>PENDENTE</span>
-            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--warning); width:16px; height:16px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          </div>
-          <div class="value num" style="color:var(--warning); font-size:1.45rem;">${formatMoney(totalPending)}</div>
-          <div class="sub">${pctPending}% em aberto</div>
-          <div class="bar"><span style="width:${pctPending}%; background:var(--warning);"></span></div>
-        </div>
-      </section>
+      </div>
     `;
 
-    // Se o dataset filtrado estiver vazio, exibe empty state elegante
-    if (dataset.length === 0) {
-      container.innerHTML = `
-        <div class="consolidated-dashboard-view" id="consolidatedDashboardView">
-          ${filtersHtml}
-          ${metricsHtml}
-          <div class="card section-card full-width" style="padding:48px 20px; text-align:center; border-radius:14px; margin-bottom:22px;">
-            <div style="display:inline-flex; align-items:center; justify-content:center; width:54px; height:54px; border-radius:50%; background:var(--surface-2); margin-bottom:14px;">
-              <svg class="svg-icon" viewBox="0 0 24 24" style="width:28px; height:28px; stroke:var(--muted);"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-            </div>
-            <h3 style="font-size:1.1rem; font-weight:800; margin:0 0 6px;">Nenhum lançamento encontrado</h3>
-            <p style="color:var(--muted); font-size:0.86rem; max-width:440px; margin:0 auto 16px;">
-              Não há lançamentos de despesas ou cobranças correspondentes para <strong>${escapeHtml(monthName)}/${year}</strong> com os filtros aplicados.
-            </p>
-            ${(localFilters.search || localFilters.status !== 'all' || localFilters.category !== 'all' || localFilters.destination !== 'all' || localFilters.sourceType !== 'all') ? `
-              <button type="button" id="consolidatedEmptyResetBtn" class="btn primary small" style="border-radius:999px;">Limpar Filtros</button>
-            ` : ''}
-          </div>
-        </div>
-      `;
-      attachConsolidatedListeners(container);
-      return;
-    }
-
-    // Markup da Visão Por Categoria (Coluna Esquerda)
+    // ==========================================
+    // NÍVEL 3: ANÁLISES INTERNAS (PROGRESSIVE DISCLOSURE)
+    // ==========================================
     const categoryCardsHtml = catAgg.map(cat => {
       const isExpanded = !!expandedAccordions.categories[cat.name];
       const iconSvg = (typeof getCategoryIconSvg === 'function') ? getCategoryIconSvg(cat.meta?.icon || cat.name) : (window.CATEGORY_SVG_ICONS?.tag || '');
@@ -557,7 +839,6 @@
             <div style="width:${cat.pct}%; height:100%; background:${catColor}; border-radius:2px;"></div>
           </div>
 
-          <!-- DRILL-DOWN ITENS EXPANSÍVEIS -->
           ${isExpanded ? `
             <div style="margin-top:12px; padding-top:10px; border-top:1px dashed var(--line); display:flex; flex-direction:column; gap:6px;">
               ${cat.items.map(item => `
@@ -582,7 +863,6 @@
       `;
     }).join('');
 
-    // Markup da Visão Por Destino (Coluna Direita)
     const destinationCardsHtml = destAgg.map(dest => {
       const isExpanded = !!expandedAccordions.destinations[dest.name];
       const destIconSvg = (typeof DEST_SVG_ICONS !== 'undefined' && DEST_SVG_ICONS[dest.meta?.icon]) ? DEST_SVG_ICONS[dest.meta.icon] : (window.DEST_SVG_ICONS?.card || '');
@@ -614,7 +894,6 @@
             <div style="width:${dest.pct}%; height:100%; background:${color}; border-radius:2px;"></div>
           </div>
 
-          <!-- DRILL-DOWN ITENS EXPANSÍVEIS -->
           ${isExpanded ? `
             <div style="margin-top:12px; padding-top:10px; border-top:1px dashed var(--line); display:flex; flex-direction:column; gap:6px;">
               ${dest.items.map(item => `
@@ -639,7 +918,7 @@
       `;
     }).join('');
 
-    // Markup da Matriz Categoria × Destino
+    // Matriz Categoria × Destino
     let maxCellVal = 1;
     matrixData.categories.forEach(c => {
       matrixData.destinations.forEach(d => {
@@ -686,81 +965,166 @@
       return `<td style="font-weight:850;">${formatMoney(totalDest)}</td>`;
     }).join('');
 
-    const matrixHtml = `
-      <div class="consolidated-matrix-card full-width">
-        <div class="section-head" style="padding:14px 18px; border-bottom:1px solid var(--line); background:var(--surface-2); display:flex; align-items:center; justify-content:space-between;">
-          <div class="section-title" style="font-weight:800; font-size:0.95rem; display:flex; align-items:center; gap:8px;">
-            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand);"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
-            Matriz Cruzada: Categoria × Destino
+    const matrixTableHtml = `
+      <div class="consolidated-matrix-table-wrap">
+        <table class="consolidated-matrix-table">
+          <thead>
+            <tr>
+              <th class="cat-col">Categoria \\ Destino</th>
+              ${matrixHeaderCols}
+              <th class="total-col" style="min-width:130px; text-align:right;">Total Categoria</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${matrixBodyRows}
+          </tbody>
+          <tfoot>
+            <tr class="total-row">
+              <td class="cat-col" style="font-weight:850;">Total do Destino</td>
+              ${matrixFooterCells}
+              <td class="total-col" style="font-weight:900; color:var(--brand-strong);">${formatMoney(matrixData.grandTotal)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    `;
+
+    // Seções Expansíveis de Nível 3 (iniciam COLLAPSED por padrão)
+    const analysisSectionsHtml = `
+      <div class="dash-analysis-sections" id="dashAnalysisSections">
+        <div class="dash-analysis-grid">
+          <!-- SEÇÃO 1: POR CATEGORIA (COLLAPSIBLE) -->
+          <div class="card expandable-section is-collapsed" id="dashCategorySection" data-expandable-section>
+            <div class="expandable-section__header" id="dashCategoryHeader" aria-expanded="false" aria-controls="dashCategoryContent">
+              <div class="expandable-section__title-group">
+                <div class="expandable-section__titles">
+                  <h3 class="expandable-section__title">
+                    <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:16px; height:16px;">
+                      <path d="M21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>
+                    </svg>
+                    Por Categoria
+                  </h3>
+                  <span class="expandable-section__desc">${catAgg.length} categorias • ${formatMoney(totalFiltered)}</span>
+                </div>
+              </div>
+              <div class="expandable-section__meta">
+                <span class="badge info" style="font-size:0.72rem;">${catAgg.length} categorias</span>
+                <span class="expandable-section__chevron" aria-hidden="true">
+                  <svg class="svg-icon" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                </span>
+              </div>
+            </div>
+            <div class="expandable-section__content" id="dashCategoryContent" hidden>
+              <div style="display:flex; flex-direction:column; padding-top:6px;">
+                ${categoryCardsHtml}
+              </div>
+            </div>
           </div>
-          <div style="font-size:0.75rem; color:var(--muted); font-weight:700;">
-            ${matrixData.categories.length} categorias × ${matrixData.destinations.length} destinos
+
+          <!-- SEÇÃO 2: POR DESTINO / CARTÃO (COLLAPSIBLE) -->
+          <div class="card expandable-section is-collapsed" id="dashDestinationSection" data-expandable-section>
+            <div class="expandable-section__header" id="dashDestinationHeader" aria-expanded="false" aria-controls="dashDestinationContent">
+              <div class="expandable-section__title-group">
+                <div class="expandable-section__titles">
+                  <h3 class="expandable-section__title">
+                    <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:16px; height:16px;">
+                      <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
+                    </svg>
+                    Por Destino / Cartão
+                  </h3>
+                  <span class="expandable-section__desc">${destAgg.length} destinos • ${formatMoney(totalFiltered)}</span>
+                </div>
+              </div>
+              <div class="expandable-section__meta">
+                <span class="badge info" style="font-size:0.72rem;">${destAgg.length} destinos</span>
+                <span class="expandable-section__chevron" aria-hidden="true">
+                  <svg class="svg-icon" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                </span>
+              </div>
+            </div>
+            <div class="expandable-section__content" id="dashDestinationContent" hidden>
+              <div style="display:flex; flex-direction:column; padding-top:6px;">
+                ${destinationCardsHtml}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="consolidated-matrix-table-wrap">
-          <table class="consolidated-matrix-table">
-            <thead>
-              <tr>
-                <th class="cat-col">Categoria \\ Destino</th>
-                ${matrixHeaderCols}
-                <th class="total-col" style="min-width:130px; text-align:right;">Total Categoria</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${matrixBodyRows}
-            </tbody>
-            <tfoot>
-              <tr class="total-row">
-                <td class="cat-col" style="font-weight:850;">Total do Destino</td>
-                ${matrixFooterCells}
-                <td class="total-col" style="font-weight:900; color:var(--brand-strong);">${formatMoney(matrixData.grandTotal)}</td>
-              </tr>
-            </tfoot>
-          </table>
+        <!-- SEÇÃO 3: MATRIZ CRUZADA (COLLAPSIBLE) -->
+        <div class="card expandable-section is-collapsed full-width" id="dashMatrixSection" data-expandable-section>
+          <div class="expandable-section__header" id="dashMatrixHeader" aria-expanded="false" aria-controls="dashMatrixContent">
+            <div class="expandable-section__title-group">
+              <div class="expandable-section__titles">
+                <h3 class="expandable-section__title">
+                  <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:16px; height:16px;">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>
+                  </svg>
+                  Matriz Cruzada: Categoria × Destino
+                </h3>
+                <span class="expandable-section__desc">${matrixData.categories.length} categorias × ${matrixData.destinations.length} destinos</span>
+              </div>
+            </div>
+            <div class="expandable-section__meta">
+              <span class="badge info" style="font-size:0.72rem;">${matrixData.categories.length} × ${matrixData.destinations.length}</span>
+              <span class="expandable-section__chevron" aria-hidden="true">
+                <svg class="svg-icon" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
+            </div>
+          </div>
+          <div class="expandable-section__content" id="dashMatrixContent" hidden style="padding:0;">
+            ${matrixTableHtml}
+          </div>
         </div>
       </div>
     `;
 
-    // Monta o layout funcional da Visão Consolidada (UX1.5: livre de accordion duplicado, sempre visível)
-    container.innerHTML = `
-      <div class="consolidated-dashboard-view" id="consolidatedDashboardView">
-        ${filtersHtml}
-        ${metricsHtml}
-
-        <div class="sections-grid" style="margin-bottom:22px;">
-          <!-- COLUNA 1: POR CATEGORIA -->
-          <div class="card section-card" style="padding:16px 18px; border-radius:14px;">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-              <h3 style="margin:0; font-size:0.95rem; font-weight:800; display:flex; align-items:center; gap:8px;">
-                <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand);"><path d="M21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
-                Por Categoria
-              </h3>
-              <span class="badge info" style="font-size:0.72rem;">${catAgg.length} categorias</span>
+    // Empty state se dataset filtrado não contiver nada
+    if (dataset.length === 0) {
+      container.innerHTML = `
+        <div class="consolidated-dashboard-view" id="consolidatedDashboardView">
+          ${filtersHtml}
+          ${heroHtml}
+          ${contextHtml}
+          <div class="card section-card full-width" style="padding:48px 20px; text-align:center; border-radius:14px; margin-bottom:22px;">
+            <div style="display:inline-flex; align-items:center; justify-content:center; width:54px; height:54px; border-radius:50%; background:var(--surface-2); margin-bottom:14px;">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="width:28px; height:28px; stroke:var(--muted);"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
             </div>
-            <div style="display:flex; flex-direction:column;">
-              ${categoryCardsHtml}
-            </div>
-          </div>
-
-          <!-- COLUNA 2: POR DESTINO -->
-          <div class="card section-card" style="padding:16px 18px; border-radius:14px;">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-              <h3 style="margin:0; font-size:0.95rem; font-weight:800; display:flex; align-items:center; gap:8px;">
-                <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand);"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-                Por Destino / Cartão
-              </h3>
-              <span class="badge info" style="font-size:0.72rem;">${destAgg.length} destinos</span>
-            </div>
-            <div style="display:flex; flex-direction:column;">
-              ${destinationCardsHtml}
-            </div>
+            <h3 style="font-size:1.1rem; font-weight:800; margin:0 0 6px;">Nenhum lançamento encontrado</h3>
+            <p style="color:var(--muted); font-size:0.86rem; max-width:440px; margin:0 auto 16px;">
+              Não há lançamentos de despesas ou cobranças correspondentes para <strong>${escapeHtml(monthName)}/${year}</strong> com os filtros aplicados.
+            </p>
+            ${hasActiveFilters ? `
+              <button type="button" id="consolidatedEmptyResetBtn" class="btn primary small" style="border-radius:999px;">Limpar Filtros</button>
+            ` : ''}
           </div>
         </div>
+      `;
+    } else {
+      // Montagem completa do Dashboard V2 em 3 Níveis
+      container.innerHTML = `
+        <div class="consolidated-dashboard-view" id="consolidatedDashboardView">
+          ${filtersHtml}
+          ${heroHtml}
+          ${contextHtml}
+          ${analysisSectionsHtml}
+        </div>
+      `;
+    }
 
-        ${matrixHtml}
-      </div>
-    `;
+    // Inicialização das seções expansíveis de Nível 3 (iniciam collapsed, SEM storageKey)
+    if (typeof window.initExpandableSection === 'function') {
+      const catSec = container.querySelector('#dashCategorySection');
+      const destSec = container.querySelector('#dashDestinationSection');
+      const matrixSec = container.querySelector('#dashMatrixSection');
+      if (catSec) window.initExpandableSection(catSec, { defaultExpanded: false });
+      if (destSec) window.initExpandableSection(destSec, { defaultExpanded: false });
+      if (matrixSec) window.initExpandableSection(matrixSec, { defaultExpanded: false });
+    }
+
+    // Se a projeção da competência atual ainda não estiver carregada, busca via Calendar API
+    if (!currentProjectionData || projectionYear !== year || projectionMonth !== month) {
+      loadDashboardProjection(year, month);
+    }
 
     attachConsolidatedListeners(container);
   }
@@ -769,6 +1133,7 @@
    * Navega para o mês anterior tratando mudança de ano
    */
   function prevMonth() {
+    currentProjectionData = null;
     const s = (typeof getState === 'function') ? getState() : (window.state || {});
     let m = Number(s.month) || (new Date().getMonth() + 1);
     let y = Number(s.year) || new Date().getFullYear();
@@ -796,6 +1161,7 @@
    * Navega para o próximo mês tratando mudança de ano
    */
   function nextMonth() {
+    currentProjectionData = null;
     const s = (typeof getState === 'function') ? getState() : (window.state || {});
     let m = Number(s.month) || (new Date().getMonth() + 1);
     let y = Number(s.year) || new Date().getFullYear();
@@ -823,6 +1189,7 @@
    * Retorna para a competência do mês e ano atuais
    */
   function goToCurrentMonth() {
+    currentProjectionData = null;
     const s = (typeof getState === 'function') ? getState() : (window.state || {});
     const now = (typeof todayYM === 'function') ? todayYM() : { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
     s.month = now.month;
@@ -923,6 +1290,17 @@
       });
     });
 
+    // CTA: Ver calendário
+    const calBtn = container.querySelector('#dashGoToCalendarBtn');
+    if (calBtn) {
+      calBtn.addEventListener('click', () => {
+        if (typeof window.activateTab === 'function') {
+          window.activateTab('tab-calendar', true);
+        } else if (typeof window.uiShell?.activateTab === 'function') {
+          window.uiShell.activateTab('tab-calendar', true);
+        }
+      });
+    }
   }
 
   // APIs Públicas do Módulo de Dashboard Consolidado

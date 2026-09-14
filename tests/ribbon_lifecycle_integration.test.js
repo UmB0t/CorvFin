@@ -397,6 +397,13 @@ function setupIntegrationEnv() {
       log: () => {},
       warn: () => {},
       error: () => {}
+    },
+    localStorage: {
+      _store: {},
+      getItem(k) { return this._store[k] !== undefined ? this._store[k] : null; },
+      setItem(k, v) { this._store[k] = String(v); },
+      removeItem(k) { delete this._store[k]; },
+      clear() { this._store = {}; }
     }
   };
 
@@ -581,7 +588,7 @@ describe('CORVFIN — UX1.8: INTEGRAÇÃO DO LIFECYCLE REAL DO RIBBON', () => {
     assert.equal(elementMap.ribbonSection.classList.contains('is-expanded'), false, 'classe is-expanded deve continuar ausente');
   });
 
-  test('4. Trocar de aba restaura estado EXPANDIDO na nova aba', () => {
+  test('4. Trocar de aba PRESERVA preferência global (collapsed em Despesas -> Extras abre collapsed)', () => {
     const { elementMap, sandbox } = setupIntegrationEnv();
     sandbox.setStateHydrated(true);
 
@@ -589,45 +596,54 @@ describe('CORVFIN — UX1.8: INTEGRAÇÃO DO LIFECYCLE REAL DO RIBBON', () => {
     sandbox.activateTab('tab-expenses', true);
     elementMap.ribbonToggleBtn.click();
     assert.equal(elementMap.ribbonSectionContent.hidden, true, 'Despesas colapsado');
+    assert.equal(sandbox.localStorage.getItem('corvfin_ribbon_expanded'), 'false', 'localStorage salvou false');
 
     // Troca para Extras
     sandbox.activateTab('tab-extras', true);
 
-    // CONTRATO: nova aba com ribbon entra EXPANDIDA
-    assert.equal(elementMap.ribbonSectionContent.hidden, false, 'Nova aba (Extras) deve iniciar EXPANDIDA');
-    assert.equal(elementMap.ribbonToggleBtn.getAttribute('aria-expanded'), 'true');
-    assert.equal(elementMap.ribbonSection.classList.contains('is-expanded'), true);
-    assert.equal(elementMap.ribbonSection.classList.contains('is-collapsed'), false);
+    // CONTRATO UX2: nova aba respeita a preferência global (continua COLLAPSED)
+    assert.equal(elementMap.ribbonSectionContent.hidden, true, 'Nova aba (Extras) deve permanecer COLLAPSED');
+    assert.equal(elementMap.ribbonToggleBtn.getAttribute('aria-expanded'), 'false');
+    assert.equal(elementMap.ribbonSection.classList.contains('is-collapsed'), true);
+    assert.equal(elementMap.ribbonSection.classList.contains('is-expanded'), false);
   });
 
-  test('5. Sequência completa real: Despesas -> collapse -> próximo mês -> Extras -> Devedores -> Despesas', () => {
+  test('5. Sequência completa real UX2: Despesas -> collapse -> próximo mês -> Extras -> Devedores -> Expand -> Despesas', () => {
     const { elementMap, sandbox, getState } = setupIntegrationEnv();
     sandbox.setStateHydrated(true);
 
     // 1. Despesas
     sandbox.activateTab('tab-expenses', true);
-    assert.equal(elementMap.ribbonSectionContent.hidden, false, '1. Despesas inicia expanded');
+    assert.equal(elementMap.ribbonSectionContent.hidden, false, '1. Despesas inicia expanded por default');
+    assert.equal(sandbox.localStorage.getItem('corvfin_ribbon_expanded'), 'true', 'Default gravado/detectado como true');
 
     // 2. Collapse
     elementMap.ribbonToggleBtn.click();
     assert.equal(elementMap.ribbonSectionContent.hidden, true, '2. Despesas colapsado');
+    assert.equal(sandbox.localStorage.getItem('corvfin_ribbon_expanded'), 'false', 'Salvo false no localStorage');
 
     // 3. Próximo mês
     sandbox.ribbonNextMonth();
     assert.equal(getState().month, 10, '3. Mês avançou');
-    assert.equal(elementMap.ribbonSectionContent.hidden, true, '3. Permanece colapsado');
+    assert.equal(elementMap.ribbonSectionContent.hidden, true, '3. Permanece colapsado após navegação de mês');
+    assert.equal(sandbox.localStorage.getItem('corvfin_ribbon_expanded'), 'false', 'Permanece false');
 
     // 4. Extras
     sandbox.activateTab('tab-extras', true);
-    assert.equal(elementMap.ribbonSectionContent.hidden, false, '4. Extras inicia expanded');
+    assert.equal(elementMap.ribbonSectionContent.hidden, true, '4. Extras abre colapsado pela preferência global');
 
     // 5. Devedores
     sandbox.activateTab('tab-debtors', true);
-    assert.equal(elementMap.ribbonSectionContent.hidden, false, '5. Devedores inicia expanded');
+    assert.equal(elementMap.ribbonSectionContent.hidden, true, '5. Devedores abre colapsado pela preferência global');
 
-    // 6. Voltar para Despesas
+    // 6. Usuário expande em Devedores
+    elementMap.ribbonToggleBtn.click();
+    assert.equal(elementMap.ribbonSectionContent.hidden, false, '6. Usuário expandiu em Devedores');
+    assert.equal(sandbox.localStorage.getItem('corvfin_ribbon_expanded'), 'true', 'Salvo true no localStorage');
+
+    // 7. Voltar para Despesas
     sandbox.activateTab('tab-expenses', true);
-    assert.equal(elementMap.ribbonSectionContent.hidden, false, '6. Ao voltar para Despesas, deve estar EXPANDIDO');
+    assert.equal(elementMap.ribbonSectionContent.hidden, false, '7. Ao voltar para Despesas, abre EXPANDIDO pela preferência global');
     assert.equal(elementMap.ribbonToggleBtn.getAttribute('aria-expanded'), 'true');
     assert.equal(elementMap.ribbonSection.classList.contains('is-expanded'), true);
     assert.equal(elementMap.ribbonSection.classList.contains('is-collapsed'), false);
