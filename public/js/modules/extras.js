@@ -156,16 +156,12 @@ function renderExtraIncomeCharts() {
 
   const originContainer = $('#extrasOriginBars');
   const originBadge = $('#extrasOriginTotalBadge');
-  const yearContainer = $('#extrasYearBars');
-  const yearBadge = $('#extrasYearTotalBadge');
-  const avgSummaryText = $('#extrasAvgSummaryText');
-  const totalYearSummaryText = $('#extrasTotalYearSummaryText');
 
   const curExtras = activeExtrasForMonth(state.year, state.month);
   const curTotal = curExtras.reduce((s, e) => s + Number(e.amount || 0), 0);
   if (originBadge) originBadge.textContent = `Total Mês: ${currency(curTotal)}`;
 
-  // 1. Gráfico por Origem / Remetente
+  // Gráfico por Origem / Remetente
   if (originContainer) {
     const originMap = {};
     curExtras.forEach(e => {
@@ -196,38 +192,6 @@ function renderExtraIncomeCharts() {
         `;
       }).join('');
     }
-  }
-
-  // 2. Gráfico de Evolução Anual
-  if (yearContainer) {
-    let yearTotal = 0;
-    const monthsData = [];
-    for (let m = 1; m <= 12; m++) {
-      const mExt = activeExtrasForMonth(state.year, m);
-      const mSum = mExt.reduce((s, e) => s + Number(e.amount || 0), 0);
-      yearTotal += mSum;
-      monthsData.push({ month: m, total: mSum });
-    }
-
-    const avg = yearTotal / 12;
-    if (yearBadge) yearBadge.textContent = `Total ${state.year}: ${currency(yearTotal)}`;
-    if (avgSummaryText) avgSummaryText.textContent = currency(avg);
-    if (totalYearSummaryText) totalYearSummaryText.textContent = currency(yearTotal);
-
-    const maxM = Math.max(...monthsData.map(x => x.total), 100);
-    yearContainer.innerHTML = monthsData.map(item => {
-      const isCur = item.month === state.month;
-      const h = item.total > 0 ? Math.max(10, Math.round((item.total / maxM) * 85)) : 4;
-      const barColor = isCur ? 'var(--c-extra)' : (item.total > 0 ? 'var(--brand)' : 'var(--line)');
-      const tip = `${MONTH_NAMES[item.month - 1]}/${state.year}: ${currency(item.total)}`;
-      return `
-        <div class="extra-year-bar-item" data-month="${item.month}" style="display:flex; flex-direction:column; align-items:center; flex:1; min-width:20px; height:100%; justify-content:flex-end; cursor:pointer;" data-tooltip="${tip}">
-          ${item.total > 0 ? `<span style="font-size:.62rem; font-weight:800; color:var(--brand); margin-bottom:2px;" class="num">${Math.round(item.total)}</span>` : ''}
-          <div style="width:100%; max-width:18px; height:${h}px; border-radius:4px 4px 0 0; background:${barColor}; transition:height .2s ease; ${isCur ? 'box-shadow: 0 0 8px var(--c-extra);' : ''}"></div>
-          <span style="font-size:.65rem; color:${isCur ? 'var(--brand-strong)' : 'var(--muted)'}; font-weight:${isCur ? '800' : '700'}; margin-top:4px;">${MONTH_ABBR[item.month - 1]}</span>
-        </div>
-      `;
-    }).join('');
   }
 };
 
@@ -307,18 +271,7 @@ function toggleExtraStatus(id) {
     $('#extrasSearchInput')?.addEventListener('input', renderExtrasTab);
     $('#extrasStatusFilter')?.addEventListener('change', renderExtrasTab);
 
-    const yearBars = $('#extrasYearBars');
-    if (yearBars) {
-      yearBars.addEventListener('click', (e) => {
-        const itemEl = e.target.closest('[data-month]');
-        if (itemEl) {
-          const m = Number(itemEl.getAttribute('data-month'));
-          if (m >= 1 && m <= 12 && typeof window.selectMonth === 'function') {
-            window.selectMonth(m);
-          }
-        }
-      });
-    }
+
 
     const toggleExtrasChartsBtn = $('#toggleExtrasChartsBtn');
     if (toggleExtrasChartsBtn) {

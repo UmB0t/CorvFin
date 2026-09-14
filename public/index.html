@@ -36,6 +36,7 @@
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/calendar.css">
   <link rel="stylesheet" href="css/dialogs.css">
   <link rel="stylesheet" href="css/responsive.css">
   <link rel="stylesheet" href="css/mobile.css">
@@ -84,6 +85,16 @@
             <rect x="3" y="14" width="7" height="7"></rect>
           </svg>
           <span class="link-text">Dashboard</span>
+        </button>
+
+        <button class="sidebar-link" data-tab="tab-calendar" data-tooltip="Calendário">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+          <span class="link-text">Calendário</span>
         </button>
 
         <button class="sidebar-link" data-tab="tab-expenses" data-tooltip="Despesas">
@@ -261,34 +272,71 @@
         </div>
       </header>
 
-      <section class="ribbon-card card" id="ribbonSection">
-        <div class="ribbon-head">
-          <div class="year-nav">
-            <button id="prevYear" aria-label="Ano anterior">
+      <section class="ribbon-card card expandable-section is-expanded" id="ribbonSection" data-expandable>
+        <div class="expandable-section__header" id="ribbonSectionHeader">
+          <div class="expandable-section__title-group">
+            <div class="expandable-section__titles">
+              <h3 class="expandable-section__title" id="ribbonSectionTitle">Visão Consolidada</h3>
+              <span class="expandable-section__desc" id="ribbonSectionDesc">Navegação mensal e indicadores consolidados</span>
+            </div>
+            <span id="ribbonYearBadge" style="display: none;" aria-hidden="true">2026</span>
+          </div>
+
+          <div class="ribbon-compact-nav" id="ribbonCompactNav">
+            <button type="button" class="btn small soft icon-btn ribbon-compact-nav-btn" id="ribbonPrevMonthBtn" aria-label="Mês anterior" data-tooltip="Mês anterior" title="Mês anterior">
               <svg class="svg-icon" viewBox="0 0 24 24">
                 <polyline points="15 18 9 12 15 6" />
               </svg>
             </button>
-            <span id="yearLabel">2026</span>
-            <button id="nextYear" aria-label="Próximo ano">
+            <div class="ribbon-compact-month-display" id="ribbonCompactMonthDisplay">Janeiro/2026</div>
+            <button type="button" class="btn small soft icon-btn ribbon-compact-nav-btn" id="ribbonNextMonthBtn" aria-label="Próximo mês" data-tooltip="Próximo mês" title="Próximo mês">
               <svg class="svg-icon" viewBox="0 0 24 24">
                 <polyline points="9 18 15 12 9 6" />
               </svg>
             </button>
-            <button class="btn soft small today-btn-fixed" id="todayBtn">Mês Atual</button>
+            <button type="button" class="btn small soft ribbon-compact-today-btn" id="ribbonCompactTodayBtn" aria-label="Ir para o mês civil atual" data-tooltip="Ir para o mês atual" title="Ir para o mês atual">
+              Mês Atual
+            </button>
           </div>
 
-          <div class="legend" id="ribbonLegend"></div>
+          <button type="button" class="expandable-section__trigger" id="ribbonToggleBtn" aria-expanded="true" aria-controls="ribbonSectionContent" aria-label="Expandir ou recolher visão anual" title="Expandir ou recolher visão anual">
+            <span class="expandable-section__chevron" aria-hidden="true">
+              <svg class="svg-icon" viewBox="0 0 24 24">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </span>
+          </button>
+        </div>
 
-          <div class="user-greeting">
-            <div class="user-avatar" id="userAvatar">U</div>
-            <div class="user-info">
-              <span class="user-name" id="userNameLabel">Usuário</span>
-              <span class="user-salary" id="userSalaryLabel">Salário: R$ 0,00</span>
+        <div class="expandable-section__content" id="ribbonSectionContent">
+          <div class="ribbon-head">
+            <div class="year-nav">
+              <button id="prevYear" aria-label="Ano anterior">
+                <svg class="svg-icon" viewBox="0 0 24 24">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+              <span id="yearLabel">2026</span>
+              <button id="nextYear" aria-label="Próximo ano">
+                <svg class="svg-icon" viewBox="0 0 24 24">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+              <button class="btn soft small today-btn-fixed" id="todayBtn">Mês Atual</button>
+            </div>
+
+            <div class="legend" id="ribbonLegend"></div>
+
+            <div class="user-greeting">
+              <div class="user-avatar" id="userAvatar">U</div>
+              <div class="user-info">
+                <span class="user-name" id="userNameLabel">Usuário</span>
+                <span class="user-salary" id="userSalaryLabel">Salário: R$ 0,00</span>
+              </div>
             </div>
           </div>
+          <div class="ribbon" id="ribbon"></div>
         </div>
-        <div class="ribbon" id="ribbon"></div>
       </section>
 
       <!-- TAB 0: DASHBOARD PRINCIPAL -->
@@ -296,6 +344,11 @@
         <div id="dashboardViewWrap">
           <!-- Injetado dinamicamente por consolidatedDashboard.js -->
         </div>
+      </main>
+
+      <!-- TAB CALENDÁRIO: PROJEÇÃO CANÔNICA MENSAL -->
+      <main id="tab-calendar" class="tab-content" hidden>
+        <!-- Injetado dinamicamente por calendar.js -->
       </main>
 
       <!-- TAB 1: DESPESAS -->
@@ -784,29 +837,6 @@
             </div>
             <div id="extrasOriginChartContainer" style="padding:14px;">
               <div class="dest-bars" id="extrasOriginBars"></div>
-            </div>
-          </div>
-
-          <!-- GRÁFICO 2: EVOLUÇÃO ANUAL DE RECEITA EXTRA -->
-          <div class="card chart-card">
-            <div class="chart-head">
-              <h3 class="chart-title">
-                <svg class="svg-icon" viewBox="0 0 24 24">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                  <line x1="16" y1="2" x2="16" y2="6" />
-                  <line x1="8" y1="2" x2="8" y2="6" />
-                  <line x1="3" y1="10" x2="21" y2="10" />
-                </svg>
-                Evolução Mensal no Ano
-              </h3>
-              <span class="badge positive" id="extrasYearTotalBadge">Total Anual: R$ 0,00</span>
-            </div>
-            <div id="extrasYearChartContainer" style="padding:14px;">
-              <div id="extrasYearBars" style="display:flex; align-items:flex-end; gap:6px; height:130px; padding:10px 0; border-bottom:1px solid var(--line); overflow-x:auto;"></div>
-              <div id="extrasYearSummary" style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; font-size:.78rem; color:var(--muted); font-weight:700;">
-                <span>Média Mensal: <strong id="extrasAvgSummaryText" style="color:var(--brand);">R$ 0,00</strong></span>
-                <span>Total no Ano: <strong id="extrasTotalYearSummaryText" style="color:var(--success);">R$ 0,00</strong></span>
-              </div>
             </div>
           </div>
         </div>
@@ -4048,6 +4078,46 @@
     </div>
   </dialog>
 
+  <!-- MODAL: DETALHES COMPLETOS DO DIA DO CALENDÁRIO (UX1.4) -->
+  <dialog id="calendarDayDetailsDialog" class="dialog-bordered dialog-wide" aria-labelledby="calendarDayDetailsTitle">
+    <div class="dialog-head">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:36px; height:36px; border-radius:10px; background:var(--brand-soft); color:var(--brand); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="width:20px; height:20px; stroke:var(--brand);">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <div>
+          <h3 id="calendarDayDetailsTitle" style="margin:0; font-size:1.12rem; font-weight:850; color:var(--text);">Movimentações do Dia</h3>
+          <p id="calendarDayDetailsSubtitle" style="margin:2px 0 0; color:var(--muted); font-size:.80rem; font-weight:600;">Detalhamento completo das ocorrências do dia</p>
+        </div>
+      </div>
+      <button type="button" class="icon-btn small" id="closeCalendarDayDetailsBtn" data-close="calendarDayDetailsDialog" aria-label="Fechar Detalhes do Dia">
+        <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="dialog-body" style="padding:18px 20px;">
+      <div id="calendarDayDetailsSummary" class="calendar-day-modal-summary" style="margin-bottom:16px;">
+        <!-- Entradas, Saídas, Resultado -->
+      </div>
+      <div id="calendarDayDetailsList" class="calendar-day-modal-list" role="list">
+        <!-- Todas as N movimentações -->
+      </div>
+    </div>
+
+    <div class="dialog-foot" style="justify-content:space-between;">
+      <span id="calendarDayDetailsCount" style="font-size:0.78rem; color:var(--muted); font-weight:700;"></span>
+      <button type="button" class="btn soft" data-close="calendarDayDetailsDialog">Fechar</button>
+    </div>
+  </dialog>
+
   <!-- MODAL: CENTRAL DE RELEASE NOTES / ATUALIZAÇÕES -->
   <dialog id="releaseNotesDialog" class="dialog-bordered">
     <div class="dialog-head">
@@ -4112,6 +4182,7 @@
   <script src="js/modules/aiAssistant.js"></script>
   <script src="js/modules/backup.js"></script>
   <script src="js/modules/notifications.js"></script>
+  <script src="js/modules/calendar.js"></script>
   <script src="js/core/app.js"></script>
     <!-- BOTTOM NAVIGATION BAR (MOBILE) -->
   <nav class="bottom-nav-bar" id="mobileBottomNav" aria-label="Navegação Principal Mobile">
@@ -4269,6 +4340,16 @@
 
       <!-- GRID DE OUTROS MÓDULOS -->
       <div class="mobile-drawer-grid">
+        <button type="button" class="mobile-drawer-card" data-tab="tab-calendar">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+          <span>Calendário</span>
+        </button>
+
         <button type="button" class="mobile-drawer-card" data-tab="tab-benefits">
           <svg class="svg-icon" viewBox="0 0 24 24">
             <path d="M18 8h1a4 4 0 0 1 0 8h-1" />

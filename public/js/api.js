@@ -86,7 +86,7 @@
     if (match) {
       const firstSeg = match[1].toLowerCase();
       const knownRootRoutes = [
-        '/dashboard', '/despesas', '/extras', '/devedores', '/investimentos',
+        '/dashboard', '/calendario', '/calendar', '/despesas', '/extras', '/devedores', '/investimentos',
         '/beneficios', '/compras', '/simulacao', '/perfil',
         '/admin', '/login', '/api', '/css', '/js', '/views'
       ];
@@ -311,6 +311,7 @@
     // Finances endpoints
     getFinances: () => request('/api/finances', { method: 'GET' }),
     saveFinances: (data) => request('/api/finances', { method: 'PUT', body: JSON.stringify(data) }),
+    getCalendarProjection: (year, month, options = {}) => request(`/api/finances/calendar?year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}`, Object.assign({ method: 'GET' }, options)),
 
     // Admin & Permissions endpoints
     getUsers: () => request('/api/admin/users', { method: 'GET' }),

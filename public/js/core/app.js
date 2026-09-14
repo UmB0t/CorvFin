@@ -173,6 +173,7 @@
 
   const ALL_APP_TABS = [
     'tab-dashboard',
+    'tab-calendar',
     'tab-expenses',
     'tab-extras',
     'tab-debtors',
@@ -203,6 +204,10 @@
       if (tabId === 'tab-dashboard') {
         if (typeof renderConsolidatedDashboardTab === 'function') {
           renderConsolidatedDashboardTab();
+        }
+      } else if (tabId === 'tab-calendar') {
+        if (typeof renderCalendarTab === 'function') {
+          renderCalendarTab();
         }
       } else if (tabId === 'tab-expenses') {
         const isInstallmentsSub = state.expensesSubView === 'installments' && !isSimp;
@@ -371,6 +376,9 @@
 
     try { initDialogs(); } catch (e) { console.error('initDialogs error:', e); }
     try { initTabs(); } catch (e) { console.error('initTabs error:', e); }
+    if (typeof window.initAllExpandableSections === 'function') {
+      try { window.initAllExpandableSections(); } catch (e) { console.error('initAllExpandableSections error:', e); }
+    }
     try { initAuthAndSync(); } catch (e) { console.error('initAuthAndSync error:', e); }
     try { fillMonthSelects(); } catch (e) { console.error('fillMonthSelects error:', e); }
     if (window.initInvestmentsModule) {

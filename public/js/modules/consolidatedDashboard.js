@@ -21,6 +21,7 @@
     destinations: {}
   };
 
+
   /**
    * Constrói o dataset consolidado normalizado para a competência financeira (year, month).
    * Função pura e segura em runtime.
@@ -394,36 +395,6 @@
     const destAgg = aggregateByDestination(dataset, totalFiltered);
     const matrixData = buildCategoryDestinationMatrix(dataset);
 
-    // Markup da Navegação Mensal do Dashboard
-    const navHtml = `
-      <div class="card section-card full-width dashboard-month-nav" id="dashboardMonthNav" style="margin-bottom:16px;">
-        <div class="dash-nav-header">
-          <div class="dash-nav-icon-badge">
-            <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:18px; height:18px;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          </div>
-          <div>
-            <h2 style="margin:0; font-size:1.02rem; font-weight:800; color:var(--text); line-height:1.2;">Visão Consolidada</h2>
-            <span style="font-size:0.75rem; color:var(--muted);">Navegação mensal e indicadores consolidados</span>
-          </div>
-        </div>
-
-        <div class="dash-nav-controls">
-          <button type="button" class="btn small soft icon-btn" id="dashPrevMonthBtn" aria-label="Mês anterior" data-tooltip="Mês anterior" style="width:32px; height:32px; border-radius:50%; padding:0; display:grid; place-items:center;">
-            <svg class="svg-icon" viewBox="0 0 24 24" style="width:16px; height:16px;"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <div class="dash-month-display" id="dashMonthDisplay">
-            <span class="dash-month-full">${escapeHtml(monthName)}</span><span class="dash-month-short">${escapeHtml(monthAbbr)}</span>/${year}
-          </div>
-          <button type="button" class="btn small soft icon-btn" id="dashNextMonthBtn" aria-label="Próximo mês" data-tooltip="Próximo mês" style="width:32px; height:32px; border-radius:50%; padding:0; display:grid; place-items:center;">
-            <svg class="svg-icon" viewBox="0 0 24 24" style="width:16px; height:16px;"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-          <button type="button" class="btn small ${isCurrentMonth ? 'primary' : 'soft'}" id="dashTodayBtn" aria-label="Ir para o mês atual" data-tooltip="Ir para o mês atual" style="border-radius:999px; font-size:0.75rem; padding:4px 10px; margin-left:4px;">
-            Mês Atual
-          </button>
-        </div>
-      </div>
-    `;
-
     // Markup dos Filtros
     const filtersHtml = `
       <div class="card section-card full-width" style="padding:14px 18px; margin-bottom:20px; border-radius:14px;">
@@ -533,20 +504,21 @@
     // Se o dataset filtrado estiver vazio, exibe empty state elegante
     if (dataset.length === 0) {
       container.innerHTML = `
-        ${navHtml}
-        ${filtersHtml}
-        ${metricsHtml}
-        <div class="card section-card full-width" style="padding:48px 20px; text-align:center; border-radius:14px;">
-          <div style="display:inline-flex; align-items:center; justify-content:center; width:54px; height:54px; border-radius:50%; background:var(--surface-2); margin-bottom:14px;">
-            <svg class="svg-icon" viewBox="0 0 24 24" style="width:28px; height:28px; stroke:var(--muted);"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        <div class="consolidated-dashboard-view" id="consolidatedDashboardView">
+          ${filtersHtml}
+          ${metricsHtml}
+          <div class="card section-card full-width" style="padding:48px 20px; text-align:center; border-radius:14px; margin-bottom:22px;">
+            <div style="display:inline-flex; align-items:center; justify-content:center; width:54px; height:54px; border-radius:50%; background:var(--surface-2); margin-bottom:14px;">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="width:28px; height:28px; stroke:var(--muted);"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            </div>
+            <h3 style="font-size:1.1rem; font-weight:800; margin:0 0 6px;">Nenhum lançamento encontrado</h3>
+            <p style="color:var(--muted); font-size:0.86rem; max-width:440px; margin:0 auto 16px;">
+              Não há lançamentos de despesas ou cobranças correspondentes para <strong>${escapeHtml(monthName)}/${year}</strong> com os filtros aplicados.
+            </p>
+            ${(localFilters.search || localFilters.status !== 'all' || localFilters.category !== 'all' || localFilters.destination !== 'all' || localFilters.sourceType !== 'all') ? `
+              <button type="button" id="consolidatedEmptyResetBtn" class="btn primary small" style="border-radius:999px;">Limpar Filtros</button>
+            ` : ''}
           </div>
-          <h3 style="font-size:1.1rem; font-weight:800; margin:0 0 6px;">Nenhum lançamento encontrado</h3>
-          <p style="color:var(--muted); font-size:0.86rem; max-width:440px; margin:0 auto 16px;">
-            Não há lançamentos de despesas ou cobranças correspondentes para <strong>${escapeHtml(monthName)}/${year}</strong> com os filtros aplicados.
-          </p>
-          ${(localFilters.search || localFilters.status !== 'all' || localFilters.category !== 'all' || localFilters.destination !== 'all' || localFilters.sourceType !== 'all') ? `
-            <button type="button" id="consolidatedEmptyResetBtn" class="btn primary small" style="border-radius:999px;">Limpar Filtros</button>
-          ` : ''}
         </div>
       `;
       attachConsolidatedListeners(container);
@@ -750,43 +722,44 @@
       </div>
     `;
 
-    // Monta o layout completo da aba
+    // Monta o layout funcional da Visão Consolidada (UX1.5: livre de accordion duplicado, sempre visível)
     container.innerHTML = `
-      ${navHtml}
-      ${filtersHtml}
-      ${metricsHtml}
+      <div class="consolidated-dashboard-view" id="consolidatedDashboardView">
+        ${filtersHtml}
+        ${metricsHtml}
 
-      <div class="sections-grid" style="margin-bottom:22px;">
-        <!-- COLUNA 1: POR CATEGORIA -->
-        <div class="card section-card" style="padding:16px 18px; border-radius:14px;">
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-            <h3 style="margin:0; font-size:0.95rem; font-weight:800; display:flex; align-items:center; gap:8px;">
-              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand);"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
-              Por Categoria
-            </h3>
-            <span class="badge info" style="font-size:0.72rem;">${catAgg.length} categorias</span>
+        <div class="sections-grid" style="margin-bottom:22px;">
+          <!-- COLUNA 1: POR CATEGORIA -->
+          <div class="card section-card" style="padding:16px 18px; border-radius:14px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+              <h3 style="margin:0; font-size:0.95rem; font-weight:800; display:flex; align-items:center; gap:8px;">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand);"><path d="M21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                Por Categoria
+              </h3>
+              <span class="badge info" style="font-size:0.72rem;">${catAgg.length} categorias</span>
+            </div>
+            <div style="display:flex; flex-direction:column;">
+              ${categoryCardsHtml}
+            </div>
           </div>
-          <div style="display:flex; flex-direction:column;">
-            ${categoryCardsHtml}
+
+          <!-- COLUNA 2: POR DESTINO -->
+          <div class="card section-card" style="padding:16px 18px; border-radius:14px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+              <h3 style="margin:0; font-size:0.95rem; font-weight:800; display:flex; align-items:center; gap:8px;">
+                <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand);"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                Por Destino / Cartão
+              </h3>
+              <span class="badge info" style="font-size:0.72rem;">${destAgg.length} destinos</span>
+            </div>
+            <div style="display:flex; flex-direction:column;">
+              ${destinationCardsHtml}
+            </div>
           </div>
         </div>
 
-        <!-- COLUNA 2: POR DESTINO -->
-        <div class="card section-card" style="padding:16px 18px; border-radius:14px;">
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-            <h3 style="margin:0; font-size:0.95rem; font-weight:800; display:flex; align-items:center; gap:8px;">
-              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand);"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-              Por Destino / Cartão
-            </h3>
-            <span class="badge info" style="font-size:0.72rem;">${destAgg.length} destinos</span>
-          </div>
-          <div style="display:flex; flex-direction:column;">
-            ${destinationCardsHtml}
-          </div>
-        </div>
+        ${matrixHtml}
       </div>
-
-      ${matrixHtml}
     `;
 
     attachConsolidatedListeners(container);
@@ -870,24 +843,6 @@
    * Vincula listeners dos controles locais (filtros, navegação e drill-down)
    */
   function attachConsolidatedListeners(container) {
-    if (!container) return;
-
-    // Navegação Mensal no Dashboard
-    const prevBtn = container.querySelector('#dashPrevMonthBtn');
-    if (prevBtn) {
-      prevBtn.addEventListener('click', prevMonth);
-    }
-
-    const nextBtn = container.querySelector('#dashNextMonthBtn');
-    if (nextBtn) {
-      nextBtn.addEventListener('click', nextMonth);
-    }
-
-    const todayBtn = container.querySelector('#dashTodayBtn');
-    if (todayBtn) {
-      todayBtn.addEventListener('click', goToCurrentMonth);
-    }
-
     // Busca rápida
     const searchInput = container.querySelector('#consolidatedSearchInput');
     if (searchInput) {
@@ -967,6 +922,7 @@
         }
       });
     });
+
   }
 
   // APIs Públicas do Módulo de Dashboard Consolidado

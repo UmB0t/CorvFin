@@ -168,6 +168,7 @@ window.DEFAULT_BUDGETS = { 'Moradia': 2000, 'Lazer': 800, 'Alimentação': 1500,
 
 window.TAB_TITLES = {
   'tab-dashboard': 'Dashboard',
+  'tab-calendar': 'Calendário',
   'tab-expenses': 'Despesas',
   'tab-extras': 'Rendas Extras',
   'tab-debtors': 'Devedores',

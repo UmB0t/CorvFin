@@ -3333,6 +3333,201 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  height: 16px;
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+/* Container da aba bloqueada por plano — fluxo natural sem blur e sem overlay */
+.tab-content.tab-content--plan-locked {
+  position: relative !important;
+  min-height: auto;
+}
+
+/* --------------------------------------------------------------------------
+   FASE 5H.3 — CONTEXTUAL UPGRADE PAGE PARA MÓDULOS BLOQUEADOS (PLAN_DENIED)
+   Experiência sem blur, sem skeletons financeiros e sem modal flutuante
+   -------------------------------------------------------------------------- */
+
+.module-contextual-upgrade-view {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 0 0 40px 0;
+  width: 100%;
+  animation: fadeInContextual 0.25s ease-out;
+}
+
+@keyframes fadeInContextual {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Header contextual integrado quando o módulo não possui .module-header próprio */
+.module-contextual-header {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 16px;
+  margin-bottom: 4px;
+}
+
+.module-contextual-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0 0 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.module-contextual-sub {
+  font-size: 0.92rem;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* Barra horizontal de aviso compacto sobre ausência do recurso no plano atual */
+.module-contextual-notice {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--surface-soft, rgba(59, 130, 246, 0.06));
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--brand);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.contextual-notice-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: var(--brand-soft);
+  color: var(--brand-strong, var(--brand));
+  flex-shrink: 0;
+}
+
+.contextual-notice-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.contextual-notice-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.contextual-notice-title {
+  font-size: 0.98rem;
+  font-weight: 750;
+  color: var(--text);
+}
+
+.contextual-notice-desc {
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+/* Seção de Planos que incluem o módulo */
+.contextual-plans-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.contextual-plans-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.contextual-plans-title {
+  font-size: 1.15rem;
+  font-weight: 750;
+  color: var(--text);
+  margin: 0;
+}
+
+/* Estados assíncronos integrados */
+.contextual-plans-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  color: var(--muted);
+  font-size: 0.95rem;
+  background: var(--surface);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+}
+
+.contextual-plans-error {
+  text-align: center;
+  padding: 36px 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--text);
+}
+
+.contextual-plans-error p {
+  color: var(--muted);
+  font-size: 0.92rem;
+  margin: 8px 0 16px;
+}
+
+.contextual-retry-btn {
+  border-radius: 8px;
+  font-weight: 600;
+  padding: 8px 18px;
+}
+
+.contextual-plans-empty {
+  text-align: center;
+  padding: 36px 24px;
+  background: var(--surface);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.contextual-empty-actions {
+  margin-top: 16px;
+}
+
+/* Wrapper de carrossel de planos contextuais */
+.contextual-carousel-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.contextual-carousel-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
   z-index: 5;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   transition: all 0.2s ease;
@@ -3399,4 +3594,330 @@
 
 .plan-card.plan-card--contextual .plan-card-actions {
   margin-top: auto;
+}
+
+/* ==========================================================================
+   EXPANDABLE SECTIONS (PROGRESSIVE DISCLOSURE PATTERN)
+   UX1 - Reusable Collapsible Container for CorvFin Design System
+   ========================================================================== */
+.expandable-section {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 14px);
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  margin-bottom: 16px;
+}
+
+.expandable-section:hover {
+  border-color: color-mix(in srgb, var(--brand, #1F7A5C) 25%, var(--line));
+}
+
+.expandable-section__header {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px;
+  padding: 10px 18px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.92rem;
+  transition: background-color 0.15s ease;
+  user-select: none;
+  min-height: 48px;
+  flex-wrap: nowrap !important;
+}
+
+.expandable-section__header:hover {
+  background-color: var(--surface-2);
+}
+
+.expandable-section__header:focus-visible {
+  outline: 2px solid var(--brand, #1F7A5C);
+  outline-offset: -2px;
+}
+
+.expandable-section__title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.expandable-section__chevron {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 18px !important;
+  height: 18px !important;
+  color: inherit;
+  flex-shrink: 0 !important;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease !important;
+}
+
+.expandable-section.is-expanded > .expandable-section__header .expandable-section__chevron,
+.expandable-section.is-expanded .expandable-section__chevron,
+.expandable-section__header[aria-expanded="true"] .expandable-section__chevron,
+.expandable-section__trigger[aria-expanded="true"] .expandable-section__chevron {
+  transform: rotate(180deg) !important;
+  color: var(--brand, #1F7A5C) !important;
+}
+
+.expandable-section__titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.expandable-section__title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.25;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.expandable-section__desc {
+  font-size: 0.74rem;
+  color: var(--muted);
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.expandable-section__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.expandable-section__content {
+  border-top: 1px solid var(--line);
+  padding: 16px 18px;
+  animation: fadeInExpand 0.2s ease forwards;
+}
+
+.expandable-section__content[hidden] {
+  display: none !important;
+}
+
+/* Modificador opcional para seções com listas longas (UX1 - Scroll interno) */
+.expandable-section__content--scrollable {
+  max-height: 360px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+@keyframes fadeInExpand {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Integração visual compacta para .ribbon-card quando adotar .expandable-section */
+.ribbon-card.expandable-section {
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+.ribbon-card.expandable-section .expandable-section__content {
+  padding: 14px 18px 16px;
+}
+
+.expandable-section__trigger {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--radius-sm, 8px) !important;
+  cursor: pointer !important;
+  color: var(--muted) !important;
+  flex-shrink: 0 !important;
+  margin-left: 6px;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease !important;
+  box-sizing: border-box !important;
+}
+
+.expandable-section__trigger:hover {
+  background-color: var(--surface-2) !important;
+  color: var(--text) !important;
+}
+
+.expandable-section__trigger:focus-visible {
+  outline: 2px solid var(--brand, #1F7A5C);
+  outline-offset: 1px;
+}
+
+/* Navegação compacta do Ribbon e Dashboard quando recolhido (UX1.1 / UX1.2) */
+.ribbon-compact-nav {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 4px;
+  background: var(--surface-2);
+  padding: 3px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  user-select: none;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+  margin-left: auto !important;
+}
+
+.ribbon-compact-nav-btn {
+  width: 26px !important;
+  height: 26px !important;
+  min-width: 26px !important;
+  max-width: 26px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  color: var(--text) !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s ease, border-color 0.15s ease !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.ribbon-compact-nav-btn:hover {
+  background-color: var(--surface) !important;
+  border-color: var(--line) !important;
+}
+
+.ribbon-compact-month-display {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text);
+  padding: 0 8px;
+  min-width: 105px;
+  text-align: center;
+  letter-spacing: -0.01em;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  line-height: 1.2;
+  display: inline-block !important;
+}
+
+.ribbon-compact-today-btn {
+  border-radius: 999px !important;
+  font-size: 0.72rem !important;
+  font-weight: 750 !important;
+  padding: 3px 10px !important;
+  line-height: 1.2 !important;
+  margin-left: 2px !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Responsividade: Desktop (>= 1024px) */
+@media (min-width: 1024px) {
+  .expandable-section__header {
+    flex-wrap: nowrap !important;
+    padding: 10px 18px;
+  }
+
+  .ribbon-compact-nav {
+    order: 2;
+    margin-left: auto;
+  }
+
+  .expandable-section__trigger {
+    order: 3;
+  }
+}
+
+/* Responsividade: Tablet (768px - 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .expandable-section__header {
+    flex-wrap: nowrap !important;
+    gap: 8px;
+    padding: 10px 14px;
+  }
+
+  .ribbon-compact-nav {
+    order: 2;
+    margin-left: auto;
+  }
+
+  .expandable-section__trigger {
+    order: 3;
+  }
+
+  .ribbon-compact-month-display {
+    min-width: 95px;
+    font-size: 0.78rem;
+    padding: 0 4px;
+  }
+
+  .ribbon-compact-today-btn {
+    font-size: 0.70rem !important;
+    padding: 3px 8px !important;
+  }
+
+  .expandable-section__desc {
+    display: none;
+  }
+}
+
+/* Responsividade: Mobile (<= 767px) */
+@media (max-width: 767px) {
+  .expandable-section__header {
+    flex-wrap: wrap !important;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .expandable-section__title-group {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .expandable-section__trigger {
+    order: 2;
+  }
+
+  .ribbon-compact-nav {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    margin-top: 4px;
+  }
 }

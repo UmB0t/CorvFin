@@ -110,6 +110,8 @@
     '': 'tab-dashboard',
     '/index.html': 'tab-dashboard',
     '/dashboard': 'tab-dashboard',
+    '/calendario': 'tab-calendar',
+    '/calendar': 'tab-calendar',
     '/despesas': 'tab-expenses',
     '/extras': 'tab-extras',
     '/devedores': 'tab-debtors',
@@ -123,6 +125,7 @@
 
   const TAB_TO_ROUTE = {
     'tab-dashboard': '/dashboard',
+    'tab-calendar': '/calendario',
     'tab-expenses': '/despesas',
     'tab-extras': '/extras',
     'tab-debtors': '/devedores',
@@ -138,6 +141,7 @@
 
   const titleMap = {
     'tab-dashboard': 'Dashboard',
+    'tab-calendar': 'Calendário',
     'tab-expenses': 'Despesas',
     'tab-extras': 'Rendas Extras',
     'tab-debtors': 'Devedores & Cobranças',
@@ -151,6 +155,7 @@
 
   const subMap = {
     'tab-dashboard': 'Visão consolidada da sua vida financeira',
+    'tab-calendar': 'Visão cronológica e projeção financeira mensal',
     'tab-expenses': 'Gestão financeira pessoal com devedores e rendas extras',
     'tab-extras': 'Gerenciamento de fontes adicionais de receita e trabalhos pontuais',
     'tab-debtors': 'Controle de valores a receber, parcelas e cobranças de terceiros',
@@ -188,6 +193,7 @@
 
   const TAB_PERMISSION_MAP = {
     'tab-dashboard': 'dashboard',
+    'tab-calendar': null,
     'tab-expenses': 'despesas',
     'tab-extras': 'extras',
     'tab-debtors': 'devedores',
@@ -201,6 +207,7 @@
 
   const TAB_ORDER = [
     'tab-dashboard',
+    'tab-calendar',
     'tab-expenses',
     'tab-extras',
     'tab-debtors',
@@ -299,11 +306,8 @@
     'tab-extras': {
       lists: ['#listExtra'],
       tables: [],
-      charts: ['#extrasOriginChartContainer', '#extrasYearChartContainer'],
-      totals: [
-        '#sumExtra', '#extrasOriginTotalBadge', '#extrasYearTotalBadge',
-        '#extrasAvgSummaryText', '#extrasTotalYearSummaryText'
-      ],
+      charts: ['#extrasOriginChartContainer'],
+      totals: ['#sumExtra', '#extrasOriginTotalBadge'],
       metricContainers: ['#extraMetrics']
     },
     'tab-debtors': {
@@ -1036,6 +1040,12 @@
       iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>'
     },
     {
+      tabId: 'tab-calendar',
+      key: 'calendario',
+      label: 'Calendário',
+      iconSvg: '<svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>'
+    },
+    {
       tabId: 'tab-expenses',
       key: 'despesas',
       label: 'Despesas',
@@ -1144,15 +1154,27 @@
       c.style.display = isTarget ? 'block' : 'none';
     });
 
-    // Controle explícito da barra de meses (Ribbon) por módulo/aba
+    // Controle explícito da barra de meses (Ribbon) compartilhado por módulo/aba (UX1.7 e UX1.8)
     const TABS_WITH_MONTH_RIBBON = ['tab-dashboard', 'tab-expenses', 'tab-extras', 'tab-debtors', 'tab-benefits'];
     const showRibbon = accessCheck.allowed && TABS_WITH_MONTH_RIBBON.includes(targetTabId);
     const ribbonSection = document.getElementById('ribbonSection') || (typeof $ === 'function' ? $('#ribbonSection') : null);
     if (ribbonSection) {
+      // Container Visibility — autoridade EXCLUSIVA de activateTab
       ribbonSection.hidden = !showRibbon;
       ribbonSection.style.display = showRibbon ? '' : 'none';
-      if (showRibbon && typeof renderRibbon === 'function') {
-        renderRibbon(targetTabId);
+      if (showRibbon) {
+        // Regra canônica UX1.8: ribbon inicia EXPANDIDO em toda entrada/troca de aba
+        // Obtém ou inicializa a API oficial do expandable de forma canônica
+        let api = ribbonSection._expandableApi || ribbonSection.querySelector('.expandable-section__header')?._expandableApi;
+        if (!api && typeof initExpandableSection === 'function') {
+          api = initExpandableSection(ribbonSection, { defaultExpanded: true });
+        }
+        if (api && typeof api.expand === 'function') {
+          api.expand();
+        }
+        if (typeof renderRibbon === 'function') {
+          renderRibbon(targetTabId);
+        }
       }
     }
 
@@ -2154,6 +2176,173 @@
     initPwaSupport();
   }
 
+  /* ==========================================================================
+     EXPANDABLE SECTIONS — PADRÃO REUTILIZÁVEL (UX1)
+     Progressive disclosure genérico e idempotente para o Design System
+     ========================================================================== */
+  /**
+   * Inicializa um container de seção expansível genérico com acessibilidade (aria-expanded / aria-controls).
+   * Padrão reutilizável do Design System (UX1). Idempotente e sem persistência em storage.
+   *
+   * @param {HTMLElement|string} containerOrId - Elemento ou ID do container .expandable-section
+   * @param {Object} [options]
+   * @param {boolean} [options.defaultExpanded=false] - Estado inicial se nunca inicializado
+   * @param {Function} [options.onToggle] - Callback (isExpanded, container)
+   * @returns {Object|null} API { toggle, expand, collapse, isExpanded, container, header, content }
+   */
+  function initExpandableSection(containerOrId, options = {}) {
+    const container = typeof containerOrId === 'string'
+      ? document.getElementById(containerOrId)
+      : containerOrId;
+
+    if (!container || !container.querySelector) return null;
+
+    const header = container.querySelector('.expandable-section__header') || container.querySelector('[aria-controls]');
+    if (!header) return null;
+
+    const trigger = (header.getAttribute && header.getAttribute('aria-controls'))
+      ? header
+      : (header.querySelector('[aria-controls]') || container.querySelector('[aria-controls]'));
+
+    const contentId = (trigger && trigger.getAttribute && trigger.getAttribute('aria-controls'))
+      || (header.getAttribute && header.getAttribute('aria-controls'));
+    const content = (contentId && typeof document !== 'undefined' && typeof document.getElementById === 'function' ? document.getElementById(contentId) : null)
+      || (contentId ? container.querySelector('#' + contentId) : null)
+      || container.querySelector('.expandable-section__content');
+    if (!content) return null;
+
+    // Idempotência: se já inicializado no container, header ou trigger, reutiliza a API existente e preserva o estado atual
+    if (container._expandableApi) {
+      if (typeof options.onToggle === 'function') {
+        container._expandableApi._onToggle = options.onToggle;
+      }
+      return container._expandableApi;
+    }
+    if (header._expandableApi) {
+      if (typeof options.onToggle === 'function') {
+        header._expandableApi._onToggle = options.onToggle;
+      }
+      return header._expandableApi;
+    }
+    if (trigger && trigger !== header && trigger._expandableApi) {
+      if (typeof options.onToggle === 'function') {
+        trigger._expandableApi._onToggle = options.onToggle;
+      }
+      return trigger._expandableApi;
+    }
+
+    // Detecta estado existente se markup já tinha atributos ou classe
+    const existingExpandedAttr = (trigger && trigger.getAttribute && trigger.getAttribute('aria-expanded'))
+      || (header.getAttribute && header.getAttribute('aria-expanded'));
+    let isExpanded;
+    if (options.defaultExpanded !== undefined) {
+      isExpanded = !!options.defaultExpanded;
+    } else if (existingExpandedAttr !== null) {
+      isExpanded = (existingExpandedAttr === 'true');
+    } else {
+      isExpanded = container.classList.contains('is-expanded');
+    }
+
+    let api = null;
+
+    function setExpanded(expanded, triggerCallback = true) {
+      isExpanded = !!expanded;
+      if (header.setAttribute) header.setAttribute('aria-expanded', String(isExpanded));
+      if (trigger && trigger !== header && trigger.setAttribute) {
+        trigger.setAttribute('aria-expanded', String(isExpanded));
+      }
+      if (isExpanded) {
+        container.classList.add('is-expanded');
+        container.classList.remove('is-collapsed');
+        content.hidden = false;
+        content.removeAttribute('hidden');
+      } else {
+        container.classList.remove('is-expanded');
+        container.classList.add('is-collapsed');
+        content.hidden = true;
+        content.setAttribute('hidden', '');
+      }
+
+      const callback = (api && api._onToggle) || options.onToggle;
+      if (triggerCallback && typeof callback === 'function') {
+        try {
+          callback(isExpanded, container);
+        } catch (err) {
+          console.error('Erro no callback onToggle de expandable-section:', err);
+        }
+      }
+    }
+
+    function toggle() {
+      setExpanded(!isExpanded);
+    }
+
+    header.addEventListener('click', (e) => {
+      // Se o clique veio da navegação compacta ou de botões/links que não sejam o trigger, não dá toggle
+      if (e.target && typeof e.target.closest === 'function') {
+        if (e.target.closest('.ribbon-compact-nav') || e.target.closest('.dash-nav-controls') || e.target.closest('.expandable-section__no-toggle')) {
+          return;
+        }
+        const interactive = e.target.closest('button') || e.target.closest('a') || e.target.closest('input') || e.target.closest('select');
+        if (interactive && interactive !== header && !interactive.classList?.contains('expandable-section__trigger') && interactive.id !== 'ribbonToggleBtn' && interactive.id !== 'dashboardToggleBtn') {
+          return;
+        }
+      }
+      toggle();
+    });
+
+    header.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        if (e.target && typeof e.target.closest === 'function' && (e.target.closest('.ribbon-compact-nav') || e.target.closest('.dash-nav-controls') || e.target.closest('.expandable-section__no-toggle'))) {
+          return;
+        }
+        if (e.target.tagName !== 'BUTTON' || e.target === trigger || e.target === header) {
+          if (typeof e.preventDefault === 'function') {
+            e.preventDefault();
+          }
+          toggle();
+        }
+      }
+    });
+
+    // Aplica estado inicial sem disparar callback
+    setExpanded(isExpanded, false);
+
+    api = {
+      toggle,
+      expand: () => setExpanded(true),
+      collapse: () => setExpanded(false),
+      isExpanded: () => isExpanded,
+      container,
+      header,
+      trigger,
+      content,
+      _onToggle: options.onToggle
+    };
+
+    header._expandableApi = api;
+    if (trigger && trigger !== header) {
+      trigger._expandableApi = api;
+    }
+    container._expandableApi = api;
+    header.dataset.expandableInitialized = 'true';
+    if (container.dataset) {
+      container.dataset.expandableInitialized = 'true';
+    }
+    return api;
+  }
+
+  function initAllExpandableSections(root = document) {
+    if (!root || !root.querySelectorAll) return [];
+    const containers = root.querySelectorAll('.expandable-section[data-expandable], [data-expandable-section]');
+    const apis = [];
+    containers.forEach(el => {
+      const api = initExpandableSection(el);
+      if (api) apis.push(api);
+    });
+    return apis;
+  }
+
   // APIs públicas do Módulo de UI Shell & Roteador SPA
   window.applyTheme = applyTheme;
   window.toggleTheme = toggleTheme;
@@ -2170,6 +2359,8 @@
   window.initGlobalTooltips = initGlobalTooltips;
   window.calculateTooltipPosition = calculateTooltipPosition;
   window.initPwaSupport = initPwaSupport;
+  window.initExpandableSection = initExpandableSection;
+  window.initAllExpandableSections = initAllExpandableSections;
 
   window.uiShell = {
     applyTheme,
@@ -2189,7 +2380,16 @@
     isModuleInMaintenance,
     initGlobalTooltips,
     calculateTooltipPosition,
-    initPwaSupport
+    initPwaSupport,
+    initExpandableSection,
+    initAllExpandableSections
   };
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+      initExpandableSection,
+      initAllExpandableSections
+    };
+  }
 
 })();

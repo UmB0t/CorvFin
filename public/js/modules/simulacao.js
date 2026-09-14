@@ -578,29 +578,12 @@
   }
 
   function setupRibbonHider() {
-    const ribbonCard = document.querySelector('.ribbon-card') || document.getElementById('ribbonSection');
-    if (!ribbonCard) return;
-
-    // Se já estava oculto nesta sessão, esconde direto
-    if (sessionStorage.getItem('hide_months_ribbon') === 'true') {
-      ribbonCard.style.display = 'none';
-      return;
-    }
-
-    if (!ribbonCard.dataset.hiddenListener) {
-      ribbonCard.dataset.hiddenListener = 'true';
-      ribbonCard.style.cursor = 'pointer';
-      ribbonCard.title = 'Clique para ocultar esta barra de meses até o próximo reload';
-      ribbonCard.addEventListener('click', (e) => {
-        if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
-        sessionStorage.setItem('hide_months_ribbon', 'true');
-        ribbonCard.style.transition = 'opacity 0.3s ease';
-        ribbonCard.style.opacity = '0';
-        setTimeout(() => {
-          ribbonCard.style.display = 'none';
-        }, 300);
-      });
-    }
+    // Substituído no UX1 pelo padrão oficial de expandable-section
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem('hide_months_ribbon');
+      }
+    } catch (_) {}
   }
 
   // Expor globalmente

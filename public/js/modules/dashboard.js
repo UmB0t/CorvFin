@@ -4,9 +4,7 @@
    ========================================================================== */
 
 (function() {
-  'use strict';
-
-function renderRibbon(explicitTabId) {
+  function renderRibbon(explicitTabId) {
     const state = getState();
     const ribbonSection = document.getElementById('ribbonSection') || (typeof $ === 'function' ? $('#ribbonSection') : null);
     if (!ribbonSection) return;
@@ -18,24 +16,64 @@ function renderRibbon(explicitTabId) {
     }
     if (!activeTab) {
       const visibleContent = document.querySelector('.tab-content:not([hidden])');
-      activeTab = visibleContent ? visibleContent.id : 'tab-expenses';
+      activeTab = visibleContent ? visibleContent.id : 'tab-dashboard';
     }
 
-    const TABS_WITH_MONTH_RIBBON = ['tab-expenses', 'tab-extras', 'tab-debtors', 'tab-benefits'];
+    const TABS_WITH_MONTH_RIBBON = ['tab-dashboard', 'tab-expenses', 'tab-extras', 'tab-debtors', 'tab-benefits'];
     const shouldShow = TABS_WITH_MONTH_RIBBON.includes(activeTab);
 
+    // Se a aba não usa ribbon, encerra sem alterar visibilidade de container (autoridade exclusiva de activateTab)
     if (!shouldShow) {
-      ribbonSection.hidden = true;
-      ribbonSection.style.display = 'none';
       return;
     }
 
+    // Hydration guard: aguarda estado oficial do servidor
     if (typeof window.isStateHydrated === 'function' && !window.isStateHydrated()) {
       return;
     }
 
-    ribbonSection.hidden = false;
-    ribbonSection.style.display = '';
+    // Inicialização defensiva do expandable caso ainda não inicializado
+    if (!ribbonSection._expandableApi && typeof window.initExpandableSection === 'function') {
+      window.initExpandableSection(ribbonSection, { defaultExpanded: true });
+    }
+
+    const titleMap = {
+      'tab-dashboard': 'Visão Consolidada',
+      'tab-expenses': 'Evolução das despesas no ano',
+      'tab-extras': 'Evolução das rendas extras no ano',
+      'tab-debtors': 'Evolução das cobranças a receber no ano',
+      'tab-benefits': 'Evolução dos benefícios no ano'
+    };
+    const descMap = {
+      'tab-dashboard': 'Navegação mensal e indicadores consolidados',
+      'tab-expenses': 'Visão anual consolidada e histórico mês a mês',
+      'tab-extras': 'Visão anual de receitas e rendas extras',
+      'tab-debtors': 'Visão anual de cobranças e recebíveis',
+      'tab-benefits': 'Visão anual de utilização de benefícios'
+    };
+    const titleEl = document.getElementById('ribbonSectionTitle');
+    if (titleEl) titleEl.textContent = titleMap[activeTab] || 'Visão Consolidada';
+    const descEl = document.getElementById('ribbonSectionDesc');
+    if (descEl) descEl.textContent = descMap[activeTab] || 'Visão anual e navegação de competências';
+    const yearBadge = document.getElementById('ribbonYearBadge');
+    if (yearBadge) yearBadge.textContent = state.year;
+
+    // Sincronização da navegação compacta (UX1.1)
+    const monthList = (typeof MONTH_NAMES !== 'undefined' && Array.isArray(MONTH_NAMES) && MONTH_NAMES.length === 12)
+      ? MONTH_NAMES
+      : (window.MONTH_NAMES || ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']);
+    const monthName = monthList[state.month - 1] || 'Mês';
+    const compactDisplayEl = document.getElementById('ribbonCompactMonthDisplay');
+    if (compactDisplayEl) {
+      compactDisplayEl.textContent = `${monthName}/${state.year}`;
+    }
+    const currentCivil = (typeof todayYM === 'function') ? todayYM() : { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
+    const isCurrentCivilMonth = (state.year === currentCivil.year && state.month === currentCivil.month);
+    const compactTodayBtn = document.getElementById('ribbonCompactTodayBtn');
+    if (compactTodayBtn) {
+      compactTodayBtn.classList.toggle('primary', isCurrentCivilMonth);
+      compactTodayBtn.classList.toggle('soft', !isCurrentCivilMonth);
+    }
 
     const loggedUser = (typeof window !== 'undefined' && window.API && typeof API.getUser === 'function') ? API.getUser() : null;
     const displayName = state.profile?.name || loggedUser?.nome || '';
@@ -49,7 +87,7 @@ function renderRibbon(explicitTabId) {
         let max = 1;
 
         for (let m = 1; m <= 12; m++) {
-          if (activeTab === 'tab-expenses') {
+          if (activeTab === 'tab-expenses' || activeTab === 'tab-dashboard') {
             const t = monthTotals(state.year, m);
             const sobra = t.totalIncome - t.totalExpenses;
             const hasDeficit = sobra < 0;
@@ -78,7 +116,7 @@ function renderRibbon(explicitTabId) {
           }
         }
 
-        if (activeTab === 'tab-expenses') {
+        if (activeTab === 'tab-expenses' || activeTab === 'tab-dashboard') {
           legendContainer.innerHTML = `
         <span><i style="background:var(--c-fixed)"></i>Despesas Fixas</span>
         <span><i style="background:var(--c-variable)"></i>Despesas Variáveis</span>
@@ -865,11 +903,84 @@ function renderRibbon(explicitTabId) {
         });
       });
 
+  // Handlers da navegação compacta mensal (UX1.1)
+  function ribbonPrevMonth() {
+    const s = (typeof getState === 'function') ? getState() : (window.state || {});
+    let m = Number(s.month) || (new Date().getMonth() + 1);
+    let y = Number(s.year) || new Date().getFullYear();
+    if (m === 1) {
+      m = 12;
+      y--;
+    } else {
+      m--;
+    }
+    s.month = m;
+    s.year = y;
+    if (typeof saveLocalState === 'function') {
+      saveLocalState();
+    } else if (typeof saveState === 'function') {
+      saveState('month-select');
+    }
+    if (typeof render === 'function') {
+      render();
+    }
+  }
+
+  function ribbonNextMonth() {
+    const s = (typeof getState === 'function') ? getState() : (window.state || {});
+    let m = Number(s.month) || (new Date().getMonth() + 1);
+    let y = Number(s.year) || new Date().getFullYear();
+    if (m === 12) {
+      m = 1;
+      y++;
+    } else {
+      m++;
+    }
+    s.month = m;
+    s.year = y;
+    if (typeof saveLocalState === 'function') {
+      saveLocalState();
+    } else if (typeof saveState === 'function') {
+      saveState('month-select');
+    }
+    if (typeof render === 'function') {
+      render();
+    }
+  }
+
+  function ribbonGoToCurrentMonth() {
+    const s = (typeof getState === 'function') ? getState() : (window.state || {});
+    const now = (typeof todayYM === 'function') ? todayYM() : { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
+    s.month = now.month;
+    s.year = now.year;
+    if (typeof saveLocalState === 'function') {
+      saveLocalState();
+    } else if (typeof saveState === 'function') {
+      saveState('month-select');
+    }
+    if (typeof render === 'function') {
+      render();
+    }
+  }
+
   // Inicializacao dos listeners estaticos do cabecalho e ribbon
   function initDashboardListeners() {
     $('#prevYear')?.addEventListener('click', () => { const state = getState(); state.year--; if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('chart-toggle'); } render(); });
-      $('#nextYear')?.addEventListener('click', () => { const state = getState(); state.year++; if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('chart-toggle'); } render(); });
-      $('#todayBtn')?.addEventListener('click', () => { const state = getState(); const t = todayYM(); state.year = t.year; state.month = t.month; if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('chart-toggle'); } render(); });
+    $('#nextYear')?.addEventListener('click', () => { const state = getState(); state.year++; if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('chart-toggle'); } render(); });
+    $('#todayBtn')?.addEventListener('click', () => { const state = getState(); const t = todayYM(); state.year = t.year; state.month = t.month; if (typeof saveLocalState === 'function') { saveLocalState(); } else { saveState('chart-toggle'); } render(); });
+
+    $('#ribbonPrevMonthBtn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      ribbonPrevMonth();
+    });
+    $('#ribbonNextMonthBtn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      ribbonNextMonth();
+    });
+    $('#ribbonCompactTodayBtn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      ribbonGoToCurrentMonth();
+    });
   }
 
   // Resolve o tipo efetivo de gráfico respeitando fallback automático para mobile
@@ -887,6 +998,9 @@ function renderRibbon(explicitTabId) {
   window.renderCategoryDistributionChart = renderCategoryDistributionChart;
   window.renderDestinationChart = renderDestinationChart;
   window.resolveEffectiveChartType = resolveEffectiveChartType;
+  window.ribbonPrevMonth = ribbonPrevMonth;
+  window.ribbonNextMonth = ribbonNextMonth;
+  window.ribbonGoToCurrentMonth = ribbonGoToCurrentMonth;
 
   // Execucao da inicializacao sincrona dos listeners
   try {

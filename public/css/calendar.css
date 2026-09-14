@@ -1,0 +1,839 @@
+/* ==========================================================================
+   CALENDÁRIO FINANCEIRO — DESIGN SYSTEM & LAYOUT (calendar.css)
+   Namespace: .calendar-*
+   ========================================================================== */
+
+.calendar-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding-bottom: 32px;
+}
+
+/* 1. BARRA DE NAVEGAÇÃO SUPERIOR DO CALENDÁRIO */
+.calendar-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  box-shadow: var(--shadow);
+}
+
+.calendar-nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar-period-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar-period-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+  min-width: 180px;
+}
+
+.calendar-nav-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s ease;
+}
+
+.calendar-nav-btn:hover {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.calendar-today-btn {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 0.82rem;
+  font-weight: 750;
+  border-radius: 999px;
+  border: 1px solid var(--brand-border);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.calendar-today-btn:hover {
+  background: var(--brand);
+  color: #fff;
+  border-color: var(--brand);
+}
+
+/* 2. RESUMO MENSAL (SUMMARY CARDS) */
+.calendar-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.calendar-summary-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: var(--shadow);
+}
+
+.calendar-summary-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.calendar-summary-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.calendar-summary-value--inflow {
+  color: var(--success);
+}
+
+.calendar-summary-value--outflow {
+  color: var(--danger);
+}
+
+.calendar-summary-value--net-pos {
+  color: var(--brand);
+}
+
+.calendar-summary-value--net-neg {
+  color: var(--danger);
+}
+
+/* 2.5. ESTRUTURA PRINCIPAL DO LAYOUT (C1.2) */
+.calendar-main-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.calendar-month-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  width: 100%;
+}
+
+.calendar-day-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+}
+
+/* 3. GRADE DO MÊS (MONTHLY GRID) */
+.calendar-grid-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+
+.calendar-weekdays-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.calendar-weekday-cell {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 6px 0;
+}
+
+.calendar-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.calendar-day-cell {
+  min-height: 82px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  cursor: pointer;
+  text-align: left;
+  transition: all .12s ease;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.calendar-day-cell:hover:not(.calendar-day-cell--empty) {
+  border-color: var(--brand-border);
+  background: var(--surface-2);
+  transform: translateY(-1px);
+}
+
+.calendar-day-cell--empty {
+  background: transparent;
+  border-color: transparent;
+  cursor: default;
+  min-height: 82px;
+}
+
+.calendar-day-cell--today {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  box-shadow: 0 0 0 1px var(--brand);
+}
+
+/* Estado de Dia Selecionado (C1.1) */
+.calendar-day-cell.calendar-day--selected,
+.calendar-day-cell.calendar-day-cell--selected {
+  border-color: var(--brand-strong);
+  background: var(--surface-3);
+  box-shadow: 0 0 0 2px var(--brand-strong);
+  position: relative;
+  z-index: 2;
+}
+
+.calendar-day-cell.calendar-day--selected .calendar-day-number,
+.calendar-day-cell.calendar-day-cell--selected .calendar-day-number {
+  color: var(--brand-strong);
+  font-weight: 900;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.calendar-day-cell--today.calendar-day--selected,
+.calendar-day-cell--today.calendar-day-cell--selected {
+  border-color: var(--brand-strong);
+  background: var(--brand-soft);
+  box-shadow: 0 0 0 2px var(--brand-strong);
+}
+
+.calendar-day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.calendar-day-number {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+}
+
+.calendar-day-cell--today .calendar-day-number {
+  color: var(--brand-strong);
+}
+
+/* Indicadores Discretos de Valores na Célula */
+.calendar-day-movements {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: auto;
+}
+
+.calendar-day-amt {
+  font-size: 0.72rem;
+  font-weight: 750;
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.calendar-day-amt--inflow {
+  color: var(--success);
+}
+
+.calendar-day-amt--outflow {
+  color: var(--danger);
+}
+
+.calendar-day-mobile-indicator {
+  display: none;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 999px;
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.calendar-day-mobile-indicator--both {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.calendar-day-mobile-indicator--inflow {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.calendar-day-mobile-indicator--outflow {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* 4. SEÇÃO "SEM DATA DEFINIDA" */
+.calendar-undated-section {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.calendar-undated-section.expandable-section,
+.calendar-benefits-section.expandable-section {
+  padding: 0;
+  margin-top: 16px;
+  border-radius: var(--radius, 14px);
+}
+
+.calendar-undated-section.expandable-section .expandable-section__content,
+.calendar-benefits-section.expandable-section .expandable-section__content {
+  padding: 14px 16px;
+}
+
+.calendar-section-title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar-undated-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.calendar-undated-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  gap: 12px;
+}
+
+.calendar-undated-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.calendar-undated-desc {
+  font-size: 0.88rem;
+  font-weight: 750;
+  color: var(--text);
+}
+
+.calendar-undated-meta {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.calendar-undated-value-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.calendar-undated-amt {
+  font-size: 0.92rem;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* 5. SEÇÃO DE BENEFÍCIOS */
+.calendar-benefits-section {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow);
+  border-left: 4px solid var(--warning);
+}
+
+.calendar-benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.calendar-benefits-card {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.calendar-benefits-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.calendar-benefits-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--surface-2);
+  border-radius: var(--radius-xs);
+  font-size: 0.84rem;
+}
+
+/* 6. ESTADOS AUXILIARES (LOADING, ERROR, EMPTY) */
+.calendar-state-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;
+  background: var(--surface);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-md);
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+.calendar-state-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.calendar-state-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.calendar-state-desc {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  max-width: 380px;
+}
+
+.calendar-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--line);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 8. PAINEL DE DETALHES DO DIA SELECIONADO (C1.1) */
+.calendar-selected-day-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.calendar-selected-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+}
+
+.calendar-selected-day-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text);
+  text-transform: capitalize;
+}
+
+.calendar-selected-day-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar-day-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.calendar-day-nav-btn:hover {
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.calendar-selected-day-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.calendar-day-summary-card {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.calendar-day-summary-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-day-summary-val {
+  font-size: 1.25rem;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text);
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-selected-day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.calendar-day-detail-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  gap: 12px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.calendar-day-detail-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.calendar-day-detail-desc {
+  font-size: 0.88rem;
+  font-weight: 750;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.calendar-day-detail-meta {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.calendar-day-detail-value-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.calendar-day-detail-amt {
+  font-size: 0.92rem;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+  flex-shrink: 0;
+  max-width: 100%;
+}
+
+.calendar-selected-day-empty {
+  padding: 18px 12px;
+  text-align: center;
+  background: var(--surface-2);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.calendar-selected-day-placeholder {
+  padding: 24px 16px;
+  text-align: center;
+}
+
+/* 7. RESPONSIVIDADE & LAYOUT LATERAL DESKTOP (C1.2) */
+
+/* Desktop largo (>= 1100px): Calendário e Painel do Dia lado a lado */
+@media (min-width: 1100px) {
+  .calendar-main-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* D: Contenção de altura máxima e scroll interno na lista do painel diário desktop (UX1.1) */
+  .calendar-day-panel {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 120px);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .calendar-selected-day-panel {
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .calendar-selected-day-header {
+    flex-shrink: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .calendar-selected-day-title-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .calendar-selected-day-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .calendar-selected-day-nav .calendar-day-nav-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  /* C1.2.1: Empilha os 3 cards verticalmente na coluna lateral desktop para evitar overflow de valores */
+  .calendar-selected-day-summary {
+    flex-shrink: 0;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .calendar-day-summary-card {
+    padding: 10px 14px;
+    width: 100%;
+  }
+
+  .calendar-day-summary-label {
+    font-size: 0.74rem;
+  }
+
+  .calendar-day-summary-val {
+    font-size: 1.25rem;
+    max-width: 100%;
+  }
+
+  .calendar-selected-day-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    padding-right: 4px;
+  }
+}
+
+/* Telas intermediárias (< 1100px): Painel volta para baixo do calendário */
+@media (max-width: 1099px) {
+  .calendar-main-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .calendar-day-panel {
+    position: static;
+  }
+}
+
+/* Mobile e telas pequenas (<= 768px) */
+@media (max-width: 768px) {
+  .calendar-summary-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-period-title {
+    font-size: 1rem;
+    min-width: 140px;
+  }
+
+  .calendar-day-cell {
+    min-height: 52px;
+    padding: 4px;
+  }
+
+  .calendar-day-cell--empty {
+    min-height: 52px;
+  }
+
+  .calendar-day-amt {
+    display: none;
+  }
+
+  .calendar-day-mobile-indicator {
+    display: inline-flex;
+  }
+
+  .calendar-benefits-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-selected-day-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-selected-day-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* 8. MODAL DE DETALHES DO DIA E PREVIEW COMPACTO (UX1.4) */
+.calendar-day-modal-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 640px) {
+  .calendar-day-modal-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+.calendar-day-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 420px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding-right: 4px;
+}
+
+.calendar-day-preview-footer {
+  margin-top: 12px;
+}
