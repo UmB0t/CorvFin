@@ -229,12 +229,6 @@
             </svg>
           </button>
           <div class="toolbar-divider"></div>
-          <button class="toolbar-btn" id="viewModeToggleBtn" data-tooltip="Modo Foco / Visão Simplificada" aria-label="Modo Foco / Visão Simplificada">
-            <svg class="svg-icon" viewBox="0 0 24 24">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          </button>
           <button class="toolbar-btn" id="reportBtn" data-tooltip="Exportar Relatório / Imprimir PDF" aria-label="Exportar Relatório / Imprimir PDF">
             <svg class="svg-icon" viewBox="0 0 24 24">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -568,6 +562,13 @@
             <div id="categoryUnifiedChartContent"></div>
           </section>
 
+          <div class="expenses-view-control-wrap" id="expensesViewControlWrap">
+            <div class="segmented-control" role="tablist" id="expensesViewModeControl" aria-label="Modo de visualização das despesas">
+              <button type="button" class="segmented-btn active" id="expensesViewAllBtn" role="tab" aria-selected="true" aria-controls="simplifiedExpensesContainer">Todas</button>
+              <button type="button" class="segmented-btn" id="expensesViewByTypeBtn" role="tab" aria-selected="false" aria-controls="normalExpensesGrid">Por tipo</button>
+            </div>
+          </div>
+
           <div class="filter-bar">
             <input id="expensesSearchInput" placeholder="Pesquisar por descrição, categoria ou favorecido...">
             <select id="expensesStatusFilter">
@@ -596,27 +597,13 @@
             </select>
           </div>
 
-          <!-- VISÃO SIMPLIFICADA (TABELA ÚNICA + RESUMO) -->
-          <section id="simplifiedExpensesContainer" hidden>
-            <div class="card summary-strip">
-              <div class="summary-strip-row">
-                <div>
-                  <span class="summary-strip-label">Total a Pagar (Despesas)</span>
-                  <div class="num negative summary-strip-value" id="simpTotalExpenses">R$ 0,00</div>
-                </div>
-                <div>
-                  <span class="summary-strip-label">Valor Quitado (Pago)</span>
-                  <div class="num positive summary-strip-value compact" id="simpPaidExpenses">R$ 0,00</div>
-                </div>
-                <div>
-                  <span class="summary-strip-label">Pendente</span>
-                  <div class="num warning summary-strip-value compact" id="simpPendingExpenses">R$ 0,00</div>
-                </div>
-                <div>
-                  <span class="summary-strip-label">Sobra do Valor (Abate)</span>
-                  <div class="num positive summary-strip-value" id="simpSobraValue">R$ 0,00</div>
-                </div>
-              </div>
+          <!-- VISÃO CONSOLIDADA (TABELA ÚNICA) -->
+          <section id="simplifiedExpensesContainer">
+            <div id="simpLegacyMetrics" style="display:none;" aria-hidden="true">
+              <span id="simpTotalExpenses"></span>
+              <span id="simpPaidExpenses"></span>
+              <span id="simpPendingExpenses"></span>
+              <span id="simpSobraValue"></span>
             </div>
 
             <div class="card section-card">
@@ -627,21 +614,14 @@
                     <line x1="12" y1="20" x2="12" y2="4" />
                     <line x1="6" y1="20" x2="6" y2="14" />
                   </svg>
-                  Todas as Despesas do Mês
+                  <span>Todas as Despesas do Mês</span>
                 </div>
                 <div class="section-head-right">
                   <span class="section-total" id="simpSumAll">R$ 0,00</span>
-                  <button class="icon-btn small" id="simpMarkAllPaidBtn" data-tooltip="Marcar todas as despesas como PAGAS">
+                  <button class="icon-btn small" id="simpMarkAllPaidBtn" data-tooltip="Marcar todas as despesas como PAGAS" aria-label="Marcar todas as despesas como PAGAS">
                     <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
-                  </button>
-                  <button class="btn primary small" id="simpAddBtn">
-                    <svg class="svg-icon" viewBox="0 0 24 24" style="stroke-width:2.5;">
-                      <line x1="12" y1="5" x2="12" y2="19" />
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                    Novo Lançamento
                   </button>
                 </div>
               </div>
@@ -2360,8 +2340,8 @@
             <span class="badge success">Praticidade</span>
           </div>
           <ul style="margin:0; padding-left:18px; font-size:.82rem; color:var(--muted); line-height:1.5; display:grid; gap:4px;">
-            <li><strong>Alternância de Visão:</strong> No cabeçalho superior, clique em <strong>"Visão Simplificada"</strong> para condensar todos os lançamentos em uma única tabela contínua.</li>
-            <li><strong>Resumo com Abate:</strong> Acompanhe no topo as métricas de <em>Total a Pagar</em>, <em>Valor Quitado</em>, <em>Pendente</em> e <em>Sobra do Valor (Abate)</em>.</li>
+            <li><strong>Alternância de Visão (Todas / Por tipo):</strong> Na aba Despesas, utilize o controle <strong>Todas</strong> para uma visão consolidada contínua ou <strong>Por tipo</strong> para separar Fixas e Variáveis.</li>
+            <li><strong>Resumo do Mês:</strong> Acompanhe no topo as métricas canônicas de <em>Total do Mês</em>, <em>Total de Despesas</em>, <em>Valor Pago</em>, <em>Pendente</em> e <em>Sobra do Valor</em>.</li>
             <li><strong>Quitação em Lote (Check Rápido):</strong> Clique no botão de Check no cabeçalho das seções para marcar todas as despesas do mês como pagas instantaneamente.</li>
           </ul>
         </div>

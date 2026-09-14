@@ -265,26 +265,36 @@
 
     const pctGasto = bt.baseTotal > 0 ? Math.min(100, Math.round((bt.spentTotal / bt.baseTotal) * 100)) : 0;
 
+    let remClass = 'metric-neutral';
+    let remValClass = 'neutral';
+    if (bt.remTotal > 0) {
+      remClass = 'metric-positive';
+      remValClass = 'positive';
+    } else if (bt.remTotal < 0) {
+      remClass = 'metric-negative';
+      remValClass = 'negative';
+    }
+
     const containerMetrics = document.getElementById('benefitMetrics');
     if (containerMetrics) {
       containerMetrics.innerHTML = `
-        <div class="metric">
+        <div class="metric metric-income">
           <div class="label">Crédito Base Mensal</div>
           <div class="value num positive">${currency(bt.baseTotal)}</div>
           <div class="sub">Vale Benefício concedido no mês (Perfil)</div>
         </div>
-        <div class="metric">
+        <div class="metric metric-expense">
           <div class="label">Total Gasto no Mês <span class="badge ${pctGasto > 90 ? 'danger' : 'info'}">${pctGasto}%</span></div>
           <div class="value num negative">${currency(bt.spentTotal)}</div>
           <div class="sub">${currency(bt.spentTotal)} de ${currency(bt.baseTotal)} consumidos</div>
-          <div class="bar"><span style="width:${pctGasto}%; background:${pctGasto > 100 ? 'var(--danger, #EF4444)' : 'var(--brand, #1F7A5C)'}"></span></div>
+          <div class="bar"><span style="width:${pctGasto}%;"></span></div>
         </div>
-        <div class="metric">
+        <div class="metric ${remClass}">
           <div class="label">Saldo Restante Disponível</div>
-          <div class="value num ${bt.remTotal >= 0 ? 'positive' : 'negative'}">${currency(bt.remTotal)}</div>
+          <div class="value num ${remValClass}">${currency(bt.remTotal)}</div>
           <div class="sub">${bt.remTotal >= 0 ? 'Disponível para compras compartilhadas' : 'Excedeu o valor do benefício'}</div>
         </div>
-        <div class="metric">
+        <div class="metric metric-neutral">
           <div class="label">Lançamentos no Mês</div>
           <div class="value num">${bt.txs.length} <small style="font-size:.8rem; color:var(--muted)">registros</small></div>
           <div class="sub">Transações registradas no período</div>

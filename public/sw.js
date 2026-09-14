@@ -2,7 +2,7 @@
  * CorvFin V3 - Service Worker (PWA Shell Caching & Security Isolation)
  */
 
-const CACHE_VERSION = 'corvfin-static-v1.0.1';
+const CACHE_VERSION = 'corvfin-static-v1.0.2';
 const STATIC_ASSETS = [
   './',
   './index.html',

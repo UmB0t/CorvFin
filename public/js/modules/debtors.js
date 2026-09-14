@@ -431,12 +431,9 @@ function renderDebtorCharts() {
   const destCard = $('#debtorDestCard');
   const grid = $('#debtorChartsGrid');
   const isPersonCollapsed = !!state.collapsedSections?.debtorPerson;
-  const isDestCollapsed = !!state.collapsedSections?.debtorDest;
-  const isSimp = !!state.simplifiedView;
-
-  if (personCard) personCard.hidden = isSimp || isPersonCollapsed;
-  if (destCard) destCard.hidden = isSimp || isDestCollapsed;
-  if (grid) grid.hidden = isSimp || (isPersonCollapsed && isDestCollapsed);
+  if (personCard) personCard.hidden = isPersonCollapsed;
+  if (destCard) destCard.hidden = isDestCollapsed;
+  if (grid) grid.hidden = (isPersonCollapsed && isDestCollapsed);
 
   if (personCard && destCard) {
     if (!isPersonCollapsed && isDestCollapsed) {
@@ -571,24 +568,24 @@ function toggleDebtorStatus(id) {
   const grandRemainingDebt = Math.max(0, grandTotalDebt - grandPaidDebt);
 
   $('#debtorMetrics').innerHTML = `
-      <div class="metric">
+      <div class="metric metric-expense">
         <div class="label">Montante Total em Dívidas</div>
         <div class="value num negative">${currency(grandTotalDebt)}</div>
         <div class="sub">Soma acumulada de todos os acordos</div>
       </div>
-      <div class="metric">
+      <div class="metric metric-paid">
         <div class="label">Total Já Recebido</div>
         <div class="value num positive">${currency(grandPaidDebt)}</div>
         <div class="sub">Quitado pelos devedores</div>
       </div>
-      <div class="metric">
+      <div class="metric metric-pending">
         <div class="label">Restam a Receber</div>
         <div class="value num warning">${currency(grandRemainingDebt)}</div>
         <div class="sub">Saldo devedor restante</div>
       </div>
-      <div class="metric">
+      <div class="metric metric-pending">
         <div class="label">A Receber no Mês Atual</div>
-        <div class="value num positive">${currency(rawDebtors.reduce((s, d) => s + Number(d.amount), 0))}</div>
+        <div class="value num warning">${currency(rawDebtors.reduce((s, d) => s + Number(d.amount), 0))}</div>
         <div class="sub">Parcelas vigentes de ${MONTH_ABBR[m - 1]}/${y}</div>
       </div>
     `;

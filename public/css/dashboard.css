@@ -402,6 +402,10 @@
   color: var(--success, #10B981) !important;
 }
 
+.dash-hero-net--neutral {
+  color: var(--muted, #64748B) !important;
+}
+
 .dash-hero-net--negative {
   color: var(--danger, #EF4444) !important;
 }
@@ -441,7 +445,7 @@
 }
 
 .dash-hero-sub-val--inflow {
-  color: var(--c-fixed, #10B981);
+  color: var(--success, #10B981);
 }
 
 .dash-hero-sub-val--outflow {
@@ -815,4 +819,345 @@
       height: 100%;
       border-radius: 999px;
       transition: width .3s ease;
+    }
+
+    /* ==========================================================================
+       UX3 — EXPENSES V2 SIMPLIFIED-FIRST STYLES
+       ========================================================================== */
+
+    /* Indicators Hierarchy: 1 Hero Primary + 4 Secondary Compact */
+    .expenses-metrics-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+      align-items: stretch;
+    }
+
+    .expenses-metric-hero {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--brand);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      box-shadow: var(--shadow-sm, var(--shadow));
+    }
+
+    .expenses-metric-hero.metric-income {
+      border-left: 3px solid var(--brand);
+    }
+
+    .expenses-metric-hero .label {
+      font-size: 0.74rem;
+      font-weight: 750;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .expenses-metric-hero .value {
+      font-size: 1.65rem;
+      font-weight: 850;
+      margin: 4px 0;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+
+    .expenses-metric-hero .sub {
+      font-size: 0.72rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .expenses-metrics-secondary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .secondary-metric {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: var(--shadow-sm, var(--shadow));
+      transition: border-color 0.2s ease;
+      min-width: 0;
+    }
+
+    .secondary-metric .label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .secondary-metric .value {
+      font-size: clamp(0.95rem, 1.4vw, 1.25rem);
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      margin: 4px 0;
+      min-width: 0;
+    }
+
+    .secondary-metric .sub {
+      font-size: 0.68rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+
+    .secondary-metric .bar {
+      height: 4px;
+      background: var(--surface-2);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .secondary-metric .bar span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
+
+    /* Semantic Financial Indicators (UX3.1 & UX3.2) */
+    .metric.metric-income,
+    .expenses-metric-hero.metric-income,
+    .dash-hero-sub-card.metric-income {
+      border-left: 3px solid var(--brand);
+    }
+
+    .metric.metric-expense,
+    .secondary-metric.metric-expense,
+    .dash-context-item.metric-expense,
+    .dash-hero-sub-card.metric-expense {
+      border-left: 3px solid var(--danger);
+    }
+    .metric.metric-expense .value,
+    .secondary-metric.metric-expense .value,
+    .dash-context-item.metric-expense .dash-context-val {
+      color: var(--danger);
+    }
+    .metric.metric-expense .bar span,
+    .secondary-metric.metric-expense .bar span {
+      background: var(--danger);
+    }
+
+    .metric.metric-paid,
+    .secondary-metric.metric-paid,
+    .dash-context-item.metric-paid {
+      border-left: 3px solid var(--success);
+    }
+    .metric.metric-paid .value,
+    .secondary-metric.metric-paid .value,
+    .dash-context-item.metric-paid .dash-context-val {
+      color: var(--success);
+    }
+    .metric.metric-paid .badge.success,
+    .secondary-metric.metric-paid .badge.success {
+      background: var(--success-soft);
+      color: var(--success);
+      font-weight: 700;
+      border-radius: 6px;
+      padding: 1px 6px;
+    }
+
+    .metric.metric-pending,
+    .secondary-metric.metric-pending,
+    .dash-context-item.metric-pending {
+      border-left: 3px solid var(--warning);
+    }
+    .metric.metric-pending .value,
+    .secondary-metric.metric-pending .value,
+    .dash-context-item.metric-pending .dash-context-val {
+      color: var(--warning);
+    }
+
+    .dash-context-item.metric-expense .dash-context-icon {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+    .dash-context-item.metric-pending .dash-context-icon {
+      background: var(--warning-soft);
+      color: var(--warning);
+    }
+    .dash-context-item.metric-paid .dash-context-icon {
+      background: var(--success-soft);
+      color: var(--success);
+    }
+
+    /* Dynamic Results: Positive (Green), Neutral (Muted), Negative (Red) */
+    .metric.metric-positive,
+    .secondary-metric.metric-positive,
+    .secondary-metric.metric-sobra.metric-positive,
+    .dash-hero-card.metric-positive {
+      border-left: 3px solid var(--success);
+    }
+    .metric.metric-positive .value,
+    .secondary-metric.metric-positive .value,
+    .secondary-metric.metric-sobra.metric-positive .value {
+      color: var(--success);
+    }
+
+    .metric.metric-neutral,
+    .secondary-metric.metric-neutral,
+    .secondary-metric.metric-sobra.metric-neutral,
+    .dash-hero-card.metric-neutral {
+      border-left: 3px solid var(--muted);
+    }
+    .metric.metric-neutral .value,
+    .secondary-metric.metric-neutral .value,
+    .secondary-metric.metric-sobra.metric-neutral .value {
+      color: var(--muted);
+    }
+
+    .metric.metric-negative,
+    .secondary-metric.metric-negative,
+    .secondary-metric.metric-sobra.metric-negative,
+    .dash-hero-card.metric-negative {
+      border-left: 3px solid var(--danger);
+    }
+    .metric.metric-negative .value,
+    .secondary-metric.metric-negative .value,
+    .secondary-metric.metric-sobra.metric-negative .value {
+      color: var(--danger);
+    }
+    .metric.metric-negative .badge.danger,
+    .secondary-metric.metric-negative .badge.danger,
+    .secondary-metric.metric-sobra.metric-negative .badge.danger {
+      background: var(--danger-soft);
+      color: var(--danger);
+      font-weight: 700;
+      border-radius: 6px;
+      padding: 1px 6px;
+    }
+    .metric.metric-negative .deficit-label,
+    .secondary-metric.metric-negative .deficit-label,
+    .secondary-metric.metric-sobra.metric-negative .deficit-label {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    /* Segmented Control [ Todas ] [ Por tipo ] */
+    .expenses-view-control-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .segmented-control {
+      display: inline-flex;
+      background: var(--surface-2, rgba(0, 0, 0, 0.05));
+      padding: 3px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      gap: 3px;
+    }
+
+    .segmented-btn {
+      background: transparent;
+      border: none;
+      outline: none;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+      padding: 6px 18px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .segmented-btn:hover {
+      color: var(--text);
+    }
+
+    .segmented-btn:focus-visible {
+      outline: 2px solid var(--brand);
+      outline-offset: 1px;
+    }
+
+    .segmented-btn.active {
+      background: var(--surface);
+      color: var(--text);
+      font-weight: 750;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Nature tags for consolidated view */
+    .nature-tag {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      letter-spacing: 0.02em;
+      line-height: 1.4;
+      flex-shrink: 0;
+    }
+
+    .nature-tag.nature-fixed {
+      background: rgba(59, 130, 246, 0.1);
+      color: var(--c-fixed, #3b82f6);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+    }
+
+    .nature-tag.nature-variable {
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--c-variable, #f59e0b);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+
+    /* Empty states */
+    .empty-state {
+      padding: 36px 16px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .empty-state .empty-icon {
+      font-size: 2rem;
+      opacity: 0.7;
+      margin-bottom: 4px;
+    }
+
+    .empty-state .empty-title {
+      font-size: 0.95rem;
+      font-weight: 750;
+      color: var(--text);
+    }
+
+    .empty-state .empty-desc {
+      font-size: 0.82rem;
+      color: var(--muted);
+      max-width: 320px;
+      margin-bottom: 8px;
     }

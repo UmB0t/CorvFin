@@ -463,12 +463,20 @@
     const outEl = document.getElementById('dashOutflowValue');
     const upcomingListEl = document.getElementById('dashUpcomingList');
 
+    const heroCardEl = document.getElementById('dashHeroCard');
+
     if (netEl && res && res.summary) {
       const net = Number(res.summary.net || 0);
       netEl.textContent = formatMoney(net);
-      netEl.className = `dash-hero-net ${net >= 0 ? 'dash-hero-net--positive' : 'dash-hero-net--negative'}`;
+      const nClass = net > 0 ? 'dash-hero-net--positive' : (net === 0 ? 'dash-hero-net--neutral' : 'dash-hero-net--negative');
+      const cClass = net > 0 ? 'metric-positive' : (net === 0 ? 'metric-neutral' : 'metric-negative');
+      netEl.className = `dash-hero-net ${nClass}`;
+      if (heroCardEl) {
+        heroCardEl.classList.remove('metric-positive', 'metric-neutral', 'metric-negative');
+        heroCardEl.classList.add(cClass);
+      }
       if (netSubEl) {
-        netSubEl.textContent = (net >= 0 ? 'Superávit previsto no período' : 'Déficit previsto no período');
+        netSubEl.textContent = (net > 0 ? 'Superávit previsto no período' : (net === 0 ? 'Equilíbrio previsto no período' : 'Déficit previsto no período'));
       }
     }
     if (inEl && res && res.summary) {
@@ -488,6 +496,11 @@
     const inEl = document.getElementById('dashInflowValue');
     const outEl = document.getElementById('dashOutflowValue');
     const upcomingListEl = document.getElementById('dashUpcomingList');
+
+    const heroCardEl = document.getElementById('dashHeroCard');
+    if (heroCardEl) {
+      heroCardEl.classList.remove('metric-positive', 'metric-neutral', 'metric-negative');
+    }
 
     if (netEl) {
       netEl.textContent = '—';
@@ -647,14 +660,17 @@
     const outflowVal = hasProjection ? currentProjectionData.summary.outflow : null;
 
     const netClass = (netVal !== null)
-      ? (netVal >= 0 ? 'dash-hero-net--positive' : 'dash-hero-net--negative')
+      ? (netVal > 0 ? 'dash-hero-net--positive' : (netVal === 0 ? 'dash-hero-net--neutral' : 'dash-hero-net--negative'))
+      : '';
+    const heroCardClass = (netVal !== null)
+      ? (netVal > 0 ? 'metric-positive' : (netVal === 0 ? 'metric-neutral' : 'metric-negative'))
       : '';
     const netStatusText = (netVal !== null)
-      ? (netVal >= 0 ? 'Superávit previsto no período' : 'Déficit previsto no período')
+      ? (netVal > 0 ? 'Superávit previsto no período' : (netVal === 0 ? 'Equilíbrio previsto no período' : 'Déficit previsto no período'))
       : 'Calculando projeção canônica...';
 
     const heroHtml = `
-      <div class="dash-hero-card" id="dashHeroCard" data-legacy="TOTAL CONSOLIDADO">
+      <div class="dash-hero-card ${heroCardClass}" id="dashHeroCard" data-legacy="TOTAL CONSOLIDADO">
         <div class="dash-hero-grid">
           <!-- Bloco Principal: RESULTADO PREVISTO -->
           <div class="dash-hero-main">
@@ -674,9 +690,9 @@
           </div>
 
           <!-- Apoio 1: ENTRADAS PREVISTAS -->
-          <div class="dash-hero-sub-card">
+          <div class="dash-hero-sub-card metric-income">
             <div class="dash-hero-sub-label">
-              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--c-fixed, #10B981); width:14px; height:14px;">
+              <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--brand); width:14px; height:14px;">
                 <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
                 <polyline points="17 6 23 6 23 12" />
               </svg>
@@ -688,7 +704,7 @@
           </div>
 
           <!-- Apoio 2: SAÍDAS PREVISTAS -->
-          <div class="dash-hero-sub-card">
+          <div class="dash-hero-sub-card metric-expense">
             <div class="dash-hero-sub-label">
               <svg class="svg-icon" viewBox="0 0 24 24" style="stroke:var(--danger, #EF4444); width:14px; height:14px;">
                 <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" />
@@ -716,12 +732,12 @@
         <!-- COLUNA ESQUERDA: CONTEXTO CONSOLIDADO (3 CARDS COMPACTOS) -->
         <div class="dash-context-cards">
           <!-- Card 1: Despesas -->
-          <div class="dash-context-item">
+          <div class="dash-context-item metric-expense">
             <div class="dash-context-item-left">
-              <div class="dash-context-icon" style="background:rgba(16, 185, 129, 0.12); color:var(--c-fixed, #10B981);">
+              <div class="dash-context-icon">
                 <svg class="svg-icon" viewBox="0 0 24 24" style="width:20px; height:20px;">
-                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
-                  <polyline points="17 6 23 6 23 12"/>
+                  <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/>
+                  <polyline points="17 18 23 18 23 12"/>
                 </svg>
               </div>
               <div>
@@ -735,9 +751,9 @@
           </div>
 
           <!-- Card 2: Devedores / A Receber -->
-          <div class="dash-context-item">
+          <div class="dash-context-item metric-pending">
             <div class="dash-context-item-left">
-              <div class="dash-context-icon" style="background:rgba(245, 158, 11, 0.12); color:var(--c-debt, #F59E0B);">
+              <div class="dash-context-icon">
                 <svg class="svg-icon" viewBox="0 0 24 24" style="width:20px; height:20px;">
                   <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                   <circle cx="9" cy="7" r="4"/>
@@ -751,14 +767,14 @@
               </div>
             </div>
             <div class="dash-context-item-right">
-              <div class="dash-context-val num" style="color:var(--c-debt, #F59E0B);">${formatMoney(totalDebtors)}</div>
+              <div class="dash-context-val num">${formatMoney(totalDebtors)}</div>
             </div>
           </div>
 
           <!-- Card 3: Pendências / Quitação -->
-          <div class="dash-context-item">
+          <div class="dash-context-item metric-pending">
             <div class="dash-context-item-left">
-              <div class="dash-context-icon" style="background:rgba(59, 130, 246, 0.12); color:var(--brand);">
+              <div class="dash-context-icon">
                 <svg class="svg-icon" viewBox="0 0 24 24" style="width:20px; height:20px;">
                   <circle cx="12" cy="12" r="10"/>
                   <polyline points="12 6 12 12 16 14"/>
@@ -770,7 +786,7 @@
               </div>
             </div>
             <div class="dash-context-item-right">
-              <div class="dash-context-val num" style="color:var(--warning);">${formatMoney(totalPending)}</div>
+              <div class="dash-context-val num">${formatMoney(totalPending)}</div>
             </div>
           </div>
         </div>

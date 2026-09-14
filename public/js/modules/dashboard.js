@@ -169,10 +169,10 @@
 
         let extraBadges = '';
         if (t.sumExt > 0) {
-          extraBadges += ` <span class="badge success" style="padding:2px 6px;">+${currency(t.sumExt)} EXTRA</span>`;
+          extraBadges += ` <span class="badge success">+${currency(t.sumExt)} EXTRA</span>`;
         }
         if (t.sumDebtorCounted > 0) {
-          extraBadges += ` <span class="badge info" style="padding:2px 6px;" title="Cobranças de devedores somadas ao total do mês">+${currency(t.sumDebtorCounted)} DEVEDOR</span>`;
+          extraBadges += ` <span class="badge info" title="Cobranças de devedores somadas ao total do mês">+${currency(t.sumDebtorCounted)} DEVEDOR</span>`;
         }
 
 
@@ -195,33 +195,68 @@
           }
         }
 
-        $('#dashboardMetrics').innerHTML = `
-      <div class="metric">
-        <div class="label" style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">Total do Mês${extraBadges}</div>
-        <div class="value num positive">${currency(t.totalIncome)}</div>
-        <div class="sub">${subIncome}</div>
-      </div>
-      <div class="metric">
-        <div class="label">Total de Despesas</div>
-        <div class="value num negative">${currency(t.totalExpenses)}</div>
-        <div class="bar"><span style="width:${pctGasto}%; background:${isDeficit ? 'var(--danger)' : 'var(--brand)'}"></span></div>
-      </div>
-      <div class="metric">
-        <div class="label">Valor Pago <span class="badge success">${pctPago}%</span></div>
-        <div class="value num positive">${currency(t.paidExpenses)}</div>
-        <div class="sub">Total de despesas quitadas</div>
-      </div>
-      <div class="metric">
-        <div class="label">Pendente de Pagamento</div>
-        <div class="value num warning">${currency(t.pendingExpenses)}</div>
-        <div class="sub">Aguardando pagamento</div>
-      </div>
-      <div class="metric">
-        <div class="label">Sobra do Valor ${isDeficit ? '<span class="badge danger" style="padding:2px 6px;">DÉFICIT</span>' : ''}</div>
-        <div class="value num ${!isDeficit ? 'positive' : 'negative'}">${currency(sobra)}</div>
-        <div class="sub">${isDeficit ? `<span style="color:var(--danger); font-weight:700;">Déficit de ${currency(Math.abs(sobra))}</span>` : 'Renda líquida após despesas'}</div>
+        // Semântica dinâmica da Sobra do valor (UX3.1)
+        let sobraClass = 'metric-neutral';
+        let sobraValClass = 'neutral';
+        let sobraSub = 'Contas equilibradas com a renda';
+        let sobraBadge = '';
+
+        if (sobra > 0) {
+          sobraClass = 'metric-positive';
+          sobraValClass = 'positive';
+          sobraSub = 'Renda líquida após despesas';
+        } else if (sobra < 0) {
+          sobraClass = 'metric-negative';
+          sobraValClass = 'negative';
+          sobraBadge = ` <span class="badge danger">DÉFICIT</span>`;
+          sobraSub = `<span class="deficit-label">Déficit de ${currency(Math.abs(sobra))}</span>`;
+        }
+
+        const metricsEl = $('#dashboardMetrics');
+        if (metricsEl) {
+          metricsEl.innerHTML = `
+      <div class="expenses-metrics-layout">
+        <div class="metric expenses-metric-hero metric-income">
+          <div class="label">
+            <span>Total do Mês</span>${extraBadges}
+          </div>
+          <div class="value num positive">${currency(t.totalIncome)}</div>
+          <div class="sub">${subIncome}</div>
+        </div>
+        <div class="expenses-metrics-secondary">
+          <div class="metric secondary-metric metric-expense">
+            <div class="label">Total de Despesas</div>
+            <div class="value num negative">${currency(t.totalExpenses)}</div>
+            <div class="bar"><span style="width:${pctGasto}%;"></span></div>
+          </div>
+          <div class="metric secondary-metric metric-paid">
+            <div class="label"><span>Valor Pago</span> <span class="badge success">${pctPago}%</span></div>
+            <div class="value num positive">${currency(t.paidExpenses)}</div>
+            <div class="sub">Total de despesas quitadas</div>
+          </div>
+          <div class="metric secondary-metric metric-pending">
+            <div class="label">Pendente de Pagamento</div>
+            <div class="value num warning">${currency(t.pendingExpenses)}</div>
+            <div class="sub">Aguardando pagamento</div>
+          </div>
+          <div class="metric secondary-metric metric-sobra ${sobraClass}">
+            <div class="label"><span>Sobra do Valor</span>${sobraBadge}</div>
+            <div class="value num ${sobraValClass}">${currency(sobra)}</div>
+            <div class="sub">${sobraSub}</div>
+          </div>
+        </div>
       </div>
     `;
+        }
+
+        const simpTotal = $('#simpTotalExpenses'); if (simpTotal) simpTotal.textContent = currency(t.totalExpenses);
+        const simpPaid = $('#simpPaidExpenses'); if (simpPaid) simpPaid.textContent = currency(t.paidExpenses);
+        const simpPending = $('#simpPendingExpenses'); if (simpPending) simpPending.textContent = currency(t.pendingExpenses);
+        const sobraEl = $('#simpSobraValue');
+        if (sobraEl) {
+          sobraEl.textContent = currency(sobra);
+          sobraEl.className = `num ${sobraValClass}`;
+        }
       }
 
 

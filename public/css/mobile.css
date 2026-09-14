@@ -239,7 +239,6 @@
     max-width: 100%;
   }
 
-  .pill-toolbar #viewModeToggleBtn,
   .pill-toolbar #reportBtn,
   .pill-toolbar #csvBtn,
   .pill-toolbar #backupBtn,
@@ -2117,5 +2116,59 @@
     flex: 0 0 92%;
     max-width: 92%;
     padding: 18px 16px;
+  }
+}
+
+/* UX3 — EXPENSES V2 RESPONSIVE */
+@media (max-width: 1024px) {
+  .expenses-metrics-layout {
+    grid-template-columns: 1fr;
+  }
+  .expenses-metrics-secondary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .expenses-view-control-wrap {
+    width: 100%;
+  }
+  .segmented-control {
+    width: 100%;
+    display: flex;
+  }
+  .segmented-btn {
+    flex: 1;
+    justify-content: center;
+    text-align: center;
+  }
+  #tab-expenses .sections-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .expenses-metric-hero {
+    padding: 12px 14px;
+  }
+  .expenses-metric-hero .value {
+    font-size: 1.35rem;
+  }
+  .expenses-metrics-secondary .secondary-metric {
+    padding: 8px 10px;
+  }
+  .expenses-metrics-secondary .secondary-metric .label {
+    font-size: 0.62rem;
+    letter-spacing: 0;
+  }
+  .expenses-metrics-secondary .secondary-metric .value {
+    font-size: 0.90rem !important;
+    letter-spacing: -0.02em;
+  }
+  .expenses-metrics-secondary .secondary-metric .sub {
+    font-size: 0.60rem;
+  }
+  .expenses-metrics-secondary {
+    gap: 8px;
   }
 }

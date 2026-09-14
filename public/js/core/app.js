@@ -193,7 +193,6 @@
     }
     _isRenderingTab[tabId] = true;
     try {
-      const isSimp = !!state.simplifiedView;
       if (window.checkModuleMaintenance && window.checkModuleMaintenance(tabId)) {
         return;
       }
@@ -210,16 +209,13 @@
           renderCalendarTab();
         }
       } else if (tabId === 'tab-expenses') {
-        const isInstallmentsSub = state.expensesSubView === 'installments' && !isSimp;
+        const isInstallmentsSub = state.expensesSubView === 'installments';
         const expensesSubTabsWrap = $('#expensesSubTabsWrap');
-        if (expensesSubTabsWrap) expensesSubTabsWrap.hidden = isSimp;
+        if (expensesSubTabsWrap) expensesSubTabsWrap.hidden = false;
 
         const btnInsights = $('#toggleInsightsBtn');
-        if (btnInsights) btnInsights.hidden = isSimp;
         const btnDest = $('#toggleDestChartBtn');
-        if (btnDest) btnDest.hidden = isSimp;
         const btnCat = $('#toggleCategoryChartBtn');
-        if (btnCat) btnCat.hidden = isSimp;
 
         const monthlyTabBtn = $('#expensesMonthlyTabBtn');
         const instTabBtn = $('#expensesInstallmentsTabBtn');
@@ -239,32 +235,23 @@
           if (monthlyWrap) monthlyWrap.hidden = false;
           if (instWrap) instWrap.hidden = true;
 
-          const dashMetrics = $('#dashboardMetrics'); if (dashMetrics) dashMetrics.hidden = isSimp;
-          const insightsCard = $('#insightsSectionCard'); if (insightsCard) insightsCard.hidden = isSimp || !!state.collapsedSections.insights;
-          const destCard = $('#destChartSectionCard'); if (destCard) destCard.hidden = isSimp || !!state.collapsedSections.destChart;
-          const catCard = $('#categoryChartSectionCard'); if (catCard) catCard.hidden = isSimp || !!state.collapsedSections.categoryChart;
-          const normalGrid = $('#normalExpensesGrid'); if (normalGrid) normalGrid.hidden = isSimp;
+          const dashMetrics = $('#dashboardMetrics'); if (dashMetrics) dashMetrics.hidden = false;
+          const insightsCard = $('#insightsSectionCard'); if (insightsCard) insightsCard.hidden = !!state.collapsedSections.insights;
+          const destCard = $('#destChartSectionCard'); if (destCard) destCard.hidden = !!state.collapsedSections.destChart;
+          const catCard = $('#categoryChartSectionCard'); if (catCard) catCard.hidden = !!state.collapsedSections.categoryChart;
 
-          if (btnInsights && !isSimp) btnInsights.classList.toggle('active', !state.collapsedSections.insights);
-          if (btnDest && !isSimp) btnDest.classList.toggle('active', !state.collapsedSections.destChart);
-          if (btnCat && !isSimp) btnCat.classList.toggle('active', !state.collapsedSections.categoryChart);
+          if (btnInsights) btnInsights.classList.toggle('active', !state.collapsedSections.insights);
+          if (btnDest) btnDest.classList.toggle('active', !state.collapsedSections.destChart);
+          if (btnCat) btnCat.classList.toggle('active', !state.collapsedSections.categoryChart);
 
-          const simpContainer = $('#simplifiedExpensesContainer');
-          if (simpContainer) {
-            simpContainer.hidden = !isSimp;
-            if (isSimp) {
-              if (typeof renderSimplifiedExpenses === 'function') renderSimplifiedExpenses();
-            } else {
-              if (typeof renderDashboardMetrics === 'function') renderDashboardMetrics();
-              if (!state.collapsedSections.insights && typeof renderInsightsSection === 'function') renderInsightsSection();
-              if (!state.collapsedSections.destChart && typeof renderDestinationChart === 'function') renderDestinationChart();
-              if (!state.collapsedSections.categoryChart && typeof renderCategoryDistributionChart === 'function') renderCategoryDistributionChart();
-              if (typeof renderExpensesLists === 'function') renderExpensesLists();
-            }
-          }
+          if (typeof renderDashboardMetrics === 'function') renderDashboardMetrics();
+          if (!state.collapsedSections.insights && typeof renderInsightsSection === 'function') renderInsightsSection();
+          if (!state.collapsedSections.destChart && typeof renderDestinationChart === 'function') renderDestinationChart();
+          if (!state.collapsedSections.categoryChart && typeof renderCategoryDistributionChart === 'function') renderCategoryDistributionChart();
+          if (typeof renderExpensesLists === 'function') renderExpensesLists();
         }
       } else if (tabId === 'tab-extras') {
-        const extraMetrics = $('#extraMetrics'); if (extraMetrics) extraMetrics.hidden = isSimp;
+        const extraMetrics = $('#extraMetrics'); if (extraMetrics) extraMetrics.hidden = false;
         if (typeof renderExtrasTab === 'function') renderExtrasTab();
       } else if (tabId === 'tab-debtors') {
         const isTotalsSub = state.debtorsSubView === 'totals';
@@ -286,13 +273,13 @@
           if (monthlyWrap) monthlyWrap.hidden = false;
           if (totalsWrap) totalsWrap.hidden = true;
 
-          const debtorMetrics = $('#debtorMetrics'); if (debtorMetrics) debtorMetrics.hidden = isSimp;
+          const debtorMetrics = $('#debtorMetrics'); if (debtorMetrics) debtorMetrics.hidden = false;
           if (typeof renderDebtorsTab === 'function') renderDebtorsTab();
         }
       } else if (tabId === 'tab-investments') {
-        const investMetrics = $('#investMetrics'); if (investMetrics) investMetrics.hidden = isSimp;
-        const investSimCard = $('#investSimulatorCard'); if (investSimCard) investSimCard.hidden = isSimp;
-        const investChartsGrid = $('#investChartsGrid'); if (investChartsGrid) investChartsGrid.hidden = isSimp;
+        const investMetrics = $('#investMetrics'); if (investMetrics) investMetrics.hidden = false;
+        const investSimCard = $('#investSimulatorCard'); if (investSimCard) investSimCard.hidden = false;
+        const investChartsGrid = $('#investChartsGrid'); if (investChartsGrid) investChartsGrid.hidden = false;
         if (typeof renderInvestmentsTab === 'function') renderInvestmentsTab();
       } else if (tabId === 'tab-benefits') {
         if (typeof renderBenefitsTab === 'function') renderBenefitsTab();
@@ -349,15 +336,6 @@
     if (typeof renderProfile === 'function') renderProfile();
     updateNotificationBell();
     if (typeof updateReleaseNotesBadge === 'function') updateReleaseNotesBadge();
-
-    const isSimp = !!state.simplifiedView;
-    const btnView = $('#viewModeToggleBtn');
-    if (btnView) {
-      btnView.classList.toggle('active', isSimp);
-      const tip = isSimp ? 'Alternar para Visão Completa' : 'Alternar para Visão Simplificada';
-      btnView.setAttribute('title', tip);
-      btnView.setAttribute('aria-label', tip);
-    }
 
     if (targetModule && ALL_APP_TABS.includes(targetModule)) {
       renderTabContent(targetModule);

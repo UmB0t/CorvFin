@@ -259,7 +259,7 @@ function buildEntryRow({
         id, fixedId, type, title, tags = [], amount, status, paidAmount, remainingAmount, dueDay, destination,
         payee, paymentMethod, account,
         onClickToggleStatus, onClickEdit, onClickTimeline, onMouseEnter, onMouseLeave,
-        customLeftBadge, onDelete
+        customLeftBadge, onDelete, showNatureBadge = false
       }) {
     const state = getState();
         const row = document.createElement('div');
@@ -385,6 +385,12 @@ function buildEntryRow({
           return `<span class="tag">${escapeHtml(t)}</span>`;
         }).join('');
 
+        let natureTagHtml = '';
+        if (showNatureBadge && (type === 'fixed' || type === 'variable')) {
+          const isFixed = type === 'fixed';
+          natureTagHtml = `<span class="nature-tag ${isFixed ? 'nature-fixed' : 'nature-variable'}">${isFixed ? 'Fixa' : 'Variável'}</span>`;
+        }
+
         row.innerHTML = `
       ${dragHandleHtml}
       ${leftIconHtml}
@@ -392,6 +398,7 @@ function buildEntryRow({
         <div class="entry-title">${escapeHtml(title)}</div>
         ${contextSubHtml}
         <div class="entry-meta">
+          ${natureTagHtml}
           ${dueTagHtml}
           ${partialTagHtml}
           ${tagsHtml}
@@ -800,202 +807,354 @@ function checkDueAlerts(allExpenses) {
         }
       }
 
+const getExpenseStableComparisonKey = (item) => {
+  const type = item.itemType || (item.fixedId ? 'fixed' : 'variable');
+  const id = item.fixedId || item.id || '';
+  return `${type}:${id}`;
+};
+
+const stableTieBreaker = (a, b) => {
+  const keyA = getExpenseStableComparisonKey(a);
+  const keyB = getExpenseStableComparisonKey(b);
+  return keyA.localeCompare(keyB);
+};
+
 function sortExpensesList(list, sortMode = 'amount-desc') {
-    const state = getState();
-        const sorted = [...list];
-        switch (sortMode) {
-          case 'custom': {
-            const order = state.customExpensesOrder || [];
-            return sorted.sort((a, b) => {
-              const idA = a.fixedId || a.id;
-              const idB = b.fixedId || b.id;
-              const idxA = order.indexOf(idA);
-              const idxB = order.indexOf(idB);
-              if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-              if (idxA !== -1) return -1;
-              if (idxB !== -1) return 1;
-              return Number(b.amount || 0) - Number(a.amount || 0);
-            });
-          }
-          case 'amount-asc':
-            return sorted.sort((a, b) => Number(a.amount || 0) - Number(b.amount || 0));
-          case 'name-asc':
-            return sorted.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
-          case 'name-desc':
-            return sorted.sort((a, b) => (b.name || '').localeCompare(a.name || '', 'pt-BR', { sensitivity: 'base' }));
-          case 'due-asc':
-            return sorted.sort((a, b) => {
-              const dA = (a.dueDay != null && a.dueDay !== '') ? Number(a.dueDay) : 999;
-              const dB = (b.dueDay != null && b.dueDay !== '') ? Number(b.dueDay) : 999;
-              if (dA !== dB) return dA - dB;
-              return Number(b.amount || 0) - Number(a.amount || 0);
-            });
-          case 'amount-desc':
-          default:
-            return sorted.sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0));
-        }
-      }
+  const state = getState();
+  const sorted = [...list];
+  switch (sortMode) {
+    case 'custom': {
+      const order = state.customExpensesOrder || [];
+      return sorted.sort((a, b) => {
+        const idA = a.fixedId || a.id;
+        const idB = b.fixedId || b.id;
+        const idxA = order.indexOf(idA);
+        const idxB = order.indexOf(idB);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        const diff = Number(b.amount || 0) - Number(a.amount || 0);
+        return diff !== 0 ? diff : stableTieBreaker(a, b);
+      });
+    }
+    case 'amount-asc':
+      return sorted.sort((a, b) => {
+        const diff = Number(a.amount || 0) - Number(b.amount || 0);
+        return diff !== 0 ? diff : stableTieBreaker(a, b);
+      });
+    case 'name-asc':
+      return sorted.sort((a, b) => {
+        const diff = (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' });
+        return diff !== 0 ? diff : stableTieBreaker(a, b);
+      });
+    case 'name-desc':
+      return sorted.sort((a, b) => {
+        const diff = (b.name || '').localeCompare(a.name || '', 'pt-BR', { sensitivity: 'base' });
+        return diff !== 0 ? diff : stableTieBreaker(a, b);
+      });
+    case 'due-asc':
+      return sorted.sort((a, b) => {
+        const dA = (a.dueDay != null && a.dueDay !== '') ? Number(a.dueDay) : 999;
+        const dB = (b.dueDay != null && b.dueDay !== '') ? Number(b.dueDay) : 999;
+        if (dA !== dB) return dA - dB;
+        const diff = Number(b.amount || 0) - Number(a.amount || 0);
+        return diff !== 0 ? diff : stableTieBreaker(a, b);
+      });
+    case 'amount-desc':
+    default:
+      return sorted.sort((a, b) => {
+        const diff = Number(b.amount || 0) - Number(a.amount || 0);
+        return diff !== 0 ? diff : stableTieBreaker(a, b);
+      });
+  }
+}
+
+function filterExpenseItem(item, query, statusFilter, methodFilter) {
+  const itemMethod = (typeof resolveExpensePaymentMethod === 'function') ? resolveExpensePaymentMethod(item) : (item.payment?.method || null);
+  const itemAcc = (typeof resolveExpenseAccount === 'function') ? resolveExpenseAccount(item) : (item.payment?.account || null);
+  if (statusFilter !== 'all' && item.status !== statusFilter) return false;
+  if (methodFilter !== 'all' && itemMethod !== methodFilter) return false;
+  if (query) {
+    const itemPayee = (typeof resolveExpensePayee === 'function') ? (resolveExpensePayee(item) || '') : (item.payee || '');
+    const mName = (window.PAYMENT_METHOD_NAMES_MAP && itemMethod && window.PAYMENT_METHOD_NAMES_MAP[itemMethod]) || itemMethod || '';
+    const text = `${item.name} ${item.group || ''} ${itemPayee} ${mName} ${itemAcc || ''} ${item.note || ''}`.toLowerCase();
+    if (!text.includes(query)) return false;
+  }
+  return true;
+}
+
+let currentExpensesViewMode = 'all';
+
+function updateExpensesViewModeUI() {
+  const isAll = currentExpensesViewMode === 'all';
+  const allBtn = $('#expensesViewAllBtn');
+  const byTypeBtn = $('#expensesViewByTypeBtn');
+  const simpContainer = $('#simplifiedExpensesContainer');
+  const normalGrid = $('#normalExpensesGrid');
+
+  if (allBtn) {
+    allBtn.classList.toggle('active', isAll);
+    allBtn.setAttribute('aria-selected', isAll ? 'true' : 'false');
+  }
+  if (byTypeBtn) {
+    byTypeBtn.classList.toggle('active', !isAll);
+    byTypeBtn.setAttribute('aria-selected', !isAll ? 'true' : 'false');
+  }
+  if (simpContainer) simpContainer.hidden = !isAll;
+  if (normalGrid) normalGrid.hidden = isAll;
+}
+
+function resetExpensesViewMode() {
+  currentExpensesViewMode = 'all';
+  updateExpensesViewModeUI();
+}
+window.resetExpensesViewMode = resetExpensesViewMode;
+
+function getExpensesViewMode() {
+  return currentExpensesViewMode;
+}
+window.getExpensesViewMode = getExpensesViewMode;
+
+function setExpensesViewMode(mode) {
+  if (mode === 'all' || mode === 'by_type') {
+    currentExpensesViewMode = mode;
+    renderExpensesLists();
+  }
+}
+window.setExpensesViewMode = setExpensesViewMode;
 
 function renderSimplifiedExpenses() {
-    const state = getState();
-        const y = state.year, m = state.month;
-        const t = monthTotals(y, m);
-        const sobra = t.totalIncome - t.totalExpenses;
+  const state = getState();
+  const y = state.year, m = state.month;
+  const t = monthTotals(y, m);
+  const sobra = t.totalIncome - t.totalExpenses;
 
-        const simpTotal = $('#simpTotalExpenses'); if (simpTotal) simpTotal.textContent = currency(t.totalExpenses);
-        const simpPaid = $('#simpPaidExpenses'); if (simpPaid) simpPaid.textContent = currency(t.paidExpenses);
-        const simpPending = $('#simpPendingExpenses'); if (simpPending) simpPending.textContent = currency(t.pendingExpenses);
+  const simpTotal = $('#simpTotalExpenses'); if (simpTotal) simpTotal.textContent = currency(t.totalExpenses);
+  const simpPaid = $('#simpPaidExpenses'); if (simpPaid) simpPaid.textContent = currency(t.paidExpenses);
+  const simpPending = $('#simpPendingExpenses'); if (simpPending) simpPending.textContent = currency(t.pendingExpenses);
 
-        const sobraEl = $('#simpSobraValue');
-        if (sobraEl) {
-          sobraEl.textContent = currency(sobra);
-          sobraEl.className = `num ${sobra >= 0 ? 'positive' : 'negative'}`;
-        }
+  const sobraEl = $('#simpSobraValue');
+  if (sobraEl) {
+    sobraEl.textContent = currency(sobra);
+    sobraEl.className = `num ${sobra >= 0 ? 'positive' : 'negative'}`;
+  }
 
-        const query = ($('#expensesSearchInput')?.value || '').toLowerCase().trim();
-        const statusFilter = $('#expensesStatusFilter')?.value || 'all';
-        const methodFilter = $('#expensesDestFilter')?.value || 'all';
-        const sortMode = $('#expensesSortFilter') ? $('#expensesSortFilter').value : 'amount-desc';
+  const query = ($('#expensesSearchInput')?.value || '').toLowerCase().trim();
+  const statusFilter = $('#expensesStatusFilter')?.value || 'all';
+  const methodFilter = $('#expensesDestFilter')?.value || 'all';
+  const sortMode = $('#expensesSortFilter') ? $('#expensesSortFilter').value : 'amount-desc';
+  const isFiltered = Boolean(query || statusFilter !== 'all' || methodFilter !== 'all');
 
-        const fixed = activeFixedForMonth(y, m).map(f => Object.assign({ typeName: 'Fixa', itemType: 'fixed' }, f));
-        const variable = activeVariableForMonth(y, m).map(v => Object.assign({ typeName: 'Variável', itemType: 'variable' }, v));
+  const rawFixed = activeFixedForMonth(y, m).map(f => Object.assign({ typeName: 'Fixa', itemType: 'fixed' }, f));
+  const rawVariable = activeVariableForMonth(y, m).map(v => Object.assign({ typeName: 'Variável', itemType: 'variable' }, v));
+  const allRaw = [...rawFixed, ...rawVariable];
+  const totalCanonicalExpenses = allRaw.reduce((s, i) => s + Number(i.amount || 0), 0);
 
-        let combined = [...fixed, ...variable];
+  checkDueAlerts(allRaw);
 
-        combined = sortExpensesList(combined.filter(item => {
-          const itemMethod = (typeof resolveExpensePaymentMethod === 'function') ? resolveExpensePaymentMethod(item) : (item.payment?.method || null);
-          const itemAcc = (typeof resolveExpenseAccount === 'function') ? resolveExpenseAccount(item) : (item.payment?.account || null);
-          if (statusFilter !== 'all' && item.status !== statusFilter) return false;
-          if (methodFilter !== 'all' && itemMethod !== methodFilter) return false;
-          if (query) {
-            const itemPayee = (typeof resolveExpensePayee === 'function') ? (resolveExpensePayee(item) || '') : (item.payee || '');
-            const mName = (window.PAYMENT_METHOD_NAMES_MAP && itemMethod && window.PAYMENT_METHOD_NAMES_MAP[itemMethod]) || itemMethod || '';
-            const text = `${item.name} ${item.group || ''} ${itemPayee} ${mName} ${itemAcc || ''} ${item.note || ''}`.toLowerCase();
-            if (!text.includes(query)) return false;
-          }
-          return true;
-        }), sortMode);
+  const filtered = allRaw.filter(item => filterExpenseItem(item, query, statusFilter, methodFilter));
+  const combined = sortExpensesList(filtered, sortMode);
 
-        const totalFiltered = combined.reduce((s, i) => s + Number(i.amount), 0);
-        const simpSumAll = $('#simpSumAll'); if (simpSumAll) simpSumAll.textContent = currency(totalFiltered);
+  const totalFiltered = combined.reduce((s, i) => s + Number(i.amount || 0), 0);
+  const simpSumAll = $('#simpSumAll');
+  if (simpSumAll) {
+    if (isFiltered) {
+      simpSumAll.textContent = `${combined.length} ${combined.length === 1 ? 'resultado' : 'resultados'} · ${currency(totalFiltered)}`;
+    } else {
+      simpSumAll.textContent = currency(totalCanonicalExpenses);
+    }
+  }
 
-        const container = $('#simpExpensesList');
-        if (!container) return;
-        container.innerHTML = '';
+  const container = $('#simpExpensesList');
+  if (!container) return;
+  container.innerHTML = '';
 
-        if (combined.length === 0) {
-          container.innerHTML = `<div class="empty">Nenhuma despesa encontrada para os filtros selecionados.</div>`;
-          return;
-        }
+  if (combined.length === 0) {
+    if (allRaw.length > 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">🔍</div>
+          <div class="empty-title">Nenhum resultado encontrado</div>
+          <div class="empty-desc">Nenhuma despesa corresponde aos filtros selecionados.</div>
+        </div>`;
+    } else {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📂</div>
+          <div class="empty-title">Nenhuma despesa no mês</div>
+          <div class="empty-desc">Não há despesas fixas ou variáveis cadastradas para esta competência.</div>
+          <button type="button" class="btn primary small" id="simpEmptyAddBtn">Novo Lançamento</button>
+        </div>`;
+      container.querySelector('#simpEmptyAddBtn')?.addEventListener('click', () => openEntryDialog({ mode: 'new', type: 'fixed' }));
+    }
+    updateMarkAllButtonState('#simpMarkAllPaidBtn', allRaw);
+    return;
+  }
 
-        combined.forEach(item => {
-          const isFixed = item.itemType === 'fixed';
-          const origItem = isFixed ? (state.fixed.find(f => f.id === item.fixedId) || item) : (state.variable.find(v => v.id === item.id) || item);
-          const activeMonths = isFixed ? getFixedActiveMonths(origItem, y) : getVariableActiveMonths(origItem, y);
+  combined.forEach(item => {
+    const isFixed = item.itemType === 'fixed';
+    const origItem = isFixed ? (state.fixed.find(f => f.id === item.fixedId) || item) : (state.variable.find(v => v.id === item.id) || item);
+    const activeMonths = isFixed ? getFixedActiveMonths(origItem, y) : getVariableActiveMonths(origItem, y);
 
-          const row = buildEntryRow({
-            id: item.id,
-            fixedId: item.fixedId,
-            type: item.itemType,
-            title: item.name,
-            tags: [
-              item.group || 'Gerais',
-              isFixed ? `desde ${MONTH_ABBR[(item.effMonth || 1) - 1]}/${item.effYear}` : (item.installmentTotal > 1 ? `parcela ${item.installmentIndex}/${item.installmentTotal}` : null)
-            ].filter(Boolean),
-            amount: item.amount,
-            status: item.status,
-            dueDay: item.dueDay,
-            destination: item.destination,
-            payee: item.payee || origItem.payee,
-            paymentMethod: item.payment?.method || origItem.payment?.method,
-            account: item.payment?.account || origItem.payment?.account,
-            onClickToggleStatus: () => toggleExpenseStatus(item.itemType, isFixed ? item.fixedId : item.id, item.status),
-            onClickEdit: () => openEntryDialog({ mode: 'edit', type: item.itemType, fixedId: item.fixedId, id: item.id }),
-            onClickTimeline: () => openExpenseTimeline({ type: item.itemType, fixedId: item.fixedId, id: item.id }),
-            onMouseEnter: () => highlightRibbonMonths(activeMonths),
-            onMouseLeave: clearRibbonHighlight
-          });
-          container.appendChild(row);
-        });
+    const row = buildEntryRow({
+      id: item.id,
+      fixedId: item.fixedId,
+      type: item.itemType,
+      title: item.name,
+      tags: [
+        item.group || 'Gerais',
+        isFixed ? `desde ${MONTH_ABBR[(item.effMonth || 1) - 1]}/${item.effYear}` : (item.installmentTotal > 1 ? `parcela ${item.installmentIndex}/${item.installmentTotal}` : null)
+      ].filter(Boolean),
+      amount: item.amount,
+      status: item.status,
+      paidAmount: item.paidAmount,
+      remainingAmount: item.remainingAmount,
+      dueDay: item.dueDay,
+      destination: item.destination,
+      payee: item.payee || origItem.payee,
+      paymentMethod: item.payment?.method || origItem.payment?.method,
+      account: item.payment?.account || origItem.payment?.account,
+      showNatureBadge: true,
+      onClickToggleStatus: () => toggleExpenseStatus(item.itemType, isFixed ? item.fixedId : item.id, item.status),
+      onClickEdit: () => openEntryDialog({ mode: 'edit', type: item.itemType, fixedId: item.fixedId, id: item.id }),
+      onClickTimeline: () => openExpenseTimeline({ type: item.itemType, fixedId: item.fixedId, id: item.id }),
+      onMouseEnter: () => highlightRibbonMonths(activeMonths),
+      onMouseLeave: clearRibbonHighlight
+    });
+    container.appendChild(row);
+  });
+
+  updateMarkAllButtonState('#simpMarkAllPaidBtn', allRaw);
+}
+
+function renderByTypeExpenses() {
+  const state = getState();
+  const y = state.year, m = state.month;
+
+  const query = ($('#expensesSearchInput')?.value || '').toLowerCase().trim();
+  const statusFilter = $('#expensesStatusFilter')?.value || 'all';
+  const methodFilter = $('#expensesDestFilter')?.value || 'all';
+  const sortMode = $('#expensesSortFilter') ? $('#expensesSortFilter').value : 'amount-desc';
+  const isFiltered = Boolean(query || statusFilter !== 'all' || methodFilter !== 'all');
+
+  const rawFixed = activeFixedForMonth(y, m).map(f => Object.assign({ typeName: 'Fixa', itemType: 'fixed' }, f));
+  const rawVariable = activeVariableForMonth(y, m).map(v => Object.assign({ typeName: 'Variável', itemType: 'variable' }, v));
+
+  checkDueAlerts([...rawFixed, ...rawVariable]);
+
+  const fixed = sortExpensesList(rawFixed.filter(item => filterExpenseItem(item, query, statusFilter, methodFilter)), sortMode);
+  const fixedListEl = $('#listFixed');
+  if (fixedListEl) {
+    fixedListEl.innerHTML = '';
+    if (fixed.length === 0) {
+      if (rawFixed.length > 0) {
+        fixedListEl.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">🔍</div>
+            <div class="empty-title">Nenhuma despesa fixa encontrada</div>
+            <div class="empty-desc">Nenhum item corresponde aos filtros selecionados.</div>
+          </div>`;
+      } else {
+        fixedListEl.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📂</div>
+            <div class="empty-title">Nenhuma despesa fixa</div>
+            <div class="empty-desc">Não há despesas fixas ativas para este mês.</div>
+          </div>`;
       }
+    } else {
+      fixed.forEach(f => {
+        const origFixed = state.fixed.find(x => x.id === f.fixedId) || f;
+        const activeMonths = getFixedActiveMonths(origFixed, y);
+        fixedListEl.appendChild(buildEntryRow({
+          fixedId: f.fixedId, type: 'fixed', title: f.name,
+          tags: [f.group || 'Gerais', `desde ${MONTH_ABBR[f.effMonth - 1]}/${f.effYear}`],
+          amount: f.amount, status: f.status, paidAmount: f.paidAmount, remainingAmount: f.remainingAmount,
+          dueDay: f.dueDay, destination: f.destination,
+          payee: f.payee || origFixed.payee,
+          paymentMethod: f.payment?.method || origFixed.payment?.method,
+          account: f.payment?.account || origFixed.payment?.account,
+          showNatureBadge: false,
+          onClickToggleStatus: () => toggleExpenseStatus('fixed', f.fixedId, f.status),
+          onClickEdit: () => openEntryDialog({ mode: 'edit', type: 'fixed', fixedId: f.fixedId }),
+          onClickTimeline: () => openExpenseTimeline({ type: 'fixed', fixedId: f.fixedId }),
+          onMouseEnter: () => highlightRibbonMonths(activeMonths),
+          onMouseLeave: clearRibbonHighlight
+        }));
+      });
+    }
+  }
+
+  const sumFixedEl = $('#sumFixed');
+  if (sumFixedEl) {
+    const fixedTotal = fixed.reduce((s, i) => s + Number(i.amount || 0), 0);
+    sumFixedEl.textContent = isFiltered ? `${fixed.length} · ${currency(fixedTotal)}` : currency(fixedTotal);
+  }
+
+  const variable = sortExpensesList(rawVariable.filter(item => filterExpenseItem(item, query, statusFilter, methodFilter)), sortMode);
+  const varListEl = $('#listVariable');
+  if (varListEl) {
+    varListEl.innerHTML = '';
+    if (variable.length === 0) {
+      if (rawVariable.length > 0) {
+        varListEl.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">🔍</div>
+            <div class="empty-title">Nenhuma despesa variável encontrada</div>
+            <div class="empty-desc">Nenhum item corresponde aos filtros selecionados.</div>
+          </div>`;
+      } else {
+        varListEl.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📂</div>
+            <div class="empty-title">Nenhuma despesa variável</div>
+            <div class="empty-desc">Não há despesas variáveis ativas para este mês.</div>
+          </div>`;
+      }
+    } else {
+      variable.forEach(v => {
+        const origVar = state.variable.find(x => x.id === v.id) || v;
+        const activeMonths = getVariableActiveMonths(origVar, y);
+        varListEl.appendChild(buildEntryRow({
+          id: v.id, type: 'variable', title: v.name,
+          tags: [
+            v.group || 'Gerais',
+            v.installmentTotal > 1 ? `parcela ${v.installmentIndex}/${v.installmentTotal}` : null
+          ].filter(Boolean),
+          amount: v.amount, status: v.status, paidAmount: v.paidAmount, remainingAmount: v.remainingAmount,
+          dueDay: v.dueDay, destination: v.destination,
+          payee: v.payee || origVar.payee,
+          paymentMethod: v.payment?.method || origVar.payment?.method,
+          account: v.payment?.account || origVar.payment?.account,
+          showNatureBadge: false,
+          onClickToggleStatus: () => toggleExpenseStatus('variable', v.id, v.status),
+          onClickEdit: () => openEntryDialog({ mode: 'edit', type: 'variable', id: v.id }),
+          onClickTimeline: () => openExpenseTimeline({ type: 'variable', id: v.id }),
+          onMouseEnter: () => highlightRibbonMonths(activeMonths),
+          onMouseLeave: clearRibbonHighlight
+        }));
+      });
+    }
+  }
+
+  const sumVarEl = $('#sumVariable');
+  if (sumVarEl) {
+    const varTotal = variable.reduce((s, i) => s + Number(i.amount || 0), 0);
+    sumVarEl.textContent = isFiltered ? `${variable.length} · ${currency(varTotal)}` : currency(varTotal);
+  }
+
+  updateMarkAllButtonState('#markAllFixedPaidBtn', rawFixed);
+  updateMarkAllButtonState('#markAllVarPaidBtn', rawVariable);
+}
 
 function renderExpensesLists() {
-    const state = getState();
-        if (state.simplifiedView) {
-          renderSimplifiedExpenses();
-          return;
-        }
-        const y = state.year, m = state.month;
-
-        const query = ($('#expensesSearchInput')?.value || '').toLowerCase().trim();
-        const statusFilter = $('#expensesStatusFilter')?.value || 'all';
-        const methodFilter = $('#expensesDestFilter')?.value || 'all';
-        const sortMode = $('#expensesSortFilter') ? $('#expensesSortFilter').value : 'amount-desc';
-
-        const filterFn = (item) => {
-          const itemMethod = (typeof resolveExpensePaymentMethod === 'function') ? resolveExpensePaymentMethod(item) : (item.payment?.method || null);
-          const itemAcc = (typeof resolveExpenseAccount === 'function') ? resolveExpenseAccount(item) : (item.payment?.account || null);
-          if (statusFilter !== 'all' && item.status !== statusFilter) return false;
-          if (methodFilter !== 'all' && itemMethod !== methodFilter) return false;
-          if (query) {
-            const itemPayee = (typeof resolveExpensePayee === 'function') ? (resolveExpensePayee(item) || '') : (item.payee || '');
-            const mName = (window.PAYMENT_METHOD_NAMES_MAP && itemMethod && window.PAYMENT_METHOD_NAMES_MAP[itemMethod]) || itemMethod || '';
-            const text = `${item.name} ${item.group || ''} ${itemPayee} ${mName} ${itemAcc || ''} ${item.note || ''}`.toLowerCase();
-            if (!text.includes(query)) return false;
-          }
-          return true;
-        };
-
-        const rawFixed = activeFixedForMonth(y, m);
-        checkDueAlerts([...rawFixed, ...activeVariableForMonth(y, m)]);
-
-        const fixed = sortExpensesList(rawFixed.filter(filterFn), sortMode);
-        const fixedRows = fixed.map(f => {
-          const origFixed = state.fixed.find(x => x.id === f.fixedId) || f;
-          const activeMonths = getFixedActiveMonths(origFixed, y);
-          return buildEntryRow({
-            fixedId: f.fixedId, type: 'fixed', title: f.name, tags: [f.group || 'Fixa', `desde ${MONTH_ABBR[f.effMonth - 1]}/${f.effYear}`],
-            amount: f.amount, status: f.status, paidAmount: f.paidAmount, remainingAmount: f.remainingAmount, dueDay: f.dueDay, destination: f.destination,
-            payee: f.payee || origFixed.payee,
-            paymentMethod: f.payment?.method || origFixed.payment?.method,
-            account: f.payment?.account || origFixed.payment?.account,
-            onClickToggleStatus: () => toggleExpenseStatus('fixed', f.fixedId, f.status),
-            onClickEdit: () => openEntryDialog({ mode: 'edit', type: 'fixed', fixedId: f.fixedId }),
-            onClickTimeline: () => openExpenseTimeline({ type: 'fixed', fixedId: f.fixedId }),
-            onMouseEnter: () => highlightRibbonMonths(activeMonths),
-            onMouseLeave: clearRibbonHighlight
-          });
-        });
-        renderSection('#listFixed', '#sumFixed', fixedRows, fixed.reduce((s, i) => s + Number(i.amount), 0));
-
-        const rawVariable = activeVariableForMonth(y, m);
-        const variable = sortExpensesList(rawVariable.filter(filterFn), sortMode);
-        const variableRows = variable.map(v => {
-          const origVar = state.variable.find(x => x.id === v.id) || v;
-          const activeMonths = getVariableActiveMonths(origVar, y);
-          return buildEntryRow({
-            id: v.id, type: 'variable', title: v.name,
-            tags: [
-              v.group || 'Variável',
-              v.installmentTotal > 1 ? `parcela ${v.installmentIndex}/${v.installmentTotal}` : null
-            ].filter(Boolean),
-            amount: v.amount, status: v.status, paidAmount: v.paidAmount, remainingAmount: v.remainingAmount, dueDay: v.dueDay, destination: v.destination,
-            payee: v.payee || origVar.payee,
-            paymentMethod: v.payment?.method || origVar.payment?.method,
-            account: v.payment?.account || origVar.payment?.account,
-            onClickToggleStatus: () => toggleExpenseStatus('variable', v.id, v.status),
-            onClickEdit: () => openEntryDialog({ mode: 'edit', type: 'variable', id: v.id }),
-            onClickTimeline: () => openExpenseTimeline({ type: 'variable', id: v.id }),
-            onMouseEnter: () => highlightRibbonMonths(activeMonths),
-            onMouseLeave: clearRibbonHighlight
-          });
-        });
-        renderSection('#listVariable', '#sumVariable', variableRows, variable.reduce((s, i) => s + Number(i.amount), 0));
-
-        updateMarkAllButtonState('#markAllFixedPaidBtn', rawFixed);
-        updateMarkAllButtonState('#markAllVarPaidBtn', rawVariable);
-        updateMarkAllButtonState('#simpMarkAllPaidBtn', [...rawFixed, ...rawVariable]);
-      }
+  updateExpensesViewModeUI();
+  if (currentExpensesViewMode === 'all') {
+    renderSimplifiedExpenses();
+  } else {
+    renderByTypeExpenses();
+  }
+}
 
   function getEntryNote() {
     return ($('#entryNoteStep1')?.value || $('#entryNote')?.value || '').trim();
@@ -2692,13 +2851,23 @@ function renderExpensesLists() {
       notify('Despesa fixa excluída!', 'info');
     });
 
-    const viewModeBtn = $('#viewModeToggleBtn');
-    if (viewModeBtn) {
-      viewModeBtn.addEventListener('click', () => {
-        const state = getState();
-        state.simplifiedView = !state.simplifiedView;
-        saveState(); render();
-        notify(state.simplifiedView ? 'Visão Simplificada ativada!' : 'Visão Completa ativada!');
+    const allBtn = $('#expensesViewAllBtn');
+    if (allBtn) {
+      allBtn.addEventListener('click', () => {
+        if (currentExpensesViewMode !== 'all') {
+          currentExpensesViewMode = 'all';
+          renderExpensesLists();
+        }
+      });
+    }
+
+    const byTypeBtn = $('#expensesViewByTypeBtn');
+    if (byTypeBtn) {
+      byTypeBtn.addEventListener('click', () => {
+        if (currentExpensesViewMode !== 'by_type') {
+          currentExpensesViewMode = 'by_type';
+          renderExpensesLists();
+        }
       });
     }
 

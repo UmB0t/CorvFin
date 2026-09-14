@@ -216,17 +216,17 @@ function toggleExtraStatus(id) {
   const pendingExtra = Math.max(0, totalExtra - receivedExtra);
 
   $('#extraMetrics').innerHTML = `
-      <div class="metric">
+      <div class="metric metric-income">
         <div class="label">Renda Extra Total (Mês)</div>
         <div class="value num positive">${currency(totalExtra)}</div>
         <div class="sub">Adiciona ao seu salário</div>
       </div>
-      <div class="metric">
+      <div class="metric metric-paid">
         <div class="label">Valores Recebidos</div>
         <div class="value num positive">${currency(receivedExtra)}</div>
         <div class="sub">Já pagos pelos remetentes</div>
       </div>
-      <div class="metric">
+      <div class="metric metric-pending">
         <div class="label">Valores a Receber</div>
         <div class="value num warning">${currency(pendingExtra)}</div>
         <div class="sub">Pendentes neste mês</div>
