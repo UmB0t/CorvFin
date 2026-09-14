@@ -164,7 +164,9 @@
         remainingAmount: payInfo.remainingAmount,
         installmentIndex: idx,
         installmentTotal: total,
-        countInTotal: d.countInTotal !== false,
+        countInTotal: (typeof window !== 'undefined' && window.FinanceDomain && typeof window.FinanceDomain.isDebtorCountedInTotal === 'function')
+          ? window.FinanceDomain.isDebtorCountedInTotal(d)
+          : (d && d.countInTotal === true),
         isExpense: false,
         isDebtor: true,
         month: m,

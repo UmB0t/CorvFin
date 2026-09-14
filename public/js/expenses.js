@@ -118,7 +118,10 @@ const ExpensesModule = (() => {
     const sumFixed = fixed.reduce((s, e) => s + Number(e.amount), 0);
     const sumVar = variable.reduce((s, e) => s + Number(e.amount), 0);
     const sumExt = extras.reduce((s, e) => s + Number(e.amount), 0);
-    const sumDebtorCounted = debtors.filter(d => d.countInTotal === true).reduce((s, d) => s + Number(d.amount), 0);
+    const isDebtorCounted = (window.FinanceDomain && typeof window.FinanceDomain.isDebtorCountedInTotal === 'function')
+      ? window.FinanceDomain.isDebtorCountedInTotal
+      : (d => d && d.countInTotal === true);
+    const sumDebtorCounted = debtors.filter(isDebtorCounted).reduce((s, d) => s + Number(d.amount), 0);
 
     const totalExpenses = sumFixed + sumVar;
     const allExpenses = [...fixed, ...variable];

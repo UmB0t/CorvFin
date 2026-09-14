@@ -8,9 +8,24 @@
 
   const globalScope = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this);
 
-  const FinanceDomain = (typeof globalScope.FinanceDomain !== 'undefined' && globalScope.FinanceDomain)
-    ? globalScope.FinanceDomain
-    : (typeof require === 'function' ? require('../../../shared/financeDomain') : null);
+  let FinanceDomain = (typeof globalScope !== 'undefined' && globalScope.FinanceDomain)
+    || (typeof globalThis !== 'undefined' && globalThis.FinanceDomain)
+    || (typeof global !== 'undefined' && global.FinanceDomain)
+    || (typeof window !== 'undefined' && window.FinanceDomain);
+
+  if (!FinanceDomain && typeof require === 'function') {
+    try {
+      FinanceDomain = require('../../../shared/financeDomain');
+    } catch (_) {
+      try {
+        FinanceDomain = require('../../shared/financeDomain');
+      } catch (__) {
+        try {
+          FinanceDomain = require('./shared/financeDomain');
+        } catch (___) {}
+      }
+    }
+  }
 
   if (!FinanceDomain) {
     throw new Error('FinanceDomain is required but not loaded. Ensure shared/financeDomain.js is included before financeQueries.js.');
@@ -220,7 +235,10 @@
     const sumVar = variable.reduce((s, e) => s + Number(e.amount), 0);
     const sumExt = extras.reduce((s, e) => s + Number(e.amount), 0);
     const sumDeb = debtors.reduce((s, e) => s + Number(e.amount), 0);
-    const sumDebtorCounted = debtors.filter(d => d.countInTotal === true).reduce((s, d) => s + Number(d.amount), 0);
+    const isDebtorCounted = (FinanceDomain && typeof FinanceDomain.isDebtorCountedInTotal === 'function')
+      ? FinanceDomain.isDebtorCountedInTotal
+      : (d => d && d.countInTotal === true);
+    const sumDebtorCounted = debtors.filter(isDebtorCounted).reduce((s, d) => s + Number(d.amount), 0);
 
     const totalExpenses = sumFixed + sumVar;
     const allExpenses = [...fixed, ...variable];

@@ -593,7 +593,8 @@ describe('CORVFIN V2 — LOTE A2 — MOTOR CANÔNICO DE PROJEÇÃO TEMPORAL', ()
           startMonth: 8,
           endYear: 2026,
           endMonth: 10,
-          receiveDay: 25
+          receiveDay: 25,
+          countInTotal: true
         }
       ]
     };
@@ -647,7 +648,8 @@ describe('CORVFIN V2 — LOTE A2 — MOTOR CANÔNICO DE PROJEÇÃO TEMPORAL', ()
           startYear: 2026,
           startMonth: 9,
           endYear: 2026,
-          endMonth: 9
+          endMonth: 9,
+          countInTotal: true
           // sem receiveDay
         }
       ]

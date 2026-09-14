@@ -568,7 +568,7 @@ function projectDebtors(finances, year, month) {
       debtorName: debtorDisplayName,
       installmentIndex,
       installmentTotal,
-      countInTotal: d.countInTotal !== false,
+      countInTotal: FinanceDomain.isDebtorCountedInTotal(d),
       destination: d.destination || null,
       occurrenceKey
     });
@@ -781,9 +781,16 @@ function projectFinancialMonth(finances, year, month) {
   events.sort(compareEvents);
   undated.sort(compareUndated);
 
-  // Summary bancário considera TODAS as ocorrências bancárias da competência (datadas e sem data)
+  // Summary bancário considera TODAS as ocorrências bancárias que participam da capacidade financeira da competência
   const allBanking = [...events, ...undated];
-  const inflow = sanitizeAmount(allBanking.filter(o => o.direction === 'inflow').reduce((s, o) => s + o.amount, 0));
+  const bankingInflows = allBanking.filter(o => {
+    if (o.direction !== 'inflow') return false;
+    if (o.sourceType === 'debtor_receivable') {
+      return FinanceDomain.isDebtorCountedInTotal(o);
+    }
+    return true;
+  });
+  const inflow = sanitizeAmount(bankingInflows.reduce((s, o) => s + o.amount, 0));
   const outflow = sanitizeAmount(allBanking.filter(o => o.direction === 'outflow').reduce((s, o) => s + o.amount, 0));
   const net = Math.round((inflow - outflow) * 100) / 100;
 

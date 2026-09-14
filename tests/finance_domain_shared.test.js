@@ -325,4 +325,24 @@ describe('CORVFIN V2 — DOMÍNIO FINANCEIRO COMPARTILHADO (shared/financeDomain
     assert.equal(info.isPaid, true);
   });
 
+  test('17. isDebtorCountedInTotal: semântica estrita booleana e fail-safe', () => {
+    assert.equal(typeof FinanceDomain.isDebtorCountedInTotal, 'function');
+
+    // Contabilizável: countInTotal estritamente true
+    assert.strictEqual(FinanceDomain.isDebtorCountedInTotal({ countInTotal: true }), true);
+
+    // Não contabilizável: countInTotal false
+    assert.strictEqual(FinanceDomain.isDebtorCountedInTotal({ countInTotal: false }), false);
+
+    // Fail-safe: ausente, undefined, null, número ou string "true" não são contabilizados
+    assert.strictEqual(FinanceDomain.isDebtorCountedInTotal({}), false);
+    assert.strictEqual(FinanceDomain.isDebtorCountedInTotal({ countInTotal: undefined }), false);
+    assert.strictEqual(FinanceDomain.isDebtorCountedInTotal({ countInTotal: null }), false);
+    assert.strictEqual(FinanceDomain.isDebtorCountedInTotal({ countInTotal: 1 }), false);
+    assert.strictEqual(FinanceDomain.isDebtorCountedInTotal({ countInTotal: 'true' }), false);
+    assert.strictEqual(FinanceDomain.isDebtorCountedInTotal(null), false);
+    assert.strictEqual(FinanceDomain.isDebtorCountedInTotal(undefined), false);
+    assert.strictEqual(FinanceDomain.isDebtorCountedInTotal('string'), false);
+  });
+
 });

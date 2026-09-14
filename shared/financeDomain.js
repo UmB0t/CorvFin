@@ -15,7 +15,9 @@
   'use strict';
   if (typeof module !== 'undefined' && module.exports) {
     // Node.js / CommonJS
-    module.exports = factory();
+    const domain = factory();
+    module.exports = domain;
+    if (root && !root.FinanceDomain) root.FinanceDomain = domain;
   } else {
     // Browser / Global
     root.FinanceDomain = factory();
@@ -367,9 +369,25 @@
     };
   }
 
+  /**
+   * Determina canonicamente se um devedor/recebível participa do planejamento
+   * financeiro (renda/orçamento/entradas previstas da competência).
+   *
+   * Semântica estrita: apenas countInTotal === true é contabilizado.
+   * Valores ausentes, nulos, strings ou false não entram no orçamento (fail-safe).
+   *
+   * @param {Object} debtor - Objeto de devedor ou ocorrência
+   * @returns {boolean}
+   */
+  function isDebtorCountedInTotal(debtor) {
+    if (!debtor || typeof debtor !== 'object') return false;
+    return debtor.countInTotal === true;
+  }
+
   return {
     calculateInstallmentSchedule,
     resolveInstallmentAmounts,
-    calculatePaymentSettlement
+    calculatePaymentSettlement,
+    isDebtorCountedInTotal
   };
 });
