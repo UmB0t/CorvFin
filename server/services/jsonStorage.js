@@ -74,8 +74,9 @@ function savePermissions(permissions) {
 // Default Permissions Storage Helpers
 function getDefaultPermissions() {
   const filePath = config.DEFAULT_PERMISSIONS_FILE || path.join(config.DATA_DIR, 'default_permissions.json');
-  return safeReadJSON(filePath, {
+  const defaults = {
     dashboard: true,
+    calendario: true,
     despesas: true,
     extras: true,
     devedores: true,
@@ -83,7 +84,9 @@ function getDefaultPermissions() {
     beneficios: true,
     compras: true,
     simulacao: true
-  });
+  };
+  const saved = safeReadJSON(filePath, defaults);
+  return Object.assign({}, defaults, saved);
 }
 
 function saveDefaultPermissions(permissions) {
@@ -94,6 +97,7 @@ function saveDefaultPermissions(permissions) {
 // Maintenance Storage Helpers
 const DEFAULT_MAINTENANCE_CONFIG = {
   dashboard: { maintenance: false, name: 'Dashboard' },
+  calendario: { maintenance: false, name: 'Calendário' },
   despesas: { maintenance: false, name: 'Despesas' },
   extras: { maintenance: false, name: 'Rendas Extras' },
   devedores: { maintenance: false, name: 'Devedores' },
@@ -150,6 +154,7 @@ function getUserPermissions(userId) {
   return permissions[userId] || Object.assign(
     {
       dashboard: true,
+      calendario: true,
       despesas: true,
       extras: true,
       devedores: true,
@@ -169,6 +174,7 @@ function setUserPermissions(userId, userPerms) {
   permissions[userId] = Object.assign(
     {
       dashboard: true,
+      calendario: true,
       despesas: true,
       extras: true,
       devedores: true,
@@ -1110,5 +1116,6 @@ module.exports = {
   savePlan,
   updatePlan,
   setDefaultPlan,
-  updateUserPlan
+  updateUserPlan,
+  DEFAULT_MAINTENANCE_CONFIG
 };

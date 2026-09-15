@@ -350,16 +350,65 @@
   box-shadow: var(--shadow);
 }
 
-.calendar-undated-section.expandable-section,
-.calendar-benefits-section.expandable-section {
+.calendar-undated-section.expandable-section {
   padding: 0;
   margin-top: 16px;
   border-radius: var(--radius, 14px);
 }
 
-.calendar-undated-section.expandable-section .expandable-section__content,
-.calendar-benefits-section.expandable-section .expandable-section__content {
+.calendar-undated-section.expandable-section .expandable-section__content {
   padding: 14px 16px;
+}
+
+/* Seção 2 Retrátil: Calendário de Benefícios (Lote A3.4.2) */
+.calendar-benefits-section.expandable-section {
+  padding: 0;
+  margin-top: 24px;
+  border-radius: var(--radius, 14px);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.calendar-module-section--benefits.expandable-section {
+  padding-top: 0;
+}
+
+.calendar-benefits-section.expandable-section .expandable-section__header {
+  padding: 14px 18px;
+  border-bottom: none;
+  border-radius: var(--radius, 14px);
+  transition: background-color 0.15s ease;
+}
+
+.calendar-benefits-section.expandable-section.is-expanded .expandable-section__header {
+  border-bottom: 1px solid var(--line);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.calendar-benefits-section.expandable-section .expandable-section__content {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-top: none;
+}
+
+.calendar-benefits-section.expandable-section .expandable-section__content[hidden] {
+  display: none !important;
+}
+
+.calendar-benefits-compact-badge {
+  font-size: 0.80rem;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--warning-soft, rgba(245, 158, 11, 0.12));
+  color: var(--warning, #D97706);
+  white-space: nowrap;
 }
 
 .calendar-section-title {

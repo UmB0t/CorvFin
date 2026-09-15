@@ -177,7 +177,10 @@ describe('Lote 5D — API Administrativa de Planos (CorvFin V2)', () => {
     const data = await res.json();
     assert.strictEqual(data.success, true);
     assert.ok(Array.isArray(data.resources));
-    assert.strictEqual(data.resources.length, 10, 'Deve listar exatamente os 10 recursos MVP');
+    assert.strictEqual(data.resources.length, 11, 'Deve listar exatamente os recursos do registry');
+
+    const calRes = data.resources.find(r => r.key === 'calendario');
+    assert.ok(calRes, 'Recurso calendario deve constar no registry');
 
     const aiRes = data.resources.find(r => r.key === 'ai');
     assert.ok(aiRes, 'Recurso AI deve constar no registry');

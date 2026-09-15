@@ -18,6 +18,12 @@ const AdminModule = (() => {
       iconSvg: `<svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>`
     },
     {
+      key: 'calendario',
+      name: 'Calendário',
+      desc: 'Visão cronológica e projeção financeira mensal',
+      iconSvg: `<svg class="svg-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>`
+    },
+    {
       key: 'despesas',
       name: 'Despesas',
       desc: 'Gestão de despesas fixas, variáveis, parcelamentos e orçamentos',
@@ -1007,7 +1013,7 @@ const AdminModule = (() => {
       // Contagem de recursos liberados
       const ent = p.entitlements || {};
       const enabledResKeys = Object.keys(ent).filter(k => ent[k]?.enabled);
-      const totalRegistryRes = plansRegistry?.resources?.length || 10;
+      const totalRegistryRes = plansRegistry?.resources?.length || 11;
       const resSummary = `<span class="badge info">${enabledResKeys.length} de ${totalRegistryRes} liberados</span>`;
 
       // Limites notáveis
@@ -2197,7 +2203,7 @@ const AdminModule = (() => {
       }
 
       if (perms) {
-        const modules = ['dashboard', 'despesas', 'extras', 'devedores', 'investimentos', 'beneficios', 'compras', 'simulacao'];
+        const modules = ['dashboard', 'calendario', 'despesas', 'extras', 'devedores', 'investimentos', 'beneficios', 'compras', 'simulacao'];
         modules.forEach(m => {
           const el = document.getElementById(`default-perm-${m}`) || document.querySelector(`[data-default-module="${m}"]`);
           if (el) {
@@ -2222,6 +2228,7 @@ const AdminModule = (() => {
 
     const permissions = {
       dashboard: !!(document.getElementById('default-perm-dashboard') || document.querySelector('[data-default-module="dashboard"]'))?.checked,
+      calendario: !!(document.getElementById('default-perm-calendario') || document.querySelector('[data-default-module="calendario"]'))?.checked,
       despesas: !!(document.getElementById('default-perm-despesas') || document.querySelector('[data-default-module="despesas"]'))?.checked,
       extras: !!(document.getElementById('default-perm-extras') || document.querySelector('[data-default-module="extras"]'))?.checked,
       devedores: !!(document.getElementById('default-perm-devedores') || document.querySelector('[data-default-module="devedores"]'))?.checked,

@@ -699,9 +699,9 @@ async function createPlan(planData) {
   // 6. Validação de Pricing
   const pricing = validatePricing(planData.pricing);
 
-  // 7. Validação estrita de Entitlements (exige todos os 10 recursos MVP)
-  normalizePlanEntitlements(planData.entitlements);
+  // 7. Validação estrita de Entitlements (exige todos os recursos canônicos declarados explicitamente)
   validatePlanEntitlements(planData.entitlements, true);
+  normalizePlanEntitlements(planData.entitlements);
   const entitlements = planData.entitlements;
 
   // 8. Validação de Metadata

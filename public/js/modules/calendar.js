@@ -1138,51 +1138,73 @@
           </div>
           ${undatedSectionHtml}
         </section>
+      `;
 
-        <!-- SEÇÃO 2: CALENDÁRIO DE BENEFÍCIOS -->
-        <section class="calendar-module-section calendar-module-section--benefits calendar-benefits-section" aria-label="Calendário de Benefícios" id="calendarBenefitsModule">
-          <div class="calendar-module-header">
-            <div class="calendar-module-title-wrap">
-              <h3 class="calendar-module-title" id="calendarBenefitsModuleTitle">
-                <svg class="svg-icon" viewBox="0 0 24 24" style="width:18px;height:18px;stroke:var(--warning, #F59E0B);fill:none;stroke-width:2.2;"><path d="M18 8h1a4 4 0 0 1 0 8h-1" /><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" /><line x1="6" y1="1" x2="6" y2="4" /><line x1="10" y1="1" x2="10" y2="4" /><line x1="14" y1="1" x2="14" y2="4" /></svg>
-                Calendário de Benefícios
-              </h3>
-              <span class="calendar-module-subtitle">Acompanhamento de saldo e utilização de VA, VR e auxílios (sem impacto no fluxo bancário)</span>
-            </div>
-          </div>
+      // SEÇÃO 2: CALENDÁRIO DE BENEFÍCIOS RETRÁTIL (LOTE A3.4.2)
+      let isBenefitsExpanded = true;
+      if (typeof localStorage !== 'undefined') {
+        try {
+          const savedPref = localStorage.getItem('corvfin_calendar_benefits_expanded');
+          if (savedPref !== null) {
+            isBenefitsExpanded = (savedPref === 'true');
+          }
+        } catch (_) {}
+      }
 
-          <section class="calendar-summary-cards calendar-benefits-summary-cards" aria-label="Resumo mensal de benefícios">
-            <div class="calendar-summary-card">
-              <span class="calendar-summary-label">Crédito Mensal</span>
-              <span class="calendar-summary-value calendar-summary-value--benefit-inflow">${formatCurrency(bSummary.inflow)}</span>
-            </div>
-            <div class="calendar-summary-card">
-              <span class="calendar-summary-label">Total Consumido</span>
-              <span class="calendar-summary-value calendar-summary-value--benefit-outflow">${formatCurrency(bSummary.outflow)}</span>
-            </div>
-            <div class="calendar-summary-card">
-              <span class="calendar-summary-label">Saldo Disponível</span>
-              <span class="calendar-summary-value ${benefitNetClass}">${formatCurrency(bSummary.net)}</span>
+      bodyHtml += `
+        <section class="calendar-module-section calendar-module-section--benefits calendar-benefits-section expandable-section ${isBenefitsExpanded ? 'is-expanded' : 'is-collapsed'}" aria-label="Calendário de Benefícios" id="calendarBenefitsModule" data-expandable data-storage-key="corvfin_calendar_benefits_expanded">
+            <button type="button" class="expandable-section__header" id="calendarBenefitsModuleToggleBtn" aria-expanded="${isBenefitsExpanded ? 'true' : 'false'}" aria-controls="calendarBenefitsModuleContent" aria-label="Expandir ou recolher Calendário de Benefícios">
+              <div class="expandable-section__title-group">
+                <span class="expandable-section__chevron" aria-hidden="true">
+                  <svg class="svg-icon" viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.5;"><polyline points="6 9 12 15 18 9"/></svg>
+                </span>
+                <div class="expandable-section__titles">
+                  <h3 class="calendar-module-title expandable-section__title" id="calendarBenefitsModuleTitle">
+                    <svg class="svg-icon" viewBox="0 0 24 24" style="width:18px;height:18px;stroke:var(--warning, #F59E0B);fill:none;stroke-width:2.2;"><path d="M18 8h1a4 4 0 0 1 0 8h-1" /><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" /><line x1="6" y1="1" x2="6" y2="4" /><line x1="10" y1="1" x2="10" y2="4" /><line x1="14" y1="1" x2="14" y2="4" /></svg>
+                    Calendário de Benefícios
+                  </h3>
+                  <span class="calendar-module-subtitle expandable-section__desc">Acompanhamento de saldo e utilização de VA, VR e auxílios (sem impacto no fluxo bancário)</span>
+                </div>
+              </div>
+              <div class="expandable-section__meta">
+                <span class="badge warning calendar-benefits-compact-badge" style="font-size:0.80rem; font-weight:800; padding:3px 10px;">${formatCurrency(bSummary.net)} disponível</span>
+              </div>
+            </button>
+
+            <div class="expandable-section__content" id="calendarBenefitsModuleContent" ${isBenefitsExpanded ? '' : 'hidden'}>
+              <section class="calendar-summary-cards calendar-benefits-summary-cards" aria-label="Resumo mensal de benefícios">
+                <div class="calendar-summary-card">
+                  <span class="calendar-summary-label">Crédito Mensal</span>
+                  <span class="calendar-summary-value calendar-summary-value--benefit-inflow">${formatCurrency(bSummary.inflow)}</span>
+                </div>
+                <div class="calendar-summary-card">
+                  <span class="calendar-summary-label">Total Consumido</span>
+                  <span class="calendar-summary-value calendar-summary-value--benefit-outflow">${formatCurrency(bSummary.outflow)}</span>
+                </div>
+                <div class="calendar-summary-card">
+                  <span class="calendar-summary-label">Saldo Disponível</span>
+                  <span class="calendar-summary-value ${benefitNetClass}">${formatCurrency(bSummary.net)}</span>
+                </div>
+              </section>
+
+              <div class="calendar-main-layout calendar-main-layout--benefits">
+                <div class="calendar-month-section">
+                  <div class="calendar-grid-card calendar-grid-card--benefits">
+                    ${benefitWeekdaysHeaderHtml}
+                    ${benefitDaysGridHtml}
+                  </div>
+                  ${benefitEmptyNoteHtml}
+                </div>
+                <aside class="calendar-day-panel calendar-day-panel--benefits" aria-label="Painel de benefícios do dia selecionado">
+                  ${benefitSelectedDayPanelHtml}
+                </aside>
+              </div>
+
+              ${benefitUndatedSectionHtml}
             </div>
           </section>
-
-          <div class="calendar-main-layout calendar-main-layout--benefits">
-            <div class="calendar-month-section">
-              <div class="calendar-grid-card calendar-grid-card--benefits">
-                ${benefitWeekdaysHeaderHtml}
-                ${benefitDaysGridHtml}
-              </div>
-              ${benefitEmptyNoteHtml}
-            </div>
-            <aside class="calendar-day-panel calendar-day-panel--benefits" aria-label="Painel de benefícios do dia selecionado">
-              ${benefitSelectedDayPanelHtml}
-            </aside>
-          </div>
-
-          ${benefitUndatedSectionHtml}
-        </section>
-      `;
-    }
+        `;
+      }
 
     container.innerHTML = `
       <div class="calendar-page-container">
@@ -1347,8 +1369,18 @@
       };
     }
 
-    // Inicialização idempotente das seções secundárias expansíveis do Calendário (UX1)
+    // Inicialização idempotente das seções expansíveis do Calendário (UX1 e Lote A3.4.2)
     if (typeof window.initExpandableSection === 'function') {
+      const benefitsSec = container.querySelector('#calendarBenefitsModule');
+      if (benefitsSec) {
+        window.initExpandableSection(benefitsSec, {
+          defaultExpanded: true,
+          storageKey: 'corvfin_calendar_benefits_expanded',
+          onToggle: (exp) => {
+            calendarExpandableState.benefitsExpanded = exp;
+          }
+        });
+      }
       const undatedSec = container.querySelector('#calendarUndatedSection');
       if (undatedSec) {
         window.initExpandableSection(undatedSec, {
@@ -1362,6 +1394,30 @@
           defaultExpanded: calendarExpandableState.benefitUndatedExpanded !== false,
           onToggle: (exp) => { calendarExpandableState.benefitUndatedExpanded = exp; }
         });
+      }
+    } else {
+      // Fallback defensivo para ambientes de teste sem uiShell carregado
+      const benefitsSec = container.querySelector('#calendarBenefitsModule');
+      const toggleBtn = container.querySelector('#calendarBenefitsModuleToggleBtn');
+      if (benefitsSec && toggleBtn && !benefitsSec._expandableApi) {
+        toggleBtn.onclick = (e) => {
+          e.preventDefault();
+          const content = container.querySelector('#calendarBenefitsModuleContent');
+          const isExp = benefitsSec.classList.contains('is-expanded');
+          const next = !isExp;
+          benefitsSec.classList.toggle('is-expanded', next);
+          benefitsSec.classList.toggle('is-collapsed', !next);
+          toggleBtn.setAttribute('aria-expanded', String(next));
+          if (content) {
+            content.hidden = !next;
+            if (next) content.removeAttribute('hidden');
+            else content.setAttribute('hidden', '');
+          }
+          try {
+            localStorage.setItem('corvfin_calendar_benefits_expanded', String(next));
+          } catch (_) {}
+          calendarExpandableState.benefitsExpanded = next;
+        };
       }
     }
   }

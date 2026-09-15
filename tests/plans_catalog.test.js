@@ -115,6 +115,7 @@ describe('Lote 5B — Foundations & Storage de Planos (CorvFin V2)', () => {
     const expectedResources = [
       'ai',
       'beneficios',
+      'calendario',
       'compras',
       'dashboard',
       'despesas',
@@ -676,7 +677,7 @@ describe('Lote 5B — Foundations & Storage de Planos (CorvFin V2)', () => {
   test('24. Plano free de compatibilidade possui todos os módulos enabled: true e limits nulos', () => {
     const compat = getCompatibilityEntitlements();
     const keys = Object.keys(compat);
-    assert.strictEqual(keys.length, 10);
+    assert.strictEqual(keys.length, 11);
 
     for (const key of keys) {
       assert.strictEqual(compat[key].enabled, true, `Módulo ${key} deve estar enabled: true`);

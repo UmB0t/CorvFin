@@ -23,6 +23,11 @@ const ENTITLEMENT_REGISTRY = {
     supportsAccessToggle: true,
     availableLimits: []
   },
+  calendario: {
+    label: 'Calendário',
+    supportsAccessToggle: true,
+    availableLimits: []
+  },
   despesas: {
     label: 'Despesas',
     supportsAccessToggle: true,
@@ -304,6 +309,16 @@ function normalizePlanEntitlements(entitlements) {
     if ('questionsPerDay' in aiLimits && !('creditsPerDay' in aiLimits)) {
       aiLimits.creditsPerDay = aiLimits.questionsPerDay;
     }
+  }
+
+  // 3. Evolução Lote A3.4.2: compatibilidade em runtime para o novo entitlement 'calendario' em planos legados
+  // Se o plano legado não possui a chave 'calendario', concede enabled: true em memória
+  // Preserva estritamente se já estiver definido (true ou false) e não afeta os demais recursos fail-closed
+  if (!('calendario' in entitlements)) {
+    entitlements.calendario = {
+      enabled: true,
+      limits: {}
+    };
   }
 
   return entitlements;

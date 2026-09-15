@@ -5,6 +5,7 @@ const { filterAllowedFields } = require('./financeValidation');
 // Maintenance Default Configuration Constants
 const DEFAULT_MAINTENANCE_CONFIG = {
   dashboard: { maintenance: false, name: 'Dashboard' },
+  calendario: { maintenance: false, name: 'Calendário' },
   despesas: { maintenance: false, name: 'Despesas' },
   extras: { maintenance: false, name: 'Rendas Extras' },
   devedores: { maintenance: false, name: 'Devedores' },
@@ -16,6 +17,7 @@ const DEFAULT_MAINTENANCE_CONFIG = {
 
 const DEFAULT_PERMISSIONS_FALLBACK = {
   dashboard: true,
+  calendario: true,
   despesas: true,
   extras: true,
   devedores: true,
@@ -153,6 +155,7 @@ async function getUserPermissions(userId) {
   const basePermissions = Object.assign(
     {
       dashboard: true,
+      calendario: true,
       despesas: true,
       extras: true,
       devedores: true,
@@ -183,6 +186,7 @@ async function setUserPermissions(userId, userPerms) {
   const merged = Object.assign(
     {
       dashboard: true,
+      calendario: true,
       despesas: true,
       extras: true,
       devedores: true,
@@ -219,7 +223,7 @@ async function getDefaultPermissions() {
     return Object.assign({}, DEFAULT_PERMISSIONS_FALLBACK);
   }
   const { _id, updatedAt, ...perms } = doc;
-  return perms;
+  return Object.assign({}, DEFAULT_PERMISSIONS_FALLBACK, perms);
 }
 
 /**
@@ -229,6 +233,7 @@ async function saveDefaultPermissions(permissions) {
   const col = await getCollection('default_permissions');
   const sanitized = {
     dashboard: permissions.dashboard !== false,
+    calendario: permissions.calendario !== false,
     despesas: permissions.despesas !== false,
     extras: permissions.extras !== false,
     devedores: permissions.devedores !== false,
@@ -1511,5 +1516,7 @@ module.exports = {
   savePlan,
   updatePlan,
   setDefaultPlan,
-  updateUserPlan
+  updateUserPlan,
+  DEFAULT_MAINTENANCE_CONFIG,
+  DEFAULT_PERMISSIONS_FALLBACK
 };

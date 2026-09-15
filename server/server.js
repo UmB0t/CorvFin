@@ -2162,6 +2162,7 @@ const saveDefaultPermissionsHandler = async (req, res) => {
 
     const permsToSave = {
       dashboard: permissions.dashboard !== false,
+      calendario: permissions.calendario !== false,
       despesas: permissions.despesas !== false,
       extras: permissions.extras !== false,
       devedores: permissions.devedores !== false,

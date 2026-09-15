@@ -193,7 +193,7 @@
 
   const TAB_PERMISSION_MAP = {
     'tab-dashboard': 'dashboard',
-    'tab-calendar': null,
+    'tab-calendar': 'calendario',
     'tab-expenses': 'despesas',
     'tab-extras': 'extras',
     'tab-debtors': 'devedores',
@@ -1113,9 +1113,29 @@
 
   function activateTab(tabId, updateUrl = true) {
     let targetTabId = tabId || DEFAULT_TAB;
+    const previousTabId = window._currentActiveTabId;
 
     if (window._currentActiveTabId !== targetTabId) {
       window._currentActiveTabId = targetTabId;
+    }
+
+    // Regra A3.4.2 UX: Ao entrar em Calendar vindo de outro módulo, o viewport deve iniciar no topo.
+    if (targetTabId === 'tab-calendar' && previousTabId !== 'tab-calendar') {
+      if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
+        window.scrollTo(0, 0);
+      }
+      const mainContent = document.querySelector('.main-content');
+      if (mainContent) {
+        if (typeof mainContent.scrollTo === 'function') {
+          mainContent.scrollTo(0, 0);
+        } else {
+          mainContent.scrollTop = 0;
+        }
+      }
+      const calContainer = document.getElementById('tab-calendar');
+      if (calContainer) {
+        calContainer.scrollTop = 0;
+      }
     }
 
     const accessCheck = (typeof checkModuleAccess === 'function')
@@ -1257,6 +1277,7 @@
 
   const MAINTENANCE_MODULE_MAP = {
     'tab-dashboard': 'dashboard',
+    'tab-calendar': 'calendario',
     'tab-expenses': 'despesas',
     'tab-extras': 'extras',
     'tab-debtors': 'devedores',
