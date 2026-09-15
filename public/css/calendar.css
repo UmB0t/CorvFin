@@ -135,6 +135,26 @@
   color: var(--danger);
 }
 
+.calendar-summary-value--benefit-inflow {
+  color: var(--success);
+}
+
+.calendar-summary-value--benefit-outflow {
+  color: var(--warning, #D97706);
+}
+
+.calendar-summary-value--benefit-pos {
+  color: var(--success);
+}
+
+.calendar-summary-value--benefit-neutral {
+  color: var(--text);
+}
+
+.calendar-summary-value--benefit-neg {
+  color: var(--danger);
+}
+
 /* 2.5. ESTRUTURA PRINCIPAL DO LAYOUT (C1.2) */
 .calendar-main-layout {
   display: flex;
@@ -406,36 +426,6 @@
   padding: 16px;
   box-shadow: var(--shadow);
   border-left: 4px solid var(--warning);
-}
-
-.calendar-benefits-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.calendar-benefits-card {
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  padding: 10px 12px;
-}
-
-.calendar-benefits-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.calendar-benefits-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: var(--surface-2);
-  border-radius: var(--radius-xs);
-  font-size: 0.84rem;
 }
 
 /* 6. ESTADOS AUXILIARES (LOADING, ERROR, EMPTY) */
@@ -796,10 +786,6 @@
     display: inline-flex;
   }
 
-  .calendar-benefits-grid {
-    grid-template-columns: 1fr;
-  }
-
   .calendar-selected-day-summary {
     grid-template-columns: 1fr;
   }
@@ -836,4 +822,190 @@
 
 .calendar-day-preview-footer {
   margin-top: 12px;
+}
+
+/* ==========================================================================
+   9. CALENDÁRIO DE BENEFÍCIOS — COEXISTÊNCIA E DESIGN (LOTE B2)
+   ========================================================================== */
+
+.calendar-module-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.calendar-module-section--benefits {
+  margin-top: 28px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+}
+
+.calendar-module-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 2px;
+}
+
+.calendar-module-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.calendar-module-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 850;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.calendar-module-subtitle {
+  font-size: 0.80rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* Grade de Benefícios */
+.calendar-benefit-day-cell.has-benefit-usage {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: var(--surface);
+}
+
+.calendar-benefit-day-cell.has-benefit-usage:hover {
+  border-color: var(--warning, #D97706);
+  background: var(--surface-2);
+}
+
+.calendar-benefit-day-cell.calendar-day--selected {
+  border-color: var(--warning, #D97706) !important;
+  box-shadow: 0 0 0 2px var(--warning, #D97706) !important;
+  background: var(--surface-3);
+}
+
+.calendar-benefit-day-cell.calendar-day--selected .calendar-day-number {
+  color: var(--warning, #D97706) !important;
+  font-weight: 900;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.calendar-benefit-day-amt {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--warning, #D97706);
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.calendar-benefit-day-count {
+  font-size: 0.65rem;
+  font-weight: 800;
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning, #D97706);
+  padding: 1px 5px;
+  border-radius: 999px;
+  margin-left: auto;
+}
+
+.calendar-benefit-category-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.calendar-benefit-cat-pill {
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.3;
+}
+
+.calendar-benefit-cat-pill--va {
+  color: #059669;
+  background: rgba(16, 185, 129, 0.15);
+}
+
+.calendar-benefit-cat-pill--vr {
+  color: #D97706;
+  background: rgba(245, 158, 11, 0.15);
+}
+
+.calendar-benefit-cat-pill--saude {
+  color: #DC2626;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.calendar-benefit-cat-pill--transporte {
+  color: #2563EB;
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.calendar-benefit-cat-pill--educacao {
+  color: #7C3AED;
+  background: rgba(139, 92, 246, 0.15);
+}
+
+.calendar-benefit-cat-pill--cultura {
+  color: #DB2777;
+  background: rgba(219, 39, 119, 0.15);
+}
+
+.calendar-benefit-cat-pill--farmacia {
+  color: #0D9488;
+  background: rgba(13, 148, 136, 0.15);
+}
+
+.calendar-benefit-cat-pill--outro {
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+
+.calendar-day-mobile-indicator--benefit {
+  background: rgba(245, 158, 11, 0.20);
+  color: var(--warning, #D97706);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.calendar-selected-benefit-day-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 1100px) {
+  .calendar-selected-benefit-day-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .calendar-benefit-day-amt {
+    display: none;
+  }
+
+  .calendar-benefit-category-row {
+    display: none;
+  }
+
+  .calendar-selected-benefit-day-summary {
+    grid-template-columns: 1fr;
+  }
 }

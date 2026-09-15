@@ -1372,9 +1372,11 @@ describe('CORVFIN — UX1.4 — CALENDAR DAY PREVIEW & DETAILED MODAL', () => {
     assert.equal(sidePanelSection.includes('Vale Alimentação Sodexo'), false, 'Benefício não deve aparecer na lista diária do painel bancário');
     // Benefício não entra no modal diário bancário
     assert.equal(modalHtml.includes('Vale Alimentação Sodexo'), false, 'Benefício não deve aparecer no modal de movimentações bancárias');
-    // Benefício aparece exclusivamente na seção de benefícios
-    assert.ok(panelHtml.includes('calendarBenefitsSection'), 'Seção de benefícios deve existir');
-    assert.ok(panelHtml.includes('Vale Alimentação Sodexo'), 'Benefício deve aparecer na seção de benefícios');
+    // Benefício aparece exclusivamente no Calendário de Benefícios ao selecionar a data
+    sandbox.window.CalendarModule.selectBenefitDate('2026-09-12');
+    const updatedHtml = elements['tab-calendar'].innerHTML;
+    assert.ok(updatedHtml.includes('id="calendarBenefitsModule"'), 'Módulo de benefícios deve existir');
+    assert.ok(updatedHtml.includes('Vale Alimentação Sodexo'), 'Benefício deve aparecer no detalhamento de benefícios');
   });
 
 });

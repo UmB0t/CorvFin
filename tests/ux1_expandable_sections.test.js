@@ -339,11 +339,11 @@ describe('CORVFIN — UX1: EXPANDABLE SECTIONS + ANNUAL VIEW CONSOLIDATION', () 
       assert.ok(calendarJs.includes('expandable-section__content--scrollable'), 'Undated aplica modificador de scroll interno');
     });
 
-    test('"Benefícios do mês" adota .expandable-section e inicia expanded por padrão sem misturar com fluxo bancário', () => {
-      assert.ok(calendarJs.includes('id="calendarBenefitsSection" data-expandable'), 'Benefits possui padrão expandable-section');
-      assert.ok(calendarJs.includes('id="calendarBenefitsToggleBtn"'), 'Benefits possui botão de toggle acessível');
-      assert.ok(calendarJs.includes('id="calendarBenefitsContent"'), 'Benefits possui contêiner de conteúdo');
-      assert.ok(calendarJs.includes('Benefícios do mês (Segregados)'), 'Segregação conceitual de benefícios mantida');
+    test('Benefícios sem data definem .expandable-section quando aplicável e preservam segregação', () => {
+      assert.ok(calendarJs.includes('id="calendarBenefitUndatedSection" data-expandable'), 'Benefits sem data possui padrão expandable-section');
+      assert.ok(calendarJs.includes('id="calendarBenefitUndatedToggleBtn"'), 'Benefits sem data possui botão de toggle acessível');
+      assert.ok(calendarJs.includes('id="calendarBenefitUndatedContent"'), 'Benefits sem data possui contêiner de conteúdo');
+      assert.ok(calendarJs.includes('calendarBenefitsModule'), 'Módulo canônico de benefícios mantido');
     });
 
     test('Grade mensal e painel do dia continuam SEMPRE visíveis e essenciais no Calendário', () => {
@@ -476,12 +476,16 @@ describe('CORVFIN — UX1: EXPANDABLE SECTIONS + ANNUAL VIEW CONSOLIDATION', () 
       sandbox.window.CalendarModule.render();
 
       const html = mainContainer.innerHTML;
-      assert.ok(html.includes('id="calendarBenefitsSection"'), 'Deve conter calendarBenefitsSection');
+      assert.ok(html.includes('id="calendarBenefitUndatedSection"'), 'Deve conter calendarBenefitUndatedSection quando há créditos sem data');
       assert.ok(html.includes('aria-expanded="true"'), 'Deve iniciar com aria-expanded="true"');
-      assert.ok(html.includes('is-expanded'), 'Container de benefícios deve possuir classe is-expanded');
-      assert.ok(html.includes('Alimentação'), 'Lista de benefícios deve renderizar descrição');
-      assert.ok(!html.includes('R$ 7.350,00'), 'Resumo bancário não deve somar resultado de benefícios');
-      assert.ok(html.includes('R$ 7000.00'), 'Resumo bancário não mistura valor de benefícios');
+      assert.ok(html.includes('is-expanded'), 'Container de benefícios sem data deve possuir classe is-expanded');
+      assert.ok(html.includes('Vale Refeição'), 'Lista de benefícios sem data deve renderizar nome do crédito');
+
+      sandbox.window.CalendarModule.selectBenefitDate('2026-09-15');
+      const updatedHtml = mainContainer.innerHTML;
+      assert.ok(updatedHtml.includes('Alimentação'), 'Detalhamento do dia selecionado em benefícios deve renderizar descrição');
+      assert.ok(!updatedHtml.includes('R$ 7.350,00'), 'Resumo bancário não deve somar resultado de benefícios');
+      assert.ok(updatedHtml.includes('R$ 7000.00'), 'Resumo bancário não mistura valor de benefícios');
     });
   });
 
