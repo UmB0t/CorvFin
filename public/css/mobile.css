@@ -2120,12 +2120,22 @@
 }
 
 /* UX3 — EXPENSES V2 RESPONSIVE */
+#dashboardMetrics.metrics {
+  display: block;
+}
+
 @media (max-width: 1024px) {
+  #dashboardMetrics.metrics {
+    display: block;
+  }
   .expenses-metrics-layout {
     grid-template-columns: 1fr;
+    width: 100%;
   }
   .expenses-metrics-secondary {
     grid-template-columns: repeat(2, 1fr);
+    align-items: stretch;
+    width: 100%;
   }
 }
 
@@ -2151,22 +2161,47 @@
   .expenses-metric-hero {
     padding: 12px 14px;
   }
+  .expenses-metric-hero .hero-badges {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+  .expenses-metric-hero .hero-badges .badge {
+    font-size: 0.58rem;
+    padding: 1px 4px;
+    line-height: 1.2;
+  }
   .expenses-metric-hero .value {
     font-size: 1.35rem;
   }
   .expenses-metrics-secondary .secondary-metric {
     padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
   }
   .expenses-metrics-secondary .secondary-metric .label {
     font-size: 0.62rem;
     letter-spacing: 0;
+    min-height: 2.1rem;
+    line-height: 1.25;
+    gap: 2px;
   }
   .expenses-metrics-secondary .secondary-metric .value {
-    font-size: 0.90rem !important;
+    font-size: clamp(0.85rem, 3.2vw, 1.05rem) !important;
     letter-spacing: -0.02em;
+    margin: 2px 0 4px 0;
+  }
+  .expenses-metrics-secondary .secondary-metric .metric-footer {
+    margin-top: auto;
+    min-height: 1.15rem;
   }
   .expenses-metrics-secondary .secondary-metric .sub {
     font-size: 0.60rem;
+    line-height: 1.25;
+    white-space: normal;
+    overflow-wrap: break-word;
   }
   .expenses-metrics-secondary {
     gap: 8px;

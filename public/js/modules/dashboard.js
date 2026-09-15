@@ -169,20 +169,15 @@
 
         let extraBadges = '';
         if (t.sumExt > 0) {
-          extraBadges += ` <span class="badge success">+${currency(t.sumExt)} EXTRA</span>`;
+          extraBadges += `<span class="badge success">+${currency(t.sumExt)} EXTRA</span>`;
         }
         if (t.sumDebtorCounted > 0) {
-          extraBadges += ` <span class="badge info" title="Cobranças de devedores somadas ao total do mês">+${currency(t.sumDebtorCounted)} DEVEDOR</span>`;
+          extraBadges += `<span class="badge info" title="Cobranças de devedores somadas ao total do mês">+${currency(t.sumDebtorCounted)} DEVEDOR</span>`;
         }
+        const extraBadgesWrap = extraBadges ? `<div class="hero-badges">${extraBadges}</div>` : '';
 
 
         let subIncome = `Base: ${currency(t.baseSalary)}`;
-        if (t.sumExt > 0 || t.sumDebtorCounted > 0) {
-          const parts = [];
-          if (t.sumExt > 0) parts.push(`Extra: +${currency(t.sumExt)}`);
-          if (t.sumDebtorCounted > 0) parts.push(`Devedor: +${currency(t.sumDebtorCounted)}`);
-          subIncome += ` (${parts.join(', ')})`;
-        }
 
         const deficitBanner = $('#deficitAlertBanner');
         const deficitText = $('#deficitAlertText');
@@ -218,31 +213,39 @@
       <div class="expenses-metrics-layout">
         <div class="metric expenses-metric-hero metric-income">
           <div class="label">
-            <span>Total do Mês</span>${extraBadges}
+            <span>Total do Mês</span>${extraBadgesWrap}
           </div>
           <div class="value num positive">${currency(t.totalIncome)}</div>
           <div class="sub">${subIncome}</div>
         </div>
         <div class="expenses-metrics-secondary">
           <div class="metric secondary-metric metric-expense">
-            <div class="label">Total de Despesas</div>
+            <div class="label"><span>Total de Despesas</span></div>
             <div class="value num negative">${currency(t.totalExpenses)}</div>
-            <div class="bar"><span style="width:${pctGasto}%;"></span></div>
+            <div class="metric-footer">
+              <div class="bar"><span style="width:${pctGasto}%;"></span></div>
+            </div>
           </div>
           <div class="metric secondary-metric metric-paid">
             <div class="label"><span>Valor Pago</span> <span class="badge success">${pctPago}%</span></div>
             <div class="value num positive">${currency(t.paidExpenses)}</div>
-            <div class="sub">Total de despesas quitadas</div>
+            <div class="metric-footer">
+              <div class="sub">Total de despesas quitadas</div>
+            </div>
           </div>
           <div class="metric secondary-metric metric-pending">
-            <div class="label">Pendente de Pagamento</div>
+            <div class="label"><span>Pendente de Pagamento</span></div>
             <div class="value num warning">${currency(t.pendingExpenses)}</div>
-            <div class="sub">Aguardando pagamento</div>
+            <div class="metric-footer">
+              <div class="sub">Aguardando pagamento</div>
+            </div>
           </div>
           <div class="metric secondary-metric metric-sobra ${sobraClass}">
             <div class="label"><span>Sobra do Valor</span>${sobraBadge}</div>
             <div class="value num ${sobraValClass}">${currency(sobra)}</div>
-            <div class="sub">${sobraSub}</div>
+            <div class="metric-footer">
+              <div class="sub">${sobraSub}</div>
+            </div>
           </div>
         </div>
       </div>

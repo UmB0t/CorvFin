@@ -1115,9 +1115,6 @@
     let targetTabId = tabId || DEFAULT_TAB;
 
     if (window._currentActiveTabId !== targetTabId) {
-      if (targetTabId === 'tab-expenses' && typeof window.resetExpensesViewMode === 'function') {
-        window.resetExpensesViewMode();
-      }
       window._currentActiveTabId = targetTabId;
     }
 

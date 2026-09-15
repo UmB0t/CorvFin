@@ -883,7 +883,37 @@ function filterExpenseItem(item, query, statusFilter, methodFilter) {
   return true;
 }
 
-let currentExpensesViewMode = 'all';
+const EXPENSES_VIEW_MODE_STORAGE_KEY = 'corvfin_expenses_view_mode';
+
+let inMemoryExpensesViewMode = 'all';
+
+function readExpensesViewMode() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem(EXPENSES_VIEW_MODE_STORAGE_KEY);
+      if (stored === 'all' || stored === 'type') {
+        inMemoryExpensesViewMode = stored;
+        return stored;
+      }
+      return 'all';
+    }
+  } catch (_) {}
+  return inMemoryExpensesViewMode || 'all';
+}
+window.readExpensesViewMode = readExpensesViewMode;
+
+function writeExpensesViewMode(mode) {
+  if (mode !== 'all' && mode !== 'type') return;
+  inMemoryExpensesViewMode = mode;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(EXPENSES_VIEW_MODE_STORAGE_KEY, mode);
+    }
+  } catch (_) {}
+}
+window.writeExpensesViewMode = writeExpensesViewMode;
+
+let currentExpensesViewMode = readExpensesViewMode();
 
 function updateExpensesViewModeUI() {
   const isAll = currentExpensesViewMode === 'all';
@@ -904,8 +934,13 @@ function updateExpensesViewModeUI() {
   if (normalGrid) normalGrid.hidden = isAll;
 }
 
-function resetExpensesViewMode() {
-  currentExpensesViewMode = 'all';
+function resetExpensesViewMode(forceAll = false) {
+  if (forceAll) {
+    writeExpensesViewMode('all');
+    currentExpensesViewMode = 'all';
+  } else {
+    currentExpensesViewMode = readExpensesViewMode();
+  }
   updateExpensesViewModeUI();
 }
 window.resetExpensesViewMode = resetExpensesViewMode;
@@ -916,8 +951,10 @@ function getExpensesViewMode() {
 window.getExpensesViewMode = getExpensesViewMode;
 
 function setExpensesViewMode(mode) {
-  if (mode === 'all' || mode === 'by_type') {
-    currentExpensesViewMode = mode;
+  const normalized = (mode === 'type' || mode === 'by_type') ? 'type' : (mode === 'all' ? 'all' : null);
+  if (normalized) {
+    writeExpensesViewMode(normalized);
+    currentExpensesViewMode = normalized;
     renderExpensesLists();
   }
 }
@@ -1148,6 +1185,7 @@ function renderByTypeExpenses() {
 }
 
 function renderExpensesLists() {
+  currentExpensesViewMode = readExpensesViewMode();
   updateExpensesViewModeUI();
   if (currentExpensesViewMode === 'all') {
     renderSimplifiedExpenses();
@@ -2855,8 +2893,7 @@ function renderExpensesLists() {
     if (allBtn) {
       allBtn.addEventListener('click', () => {
         if (currentExpensesViewMode !== 'all') {
-          currentExpensesViewMode = 'all';
-          renderExpensesLists();
+          setExpensesViewMode('all');
         }
       });
     }
@@ -2864,9 +2901,8 @@ function renderExpensesLists() {
     const byTypeBtn = $('#expensesViewByTypeBtn');
     if (byTypeBtn) {
       byTypeBtn.addEventListener('click', () => {
-        if (currentExpensesViewMode !== 'by_type') {
-          currentExpensesViewMode = 'by_type';
-          renderExpensesLists();
+        if (currentExpensesViewMode !== 'type') {
+          setExpensesViewMode('type');
         }
       });
     }
@@ -3060,6 +3096,11 @@ function renderExpensesLists() {
   }
 
   // Bridges publicas autorizadas do modulo de despesas
+  window.readExpensesViewMode = readExpensesViewMode;
+  window.writeExpensesViewMode = writeExpensesViewMode;
+  window.getExpensesViewMode = getExpensesViewMode;
+  window.setExpensesViewMode = setExpensesViewMode;
+  window.resetExpensesViewMode = resetExpensesViewMode;
   window.renderExpensesLists = renderExpensesLists;
   window.renderSimplifiedExpenses = renderSimplifiedExpenses;
   window.openEntryDialog = openEntryDialog;
