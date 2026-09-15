@@ -275,6 +275,11 @@
         name: (parsed.profile.name && parsed.profile.name !== 'Usuário') ? parsed.profile.name : fallbackName,
         baseSalary: parsed.profile.baseSalary != null ? Number(parsed.profile.baseSalary) : 0
       };
+      if (parsed.profile.salaryPayment && typeof parsed.profile.salaryPayment === 'object' && !Array.isArray(parsed.profile.salaryPayment)) {
+        s.profile.salaryPayment = Object.assign({}, parsed.profile.salaryPayment);
+      } else if (parsed.profile.salaryDay !== undefined && parsed.profile.salaryDay !== null) {
+        s.profile.salaryDay = parsed.profile.salaryDay;
+      }
     } else {
       s.profile = { name: fallbackName, baseSalary: 0 };
     }
