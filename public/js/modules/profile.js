@@ -529,16 +529,108 @@
     if (profSalary && document.activeElement !== profSalary) {
       profSalary.value = state.profile?.baseSalary != null ? state.profile.baseSalary : '';
     }
-    if (profSalaryDay && document.activeElement !== profSalaryDay) {
-      const salDay = state.profile?.salaryPayment?.day != null
-        ? state.profile.salaryPayment.day
-        : (state.profile?.salaryDay != null ? state.profile.salaryDay : '');
-      profSalaryDay.value = salDay;
+
+    const profSalaryRuleType = $('#profSalaryRuleType');
+    const profSalaryWeekendAdj = $('#profSalaryWeekendAdj');
+    const profSalaryBusinessDay = $('#profSalaryBusinessDay');
+    const fixedGroup = $('#profSalaryFixedGroup');
+    const bizGroup = $('#profSalaryBusinessGroup');
+
+    const sp = state.profile?.salaryPayment;
+    const isBizRule = sp && sp.type === 'nth_business_day';
+
+    if (profSalaryRuleType && document.activeElement !== profSalaryRuleType) {
+      profSalaryRuleType.value = isBizRule ? 'nth_business_day' : 'fixed_day';
+    }
+
+    if (isBizRule) {
+      if (fixedGroup) fixedGroup.style.display = 'none';
+      if (bizGroup) bizGroup.style.display = 'grid';
+      if (profSalaryBusinessDay && document.activeElement !== profSalaryBusinessDay) {
+        profSalaryBusinessDay.value = String(sp.ordinal != null ? sp.ordinal : '5');
+      }
+      if (profSalaryDay && document.activeElement !== profSalaryDay) {
+        profSalaryDay.value = '';
+      }
+      if (profSalaryWeekendAdj && document.activeElement !== profSalaryWeekendAdj) {
+        profSalaryWeekendAdj.value = 'none';
+      }
+    } else {
+      if (fixedGroup) fixedGroup.style.display = 'grid';
+      if (bizGroup) bizGroup.style.display = 'none';
+      if (profSalaryDay && document.activeElement !== profSalaryDay) {
+        const salDay = sp?.day != null
+          ? sp.day
+          : (state.profile?.salaryDay != null ? state.profile.salaryDay : '');
+        profSalaryDay.value = salDay;
+      }
+      if (profSalaryWeekendAdj && document.activeElement !== profSalaryWeekendAdj) {
+        profSalaryWeekendAdj.value = sp?.weekendAdjustment || 'none';
+      }
+      if (profSalaryBusinessDay && document.activeElement !== profSalaryBusinessDay) {
+        profSalaryBusinessDay.value = '5';
+      }
     }
     if (profBen && document.activeElement !== profBen) {
       profBen.value = state.benefitsConfig?.amount != null
         ? state.benefitsConfig.amount
         : (Number(state.benefitsConfig?.va || 0) + Number(state.benefitsConfig?.vr || 0));
+    }
+
+    // Benefícios - Regra Temporal de Crédito (Lote A3.4)
+    const profBenCreditType = $('#profBenefitCreditRuleType');
+    const profBenFixedGroup = $('#profBenefitFixedGroup');
+    const profBenBusinessGroup = $('#profBenefitBusinessGroup');
+    const profBenCreditDay = $('#profBenefitCreditDay');
+    const profBenCreditWeekendAdj = $('#profBenefitCreditWeekendAdj');
+    const profBenBusinessDay = $('#profBenefitBusinessDay');
+
+    const cr = state.benefitsConfig?.creditRule;
+    if (cr && typeof cr === 'object') {
+      if (cr.type === 'nth_business_day') {
+        if (profBenCreditType) profBenCreditType.value = 'nth_business_day';
+        if (profBenFixedGroup) profBenFixedGroup.style.display = 'none';
+        if (profBenBusinessGroup) profBenBusinessGroup.style.display = 'grid';
+        if (profBenBusinessDay && document.activeElement !== profBenBusinessDay) {
+          profBenBusinessDay.value = String(cr.ordinal !== undefined ? cr.ordinal : 5);
+        }
+        if (profBenCreditDay && document.activeElement !== profBenCreditDay) {
+          profBenCreditDay.value = '';
+        }
+        if (profBenCreditWeekendAdj && document.activeElement !== profBenCreditWeekendAdj) {
+          profBenCreditWeekendAdj.value = 'none';
+        }
+      } else if (cr.type === 'fixed_day') {
+        if (profBenCreditType) profBenCreditType.value = 'fixed_day';
+        if (profBenFixedGroup) profBenFixedGroup.style.display = 'grid';
+        if (profBenBusinessGroup) profBenBusinessGroup.style.display = 'none';
+        if (profBenCreditDay && document.activeElement !== profBenCreditDay) {
+          profBenCreditDay.value = cr.day !== undefined ? cr.day : '';
+        }
+        if (profBenCreditWeekendAdj && document.activeElement !== profBenCreditWeekendAdj) {
+          profBenCreditWeekendAdj.value = cr.weekendAdjustment || 'none';
+        }
+        if (profBenBusinessDay && document.activeElement !== profBenBusinessDay) {
+          profBenBusinessDay.value = '5';
+        }
+      } else {
+        if (profBenCreditType) profBenCreditType.value = 'none';
+        if (profBenFixedGroup) profBenFixedGroup.style.display = 'none';
+        if (profBenBusinessGroup) profBenBusinessGroup.style.display = 'none';
+      }
+    } else {
+      if (profBenCreditType) profBenCreditType.value = 'none';
+      if (profBenFixedGroup) profBenFixedGroup.style.display = 'none';
+      if (profBenBusinessGroup) profBenBusinessGroup.style.display = 'none';
+      if (profBenCreditDay && document.activeElement !== profBenCreditDay) {
+        profBenCreditDay.value = '';
+      }
+      if (profBenCreditWeekendAdj && document.activeElement !== profBenCreditWeekendAdj) {
+        profBenCreditWeekendAdj.value = 'none';
+      }
+      if (profBenBusinessDay && document.activeElement !== profBenBusinessDay) {
+        profBenBusinessDay.value = '5';
+      }
     }
 
     renderMobileNavPreferences();
@@ -848,21 +940,97 @@
     renderProfile();
     initChangePasswordForm();
 
+    $('#profSalaryRuleType')?.addEventListener('change', () => {
+      const type = $('#profSalaryRuleType')?.value || 'fixed_day';
+      const fixedGroup = $('#profSalaryFixedGroup');
+      const bizGroup = $('#profSalaryBusinessGroup');
+      if (type === 'nth_business_day') {
+        if (fixedGroup) fixedGroup.style.display = 'none';
+        if (bizGroup) bizGroup.style.display = 'grid';
+      } else {
+        if (fixedGroup) fixedGroup.style.display = 'grid';
+        if (bizGroup) bizGroup.style.display = 'none';
+      }
+    });
+
+    $('#profBenefitCreditRuleType')?.addEventListener('change', () => {
+      const type = $('#profBenefitCreditRuleType')?.value || 'none';
+      const fixedGroup = $('#profBenefitFixedGroup');
+      const bizGroup = $('#profBenefitBusinessGroup');
+      if (type === 'nth_business_day') {
+        if (fixedGroup) fixedGroup.style.display = 'none';
+        if (bizGroup) bizGroup.style.display = 'grid';
+      } else if (type === 'fixed_day') {
+        if (fixedGroup) fixedGroup.style.display = 'grid';
+        if (bizGroup) bizGroup.style.display = 'none';
+      } else {
+        if (fixedGroup) fixedGroup.style.display = 'none';
+        if (bizGroup) bizGroup.style.display = 'none';
+      }
+    });
+
     $('#profileForm')?.addEventListener('submit', (e) => {
       e.preventDefault();
       const state = getState();
       state.profile.name = $('#profName').value.trim();
       state.profile.baseSalary = Number($('#profSalary').value) || 0;
-      const rawSalDay = $('#profSalaryDay')?.value;
-      if (rawSalDay !== undefined && rawSalDay !== '' && !isNaN(Number(rawSalDay))) {
-        const numDay = Math.min(31, Math.max(1, parseInt(rawSalDay, 10)));
-        state.profile.salaryPayment = { type: 'fixed_day', day: numDay };
+
+      const ruleType = $('#profSalaryRuleType')?.value || 'fixed_day';
+      if (ruleType === 'nth_business_day') {
+        const rawOrd = $('#profSalaryBusinessDay')?.value;
+        const numOrd = Number(rawOrd);
+        if (Number.isInteger(numOrd) && (numOrd === -1 || (numOrd >= 1 && numOrd <= 23))) {
+          state.profile.salaryPayment = { type: 'nth_business_day', ordinal: numOrd };
+        } else {
+          delete state.profile.salaryPayment;
+        }
       } else {
-        delete state.profile.salaryPayment;
+        const rawSalDay = $('#profSalaryDay')?.value;
+        if (rawSalDay !== undefined && rawSalDay !== '' && !isNaN(Number(rawSalDay))) {
+          const numDay = Math.min(31, Math.max(1, parseInt(rawSalDay, 10)));
+          const rawAdj = $('#profSalaryWeekendAdj')?.value || 'none';
+          const weekendAdjustment = ['none', 'previous_business_day', 'next_business_day'].includes(rawAdj) ? rawAdj : 'none';
+          state.profile.salaryPayment = {
+            type: 'fixed_day',
+            day: numDay,
+            weekendAdjustment
+          };
+        } else {
+          delete state.profile.salaryPayment;
+        }
       }
+
       state.benefitsConfig = state.benefitsConfig || { amount: 0 };
       const benVal = Number($('#profBenefit')?.value) || 0;
       state.benefitsConfig.amount = benVal;
+
+      const benRuleType = $('#profBenefitCreditRuleType')?.value || 'none';
+      if (benRuleType === 'nth_business_day') {
+        const rawOrd = $('#profBenefitBusinessDay')?.value;
+        const numOrd = Number(rawOrd);
+        if (Number.isInteger(numOrd) && (numOrd === -1 || (numOrd >= 1 && numOrd <= 23))) {
+          state.benefitsConfig.creditRule = { type: 'nth_business_day', ordinal: numOrd };
+        } else {
+          delete state.benefitsConfig.creditRule;
+        }
+      } else if (benRuleType === 'fixed_day') {
+        const rawDay = $('#profBenefitCreditDay')?.value;
+        if (rawDay !== undefined && rawDay !== '' && !isNaN(Number(rawDay))) {
+          const numDay = Math.min(31, Math.max(1, parseInt(rawDay, 10)));
+          const rawAdj = $('#profBenefitCreditWeekendAdj')?.value || 'none';
+          const weekendAdjustment = ['none', 'previous_business_day', 'next_business_day'].includes(rawAdj) ? rawAdj : 'none';
+          state.benefitsConfig.creditRule = {
+            type: 'fixed_day',
+            day: numDay,
+            weekendAdjustment
+          };
+        } else {
+          delete state.benefitsConfig.creditRule;
+        }
+      } else {
+        delete state.benefitsConfig.creditRule;
+      }
+
       saveState(); render();
       notify('Perfil e Benefícios atualizados com sucesso!', 'success');
     });

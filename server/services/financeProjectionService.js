@@ -18,6 +18,7 @@
 
 const {
   resolveOccurrenceDate,
+  resolveTemporalRule,
   normalizeCompetenceKey,
   parseCanonicalDate,
   isValidCanonicalDateString,
@@ -147,17 +148,22 @@ function projectSalary(finances, year, month) {
   let date = null;
   let nominalDay = null;
   let wasClamped = false;
+  let wasAdjusted = false;
+  let competenceKept = true;
+  let temporalRuleType = null;
+  let weekendAdjustment = null;
 
   const sp = finances.profile?.salaryPayment;
-  if (sp && typeof sp === 'object' && sp.type === 'fixed_day' && sp.day !== undefined && sp.day !== null && sp.day !== '') {
-    const dayNum = Number(sp.day);
-    if (Number.isInteger(dayNum) && dayNum >= 1 && dayNum <= 31) {
-      const occ = resolveOccurrenceDate(year, month, dayNum);
-      if (occ) {
-        date = occ.date;
-        nominalDay = occ.nominalDay;
-        wasClamped = occ.wasClamped;
-      }
+  if (sp && typeof sp === 'object' && !Array.isArray(sp)) {
+    const res = resolveTemporalRule(sp, year, month);
+    if (res && res.date) {
+      date = res.date;
+      nominalDay = res.nominalDay;
+      wasClamped = res.wasClamped;
+      wasAdjusted = res.wasAdjusted;
+      competenceKept = res.competenceKept;
+      temporalRuleType = res.type;
+      weekendAdjustment = res.weekendAdjustment || null;
     }
   }
 
@@ -170,6 +176,10 @@ function projectSalary(finances, year, month) {
     date,
     nominalDay,
     wasClamped,
+    wasAdjusted,
+    competenceKept,
+    temporalRuleType,
+    weekendAdjustment,
     competence: canonicalKey,
     amount,
     status: null,
@@ -643,7 +653,7 @@ function projectBenefits(finances, year, month) {
     }
   }
 
-  // Se houver recarga/base mensal de benefício configurada (sem dia civil)
+  // Se houver recarga/base mensal de benefício configurada
   if (finances && finances.benefitsConfig && typeof finances.benefitsConfig === 'object') {
     const rawCredit = finances.benefitsConfig.amount != null
       ? finances.benefitsConfig.amount
@@ -652,18 +662,52 @@ function projectBenefits(finances, year, month) {
 
     if (creditAmount > 0) {
       const occurrenceKey = `benefit_credit_${canonicalKey}`;
-      undated.push({
+      let date = null;
+      let nominalDay = null;
+      let wasClamped = false;
+      let wasAdjusted = false;
+      let competenceKept = true;
+      let temporalRuleType = null;
+      let weekendAdjustment = null;
+
+      const cr = finances.benefitsConfig.creditRule;
+      if (cr && typeof cr === 'object' && !Array.isArray(cr)) {
+        const res = resolveTemporalRule(cr, year, month);
+        if (res && res.date) {
+          date = res.date;
+          nominalDay = res.nominalDay;
+          wasClamped = res.wasClamped;
+          wasAdjusted = res.wasAdjusted;
+          competenceKept = res.competenceKept;
+          temporalRuleType = res.type;
+          weekendAdjustment = res.weekendAdjustment || null;
+        }
+      }
+
+      const creditItem = {
         id: occurrenceKey,
         sourceId: 'benefitsConfig',
         sourceType: 'benefit_credit',
         direction: 'inflow',
-        date: null,
+        date,
+        nominalDay,
+        wasClamped,
+        wasAdjusted,
+        competenceKept,
+        temporalRuleType,
+        weekendAdjustment,
         competence: canonicalKey,
         amount: creditAmount,
         status: null,
         description: 'Crédito Benefício (VA/VR)',
         occurrenceKey
-      });
+      };
+
+      if (date) {
+        events.push(creditItem);
+      } else {
+        undated.push(creditItem);
+      }
     }
   }
 

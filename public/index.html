@@ -1538,10 +1538,54 @@
                 <input id="profSalary" type="number" step="0.01" min="0" placeholder="0,00" required>
                 <p class="hint">Este valor será utilizado como salário base automático para todos os meses.</p>
               </div>
-              <div class="field">
-                <label for="profSalaryDay">Dia de Pagamento do Salário <small style="font-weight:600; color:var(--muted);">(Opcional)</small></label>
-                <input id="profSalaryDay" type="number" min="1" max="31" placeholder="Ex: 5">
-                <p class="hint">Dia fixo do mês em que você costuma receber seu salário (1 a 31).</p>
+              <div style="border-top:1px solid var(--line); padding-top:12px; margin-top:2px;">
+                <div class="field">
+                  <label for="profSalaryRuleType">Quando você recebe seu salário? <small style="font-weight:600; color:var(--muted);">(Opcional)</small></label>
+                  <select id="profSalaryRuleType">
+                    <option value="fixed_day">Dia fixo do mês</option>
+                    <option value="nth_business_day">Dia útil do mês</option>
+                  </select>
+                </div>
+
+                <!-- Painel: Dia fixo do mês -->
+                <div id="profSalaryFixedGroup" style="display: grid; gap: 12px; margin-top: 10px;">
+                  <div class="field">
+                    <label for="profSalaryDay">Dia do recebimento</label>
+                    <input id="profSalaryDay" type="number" min="1" max="31" placeholder="Ex: 5">
+                    <p class="hint">Dia do mês em que você costuma receber seu salário (1 a 31).</p>
+                  </div>
+                  <div class="field">
+                    <label for="profSalaryWeekendAdj">Se cair no fim de semana</label>
+                    <select id="profSalaryWeekendAdj">
+                      <option value="none">Manter a data</option>
+                      <option value="previous_business_day">Antecipar para o dia útil anterior</option>
+                      <option value="next_business_day">Adiar para o próximo dia útil</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Painel: Dia útil do mês -->
+                <div id="profSalaryBusinessGroup" style="display: none; gap: 12px; margin-top: 10px;">
+                  <div class="field">
+                    <label for="profSalaryBusinessDay">Dia útil do recebimento</label>
+                    <select id="profSalaryBusinessDay">
+                      <option value="1">1º dia útil do mês</option>
+                      <option value="2">2º dia útil do mês</option>
+                      <option value="3">3º dia útil do mês</option>
+                      <option value="4">4º dia útil do mês</option>
+                      <option value="5">5º dia útil do mês</option>
+                      <option value="6">6º dia útil do mês</option>
+                      <option value="7">7º dia útil do mês</option>
+                      <option value="8">8º dia útil do mês</option>
+                      <option value="9">9º dia útil do mês</option>
+                      <option value="10">10º dia útil do mês</option>
+                      <option value="15">15º dia útil do mês</option>
+                      <option value="20">20º dia útil do mês</option>
+                      <option value="-1">Último dia útil do mês</option>
+                    </select>
+                    <p class="hint">Calculado considerando dias úteis de segunda a sexta-feira.</p>
+                  </div>
+                </div>
               </div>
               <div style="border-top:1px solid var(--line); padding-top:12px; margin-top:6px;">
                 <div class="field">
@@ -1549,6 +1593,56 @@
                   <input id="profBenefit" type="number" step="0.01" min="0" placeholder="0,00">
                   <p class="hint" style="margin-top:6px;">Limite/saldo mensal compartilhado para todas as categorias de
                     benefícios (Saúde, VR, VA, Transporte, Educação, Cultura, Farmácia).</p>
+                </div>
+
+                <!-- Regra Temporal de Crédito do Benefício -->
+                <div class="field" style="margin-top: 12px;">
+                  <label for="profBenefitCreditRuleType">QUANDO SEU BENEFÍCIO É CREDITADO?</label>
+                  <select id="profBenefitCreditRuleType">
+                    <option value="none">Não configurado (sem data definida)</option>
+                    <option value="fixed_day">Dia fixo do mês</option>
+                    <option value="nth_business_day">Dia útil do mês</option>
+                  </select>
+                </div>
+
+                <!-- Painel: Dia fixo do mês -->
+                <div id="profBenefitFixedGroup" style="display: none; gap: 12px; margin-top: 10px;">
+                  <div class="field">
+                    <label for="profBenefitCreditDay">Dia do crédito</label>
+                    <input id="profBenefitCreditDay" type="number" min="1" max="31" placeholder="Ex: 10">
+                    <p class="hint">Dia do mês em que você costuma receber o crédito de benefício (1 a 31).</p>
+                  </div>
+                  <div class="field">
+                    <label for="profBenefitCreditWeekendAdj">Se cair no fim de semana</label>
+                    <select id="profBenefitCreditWeekendAdj">
+                      <option value="none">Manter a data</option>
+                      <option value="previous_business_day">Antecipar para o dia útil anterior</option>
+                      <option value="next_business_day">Adiar para o próximo dia útil</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Painel: Dia útil do mês -->
+                <div id="profBenefitBusinessGroup" style="display: none; gap: 12px; margin-top: 10px;">
+                  <div class="field">
+                    <label for="profBenefitBusinessDay">Dia útil do crédito</label>
+                    <select id="profBenefitBusinessDay">
+                      <option value="1">1º dia útil do mês</option>
+                      <option value="2">2º dia útil do mês</option>
+                      <option value="3">3º dia útil do mês</option>
+                      <option value="4">4º dia útil do mês</option>
+                      <option value="5">5º dia útil do mês</option>
+                      <option value="6">6º dia útil do mês</option>
+                      <option value="7">7º dia útil do mês</option>
+                      <option value="8">8º dia útil do mês</option>
+                      <option value="9">9º dia útil do mês</option>
+                      <option value="10">10º dia útil do mês</option>
+                      <option value="15">15º dia útil do mês</option>
+                      <option value="20">20º dia útil do mês</option>
+                      <option value="-1">Último dia útil do mês</option>
+                    </select>
+                    <p class="hint">Calculado considerando dias úteis de segunda a sexta-feira.</p>
+                  </div>
                 </div>
               </div>
               <button type="submit" class="btn primary" style="justify-self: start;">Salvar Perfil</button>

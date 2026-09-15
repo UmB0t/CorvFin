@@ -301,6 +301,72 @@ function validateFinanceSemantics(payload) {
     }
   }
 
+  function checkTemporalRule(rule, parentName) {
+    if (!rule || typeof rule !== 'object' || Array.isArray(rule)) {
+      const err = new Error(`INVALID_FINANCE_PAYLOAD: "${parentName}" deve ser um objeto.`);
+      err.status = 400;
+      err.code = 'INVALID_FINANCE_PAYLOAD';
+      throw err;
+    }
+    checkString(rule.type, 50, `${parentName}.type`);
+    if (rule.type === 'fixed_day') {
+      if (rule.ordinal !== undefined) {
+        const err = new Error(`INVALID_FINANCE_PAYLOAD: "ordinal" não é permitido em "${parentName}" do tipo "fixed_day".`);
+        err.status = 400;
+        err.code = 'INVALID_FINANCE_PAYLOAD';
+        throw err;
+      }
+      const d = rule.day;
+      const num = Number(d);
+      if (d === undefined || d === null || !Number.isInteger(num) || num < 1 || num > 31) {
+        const err = new Error(`INVALID_FINANCE_PAYLOAD: dia inválido (${d}) em "${parentName}.day". Deve ser um inteiro entre 1 e 31.`);
+        err.status = 400;
+        err.code = 'INVALID_FINANCE_PAYLOAD';
+        throw err;
+      }
+      if (rule.weekendAdjustment !== undefined && rule.weekendAdjustment !== null) {
+        checkString(rule.weekendAdjustment, 50, `${parentName}.weekendAdjustment`);
+        if (!['none', 'previous_business_day', 'next_business_day'].includes(rule.weekendAdjustment)) {
+          const err = new Error(`INVALID_FINANCE_PAYLOAD: ajuste de fim de semana inválido ("${rule.weekendAdjustment}") em "${parentName}.weekendAdjustment". Esperado 'none', 'previous_business_day' ou 'next_business_day'.`);
+          err.status = 400;
+          err.code = 'INVALID_FINANCE_PAYLOAD';
+          throw err;
+        }
+      }
+    } else if (rule.type === 'nth_business_day') {
+      if (rule.day !== undefined) {
+        const err = new Error(`INVALID_FINANCE_PAYLOAD: "day" não é permitido em "${parentName}" do tipo "nth_business_day".`);
+        err.status = 400;
+        err.code = 'INVALID_FINANCE_PAYLOAD';
+        throw err;
+      }
+      if (rule.weekendAdjustment !== undefined) {
+        const err = new Error(`INVALID_FINANCE_PAYLOAD: "weekendAdjustment" não é permitido em "${parentName}" do tipo "nth_business_day".`);
+        err.status = 400;
+        err.code = 'INVALID_FINANCE_PAYLOAD';
+        throw err;
+      }
+      if (rule.ordinal === undefined || rule.ordinal === null) {
+        const err = new Error(`INVALID_FINANCE_PAYLOAD: ordinal obrigatório em "${parentName}.ordinal".`);
+        err.status = 400;
+        err.code = 'INVALID_FINANCE_PAYLOAD';
+        throw err;
+      }
+      const ord = Number(rule.ordinal);
+      if (!Number.isInteger(ord) || (ord !== -1 && (ord < 1 || ord > 23))) {
+        const err = new Error(`INVALID_FINANCE_PAYLOAD: ordinal inválido (${rule.ordinal}) em "${parentName}.ordinal". Deve ser um inteiro entre 1 e 23 ou -1 (último dia útil).`);
+        err.status = 400;
+        err.code = 'INVALID_FINANCE_PAYLOAD';
+        throw err;
+      }
+    } else {
+      const err = new Error(`INVALID_FINANCE_PAYLOAD: tipo de regra temporal inválido ("${rule.type}") em "${parentName}.type". Esperado 'fixed_day' ou 'nth_business_day'.`);
+      err.status = 400;
+      err.code = 'INVALID_FINANCE_PAYLOAD';
+      throw err;
+    }
+  }
+
   // 1. Validação de coleções de arrays e unicidade de IDs por coleção
   for (const colName of TRACKED_ARRAY_COLLECTIONS) {
     const arr = payload[colName];
@@ -532,6 +598,9 @@ function validateFinanceSemantics(payload) {
     checkFiniteNumber(payload.benefitsConfig.amount, 'benefitsConfig.amount', true, true);
     checkFiniteNumber(payload.benefitsConfig.va, 'benefitsConfig.va', true, true);
     checkFiniteNumber(payload.benefitsConfig.vr, 'benefitsConfig.vr', true, true);
+    if (payload.benefitsConfig.creditRule !== undefined && payload.benefitsConfig.creditRule !== null) {
+      checkTemporalRule(payload.benefitsConfig.creditRule, 'benefitsConfig.creditRule');
+    }
   }
 
   if (Array.isArray(payload.benefitTransactions)) {
@@ -579,21 +648,7 @@ function validateFinanceSemantics(payload) {
       checkFiniteNumber(payload.profile.baseSalary, 'profile.baseSalary', true, true);
     }
     if (payload.profile.salaryPayment !== undefined && payload.profile.salaryPayment !== null) {
-      if (typeof payload.profile.salaryPayment !== 'object' || Array.isArray(payload.profile.salaryPayment)) {
-        const err = new Error('INVALID_FINANCE_PAYLOAD: profile.salaryPayment deve ser um objeto.');
-        err.status = 400;
-        err.code = 'INVALID_FINANCE_PAYLOAD';
-        throw err;
-      }
-      const sp = payload.profile.salaryPayment;
-      checkString(sp.type, 50, 'profile.salaryPayment.type');
-      if (sp.type !== 'fixed_day') {
-        const err = new Error(`INVALID_FINANCE_PAYLOAD: tipo de pagamento salarial inválido ("${sp.type}") em "profile.salaryPayment.type". Esperado 'fixed_day'.`);
-        err.status = 400;
-        err.code = 'INVALID_FINANCE_PAYLOAD';
-        throw err;
-      }
-      checkDueDay(sp.day, 'profile.salaryPayment.day');
+      checkTemporalRule(payload.profile.salaryPayment, 'profile.salaryPayment');
     }
   }
 
