@@ -35,6 +35,163 @@ function getDueDateLabel(item) {
         return dueText || 'Mensal';
       }
 
+  // Mapeamento semântico dos status do domínio financeiro
+  function getStatusSortRank(status) {
+    const s = String(status || '').toLowerCase().trim();
+    switch (s) {
+      case 'pendente':
+      case 'em_aberto':
+      case 'unpaid':
+      case 'aberto':
+        return 1;
+      case 'parcial':
+      case 'partial':
+        return 2;
+      case 'pago':
+      case 'recebido':
+      case 'liquidado':
+      case 'settled':
+      case 'paid':
+        return 3;
+      default:
+        return 99; // Fallback determinístico para status desconhecido
+    }
+  }
+
+  // Extração da data temporal efetiva da ocorrência no mês
+  function extractEffectiveDueDay(item) {
+    let rawDay = item.dueDay;
+    if (rawDay === undefined || rawDay === null || rawDay === '') {
+      rawDay = item.paymentDay;
+    }
+    const dayNum = Number(rawDay);
+    if (Number.isFinite(dayNum) && dayNum >= 1 && dayNum <= 31) {
+      return dayNum;
+    }
+    return null;
+  }
+
+  // Comparador semântico para a tabela de despesas
+  function compareFullscreenItems(a, b, key, asc) {
+    let cmp = 0;
+
+    switch (key) {
+      case 'type': {
+        const typeA = String(a.typeName || a.itemType || '');
+        const typeB = String(b.typeName || b.itemType || '');
+        cmp = typeA.localeCompare(typeB, 'pt-BR', { sensitivity: 'base' });
+        break;
+      }
+      case 'name': {
+        const nameA = String(a.name || a.title || '');
+        const nameB = String(b.name || b.title || '');
+        cmp = nameA.localeCompare(nameB, 'pt-BR', { sensitivity: 'base' });
+        break;
+      }
+      case 'amount': {
+        const amtA = Number(a.amount) || 0;
+        const amtB = Number(b.amount) || 0;
+        cmp = amtA - amtB;
+        break;
+      }
+      case 'group':
+      case 'category': {
+        const catA = String(a.group || a.category || 'Gerais');
+        const catB = String(b.group || b.category || 'Gerais');
+        cmp = catA.localeCompare(catB, 'pt-BR', { sensitivity: 'base' });
+        break;
+      }
+      case 'destination': {
+        const destA = String(a.destination || 'Gerais');
+        const destB = String(b.destination || 'Gerais');
+        cmp = destA.localeCompare(destB, 'pt-BR', { sensitivity: 'base' });
+        break;
+      }
+      case 'dueDay': {
+        // Prioridade 1: data temporal efetiva da ocorrência (itens sem data ao final no ASC)
+        const dayA = extractEffectiveDueDay(a);
+        const dayB = extractEffectiveDueDay(b);
+
+        if (dayA !== null && dayB === null) {
+          cmp = -1;
+        } else if (dayA === null && dayB !== null) {
+          cmp = 1;
+        } else if (dayA !== null && dayB !== null && dayA !== dayB) {
+          cmp = dayA - dayB;
+        } else {
+          // Prioridade 2: índice da parcela como desempate quando aplicável
+          const instA = Number(a.installmentIndex) || 0;
+          const instB = Number(b.installmentIndex) || 0;
+          if (instA !== instB) {
+            cmp = instA - instB;
+          }
+        }
+        break;
+      }
+      case 'status': {
+        const rankA = getStatusSortRank(a.status);
+        const rankB = getStatusSortRank(b.status);
+        if (rankA !== rankB) {
+          cmp = rankA - rankB;
+        } else {
+          cmp = String(a.status || '').localeCompare(String(b.status || ''), 'pt-BR', { sensitivity: 'base' });
+        }
+        break;
+      }
+      default: {
+        const valA = String(a[key] || '');
+        const valB = String(b[key] || '');
+        cmp = valA.localeCompare(valB, 'pt-BR', { sensitivity: 'base' });
+        break;
+      }
+    }
+
+    // Desempate estável por nome se diferente de 'name'
+    if (cmp === 0 && key !== 'name') {
+      cmp = String(a.name || '').localeCompare(String(b.name || ''), 'pt-BR', { sensitivity: 'base' });
+    }
+
+    return asc ? cmp : -cmp;
+  }
+
+  function updateFullscreenTableSortIndicators() {
+    const headers = document.querySelectorAll('#fullscreenTable th[data-sort-col]');
+    headers.forEach(th => {
+      const col = th.getAttribute('data-sort-col');
+      if (!col) return;
+      const isActive = (col === fsSortKey);
+      const icon = isActive ? (fsSortAsc ? '▲' : '▼') : '⇳';
+
+      th.classList.toggle('active-sort', isActive);
+      th.setAttribute('aria-sort', isActive ? (fsSortAsc ? 'ascending' : 'descending') : 'none');
+
+      let iconSpan = th.querySelector('.sort-icon');
+      if (iconSpan) {
+        iconSpan.textContent = icon;
+      }
+    });
+  }
+
+  function bindFullscreenTableSortListeners() {
+    const headers = document.querySelectorAll('#fullscreenTable th[data-sort-col]');
+    headers.forEach(th => {
+      if (th._fsSortBound) return;
+      th._fsSortBound = true;
+      th.style.cursor = 'pointer';
+      th.addEventListener('click', () => {
+        const col = th.getAttribute('data-sort-col');
+        if (!col) return;
+        if (fsSortKey === col) {
+          fsSortAsc = !fsSortAsc;
+        } else {
+          fsSortKey = col;
+          fsSortAsc = true;
+        }
+        renderFullscreenTable();
+      });
+    });
+  }
+
 function openFullscreenTable(presetType) {
     const state = getState();
         const dlg = $('#fullscreenTableDialog');
@@ -63,6 +220,7 @@ function openFullscreenTable(presetType) {
           }).join('');
         }
 
+        bindFullscreenTableSortListeners();
         renderFullscreenTable();
         dlg.showModal();
       }
@@ -95,20 +253,12 @@ function renderFullscreenTable() {
           return true;
         });
 
-        allItems.sort((a, b) => {
-          let valA = a[fsSortKey] || '';
-          let valB = b[fsSortKey] || '';
-
-          if (fsSortKey === 'amount') { valA = Number(valA) || 0; valB = Number(valB) || 0; }
-          else if (fsSortKey === 'dueDay') { valA = Number(valA) || 99; valB = Number(valB) || 99; }
-          else { valA = String(valA).toLowerCase(); valB = String(valB).toLowerCase(); }
-
-          if (valA < valB) return fsSortAsc ? -1 : 1;
-          if (valA > valB) return fsSortAsc ? 1 : -1;
-          return 0;
-        });
+        allItems.sort((a, b) => compareFullscreenItems(a, b, fsSortKey, fsSortAsc));
 
         $('#fsTableSummary').textContent = `Exibindo ${allItems.length} lançamentos em ${MONTH_NAMES[m - 1]}/${y}`;
+
+        bindFullscreenTableSortListeners();
+        updateFullscreenTableSortIndicators();
 
         const tbody = $('#fsTableBody');
         if (allItems.length === 0) {
@@ -2286,7 +2436,7 @@ function renderExpensesLists() {
     $('#openFixedFsBtn')?.addEventListener('click', () => openFullscreenTable('fixed'));
     $('#openVarFsBtn')?.addEventListener('click', () => openFullscreenTable('variable'));
 
-    ['#fsSearchInput', '#fsTypeFilter', '#fsGroupFilter', '#fsStatusFilter', '#fsDestFilter'].forEach(id => {
+    ['#fsSearchInput', '#fsTypeFilter', '#fsGroupFilter', '#fsCategoryFilter', '#fsStatusFilter', '#fsDestFilter'].forEach(id => {
       const el = $(id);
       if (el) {
         el.addEventListener('input', renderFullscreenTable);
@@ -2294,18 +2444,7 @@ function renderExpensesLists() {
       }
     });
 
-    $$('#fullscreenTable th[data-sort]')?.forEach(th => {
-      th.addEventListener('click', () => {
-        const key = th.dataset.sort;
-        if (fsSortKey === key) {
-          fsSortAsc = !fsSortAsc;
-        } else {
-          fsSortKey = key;
-          fsSortAsc = true;
-        }
-        renderFullscreenTable();
-      });
-    });
+    bindFullscreenTableSortListeners();
 
     $('#markAllFixedPaidBtn')?.addEventListener('click', () => markAllSectionPaid('fixed'));
     $('#markAllVarPaidBtn')?.addEventListener('click', () => markAllSectionPaid('variable'));
@@ -3107,6 +3246,10 @@ function renderExpensesLists() {
   window.openQuickExpenseDialog = openQuickExpenseDialog;
   window.openPartialPaymentDialog = openPartialPaymentDialog;
   window.openFullscreenTable = openFullscreenTable;
+  window.renderFullscreenTable = renderFullscreenTable;
+  window.compareFullscreenItems = compareFullscreenItems;
+  window.getFsSortState = () => ({ sortKey: fsSortKey, sortAsc: fsSortAsc });
+  window.setFsSortState = (key, asc) => { fsSortKey = key; fsSortAsc = !!asc; };
   window.toggleExpenseStatus = toggleExpenseStatus;
   window.markAllSectionPaid = markAllSectionPaid;
   window.reorderExpenses = reorderExpenses;

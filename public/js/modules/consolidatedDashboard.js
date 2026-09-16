@@ -21,6 +21,13 @@
     destinations: {}
   };
 
+  // Estado Local de Seções Expansíveis de Nível 3 (preserva estado durante re-renders na mesma sessão)
+  const expandedSections = {
+    category: false,
+    destination: false,
+    matrix: false
+  };
+
 
   /**
    * Constrói o dataset consolidado normalizado para a competência financeira (year, month).
@@ -1007,13 +1014,25 @@
       </div>
     `;
 
-    // Seções Expansíveis de Nível 3 (iniciam COLLAPSED por padrão)
+    // Preserva estado atual das seções se já existirem no DOM antes do re-render
+    const existingCat = document.getElementById('dashCategorySection');
+    if (existingCat) expandedSections.category = existingCat.classList.contains('is-expanded');
+    const existingDest = document.getElementById('dashDestinationSection');
+    if (existingDest) expandedSections.destination = existingDest.classList.contains('is-expanded');
+    const existingMatrix = document.getElementById('dashMatrixSection');
+    if (existingMatrix) expandedSections.matrix = existingMatrix.classList.contains('is-expanded');
+
+    const isCatExpanded = !!expandedSections.category;
+    const isDestExpanded = !!expandedSections.destination;
+    const isMatrixExpanded = !!expandedSections.matrix;
+
+    // Seções Expansíveis de Nível 3 (preserva estado entre re-renders de drilldown)
     const analysisSectionsHtml = `
       <div class="dash-analysis-sections" id="dashAnalysisSections">
         <div class="dash-analysis-grid">
           <!-- SEÇÃO 1: POR CATEGORIA (COLLAPSIBLE) -->
-          <div class="card expandable-section is-collapsed" id="dashCategorySection" data-expandable-section>
-            <div class="expandable-section__header" id="dashCategoryHeader" aria-expanded="false" aria-controls="dashCategoryContent">
+          <div class="card expandable-section ${isCatExpanded ? 'is-expanded' : 'is-collapsed'}" id="dashCategorySection" data-expandable-section>
+            <div class="expandable-section__header" id="dashCategoryHeader" aria-expanded="${isCatExpanded ? 'true' : 'false'}" aria-controls="dashCategoryContent">
               <div class="expandable-section__title-group">
                 <div class="expandable-section__titles">
                   <h3 class="expandable-section__title">
@@ -1032,7 +1051,7 @@
                 </span>
               </div>
             </div>
-            <div class="expandable-section__content" id="dashCategoryContent" hidden>
+            <div class="expandable-section__content" id="dashCategoryContent" ${isCatExpanded ? '' : 'hidden'}>
               <div style="display:flex; flex-direction:column; padding-top:6px;">
                 ${categoryCardsHtml}
               </div>
@@ -1040,8 +1059,8 @@
           </div>
 
           <!-- SEÇÃO 2: POR DESTINO / CARTÃO (COLLAPSIBLE) -->
-          <div class="card expandable-section is-collapsed" id="dashDestinationSection" data-expandable-section>
-            <div class="expandable-section__header" id="dashDestinationHeader" aria-expanded="false" aria-controls="dashDestinationContent">
+          <div class="card expandable-section ${isDestExpanded ? 'is-expanded' : 'is-collapsed'}" id="dashDestinationSection" data-expandable-section>
+            <div class="expandable-section__header" id="dashDestinationHeader" aria-expanded="${isDestExpanded ? 'true' : 'false'}" aria-controls="dashDestinationContent">
               <div class="expandable-section__title-group">
                 <div class="expandable-section__titles">
                   <h3 class="expandable-section__title">
@@ -1060,7 +1079,7 @@
                 </span>
               </div>
             </div>
-            <div class="expandable-section__content" id="dashDestinationContent" hidden>
+            <div class="expandable-section__content" id="dashDestinationContent" ${isDestExpanded ? '' : 'hidden'}>
               <div style="display:flex; flex-direction:column; padding-top:6px;">
                 ${destinationCardsHtml}
               </div>
@@ -1069,8 +1088,8 @@
         </div>
 
         <!-- SEÇÃO 3: MATRIZ CRUZADA (COLLAPSIBLE) -->
-        <div class="card expandable-section is-collapsed full-width" id="dashMatrixSection" data-expandable-section>
-          <div class="expandable-section__header" id="dashMatrixHeader" aria-expanded="false" aria-controls="dashMatrixContent">
+        <div class="card expandable-section ${isMatrixExpanded ? 'is-expanded' : 'is-collapsed'} full-width" id="dashMatrixSection" data-expandable-section>
+          <div class="expandable-section__header" id="dashMatrixHeader" aria-expanded="${isMatrixExpanded ? 'true' : 'false'}" aria-controls="dashMatrixContent">
             <div class="expandable-section__title-group">
               <div class="expandable-section__titles">
                 <h3 class="expandable-section__title">
@@ -1089,7 +1108,7 @@
               </span>
             </div>
           </div>
-          <div class="expandable-section__content" id="dashMatrixContent" hidden style="padding:0;">
+          <div class="expandable-section__content" id="dashMatrixContent" ${isMatrixExpanded ? '' : 'hidden'} style="padding:0;">
             ${matrixTableHtml}
           </div>
         </div>
@@ -1129,14 +1148,29 @@
       `;
     }
 
-    // Inicialização das seções expansíveis de Nível 3 (iniciam collapsed, SEM storageKey)
+    // Inicialização das seções expansíveis de Nível 3 (preserva estado durante re-renders)
     if (typeof window.initExpandableSection === 'function') {
       const catSec = container.querySelector('#dashCategorySection');
       const destSec = container.querySelector('#dashDestinationSection');
       const matrixSec = container.querySelector('#dashMatrixSection');
-      if (catSec) window.initExpandableSection(catSec, { defaultExpanded: false });
-      if (destSec) window.initExpandableSection(destSec, { defaultExpanded: false });
-      if (matrixSec) window.initExpandableSection(matrixSec, { defaultExpanded: false });
+      if (catSec) {
+        window.initExpandableSection(catSec, {
+          defaultExpanded: isCatExpanded,
+          onToggle: (isExp) => { expandedSections.category = isExp; }
+        });
+      }
+      if (destSec) {
+        window.initExpandableSection(destSec, {
+          defaultExpanded: isDestExpanded,
+          onToggle: (isExp) => { expandedSections.destination = isExp; }
+        });
+      }
+      if (matrixSec) {
+        window.initExpandableSection(matrixSec, {
+          defaultExpanded: isMatrixExpanded,
+          onToggle: (isExp) => { expandedSections.matrix = isExp; }
+        });
+      }
     }
 
     // Se a projeção da competência atual ainda não estiver carregada, busca via Calendar API
