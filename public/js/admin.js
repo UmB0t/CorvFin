@@ -67,6 +67,8 @@ const AdminModule = (() => {
     }
   ];
 
+  window.ALL_MODULES_CONFIG = ALL_MODULES_CONFIG;
+
   function escapeHtml(str) {
     return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
   }

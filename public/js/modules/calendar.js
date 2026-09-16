@@ -501,6 +501,9 @@
     initCalendarState();
     const reqId = ++activeRequestId;
 
+    const mc = (typeof document !== 'undefined') ? document.querySelector('.main-content') : null;
+    const preservedScrollTop = mc ? mc.scrollTop : (typeof window !== 'undefined' ? window.scrollY : 0);
+
     if (activeAbortController) {
       try { activeAbortController.abort(); } catch (_) {}
     }
@@ -551,6 +554,10 @@
       if (reqId === activeRequestId) {
         isLoading = false;
         renderCalendarUI();
+        if (preservedScrollTop > 0) {
+          if (mc) mc.scrollTop = preservedScrollTop;
+          if (typeof window !== 'undefined') window.scrollTo(0, preservedScrollTop);
+        }
       }
     }
   }
