@@ -460,6 +460,17 @@ function projectVariableExpenses(finances, year, month) {
     const dest = findDestination(finances, v.destinationId, v.payment?.account || v.destination);
     const invoiceEligible = isCreditCardInvoiceEligible(v, dest);
 
+    const IMMEDIATE_METHODS = ['pix', 'dinheiro', 'cartao_debito', 'transferencia', 'debito_automatico'];
+    const rawMethod = (v.payment?.method || v.paymentMethod || '').trim().toLowerCase();
+    const isExplicitImmediate = IMMEDIATE_METHODS.includes(rawMethod);
+    const isExplicitCard = (rawMethod === 'cartao_credito');
+    const isDestCard = !isExplicitImmediate && (dest?.type === 'credit_card' || dest?.icon === 'card');
+    const isCardTransaction = !isExplicitImmediate && (invoiceEligible || isConfiguredCreditCard(dest) || isExplicitCard || isDestCard);
+
+    const hasValidTxDate = !!(v.transactionDate && isValidCanonicalDateString(v.transactionDate));
+    const parsedTx = hasValidTxDate ? parseCanonicalDate(v.transactionDate) : null;
+    const isTxInCurrentMonth = !!(parsedTx && parsedTx.year === year && parsedTx.month === month);
+
     let count = 1;
     if (v.installments !== undefined && v.installments !== null) {
       count = Math.max(1, parseInt(v.installments, 10) || 1);
@@ -467,55 +478,101 @@ function projectVariableExpenses(finances, year, month) {
       count = Math.max(1, (Number(v.endYear) * 12 + Number(v.endMonth)) - (Number(v.startYear) * 12 + Number(v.startMonth)) + 1);
     }
 
-    // 1. TRANSACTION EVENT (No dia civil real da compra)
-    // Aparece visualmente no dia da compra para cartões de crédito configurados (affectsCashflow = false)
-    if (v.transactionDate && isValidCanonicalDateString(v.transactionDate)) {
-      const parsedTx = parseCanonicalDate(v.transactionDate);
-      if (parsedTx && parsedTx.year === year && parsedTx.month === month) {
-        // Se for elegível à fatura ou for cartão de crédito estruturado
-        if (invoiceEligible || isConfiguredCreditCard(dest)) {
-          let totalPurchaseAmount = sanitizeAmount(v.totalAmount !== undefined ? v.totalAmount : (v.amountInputMode === 'total' ? v.amount : (Number(v.amount || 0) * count)));
-          if (totalPurchaseAmount <= 0 && v.amount) totalPurchaseAmount = sanitizeAmount(v.amount);
-          const instAmount = sanitizeAmount(v.installmentAmount !== undefined ? v.installmentAmount : (count > 1 ? (totalPurchaseAmount / count) : totalPurchaseAmount));
-          const txOccurrenceKey = `tx_${sourceId}_${v.transactionDate}`;
+    // 1. CASO A: CRÉDITO / FATURA DIFERIDA (Cartão estruturado ou legado)
+    if (isCardTransaction) {
+      // 1.1 TRANSACTION EVENT INFORMATIVO (No dia civil real da compra: affectsCashflow = false)
+      if (isTxInCurrentMonth) {
+        let totalPurchaseAmount = sanitizeAmount(v.totalAmount !== undefined ? v.totalAmount : (v.amountInputMode === 'total' ? v.amount : (Number(v.amount || 0) * count)));
+        if (totalPurchaseAmount <= 0 && v.amount) totalPurchaseAmount = sanitizeAmount(v.amount);
+        const instAmount = sanitizeAmount(v.installmentAmount !== undefined ? v.installmentAmount : (count > 1 ? (totalPurchaseAmount / count) : totalPurchaseAmount));
+        const txOccurrenceKey = `tx_${sourceId}_${v.transactionDate}`;
 
-          out.push({
-            id: txOccurrenceKey,
-            sourceId,
-            sourceType: 'variable_expense',
-            eventKind: 'transaction',
-            direction: 'outflow',
-            affectsCashflow: false,
-            date: v.transactionDate,
-            nominalDay: parsedTx.day,
-            competence: canonicalKey,
-            amount: (count > 1 && totalPurchaseAmount > 0) ? totalPurchaseAmount : (totalPurchaseAmount || sanitizeAmount(v.amount)),
-            purchaseAmount: (count > 1 && totalPurchaseAmount > 0) ? totalPurchaseAmount : (totalPurchaseAmount || sanitizeAmount(v.amount)),
-            installmentAmount: count > 1 ? instAmount : null,
-            installmentIndex: 1,
-            installmentTotal: count,
-            status: null,
-            description: v.name || v.description || 'Compra no Cartão',
-            dueDay: v.dueDay != null && v.dueDay !== '' ? Number(v.dueDay) : null,
-            transactionDate: v.transactionDate,
-            paymentMethod: v.payment?.method || v.paymentMethod || 'cartao_credito',
-            category: v.group || v.category || null,
-            destination: dest ? dest.name : (v.payment?.account || v.destination || null),
-            destinationId: dest ? dest.id : (v.destinationId || null),
-            destinationType: dest?.type || 'credit_card',
-            occurrenceKey: txOccurrenceKey
-          });
-        }
+        out.push({
+          id: txOccurrenceKey,
+          sourceId,
+          sourceType: 'variable_expense',
+          eventKind: 'transaction',
+          direction: 'outflow',
+          affectsCashflow: false,
+          date: v.transactionDate,
+          nominalDay: parsedTx.day,
+          competence: canonicalKey,
+          amount: (count > 1 && totalPurchaseAmount > 0) ? totalPurchaseAmount : (totalPurchaseAmount || sanitizeAmount(v.amount)),
+          purchaseAmount: (count > 1 && totalPurchaseAmount > 0) ? totalPurchaseAmount : (totalPurchaseAmount || sanitizeAmount(v.amount)),
+          totalAmount: (count > 1 && totalPurchaseAmount > 0) ? totalPurchaseAmount : (totalPurchaseAmount || sanitizeAmount(v.amount)),
+          installmentAmount: count > 1 ? instAmount : null,
+          installmentIndex: 1,
+          installmentTotal: count,
+          installments: count,
+          status: null,
+          description: v.name || v.description || 'Compra no Cartão',
+          dueDay: v.dueDay != null && v.dueDay !== '' ? Number(v.dueDay) : null,
+          transactionDate: v.transactionDate,
+          paymentMethod: rawMethod || 'cartao_credito',
+          category: v.group || v.category || null,
+          destination: dest ? dest.name : (v.payment?.account || v.destination || null),
+          destinationName: dest ? dest.name : (v.payment?.account || v.destination || null),
+          destinationId: dest ? dest.id : (v.destinationId || null),
+          destinationType: dest?.type || 'credit_card',
+          occurrenceKey: txOccurrenceKey
+        });
       }
+
+      // Se for fatura agregada estruturada, o cashflow da obrigação é gerado por projectCreditCardInvoices
+      if (invoiceEligible) {
+        continue;
+      }
+
+      // Se for cartão legado (ex.: Neon sem closingDay), o cashflow da obrigação
+      // é projetado na competência contábil no dueDay via CASO C abaixo.
     }
 
-    // Se a despesa é elegível à fatura de cartão de crédito, seu cashflow é projetado
-    // EXCLUSIVAMENTE via projectCreditCardInvoices no dia do vencimento da fatura (Zero Dupla Contabilização!)
-    if (invoiceEligible) {
+    // 2. CASO B: MEIOS DE IMPACTO IMEDIATO COM TRANSACTIONDATE CONFIÁVEL
+    // (pix, dinheiro, cartao_debito, transferencia, debito_automatico)
+    // A transactionDate representa a data efetiva do desembolso (affectsCashflow = true).
+    // Ocorre EXATAMENTE UMA VEZ no mês da transactionDate, sem duplicar na competência cadastrada.
+    if (isExplicitImmediate && hasValidTxDate) {
+      if (isTxInCurrentMonth) {
+        const resolvedAmounts = FinanceDomain.resolveInstallmentAmounts(v, year, month);
+        const amount = sanitizeAmount(resolvedAmounts.currentInstallmentAmount || v.amount);
+        const payInfo = resolveItemPaymentInfo(v, year, month, amount);
+        const occurrenceKey = `var_${sourceId}_imm_${v.transactionDate}`;
+
+        out.push({
+          id: occurrenceKey,
+          sourceId,
+          sourceType: 'variable_expense',
+          eventKind: 'cashflow',
+          direction: 'outflow',
+          affectsCashflow: true,
+          date: v.transactionDate,
+          nominalDay: parsedTx.day,
+          wasClamped: false,
+          competence: canonicalKey,
+          amount,
+          status: mapPaymentStatus(payInfo.status),
+          paidAmount: sanitizeAmount(payInfo.paidAmount),
+          remainingAmount: sanitizeAmount(payInfo.remainingAmount),
+          description: v.name || v.description || 'Despesa Variável',
+          installmentIndex: 1,
+          installmentTotal: count,
+          dueDay: v.dueDay != null && v.dueDay !== '' ? Number(v.dueDay) : null,
+          transactionDate: v.transactionDate,
+          paymentMethod: rawMethod,
+          category: v.group || v.category || null,
+          destination: v.payment?.account || v.destination || null,
+          destinationName: dest ? dest.name : (v.payment?.account || v.destination || null),
+          destinationId: dest ? dest.id : (v.destinationId || null),
+          destinationType: dest?.type || null,
+          occurrenceKey
+        });
+      }
+      // O desembolso ocorreu na data da operação imediata: não projeta cashflow duplicado em outra competência!
       continue;
     }
 
-    // 2. CASHFLOW REGULAR / LEGADO (Para despesas sem fatura agregada: dinheiro, pix, débito, boleto, legacy)
+    // 3. CASO C: CASHFLOW REGULAR / LEGADO
+    // (Cartões legados na data de vencimento, meios imediatos sem transactionDate ou métodos não classificados)
     const startComp = resolveVariableStartCompetence(v);
     if (!startComp) {
       continue;

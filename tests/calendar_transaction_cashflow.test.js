@@ -573,4 +573,246 @@ test('CorvFin — Transaction Events, Invoice Projection e Cashflow (Fase 3)', a
     const resOct = projectFinancialMonth(finances, 2026, 10);
     assert.equal(resOct.events.filter(e => e.eventKind === 'invoice').length, 0, 'Método explícito boleto prevalece sobre destino Neon');
   });
+
+  await t.test('Hotfix Desacoplamento: Compra em 16/09 com competência Novembro/2026 e obrigação em 15/10 coexistem sem conflito ou dupla contabilização', () => {
+    const finances = {
+      destinations: [
+        { id: 'dest_neon_card', name: 'Neon', type: 'credit_card', closingDay: 25, dueDay: 15 }
+      ],
+      variable: [
+        {
+          id: 'v_hotfix_1',
+          name: 'Compra em Setembro com Competência Novembro',
+          amount: 250,
+          destination: 'Neon',
+          destinationId: 'dest_neon_card',
+          transactionDate: '2026-09-16',
+          dueDay: 15,
+          startYear: 2026,
+          startMonth: 11, // Competência contábil cadastrada é Novembro!
+          installments: 1,
+          payment: { method: 'cartao_credito' }
+        }
+      ]
+    };
+
+    // SETEMBRO/2026: Deve emitir Transaction Event informativo da compra em 16/09 (affectsCashflow: false)
+    const resSep = projectFinancialMonth(finances, 2026, 9);
+    const txSep = resSep.events.filter(e => e.eventKind === 'transaction' && e.date === '2026-09-16');
+    assert.equal(txSep.length, 1, 'Deve emitir evento informativo da compra em 16/09');
+    assert.equal(txSep[0].affectsCashflow, false, 'affectsCashflow deve ser false na data da compra');
+    assert.equal(txSep[0].amount, 250);
+    assert.equal(resSep.summary.outflow, 0, 'Zero dupla contabilização no resumo financeiro de Setembro');
+
+    // OUTUBRO/2026: Deve projetar a obrigação financeira/fatura em 15/10 (affectsCashflow: true)
+    const resOct = projectFinancialMonth(finances, 2026, 10);
+    const invOct = resOct.events.filter(e => e.date === '2026-10-15' && e.affectsCashflow === true);
+    assert.equal(invOct.length, 1, 'Deve projetar a obrigação financeira/fatura em 15/10');
+    assert.equal(invOct[0].amount, 250);
+    assert.equal(resOct.summary.outflow, 250, 'Obrigação afeta o cashflow de Outubro corretamente');
+  });
+
+  await t.test('Hotfix Desacoplamento: Destino legado Neon sem closingDay emite transaction event em 16/09 e cashflow em 15/10 sem duplicar', () => {
+    const finances = {
+      destinations: [
+        { name: 'Neon', icon: 'card', dueDay: 15 } // Sem closingDay e sem type='credit_card'
+      ],
+      variable: [
+        {
+          id: 'v_hotfix_2',
+          name: 'Compra Cartão Neon Legado',
+          amount: 180,
+          destination: 'Neon',
+          transactionDate: '2026-09-16',
+          dueDay: 15,
+          startYear: 2026,
+          startMonth: 10,
+          installments: 1,
+          payment: { method: 'cartao_credito' }
+        }
+      ]
+    };
+
+    // SETEMBRO: Transaction event informativo
+    const resSep = projectFinancialMonth(finances, 2026, 9);
+    const txSep = resSep.events.filter(e => e.eventKind === 'transaction' && e.date === '2026-09-16');
+    assert.equal(txSep.length, 1, 'Emite transaction event em 16/09 para cartão mesmo sem closingDay');
+    assert.equal(txSep[0].affectsCashflow, false);
+    assert.equal(resSep.summary.outflow, 0, 'Zero outflow em Setembro');
+
+    // OUTUBRO: Cashflow da obrigação
+    const resOct = projectFinancialMonth(finances, 2026, 10);
+    const cfOct = resOct.events.filter(e => e.date === '2026-10-15' && e.affectsCashflow === true);
+    assert.equal(cfOct.length, 1, 'Emite obrigação de cashflow em 15/10');
+    assert.equal(resOct.summary.outflow, 180, 'Outflow afetado em Outubro');
+  });
+
+  // ======================================================================
+  // BATERIA OBRIGATÓRIA DE 10 TESTES: MEIOS IMEDIATOS × CARTÕES LEGADOS
+  // ======================================================================
+
+  await t.test('1. Neon legado: transactionDate 16/09, competência novembro -> transaction 16/09 affectsCashflow=false, obrigação posterior, zero dupla contabilização', () => {
+    const fin = {
+      destinations: [{ name: 'Neon', icon: 'card', dueDay: 15 }],
+      variable: [{
+        id: 'v_neon', name: 'Compra Neon', amount: 100, destination: 'Neon',
+        transactionDate: '2026-09-16', dueDay: 15, startMonth: 11, startYear: 2026, installments: 1, payment: { method: 'cartao_credito' }
+      }]
+    };
+    const sep = projectFinancialMonth(fin, 2026, 9);
+    const nov = projectFinancialMonth(fin, 2026, 11);
+    const sepTx = sep.events.filter(e => e.date === '2026-09-16' && e.eventKind === 'transaction');
+    const novCf = nov.events.filter(e => e.date === '2026-11-15' && e.affectsCashflow === true);
+    assert.equal(sepTx.length, 1);
+    assert.equal(sepTx[0].affectsCashflow, false);
+    assert.equal(sep.summary.outflow, 0, 'Setembro outflow deve ser 0 para compra no cartão');
+    assert.equal(novCf.length, 1);
+    assert.equal(nov.summary.outflow, 100, 'Novembro outflow deve ser 100 para obrigação no vencimento');
+  });
+
+  await t.test('2. Nubank legado sem payment.method: icon=card -> mesma compatibilidade de cartão', () => {
+    const fin = {
+      destinations: [{ name: 'Nubank PF', icon: 'card', dueDay: 9 }],
+      variable: [{
+        id: 'v_nu', name: 'Compra Nubank', amount: 80, destination: 'Nubank PF',
+        transactionDate: '2026-09-16', dueDay: 9, startMonth: 10, startYear: 2026, installments: 1
+      }]
+    };
+    const sep = projectFinancialMonth(fin, 2026, 9);
+    const oct = projectFinancialMonth(fin, 2026, 10);
+    const sepTx = sep.events.filter(e => e.date === '2026-09-16' && e.eventKind === 'transaction');
+    const octCf = oct.events.filter(e => e.date === '2026-10-09' && e.affectsCashflow === true);
+    assert.equal(sepTx.length, 1);
+    assert.equal(sepTx[0].affectsCashflow, false);
+    assert.equal(sep.summary.outflow, 0);
+    assert.equal(octCf.length, 1);
+    assert.equal(oct.summary.outflow, 80);
+  });
+
+  await t.test('3. PIX: transactionDate 16/09, competência novembro -> cashflow em 16/09, summary.outflow setembro inclui valor, novembro NÃO contabiliza novamente', () => {
+    const fin = {
+      destinations: [{ id: 'd_bank', name: 'Banco Inter', type: 'bank_account' }],
+      variable: [{
+        id: 'v_pix', name: 'Almoço Pix', amount: 50, destination: 'Banco Inter',
+        transactionDate: '2026-09-16', startMonth: 11, startYear: 2026, installments: 1, payment: { method: 'pix' }
+      }]
+    };
+    const sep = projectFinancialMonth(fin, 2026, 9);
+    const nov = projectFinancialMonth(fin, 2026, 11);
+    const sepCf = sep.events.filter(e => e.date === '2026-09-16' && e.affectsCashflow === true);
+    const novCf = nov.events.filter(e => e.sourceId === 'v_pix');
+    const novUnd = nov.undated.filter(e => e.sourceId === 'v_pix');
+    assert.equal(sepCf.length, 1, 'Pix gera cashflow em 16/09');
+    assert.equal(sep.summary.outflow, 50, 'Setembro outflow inclui Pix');
+    assert.equal(novCf.length, 0, 'Novembro NÃO pode ter cashflow');
+    assert.equal(novUnd.length, 0, 'Novembro NÃO pode ter undated');
+    assert.equal(nov.summary.outflow, 0, 'Novembro outflow é 0 (zero dupla contabilização)');
+  });
+
+  await t.test('4. dinheiro: transactionDate 16/09, competência novembro -> cashflow em 16/09, novembro sem duplicidade', () => {
+    const fin = {
+      variable: [{
+        id: 'v_cash', name: 'Lanche Dinheiro', amount: 30,
+        transactionDate: '2026-09-16', startMonth: 11, startYear: 2026, installments: 1, payment: { method: 'dinheiro' }
+      }]
+    };
+    const sep = projectFinancialMonth(fin, 2026, 9);
+    const nov = projectFinancialMonth(fin, 2026, 11);
+    assert.equal(sep.events.filter(e => e.date === '2026-09-16' && e.affectsCashflow === true).length, 1);
+    assert.equal(sep.summary.outflow, 30);
+    assert.equal(nov.events.filter(e => e.sourceId === 'v_cash').length, 0);
+    assert.equal(nov.undated.filter(e => e.sourceId === 'v_cash').length, 0);
+    assert.equal(nov.summary.outflow, 0);
+  });
+
+  await t.test('5. cartao_debito: transactionDate 16/09, competência novembro -> cashflow em 16/09, novembro sem duplicidade', () => {
+    const fin = {
+      variable: [{
+        id: 'v_deb', name: 'Mercado Débito', amount: 120,
+        transactionDate: '2026-09-16', startMonth: 11, startYear: 2026, installments: 1, payment: { method: 'cartao_debito' }
+      }]
+    };
+    const sep = projectFinancialMonth(fin, 2026, 9);
+    const nov = projectFinancialMonth(fin, 2026, 11);
+    assert.equal(sep.events.filter(e => e.date === '2026-09-16' && e.affectsCashflow === true).length, 1);
+    assert.equal(sep.summary.outflow, 120);
+    assert.equal(nov.summary.outflow, 0);
+  });
+
+  await t.test('6. transferencia: transactionDate 16/09, competência novembro -> cashflow em 16/09, novembro sem duplicidade', () => {
+    const fin = {
+      variable: [{
+        id: 'v_transf', name: 'TED Aluguel', amount: 500,
+        transactionDate: '2026-09-16', startMonth: 11, startYear: 2026, installments: 1, payment: { method: 'transferencia' }
+      }]
+    };
+    const sep = projectFinancialMonth(fin, 2026, 9);
+    const nov = projectFinancialMonth(fin, 2026, 11);
+    assert.equal(sep.events.filter(e => e.date === '2026-09-16' && e.affectsCashflow === true).length, 1);
+    assert.equal(sep.summary.outflow, 500);
+    assert.equal(nov.summary.outflow, 0);
+  });
+
+  await t.test('7. debito_automatico: transactionDate 16/09, competência novembro -> cashflow em 16/09, novembro sem duplicidade', () => {
+    const fin = {
+      variable: [{
+        id: 'v_debaut', name: 'Conta Luz Débito Auto', amount: 75,
+        transactionDate: '2026-09-16', startMonth: 11, startYear: 2026, installments: 1, payment: { method: 'debito_automatico' }
+      }]
+    };
+    const sep = projectFinancialMonth(fin, 2026, 9);
+    const nov = projectFinancialMonth(fin, 2026, 11);
+    assert.equal(sep.events.filter(e => e.date === '2026-09-16' && e.affectsCashflow === true).length, 1);
+    assert.equal(sep.summary.outflow, 75);
+    assert.equal(nov.summary.outflow, 0);
+  });
+
+  await t.test('8. método desconhecido: NÃO assumir crédito nem cashflow imediato artificialmente', () => {
+    const fin = {
+      destinations: [{ name: 'Outros', type: 'other' }],
+      variable: [{
+        id: 'v_unk', name: 'Despesa Método Desconhecido', amount: 90, destination: 'Outros',
+        transactionDate: '2026-09-16', dueDay: 20, startMonth: 11, startYear: 2026, installments: 1, payment: { method: 'metodo_customizado' }
+      }]
+    };
+    const sep = projectFinancialMonth(fin, 2026, 9);
+    const nov = projectFinancialMonth(fin, 2026, 11);
+    assert.equal(sep.events.filter(e => e.sourceId === 'v_unk').length, 0, 'Setembro NÃO assume crédito nem débito imediato');
+    assert.equal(sep.summary.outflow, 0);
+    assert.equal(nov.events.filter(e => e.sourceId === 'v_unk').length, 1, 'Novembro projeta no dueDay 20');
+    assert.equal(nov.events[0].date, '2026-11-20');
+    assert.equal(nov.summary.outflow, 90);
+  });
+
+  await t.test('9. ausência de transactionDate: preservar fallback legado existente (NÃO inventar data)', () => {
+    const fin = {
+      variable: [{
+        id: 'v_notx', name: 'Despesa Sem Data', amount: 60,
+        dueDay: 10, startMonth: 11, startYear: 2026, installments: 1, payment: { method: 'pix' }
+      }]
+    };
+    const sep = projectFinancialMonth(fin, 2026, 9);
+    const nov = projectFinancialMonth(fin, 2026, 11);
+    assert.equal(sep.events.filter(e => e.sourceId === 'v_notx').length, 0);
+    assert.equal(nov.events.filter(e => e.sourceId === 'v_notx').length, 1);
+    assert.equal(nov.events[0].date, '2026-11-10');
+    assert.equal(nov.summary.outflow, 60);
+  });
+
+  await t.test('10. cartão de crédito: compra + obrigação continuam sem dupla contabilização', () => {
+    const fin = {
+      destinations: [{ id: 'd_card', name: 'Cartão Master', type: 'credit_card', closingDay: 20, dueDay: 5 }],
+      variable: [{
+        id: 'v_cc', name: 'Compra Estruturada', amount: 200, destinationId: 'd_card',
+        transactionDate: '2026-09-10', installments: 1, payment: { method: 'cartao_credito' }
+      }]
+    };
+    const sep = projectFinancialMonth(fin, 2026, 9);
+    const oct = projectFinancialMonth(fin, 2026, 10);
+    assert.equal(sep.events.filter(e => e.eventKind === 'transaction').length, 1);
+    assert.equal(sep.summary.outflow, 0, 'Setembro outflow = 0');
+    assert.equal(oct.events.filter(e => e.eventKind === 'invoice').length, 1);
+    assert.equal(oct.events[0].date, '2026-10-05');
+    assert.equal(oct.summary.outflow, 200, 'Outubro outflow = 200');
+  });
 });

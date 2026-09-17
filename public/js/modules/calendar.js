@@ -285,7 +285,8 @@
       const totalText = (ev.totalAmount && ev.installments > 1)
         ? ` • Total ${formatCurrency(ev.totalAmount)}`
         : '';
-      metaDetails = `${ev.destinationName ? escapeStr(ev.destinationName) + ' • ' : ''}${instText}${totalText}`;
+      const destLabel = ev.destinationName || ev.destination || '';
+      metaDetails = `${destLabel ? escapeStr(destLabel) + ' • ' : ''}${instText}${totalText}`;
       badgeHtml = `<span class="tag info" style="font-size:0.68rem;">Compra no Cartão</span>`;
       dirClass = 'calendar-day-detail-amt--transaction';
       dirSign = '';
