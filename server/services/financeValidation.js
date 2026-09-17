@@ -416,6 +416,12 @@ function validateFinanceSemantics(payload) {
       checkPaidHistory(f.paidHistory, 'fixed');
 
       checkString(f.payee, STRING_LIMITS.NAME_MAX, 'fixed.payee');
+      if (f.destination !== undefined && f.destination !== null) {
+        checkString(f.destination, STRING_LIMITS.NAME_MAX, 'fixed.destination');
+      }
+      if (f.destinationId !== undefined && f.destinationId !== null) {
+        checkString(f.destinationId, 100, 'fixed.destinationId');
+      }
       if (f.payment && typeof f.payment === 'object') {
         checkString(f.payment.method, 50, 'fixed.payment.method');
         checkString(f.payment.account, STRING_LIMITS.NAME_MAX, 'fixed.payment.account');
@@ -469,6 +475,12 @@ function validateFinanceSemantics(payload) {
       checkString(v.name, STRING_LIMITS.NAME_MAX, 'variable.name');
       checkString(v.note, STRING_LIMITS.NOTES_MAX, 'variable.note');
       checkString(v.payee, STRING_LIMITS.NAME_MAX, 'variable.payee');
+      if (v.destination !== undefined && v.destination !== null) {
+        checkString(v.destination, STRING_LIMITS.NAME_MAX, 'variable.destination');
+      }
+      if (v.destinationId !== undefined && v.destinationId !== null) {
+        checkString(v.destinationId, 100, 'variable.destinationId');
+      }
       if (v.payment && typeof v.payment === 'object') {
         checkString(v.payment.method, 50, 'variable.payment.method');
         checkString(v.payment.account, STRING_LIMITS.NAME_MAX, 'variable.payment.account');
@@ -662,6 +674,50 @@ function validateFinanceSemantics(payload) {
         throw err;
       }
       checkFiniteNumber(payload.incomes[k], `incomes[${k}]`, true, true);
+    }
+  }
+
+  // 9. Validação semântica de destinations
+  if (Array.isArray(payload.destinations)) {
+    for (const d of payload.destinations) {
+      if (!d || typeof d !== 'object') continue;
+      checkString(d.name, STRING_LIMITS.NAME_MAX, 'destinations.name');
+      if (d.id !== undefined && d.id !== null) {
+        checkString(d.id, 100, 'destinations.id');
+      }
+      if (d.type !== undefined && d.type !== null && d.type !== '') {
+        checkString(d.type, 50, 'destinations.type');
+        if (!['cash', 'bank_account', 'credit_card', 'other'].includes(d.type)) {
+          const err = new Error(`INVALID_FINANCE_PAYLOAD: tipo de destino inválido ("${d.type}") em "destinations.type". Esperado 'cash', 'bank_account', 'credit_card' ou 'other'.`);
+          err.status = 400;
+          err.code = 'INVALID_FINANCE_PAYLOAD';
+          throw err;
+        }
+      }
+      if (d.color !== undefined && d.color !== null) {
+        checkString(d.color, 50, 'destinations.color');
+      }
+      if (d.icon !== undefined && d.icon !== null) {
+        checkString(d.icon, 50, 'destinations.icon');
+      }
+      if (d.dueDay !== undefined && d.dueDay !== null && d.dueDay !== '') {
+        const dd = Number(d.dueDay);
+        if (!Number.isInteger(dd) || dd < 1 || dd > 31) {
+          const err = new Error(`INVALID_FINANCE_PAYLOAD: dueDay inválido (${d.dueDay}) em "destinations.dueDay". Deve ser um inteiro entre 1 e 31.`);
+          err.status = 400;
+          err.code = 'INVALID_FINANCE_PAYLOAD';
+          throw err;
+        }
+      }
+      if (d.closingDay !== undefined && d.closingDay !== null && d.closingDay !== '') {
+        const cd = Number(d.closingDay);
+        if (!Number.isInteger(cd) || cd < 1 || cd > 31) {
+          const err = new Error(`INVALID_FINANCE_PAYLOAD: closingDay inválido (${d.closingDay}) em "destinations.closingDay". Deve ser um inteiro entre 1 e 31.`);
+          err.status = 400;
+          err.code = 'INVALID_FINANCE_PAYLOAD';
+          throw err;
+        }
+      }
     }
   }
 }

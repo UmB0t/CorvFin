@@ -40,9 +40,14 @@
     }
   }
 
-  function getDestMeta(destName) {
+  function getDestMeta(destName, destId) {
     const state = getState();
-    const found = state.destinations.find(d => d.name === destName);
+    const dests = state.destinations || [];
+    if (destId) {
+      const byId = dests.find(d => d && d.id === destId);
+      if (byId) return byId;
+    }
+    const found = dests.find(d => d && d.name === destName);
     if (found) return found;
     return { name: destName || 'Gerais', color: '#1F7A5C', icon: 'card' };
   }
@@ -97,11 +102,18 @@
         const iconSvg = DEST_SVG_ICONS[d.icon] || DEST_SVG_ICONS.card;
         const usage = countUsage('dest', d.name);
         const isNative = (d.name.toLowerCase() === 'pix' || d.name.toLowerCase() === 'dinheiro');
-        const dueText = d.dueDay ? `<small style="font-weight:800; opacity:0.85;">(Venc. dia ${d.dueDay})</small>` : (isNative ? `<small style="font-weight:800; opacity:0.75;">(À Vista)</small>` : '');
+        let timingText = '';
+        if (d.closingDay && d.dueDay) {
+          timingText = `<small style="font-weight:800; opacity:0.85;">(Fecha dia ${d.closingDay} • Venc. dia ${d.dueDay})</small>`;
+        } else if (d.dueDay) {
+          timingText = `<small style="font-weight:800; opacity:0.85;">(Venc. dia ${d.dueDay})</small>`;
+        } else if (isNative) {
+          timingText = `<small style="font-weight:800; opacity:0.75;">(À Vista)</small>`;
+        }
         const delTip = isNative ? 'Destino nativo protegido' : (usage > 0 ? `Em uso por ${usage} lançamento(s)` : 'Remover Destino');
         return `
           <span class="tag dest" style="border-radius:999px; padding:5px 12px; font-size:.78rem; font-weight:750; display:inline-flex; align-items:center; gap:6px; background:${d.color}22; color:${d.color}; border:1px solid ${d.color}55;">
-            ${iconSvg} <strong>${escapeHtml(d.name)}</strong> ${dueText}
+            ${iconSvg} <strong>${escapeHtml(d.name)}</strong> ${timingText}
             <button type="button" data-edit-dest="${escapeHtml(d.name)}" data-tooltip="Editar Destino" aria-label="Editar Destino" style="background:transparent; border:none; color:inherit; cursor:pointer; font-weight:800; padding:0 2px; display:inline-flex; align-items:center; opacity:0.75;">
               ${ICONS.edit}
             </button>
@@ -114,12 +126,28 @@
         `;
       }).join('');
 
+      function syncDestFormFields(typeVal) {
+        const isCredit = (typeVal === 'credit_card');
+        const isCash = (typeVal === 'cash');
+        const closingField = $('#fieldNewDestClosingDay');
+        const dueField = $('#fieldNewDestDueDay');
+        if (closingField) closingField.style.display = isCredit ? '' : 'none';
+        if (dueField) dueField.style.display = isCash ? 'none' : '';
+      }
+
       $$('[data-edit-dest]').forEach(b => {
         b.addEventListener('click', () => {
           const name = b.getAttribute('data-edit-dest');
           const dest = state.destinations.find(x => x.name === name);
           if (!dest) return;
           $('#newDestInput').value = dest.name;
+          if ($('#editingDestId')) $('#editingDestId').value = dest.id || '';
+          const resolvedType = dest.type || ((typeof resolveDestinationType === 'function') ? resolveDestinationType(dest) : 'other');
+          if ($('#newDestType')) {
+            $('#newDestType').value = resolvedType;
+            syncDestFormFields(resolvedType);
+          }
+          if ($('#newDestClosingDay')) $('#newDestClosingDay').value = dest.closingDay || '';
           if ($('#newDestDueDay')) $('#newDestDueDay').value = dest.dueDay || '';
           $('#newDestColor').value = dest.color || '#1F7A5C';
           $('#newDestIcon').value = dest.icon || 'card';
@@ -1053,22 +1081,41 @@
       });
     });
 
+    $('#newDestType')?.addEventListener('change', (e) => {
+      const typeVal = e.target.value;
+      const isCredit = (typeVal === 'credit_card');
+      const isCash = (typeVal === 'cash');
+      const closingField = $('#fieldNewDestClosingDay');
+      const dueField = $('#fieldNewDestDueDay');
+      if (closingField) closingField.style.display = isCredit ? '' : 'none';
+      if (dueField) dueField.style.display = isCash ? 'none' : '';
+    });
+
     $('#addDestBtn')?.addEventListener('click', () => {
       const state = getState();
       const val = $('#newDestInput').value.trim();
+      const type = $('#newDestType')?.value || 'other';
+      const closingDayInput = $('#newDestClosingDay')?.value;
+      const closingDayNum = Number(closingDayInput);
+      const closingDay = (type === 'credit_card' && closingDayInput !== '' && closingDayNum >= 1 && closingDayNum <= 31) ? closingDayNum : null;
       const dueDayInput = $('#newDestDueDay')?.value;
       const dueDayNum = Number(dueDayInput);
-      const isNative = (val.toLowerCase() === 'pix' || val.toLowerCase() === 'dinheiro');
-      const dueDay = (!isNative && dueDayInput !== '' && dueDayNum >= 1 && dueDayNum <= 31) ? dueDayNum : null;
+      const isCash = (type === 'cash' || val.toLowerCase() === 'pix' || val.toLowerCase() === 'dinheiro');
+      const dueDay = (!isCash && dueDayInput !== '' && dueDayNum >= 1 && dueDayNum <= 31) ? dueDayNum : null;
       const color = $('#newDestColor').value || '#1F7A5C';
       const icon = $('#newDestIcon').value || (val.toLowerCase() === 'pix' ? 'dollar' : (val.toLowerCase() === 'dinheiro' ? 'wallet' : 'card'));
       const origName = $('#editingDestOriginalName').value;
+      const editingId = $('#editingDestId')?.value;
 
       if (!val) { notify('Informe o nome do destino.', 'error'); return; }
 
       if (origName) {
         const idx = state.destinations.findIndex(d => d.name === origName);
-        if (idx >= 0) state.destinations[idx] = { name: val, color, icon, dueDay };
+        const existingDest = idx >= 0 ? state.destinations[idx] : null;
+        const targetId = (existingDest && existingDest.id) || editingId || ('dest_' + (typeof uid === 'function' ? uid() : Math.random().toString(36).slice(2, 10)));
+        if (idx >= 0) {
+          state.destinations[idx] = { id: targetId, name: val, type, color, icon, dueDay, closingDay };
+        }
         if (origName !== val) {
           state.fixed.forEach(f => { if (f.destination === origName) f.destination = val; });
           state.variable.forEach(v => { if (v.destination === origName) v.destination = val; });
@@ -1076,17 +1123,26 @@
           state.assets.forEach(a => { if (a.destination === origName) a.destination = val; });
         }
         $('#editingDestOriginalName').value = '';
+        if ($('#editingDestId')) $('#editingDestId').value = '';
         $('#addDestBtn').textContent = 'Adicionar';
         notify(`Destino "${val}" atualizado com sucesso!`, 'success');
       } else {
         const existingIdx = state.destinations.findIndex(d => d.name === val);
-        if (existingIdx >= 0) { state.destinations[existingIdx] = { name: val, color, icon, dueDay }; }
-        else { state.destinations.push({ name: val, color, icon, dueDay }); }
+        if (existingIdx >= 0) {
+          const existingDest = state.destinations[existingIdx];
+          const targetId = existingDest.id || ('dest_' + (typeof uid === 'function' ? uid() : Math.random().toString(36).slice(2, 10)));
+          state.destinations[existingIdx] = { id: targetId, name: val, type, color, icon, dueDay, closingDay };
+        } else {
+          const newId = 'dest_' + (typeof uid === 'function' ? uid() : Math.random().toString(36).slice(2, 10));
+          state.destinations.push({ id: newId, name: val, type, color, icon, dueDay, closingDay });
+        }
         notify(`Destino "${val}" adicionado com sucesso!`, 'success');
       }
 
       $('#newDestInput').value = '';
       if ($('#newDestDueDay')) $('#newDestDueDay').value = '';
+      if ($('#newDestClosingDay')) $('#newDestClosingDay').value = '';
+      if ($('#editingDestId')) $('#editingDestId').value = '';
       saveState(); updateDestinationSelects(); render();
     });
 

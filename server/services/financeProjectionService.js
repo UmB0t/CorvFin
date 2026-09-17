@@ -309,6 +309,59 @@ function projectFixedExpenses(finances, year, month) {
  * @param {number} month
  * @returns {Array<Object>}
  */
+/**
+ * Resolve determinística e canonicamente a competência inicial de uma despesa variável,
+ * utilizando ESTRITAMENTE evidências confiáveis e persistidas no registro.
+ *
+ * Precedência:
+ * 1. startYear e startMonth explícitos e válidos (2000..2100 e 1..12).
+ * 2. transactionDate canônica no formato YYYY-MM-DD (extrai year e month da compra/transação civil).
+ * 3. year e month legados explícitos e válidos (2000..2100 e 1..12).
+ * 4. Incerteza preservada: se nenhuma das evidências confiáveis acima estiver presente,
+ *    retorna null.
+ *
+ * REGRAS CANÔNICAS (FAIL-CLOSED):
+ * - NUNCA assume janeiro (sMonth = 1).
+ * - NUNCA assume o mês consultado.
+ * - NUNCA usa dueDay como transactionDate ou como mês de compra.
+ * - NUNCA usa createdAt indiscriminadamente.
+ *
+ * @param {Object} v Registro de despesa variável
+ * @returns {{ startYear: number, startMonth: number } | null}
+ */
+function resolveVariableStartCompetence(v) {
+  if (!v || typeof v !== 'object') return null;
+
+  // 1. startYear e startMonth estruturados
+  if (v.startYear !== undefined && v.startYear !== null && v.startMonth !== undefined && v.startMonth !== null) {
+    const sy = Number(v.startYear);
+    const sm = Number(v.startMonth);
+    if (Number.isInteger(sy) && sy >= 2000 && sy <= 2100 && Number.isInteger(sm) && sm >= 1 && sm <= 12) {
+      return { startYear: sy, startMonth: sm };
+    }
+  }
+
+  // 2. transactionDate canônica válida (YYYY-MM-DD)
+  if (v.transactionDate && typeof v.transactionDate === 'string' && isValidCanonicalDateString(v.transactionDate)) {
+    const parsed = parseCanonicalDate(v.transactionDate);
+    if (parsed && Number.isInteger(parsed.year) && parsed.year >= 2000 && parsed.year <= 2100 && Number.isInteger(parsed.month) && parsed.month >= 1 && parsed.month <= 12) {
+      return { startYear: parsed.year, startMonth: parsed.month };
+    }
+  }
+
+  // 3. year e month legados V1 comprovados
+  if (v.year !== undefined && v.year !== null && v.month !== undefined && v.month !== null) {
+    const ly = Number(v.year);
+    const lm = Number(v.month);
+    if (Number.isInteger(ly) && ly >= 2000 && ly <= 2100 && Number.isInteger(lm) && lm >= 1 && lm <= 12) {
+      return { startYear: ly, startMonth: lm };
+    }
+  }
+
+  // 4. Sem evidência temporal determinística: preserva incerteza (retorna null)
+  return null;
+}
+
 function projectVariableExpenses(finances, year, month) {
   if (!finances || !Array.isArray(finances.variable)) return [];
 
@@ -320,14 +373,20 @@ function projectVariableExpenses(finances, year, month) {
     const v = finances.variable[i];
     if (!v || typeof v !== 'object') continue;
 
-    const sYear = Number(v.startYear || year);
-    const sMonth = Number(v.startMonth || 1);
+    const startComp = resolveVariableStartCompetence(v);
+    if (!startComp) {
+      // Registro sem evidência temporal determinística:
+      // Preserva a incerteza (não assume janeiro, não assume mês consultado, não inventa data)
+      continue;
+    }
+
+    const { startYear: sYear, startMonth: sMonth } = startComp;
     const sTarget = sYear * 12 + sMonth;
 
     let count = 1;
     if (v.installments !== undefined && v.installments !== null) {
       count = Math.max(1, parseInt(v.installments, 10) || 1);
-    } else if (v.startYear && v.endYear && v.startMonth && v.endMonth) {
+    } else if (v.endYear && v.endMonth) {
       count = Math.max(1, (Number(v.endYear) * 12 + Number(v.endMonth)) - sTarget + 1);
     }
 
@@ -864,6 +923,7 @@ module.exports = {
   projectExtras,
   projectDebtors,
   projectBenefits,
+  resolveVariableStartCompetence,
   validatePeriod,
   sanitizeAmount,
   mapPaymentStatus

@@ -2724,7 +2724,7 @@ app.put('/api/admin/maintenance', authMiddleware, adminOnlyMiddleware, async (re
       });
     }
 
-    const ALLOWED_MODULES = ['dashboard', 'despesas', 'extras', 'devedores', 'investimentos', 'beneficios', 'compras', 'simulacao'];
+    const ALLOWED_MODULES = ['dashboard', 'calendario', 'despesas', 'extras', 'devedores', 'investimentos', 'beneficios', 'compras', 'simulacao'];
     const submittedKeys = Object.keys(rawMaintenance);
 
     // Validação de chaves desconhecidas

@@ -1433,6 +1433,9 @@
   }
 
   #newDestInput,
+  #newDestType,
+  #newDestClosingDay,
+  #newDestDueDay,
   #newDestColor,
   #newDestIcon,
   #addDestBtn {

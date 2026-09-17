@@ -267,7 +267,7 @@ function renderFullscreenTable() {
         }
 
         tbody.innerHTML = allItems.map(item => {
-          const destMeta = getDestMeta(item.destination);
+          const destMeta = (typeof getDestMeta === 'function') ? getDestMeta(item.destination, item.destinationId) : { color: '#1F7A5C', icon: 'card' };
           const iconSvg = DEST_SVG_ICONS[destMeta.icon] || DEST_SVG_ICONS.card;
           const isPaid = item.status === 'pago';
           const dueLabel = getDueDateLabel(item);
@@ -2599,6 +2599,9 @@ function renderExpensesLists() {
         ? buildLegacyDestinationBridge(paymentMethod, account)
         : (account || (paymentMethod === 'pix' ? 'Pix' : (paymentMethod === 'dinheiro' ? 'Dinheiro' : 'Nubank')));
 
+      const destObj = (state.destinations || []).find(d => d && (d.name === destination || d.name === account || (d.id && d.id === destination)));
+      const destinationId = destObj?.id || null;
+
       const isPixOrCash = (paymentMethod === 'pix' || paymentMethod === 'dinheiro');
       const isRecurring = (entryDlgState.recurrence === 'recurring' || entryDlgState.type === 'fixed');
       const isInstallment = (entryDlgState.recurrence === 'installment' || entryDlgState.type === 'installment');
@@ -2657,6 +2660,7 @@ function renderExpensesLists() {
           fixed.name = name;
           fixed.group = group;
           fixed.destination = destination; // Bridge V1
+          if (destinationId) fixed.destinationId = destinationId;
           fixed.payment = { method: paymentMethod, account: account || null };
           fixed.payee = payee;
           fixed.temporal = { type: 'fixed', recurrence: temporalRecurrence };
@@ -2701,6 +2705,7 @@ function renderExpensesLists() {
             name,
             group,
             destination, // Bridge V1
+            ...(destinationId ? { destinationId } : {}),
             payment: { method: paymentMethod, account: account || null },
             payee,
             temporal: { type: 'fixed', recurrence: temporalRecurrence },
@@ -2857,6 +2862,7 @@ function renderExpensesLists() {
             }
             v.group = group;
             v.destination = destination;
+            if (destinationId) v.destinationId = destinationId;
             v.payment = { method: paymentMethod, account: account || null };
             v.payee = payee;
             v.temporal = temporalData;
@@ -2881,6 +2887,7 @@ function renderExpensesLists() {
               amountInputMode: chosenMode,
               group,
               destination,
+              ...(destinationId ? { destinationId } : {}),
               payment: { method: paymentMethod, account: account || null },
               payee,
               temporal: temporalData,
@@ -2932,6 +2939,7 @@ function renderExpensesLists() {
             v.amountInputMode = 'total';
             v.group = group;
             v.destination = destination; // Bridge V1
+            if (destinationId) v.destinationId = destinationId;
             v.payment = { method: paymentMethod, account: account || null };
             v.payee = payee;
             v.temporal = temporalData;
@@ -2956,6 +2964,7 @@ function renderExpensesLists() {
               amountInputMode: 'total',
               group,
               destination, // Bridge V1
+              ...(destinationId ? { destinationId } : {}),
               payment: { method: paymentMethod, account: account || null },
               payee,
               temporal: temporalData,

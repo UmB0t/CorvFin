@@ -6,17 +6,48 @@ window.MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho'
 window.MONTH_ABBR = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 window.DEFAULT_DESTINATIONS = [
-  { name: 'Pix', color: '#10B981', icon: 'dollar', dueDay: null },
-  { name: 'Dinheiro', color: '#F59E0B', icon: 'wallet', dueDay: null },
-  { name: 'Nubank', color: '#8B5CF6', icon: 'card', dueDay: 10 },
-  { name: 'XP Investimentos', color: '#1F7A5C', icon: 'bank', dueDay: null },
-  { name: 'BTG Pactual', color: '#2563EB', icon: 'bank', dueDay: null },
-  { name: 'Neon', color: '#06B6D4', icon: 'card', dueDay: 15 },
-  { name: 'Itaú', color: '#F97316', icon: 'card', dueDay: 20 },
-  { name: 'Bradesco', color: '#EF4444', icon: 'card', dueDay: 5 },
-  { name: 'Terceiro', color: '#6B7280', icon: 'globe', dueDay: null },
-  { name: 'Binance', color: '#EAB308', icon: 'globe', dueDay: null }
+  { id: 'dest_pix', name: 'Pix', type: 'cash', color: '#10B981', icon: 'dollar', dueDay: null, closingDay: null },
+  { id: 'dest_dinheiro', name: 'Dinheiro', type: 'cash', color: '#F59E0B', icon: 'wallet', dueDay: null, closingDay: null },
+  { id: 'dest_nubank', name: 'Nubank', type: 'credit_card', color: '#8B5CF6', icon: 'card', dueDay: 10, closingDay: null },
+  { id: 'dest_xp', name: 'XP Investimentos', type: 'bank_account', color: '#1F7A5C', icon: 'bank', dueDay: null, closingDay: null },
+  { id: 'dest_btg', name: 'BTG Pactual', type: 'bank_account', color: '#2563EB', icon: 'bank', dueDay: null, closingDay: null },
+  { id: 'dest_neon', name: 'Neon', type: 'credit_card', color: '#06B6D4', icon: 'card', dueDay: 15, closingDay: null },
+  { id: 'dest_itau', name: 'Itaú', type: 'credit_card', color: '#F97316', icon: 'card', dueDay: 20, closingDay: null },
+  { id: 'dest_bradesco', name: 'Bradesco', type: 'credit_card', color: '#EF4444', icon: 'card', dueDay: 5, closingDay: null },
+  { id: 'dest_terceiro', name: 'Terceiro', type: 'other', color: '#6B7280', icon: 'globe', dueDay: null, closingDay: null },
+  { id: 'dest_binance', name: 'Binance', type: 'other', color: '#EAB308', icon: 'globe', dueDay: null, closingDay: null }
 ];
+
+window.VALID_DESTINATION_TYPES = ['cash', 'bank_account', 'credit_card', 'other'];
+
+window.resolveDestinationType = function(dest) {
+  if (!dest) return 'other';
+  // 1. Tipo explícito tem precedência absoluta
+  if (dest.type && window.VALID_DESTINATION_TYPES.includes(dest.type)) {
+    return dest.type;
+  }
+  // 2. Fallback legado em runtime (SOMENTE LEITURA — NÃO PERSISTE NEM MUTA O OBJETO)
+  const nameLower = String(dest.name || '').toLowerCase().trim();
+  if (nameLower === 'pix' || nameLower === 'dinheiro' || nameLower === 'em dinheiro' || nameLower === 'cash') {
+    return 'cash';
+  }
+  if (dest.closingDay !== undefined && dest.closingDay !== null && dest.closingDay !== '') {
+    return 'credit_card';
+  }
+  if (dest.dueDay !== undefined && dest.dueDay !== null && dest.dueDay !== '') {
+    return 'credit_card';
+  }
+  if (dest.icon === 'card') {
+    return 'credit_card';
+  }
+  if (dest.icon === 'bank') {
+    return 'bank_account';
+  }
+  if (dest.icon === 'wallet' || dest.icon === 'dollar') {
+    return 'cash';
+  }
+  return 'other';
+};
 
 window.PAYMENT_METHODS = [
   { id: 'pix', name: 'PIX', icon: 'dollar' },
@@ -46,6 +77,21 @@ window.resolveExpensePaymentMethod = function(expense) {
   if (expense.payment && expense.payment.method) {
     return expense.payment.method;
   }
+  // 1. Resolução via destinationId quando disponível
+  if (expense.destinationId && typeof getState === 'function') {
+    const destList = getState()?.destinations || [];
+    const matchedDest = destList.find(d => d && d.id === expense.destinationId);
+    if (matchedDest) {
+      const dType = (typeof window.resolveDestinationType === 'function') ? window.resolveDestinationType(matchedDest) : matchedDest.type;
+      if (dType === 'credit_card') return 'cartao_credito';
+      if (dType === 'cash') {
+        const dName = String(matchedDest.name || '').toLowerCase();
+        return (dName === 'pix') ? 'pix' : 'dinheiro';
+      }
+      if (dType === 'bank_account') return 'debito_automatico';
+    }
+  }
+  // 2. Fallback legado para ponte textual
   const dest = String(expense.destination || '').toLowerCase().trim();
   if (dest === 'pix') return 'pix';
   if (dest === 'dinheiro' || dest === 'em dinheiro' || dest === 'cash') return 'dinheiro';

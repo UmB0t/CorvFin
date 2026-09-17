@@ -1711,14 +1711,28 @@
                 ícone para identificação visual.</p>
 
               <input type="hidden" id="editingDestOriginalName">
-              <div id="profileDestFormGrid" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 8px; align-items:end;">
+              <input type="hidden" id="editingDestId">
+              <div id="profileDestFormGrid" style="display: grid; grid-template-columns: 2fr 1.2fr 1fr 1fr 0.8fr 1fr auto; gap: 8px; align-items:end;">
                 <div class="field">
                   <label>Nome do Destino</label>
                   <input id="newDestInput" placeholder="Ex: Nubank PJ">
                 </div>
                 <div class="field">
+                  <label>Tipo</label>
+                  <select id="newDestType">
+                    <option value="credit_card">Cartão de Crédito</option>
+                    <option value="bank_account">Conta Bancária</option>
+                    <option value="cash">Dinheiro / Espécie</option>
+                    <option value="other">Outro</option>
+                  </select>
+                </div>
+                <div class="field" id="fieldNewDestClosingDay">
+                  <label>Fechamento (Dia)</label>
+                  <input type="number" id="newDestClosingDay" min="1" max="31" placeholder="Ex: 20">
+                </div>
+                <div class="field" id="fieldNewDestDueDay">
                   <label>Vencimento (Dia)</label>
-                  <input type="number" id="newDestDueDay" min="1" max="31" placeholder="Opcional (1-31)">
+                  <input type="number" id="newDestDueDay" min="1" max="31" placeholder="Ex: 5">
                 </div>
                 <div class="field">
                   <label>Cor</label>
