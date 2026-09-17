@@ -173,7 +173,9 @@ function getDueDateLabel(item) {
   }
 
   function bindFullscreenTableSortListeners() {
-    const headers = document.querySelectorAll('#fullscreenTable th[data-sort-col]');
+    const headers = (typeof document !== 'undefined')
+      ? document.querySelectorAll('#fullscreenTable th[data-sort-col]')
+      : (typeof $$ === 'function' ? $$('#fullscreenTable th[data-sort-col]') : []);
     headers.forEach(th => {
       if (th._fsSortBound) return;
       th._fsSortBound = true;

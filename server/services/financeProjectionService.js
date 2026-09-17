@@ -22,10 +22,89 @@ const {
   normalizeCompetenceKey,
   parseCanonicalDate,
   isValidCanonicalDateString,
-  getPaidHistoryEntry
+  getPaidHistoryEntry,
+  resolveNominalCivilDate,
+  resolveApplicableClosingDate,
+  resolveInvoiceDueDate,
+  resolveCreditCardBillingCycle
 } = require('./temporalUtils');
 
 const FinanceDomain = require('../../shared/financeDomain');
+
+/**
+ * Localiza de forma determinística o destination associado a uma despesa.
+ * Precedência estrita:
+ * 1. destinationId explícito conferido contra finances.destinations;
+ * 2. Fallback textual por nome SOMENTE se houver correspondência inequívoca (exatamente 1 match).
+ * Se houver ambiguidade (mais de 1 com o mesmo nome) ou nenhum match, retorna null (fail-closed).
+ *
+ * @param {Object} finances
+ * @param {string|null} destinationId
+ * @param {string|null} destinationName
+ * @returns {Object|null}
+ */
+function findDestination(finances, destinationId, destinationName) {
+  if (!finances || !Array.isArray(finances.destinations)) return null;
+
+  if (destinationId && typeof destinationId === 'string' && destinationId.trim()) {
+    const cleanId = destinationId.trim();
+    const byId = finances.destinations.find(d => d && d.id === cleanId);
+    if (byId) return byId;
+  }
+
+  if (destinationName && typeof destinationName === 'string' && destinationName.trim()) {
+    const cleanName = destinationName.trim().toLowerCase();
+    const matches = finances.destinations.filter(d => d && String(d.name || '').trim().toLowerCase() === cleanName);
+    if (matches.length === 1) {
+      return matches[0];
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Verifica se um destination é um cartão de crédito estruturado com ciclo configurado.
+ *
+ * @param {Object|null} dest
+ * @returns {boolean}
+ */
+function isConfiguredCreditCard(dest) {
+  if (!dest || typeof dest !== 'object') return false;
+  if (dest.type !== 'credit_card') return false;
+  const cDay = Number(dest.closingDay);
+  const dDay = Number(dest.dueDay);
+  return Number.isInteger(cDay) && cDay >= 1 && cDay <= 31 &&
+         Number.isInteger(dDay) && dDay >= 1 && dDay <= 31;
+}
+
+/**
+ * Determina se uma despesa é elegível à semântica de fatura de cartão de crédito.
+ * Respeita estritamente a precedência de payment.method sobre o destination.
+ *
+ * @param {Object} v - Registro de despesa
+ * @param {Object|null} dest - Destination resolvido
+ * @returns {boolean}
+ */
+function isCreditCardInvoiceEligible(v, dest) {
+  if (!v || typeof v !== 'object') return false;
+
+  const rawMethod = v.payment?.method || v.paymentMethod;
+  if (rawMethod && typeof rawMethod === 'string' && rawMethod.trim()) {
+    const m = rawMethod.trim().toLowerCase();
+    // 1. Método incompatível explícito: PREVALECE e impede fatura de cartão
+    if (['pix', 'dinheiro', 'cartao_debito', 'transferencia', 'debito_automatico', 'boleto'].includes(m)) {
+      return false;
+    }
+    // 2. Crédito explícito: exige destination estruturado
+    if (m === 'cartao_credito') {
+      return isConfiguredCreditCard(dest);
+    }
+  }
+
+  // 3. Método ausente/null: consulta destination estruturado
+  return isConfiguredCreditCard(dest);
+}
 
 /**
  * Sanitiza valores monetários para números finitos não-negativos arredondados em 2 casas.
@@ -172,7 +251,9 @@ function projectSalary(finances, year, month) {
     id: occurrenceKey,
     sourceId: 'profile',
     sourceType: 'salary',
+    eventKind: 'income',
     direction: 'inflow',
+    affectsCashflow: true,
     date,
     nominalDay,
     wasClamped,
@@ -280,7 +361,9 @@ function projectFixedExpenses(finances, year, month) {
       id: occurrenceKey,
       sourceId,
       sourceType: 'fixed_expense',
+      eventKind: 'cashflow',
       direction: 'outflow',
+      affectsCashflow: true,
       date,
       nominalDay,
       wasClamped,
@@ -373,35 +456,82 @@ function projectVariableExpenses(finances, year, month) {
     const v = finances.variable[i];
     if (!v || typeof v !== 'object') continue;
 
+    const sourceId = v.id != null ? String(v.id) : `var_${i}`;
+    const dest = findDestination(finances, v.destinationId, v.payment?.account || v.destination);
+    const invoiceEligible = isCreditCardInvoiceEligible(v, dest);
+
+    let count = 1;
+    if (v.installments !== undefined && v.installments !== null) {
+      count = Math.max(1, parseInt(v.installments, 10) || 1);
+    } else if (v.endYear && v.endMonth && v.startYear && v.startMonth) {
+      count = Math.max(1, (Number(v.endYear) * 12 + Number(v.endMonth)) - (Number(v.startYear) * 12 + Number(v.startMonth)) + 1);
+    }
+
+    // 1. TRANSACTION EVENT (No dia civil real da compra)
+    // Aparece visualmente no dia da compra para cartões de crédito configurados (affectsCashflow = false)
+    if (v.transactionDate && isValidCanonicalDateString(v.transactionDate)) {
+      const parsedTx = parseCanonicalDate(v.transactionDate);
+      if (parsedTx && parsedTx.year === year && parsedTx.month === month) {
+        // Se for elegível à fatura ou for cartão de crédito estruturado
+        if (invoiceEligible || isConfiguredCreditCard(dest)) {
+          let totalPurchaseAmount = sanitizeAmount(v.totalAmount !== undefined ? v.totalAmount : (v.amountInputMode === 'total' ? v.amount : (Number(v.amount || 0) * count)));
+          if (totalPurchaseAmount <= 0 && v.amount) totalPurchaseAmount = sanitizeAmount(v.amount);
+          const instAmount = sanitizeAmount(v.installmentAmount !== undefined ? v.installmentAmount : (count > 1 ? (totalPurchaseAmount / count) : totalPurchaseAmount));
+          const txOccurrenceKey = `tx_${sourceId}_${v.transactionDate}`;
+
+          out.push({
+            id: txOccurrenceKey,
+            sourceId,
+            sourceType: 'variable_expense',
+            eventKind: 'transaction',
+            direction: 'outflow',
+            affectsCashflow: false,
+            date: v.transactionDate,
+            nominalDay: parsedTx.day,
+            competence: canonicalKey,
+            amount: (count > 1 && totalPurchaseAmount > 0) ? totalPurchaseAmount : (totalPurchaseAmount || sanitizeAmount(v.amount)),
+            purchaseAmount: (count > 1 && totalPurchaseAmount > 0) ? totalPurchaseAmount : (totalPurchaseAmount || sanitizeAmount(v.amount)),
+            installmentAmount: count > 1 ? instAmount : null,
+            installmentIndex: 1,
+            installmentTotal: count,
+            status: null,
+            description: v.name || v.description || 'Compra no Cartão',
+            dueDay: v.dueDay != null && v.dueDay !== '' ? Number(v.dueDay) : null,
+            transactionDate: v.transactionDate,
+            paymentMethod: v.payment?.method || v.paymentMethod || 'cartao_credito',
+            category: v.group || v.category || null,
+            destination: dest ? dest.name : (v.payment?.account || v.destination || null),
+            destinationId: dest ? dest.id : (v.destinationId || null),
+            destinationType: dest?.type || 'credit_card',
+            occurrenceKey: txOccurrenceKey
+          });
+        }
+      }
+    }
+
+    // Se a despesa é elegível à fatura de cartão de crédito, seu cashflow é projetado
+    // EXCLUSIVAMENTE via projectCreditCardInvoices no dia do vencimento da fatura (Zero Dupla Contabilização!)
+    if (invoiceEligible) {
+      continue;
+    }
+
+    // 2. CASHFLOW REGULAR / LEGADO (Para despesas sem fatura agregada: dinheiro, pix, débito, boleto, legacy)
     const startComp = resolveVariableStartCompetence(v);
     if (!startComp) {
-      // Registro sem evidência temporal determinística:
-      // Preserva a incerteza (não assume janeiro, não assume mês consultado, não inventa data)
       continue;
     }
 
     const { startYear: sYear, startMonth: sMonth } = startComp;
     const sTarget = sYear * 12 + sMonth;
-
-    let count = 1;
-    if (v.installments !== undefined && v.installments !== null) {
-      count = Math.max(1, parseInt(v.installments, 10) || 1);
-    } else if (v.endYear && v.endMonth) {
-      count = Math.max(1, (Number(v.endYear) * 12 + Number(v.endMonth)) - sTarget + 1);
-    }
-
     const eTarget = sTarget + count - 1;
     if (target < sTarget || target > eTarget) continue;
 
     const installmentIndex = target - sTarget + 1;
     const installmentTotal = count;
 
-    // Resolução determinística de centavos preservando repactuação e cronograma oficial
     const resolvedAmounts = FinanceDomain.resolveInstallmentAmounts(v, year, month);
     const amount = sanitizeAmount(resolvedAmounts.currentInstallmentAmount);
 
-    // Resolução temporal: dueDay tem precedência para vencimento financeiro;
-    // transactionDate representa a data civil da compra/transação e é usada para despesa única à vista quando no mesmo mês.
     let date = null;
     let nominalDay = null;
     let wasClamped = false;
@@ -425,14 +555,15 @@ function projectVariableExpenses(finances, year, month) {
     }
 
     const payInfo = resolveItemPaymentInfo(v, year, month, amount);
-    const sourceId = v.id != null ? String(v.id) : `var_${i}`;
     const occurrenceKey = `var_${sourceId}_inst_${installmentIndex}_${canonicalKey}`;
 
     out.push({
       id: occurrenceKey,
       sourceId,
       sourceType: 'variable_expense',
+      eventKind: 'cashflow',
       direction: 'outflow',
+      affectsCashflow: true,
       date,
       nominalDay,
       wasClamped,
@@ -449,6 +580,208 @@ function projectVariableExpenses(finances, year, month) {
       paymentMethod: v.payment?.method || v.paymentMethod || null,
       category: v.group || v.category || null,
       destination: v.payment?.account || v.destination || null,
+      occurrenceKey
+    });
+  }
+
+  return out;
+}
+
+/**
+ * Projeta as faturas agregadas de cartão de crédito para a competência (ano, mês).
+ * Consolida compras únicas e parcelas que vencem no período civil consultado.
+ *
+ * Precedência estrita de obrigações (Ajuste 1):
+ * 1. installmentSchedule persistido quando válido e completo;
+ * 2. Novo billing cycle derivado de transactionDate + destination estruturado;
+ * 3. Fail-closed se inconclusivo.
+ *
+ * Agregação e Identidade (Ajuste 3):
+ * - Com destinationId: `${dest.id}_${dueDate}`
+ * - Sem destinationId: `${cleanSlug}_${dueDate}` SOMENTE com match inequívoco.
+ * - Ambiguidade: fail-closed para agregação.
+ *
+ * @param {Object} finances
+ * @param {number} year
+ * @param {number} month
+ * @returns {Array<Object>}
+ */
+function projectCreditCardInvoices(finances, year, month) {
+  if (!finances || !Array.isArray(finances.variable)) return [];
+
+  const canonicalKey = normalizeCompetenceKey(year, month);
+  const invoicesMap = new Map();
+
+  for (let i = 0; i < finances.variable.length; i++) {
+    const v = finances.variable[i];
+    if (!v || typeof v !== 'object') continue;
+
+    const dest = findDestination(finances, v.destinationId, v.payment?.account || v.destination);
+    if (!isCreditCardInvoiceEligible(v, dest)) {
+      continue;
+    }
+
+    const sourceId = v.id != null ? String(v.id) : `var_${i}`;
+    const destId = dest.id || dest.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const cDay = Number(dest.closingDay);
+    const dDay = Number(dest.dueDay);
+
+    let count = 1;
+    if (v.installments !== undefined && v.installments !== null) {
+      count = Math.max(1, parseInt(v.installments, 10) || 1);
+    } else if (v.endYear && v.endMonth && v.startYear && v.startMonth) {
+      count = Math.max(1, (Number(v.endYear) * 12 + Number(v.endMonth)) - (Number(v.startYear) * 12 + Number(v.startMonth)) + 1);
+    }
+
+    const hasSchedule = (v.installmentSchedule && typeof v.installmentSchedule === 'object' && !Array.isArray(v.installmentSchedule));
+    const schedKeys = hasSchedule ? Object.keys(v.installmentSchedule).sort() : [];
+
+    if (hasSchedule && schedKeys.length > 0) {
+      // PRECEDÊNCIA 1: installmentSchedule persistido como autoridade primária
+      // Cada chave YYYY-MM do schedule define a competência da fatura
+      for (let idx = 0; idx < schedKeys.length; idx++) {
+        const compKey = schedKeys[idx];
+        const [kYear, kMonth] = compKey.split('-').map(Number);
+        if (!Number.isInteger(kYear) || !Number.isInteger(kMonth) || kMonth < 1 || kMonth > 12) continue;
+
+        // O vencimento nominal da fatura dessa competência ocorre no dueDay do cartão no respectivo mês
+        const occ = resolveNominalCivilDate(kYear, kMonth, dDay);
+        if (!occ) continue;
+
+        if (occ.year === year && occ.month === month) {
+          const rawSchedAmt = Number(v.installmentSchedule[compKey]);
+          const itemAmt = sanitizeAmount(Number.isFinite(rawSchedAmt) ? rawSchedAmt : (v.amount || 0));
+          if (itemAmt <= 0) continue;
+
+          const invoiceKey = `${destId}_${occ.date}`;
+          if (!invoicesMap.has(invoiceKey)) {
+            invoicesMap.set(invoiceKey, {
+              dest,
+              date: occ.date,
+              nominalDay: occ.day,
+              items: []
+            });
+          }
+
+          invoicesMap.get(invoiceKey).items.push({
+            sourceId,
+            description: v.name || v.description || 'Item de Fatura',
+            amount: itemAmt,
+            installmentIndex: idx + 1,
+            installmentTotal: schedKeys.length,
+            transactionDate: v.transactionDate || null,
+            category: v.group || v.category || null
+          });
+        }
+      }
+    } else if (v.transactionDate && isValidCanonicalDateString(v.transactionDate)) {
+      // PRECEDÊNCIA 2: Novo billing cycle civil a partir de transactionDate + closingDay + dueDay
+      const cycle1 = resolveCreditCardBillingCycle(v.transactionDate, cDay, dDay);
+      if (!cycle1) continue;
+
+      if (count <= 1) {
+        // Compra única à vista no crédito
+        if (cycle1.dueYear === year && cycle1.dueMonth === month) {
+          const itemAmt = sanitizeAmount(v.amount);
+          if (itemAmt > 0) {
+            const invoiceKey = `${destId}_${cycle1.invoiceDueDate}`;
+            if (!invoicesMap.has(invoiceKey)) {
+              invoicesMap.set(invoiceKey, {
+                dest,
+                date: cycle1.invoiceDueDate,
+                nominalDay: cycle1.dueDay,
+                items: []
+              });
+            }
+            invoicesMap.get(invoiceKey).items.push({
+              sourceId,
+              description: v.name || v.description || 'Compra no Cartão',
+              amount: itemAmt,
+              installmentIndex: 1,
+              installmentTotal: 1,
+              transactionDate: v.transactionDate,
+              category: v.group || v.category || null
+            });
+          }
+        }
+      } else {
+        // Compra parcelada sem schedule pré-gravado: deriva cada ciclo k
+        for (let k = 1; k <= count; k++) {
+          let kDueDateObj = null;
+          if (k === 1) {
+            kDueDateObj = {
+              date: cycle1.invoiceDueDate,
+              year: cycle1.dueYear,
+              month: cycle1.dueMonth,
+              day: cycle1.dueDay
+            };
+          } else {
+            const cMonthIdx = (cycle1.closingMonth - 1) + (k - 1);
+            const kClosingYear = cycle1.closingYear + Math.floor(cMonthIdx / 12);
+            const kClosingMonth = (cMonthIdx % 12) + 1;
+            const kClosingDate = resolveNominalCivilDate(kClosingYear, kClosingMonth, cDay);
+            if (kClosingDate) {
+              kDueDateObj = resolveInvoiceDueDate(kClosingDate.date, dDay);
+            }
+          }
+
+          if (kDueDateObj && kDueDateObj.year === year && kDueDateObj.month === month) {
+            const resolvedAmounts = FinanceDomain.resolveInstallmentAmounts(v, kDueDateObj.year, kDueDateObj.month);
+            const itemAmt = sanitizeAmount(resolvedAmounts.currentInstallmentAmount);
+            if (itemAmt > 0) {
+              const invoiceKey = `${destId}_${kDueDateObj.date}`;
+              if (!invoicesMap.has(invoiceKey)) {
+                invoicesMap.set(invoiceKey, {
+                  dest,
+                  date: kDueDateObj.date,
+                  nominalDay: kDueDateObj.day,
+                  items: []
+                });
+              }
+              invoicesMap.get(invoiceKey).items.push({
+                sourceId,
+                description: v.name || v.description || 'Compra Parcelada',
+                amount: itemAmt,
+                installmentIndex: k,
+                installmentTotal: count,
+                transactionDate: v.transactionDate,
+                category: v.group || v.category || null
+              });
+            }
+          }
+        }
+      }
+    }
+    // PRECEDÊNCIA 3: Se não possui schedule nem transactionDate confiável -> Fail-Closed (não fabrica invoice)
+  }
+
+  // GERAÇÃO DOS EVENTOS CONSOLIDADOS DE FATURA
+  const out = [];
+  for (const [invoiceKey, group] of invoicesMap.entries()) {
+    const totalAmount = sanitizeAmount(group.items.reduce((s, it) => s + it.amount, 0));
+    if (totalAmount <= 0) continue;
+
+    const eventId = `inv_${invoiceKey}`;
+    const occurrenceKey = `invoice_${invoiceKey}`;
+
+    out.push({
+      id: eventId,
+      sourceId: group.dest.id || group.dest.name,
+      sourceType: 'credit_card_invoice',
+      eventKind: 'invoice',
+      direction: 'outflow',
+      affectsCashflow: true,
+      date: group.date,
+      nominalDay: group.nominalDay,
+      competence: canonicalKey,
+      amount: totalAmount,
+      description: `Fatura ${group.dest.name}`,
+      destination: group.dest.name,
+      destinationId: group.dest.id || null,
+      destinationType: 'credit_card',
+      itemCount: group.items.length,
+      sourceItems: group.items,
+      status: 'pending',
       occurrenceKey
     });
   }
@@ -542,7 +875,9 @@ function projectExtras(finances, year, month) {
       id: occurrenceKey,
       sourceId,
       sourceType: 'extra_income',
+      eventKind: 'income',
       direction: 'inflow',
+      affectsCashflow: true,
       date,
       nominalDay,
       wasClamped,
@@ -624,7 +959,9 @@ function projectDebtors(finances, year, month) {
       id: occurrenceKey,
       sourceId,
       sourceType: 'debtor_receivable',
+      eventKind: 'income',
       direction: 'inflow',
+      affectsCashflow: true,
       date,
       nominalDay,
       wasClamped,
@@ -803,7 +1140,8 @@ const SOURCE_TYPE_ORDER = {
   extra_income: 2,
   debtor_receivable: 3,
   fixed_expense: 4,
-  variable_expense: 5
+  variable_expense: 5,
+  credit_card_invoice: 6
 };
 
 function compareEvents(a, b) {
@@ -859,6 +1197,7 @@ function projectFinancialMonth(finances, year, month) {
   const rawSalary = projectSalary(finances, y, m);
   const rawFixed = projectFixedExpenses(finances, y, m);
   const rawVariable = projectVariableExpenses(finances, y, m);
+  const rawInvoices = projectCreditCardInvoices(finances, y, m);
   const rawExtras = projectExtras(finances, y, m);
   const rawDebtors = projectDebtors(finances, y, m);
 
@@ -866,6 +1205,7 @@ function projectFinancialMonth(finances, year, month) {
   if (rawSalary) allOccurrences.push(rawSalary);
   allOccurrences.push(...rawFixed);
   allOccurrences.push(...rawVariable);
+  allOccurrences.push(...rawInvoices);
   allOccurrences.push(...rawExtras);
   allOccurrences.push(...rawDebtors);
 
@@ -884,7 +1224,7 @@ function projectFinancialMonth(finances, year, month) {
   events.sort(compareEvents);
   undated.sort(compareUndated);
 
-  // Summary bancário considera TODAS as ocorrências bancárias que participam da capacidade financeira da competência
+  // Summary bancário considera TODAS as ocorrências bancárias que afetam cashflow da competência
   const allBanking = [...events, ...undated];
   const bankingInflows = allBanking.filter(o => {
     if (o.direction !== 'inflow') return false;
@@ -894,7 +1234,7 @@ function projectFinancialMonth(finances, year, month) {
     return true;
   });
   const inflow = sanitizeAmount(bankingInflows.reduce((s, o) => s + o.amount, 0));
-  const outflow = sanitizeAmount(allBanking.filter(o => o.direction === 'outflow').reduce((s, o) => s + o.amount, 0));
+  const outflow = sanitizeAmount(allBanking.filter(o => o.direction === 'outflow' && o.affectsCashflow !== false).reduce((s, o) => s + o.amount, 0));
   const net = Math.round((inflow - outflow) * 100) / 100;
 
   // Domínio separado de benefícios
@@ -920,10 +1260,14 @@ module.exports = {
   projectSalary,
   projectFixedExpenses,
   projectVariableExpenses,
+  projectCreditCardInvoices,
   projectExtras,
   projectDebtors,
   projectBenefits,
   resolveVariableStartCompetence,
+  findDestination,
+  isConfiguredCreditCard,
+  isCreditCardInvoiceEligible,
   validatePeriod,
   sanitizeAmount,
   mapPaymentStatus

@@ -523,6 +523,151 @@
     return null;
   }
 
+  /**
+   * Resolve uma data civil a partir de um ano, mês e dia nominal (1..31).
+   * Se o mês não possuir o dia nominal (ex: dia 31 em abril ou fevereiro),
+   * limita estritamente (clamp) para o último dia civil daquele mês sem overflow de Date.
+   *
+   * @param {number|string} year - Ano (2000..2100)
+   * @param {number|string} month - Mês (1..12)
+   * @param {number|string} nominalDay - Dia nominal (1..31)
+   * @returns {{ date: string, year: number, month: number, day: number, nominalDay: number, wasClamped: boolean } | null}
+   */
+  function resolveNominalCivilDate(year, month, nominalDay) {
+    const y = Number(year);
+    const m = Number(month);
+    const d = Number(nominalDay);
+    if (!Number.isInteger(y) || y < 2000 || y > 2100) return null;
+    if (!Number.isInteger(m) || m < 1 || m > 12) return null;
+    if (!Number.isInteger(d) || d < 1 || d > 31) return null;
+
+    const clampedDay = clampDayToMonth(y, m, d);
+    const wasClamped = clampedDay !== d;
+    const dateStr = formatCanonicalDate(y, m, clampedDay);
+
+    return {
+      date: dateStr,
+      year: y,
+      month: m,
+      day: clampedDay,
+      nominalDay: d,
+      wasClamped
+    };
+  }
+
+  /**
+   * Determina a data civil de fechamento aplicável a uma transação civil.
+   * Regra canônica:
+   * - A) Determina o fechamento nominal do mês da transação;
+   * - B) Se a transação ocorrer até o fechamento daquele mês (inclusive no dia do fechamento):
+   *      pertence a esse fechamento;
+   * - C) Se ocorrer estritamente após o fechamento: pertence ao fechamento do mês subsequente (com year rollover).
+   *
+   * @param {string} transactionDate - Data civil da transação YYYY-MM-DD
+   * @param {number|string} closingDay - Dia nominal de fechamento (1..31)
+   * @returns {{ date: string, year: number, month: number, day: number, nominalDay: number, wasClamped: boolean } | null}
+   */
+  function resolveApplicableClosingDate(transactionDate, closingDay) {
+    if (!isValidCanonicalDateString(transactionDate)) return null;
+    const cDay = Number(closingDay);
+    if (!Number.isInteger(cDay) || cDay < 1 || cDay > 31) return null;
+
+    const parsed = parseCanonicalDate(transactionDate);
+    if (!parsed) return null;
+    const { year: tY, month: tM, day: tD } = parsed;
+
+    const closingSameMonth = resolveNominalCivilDate(tY, tM, cDay);
+    if (!closingSameMonth) return null;
+
+    if (tD <= closingSameMonth.day) {
+      return closingSameMonth;
+    }
+
+    let nextY = tY;
+    let nextM = tM + 1;
+    if (nextM > 12) {
+      nextM = 1;
+      nextY += 1;
+    }
+
+    return resolveNominalCivilDate(nextY, nextM, cDay);
+  }
+
+  /**
+   * Determina a primeira data civil nominal de dueDay estritamente posterior ao closingDate.
+   * Regra canônica:
+   * - A) Verifica dueDay no mesmo mês do fechamento; se for estritamente posterior (> closingDate):
+   *      a fatura vence nesse mesmo mês civil;
+   * - B) Se não for estritamente posterior (<= closingDate):
+   *      a fatura vence no primeiro dueDay do mês subsequente (com year rollover).
+   *
+   * @param {string} closingDate - Data civil de fechamento YYYY-MM-DD
+   * @param {number|string} dueDay - Dia nominal de vencimento da fatura (1..31)
+   * @returns {{ date: string, year: number, month: number, day: number, nominalDay: number, wasClamped: boolean } | null}
+   */
+  function resolveInvoiceDueDate(closingDate, dueDay) {
+    if (!isValidCanonicalDateString(closingDate)) return null;
+    const dDay = Number(dueDay);
+    if (!Number.isInteger(dDay) || dDay < 1 || dDay > 31) return null;
+
+    const parsed = parseCanonicalDate(closingDate);
+    if (!parsed) return null;
+    const { year: cY, month: cM } = parsed;
+
+    const dueSameMonth = resolveNominalCivilDate(cY, cM, dDay);
+    if (dueSameMonth && dueSameMonth.date > closingDate) {
+      return dueSameMonth;
+    }
+
+    let nextY = cY;
+    let nextM = cM + 1;
+    if (nextM > 12) {
+      nextM = 1;
+      nextY += 1;
+    }
+
+    return resolveNominalCivilDate(nextY, nextM, dDay);
+  }
+
+  /**
+   * Compõe determinística e canonicamente o ciclo de fatura do cartão de crédito civil.
+   * transactionDate -> applicable closingDate -> first due date AFTER closingDate.
+   *
+   * @param {string} transactionDate - Data civil da transação YYYY-MM-DD
+   * @param {number|string} closingDay - Dia nominal de fechamento (1..31)
+   * @param {number|string} dueDay - Dia nominal de vencimento (1..31)
+   * @returns {{
+   *   closingDate: string,
+   *   invoiceDueDate: string,
+   *   closingYear: number,
+   *   closingMonth: number,
+   *   closingDay: number,
+   *   dueYear: number,
+   *   dueMonth: number,
+   *   dueDay: number,
+   *   isSameMonthDue: boolean
+   * } | null}
+   */
+  function resolveCreditCardBillingCycle(transactionDate, closingDay, dueDay) {
+    const closing = resolveApplicableClosingDate(transactionDate, closingDay);
+    if (!closing) return null;
+
+    const due = resolveInvoiceDueDate(closing.date, dueDay);
+    if (!due) return null;
+
+    return {
+      closingDate: closing.date,
+      invoiceDueDate: due.date,
+      closingYear: closing.year,
+      closingMonth: closing.month,
+      closingDay: closing.day,
+      dueYear: due.year,
+      dueMonth: due.month,
+      dueDay: due.day,
+      isSameMonthDue: (closing.year === due.year && closing.month === due.month)
+    };
+  }
+
   return {
     isLeapYear,
     getDaysInMonth,
@@ -541,6 +686,11 @@
     isBusinessDay,
     getNextBusinessDay,
     getPrevBusinessDay,
-    resolveTemporalRule
+    resolveTemporalRule,
+    // V2 Phase 3 Credit Card Billing Cycle
+    resolveNominalCivilDate,
+    resolveApplicableClosingDate,
+    resolveInvoiceDueDate,
+    resolveCreditCardBillingCycle
   };
 });

@@ -40,7 +40,8 @@
     debtor_receivable: 'Valor a receber',
     salary: 'Salário',
     benefit_transaction: 'Movimentação de benefício',
-    benefit_credit: 'Crédito de benefício'
+    benefit_credit: 'Crédito de benefício',
+    credit_card_invoice: 'Fatura de cartão'
   };
 
   const BENEFIT_CATEGORY_MAP = {
@@ -214,7 +215,7 @@
    * Benefícios NÃO são misturados.
    *
    * @param {Array<Object>} events
-   * @returns {Object} { [dateString]: { events: [], inflow: number, outflow: number, hasInflow: boolean, hasOutflow: boolean } }
+   * @returns {Object} { [dateString]: { events: [], inflow: number, outflow: number, hasInflow: boolean, hasOutflow: boolean, transactionCount: number, hasTransactions: boolean } }
    */
   function groupCalendarEventsByDate(events) {
     const grouped = {};
@@ -230,21 +231,132 @@
           inflow: 0,
           outflow: 0,
           hasInflow: false,
-          hasOutflow: false
+          hasOutflow: false,
+          transactionCount: 0,
+          hasTransactions: false
         };
       }
       grouped[d].events.push(ev);
       const amt = Number(ev.amount) || 0;
-      if (ev.direction === 'inflow') {
-        grouped[d].inflow += amt;
-        grouped[d].hasInflow = true;
-      } else if (ev.direction === 'outflow') {
-        grouped[d].outflow += amt;
-        grouped[d].hasOutflow = true;
+      if (ev.affectsCashflow !== false) {
+        if (ev.direction === 'inflow') {
+          grouped[d].inflow += amt;
+          grouped[d].hasInflow = true;
+        } else if (ev.direction === 'outflow') {
+          grouped[d].outflow += amt;
+          grouped[d].hasOutflow = true;
+        }
+      } else {
+        grouped[d].transactionCount += 1;
+        grouped[d].hasTransactions = true;
       }
     }
     return grouped;
   }
+
+  /**
+   * Helper puro de apresentação: renderiza item individual de evento para o painel diário e modal.
+   * Suporta compras de cartão (eventKind='transaction'), faturas (eventKind='invoice')
+   * e movimentações bancárias/caixa imediatas.
+   *
+   * @param {Object} ev
+   * @param {{ isModal?: boolean }} [options={}]
+   * @returns {string} HTML string
+   */
+  function renderCalendarEventItem(ev, options = {}) {
+    if (!ev) return '';
+    const isModal = !!options.isModal;
+    const isTransaction = (ev.eventKind === 'transaction');
+    const isInvoice = (ev.eventKind === 'invoice');
+
+    const evDesc = ev.description || (isInvoice ? (`Fatura ${ev.destinationName || 'Cartão'}`) : 'Movimentação');
+    const evSourceTypeLabel = isInvoice ? 'Fatura de cartão' : getCalendarSourceTypeLabel(ev.sourceType);
+    const evAmount = formatCurrency(ev.amount);
+
+    let badgeHtml = '';
+    let dirClass = '';
+    let dirSign = '';
+    let metaDetails = '';
+
+    if (isTransaction) {
+      const instText = (ev.installments && ev.installments > 1)
+        ? `Parcela ${ev.installmentIndex || 1}/${ev.installments}`
+        : 'À vista';
+      const totalText = (ev.totalAmount && ev.installments > 1)
+        ? ` • Total ${formatCurrency(ev.totalAmount)}`
+        : '';
+      metaDetails = `${ev.destinationName ? escapeStr(ev.destinationName) + ' • ' : ''}${instText}${totalText}`;
+      badgeHtml = `<span class="tag info" style="font-size:0.68rem;">Compra no Cartão</span>`;
+      dirClass = 'calendar-day-detail-amt--transaction';
+      dirSign = '';
+    } else if (isInvoice) {
+      const count = ev.itemCount || (ev.sourceItems ? ev.sourceItems.length : 1);
+      metaDetails = `${count} ${count === 1 ? 'item' : 'itens'} nesta fatura`;
+      badgeHtml = `<span class="tag warning" style="font-size:0.68rem;">Fatura de Cartão</span>`;
+      dirClass = 'calendar-summary-value--outflow';
+      dirSign = '-';
+    } else {
+      metaDetails = escapeStr(evSourceTypeLabel);
+      if (ev.status) {
+        const tagClass = ev.status === 'paid' ? 'success' : (ev.status === 'partial' ? 'partial' : 'due');
+        const tagLabel = ev.status === 'paid' ? 'Pago' : (ev.status === 'partial' ? 'Parcial' : 'Pendente');
+        badgeHtml = `<span class="tag ${tagClass}" style="font-size:0.68rem;">${tagLabel}</span>`;
+      }
+      dirClass = ev.direction === 'inflow' ? 'calendar-summary-value--inflow' : 'calendar-summary-value--outflow';
+      dirSign = ev.direction === 'inflow' ? '+' : '-';
+    }
+
+    let actionHtml = '';
+    if (ev.sourceId) {
+      actionHtml = `
+        <button type="button" class="calendar-day-detail-action" data-action="view-expense" data-source-id="${escapeStr(ev.sourceId)}" title="Ver detalhes em Despesas" aria-label="Ver despesa ${escapeStr(evDesc)} em Despesas">
+          <svg class="svg-icon" viewBox="0 0 24 24" style="width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.2;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Ver em Despesas
+        </button>
+      `;
+    }
+
+    let invoiceItemsListHtml = '';
+    if (isInvoice && isModal && Array.isArray(ev.sourceItems) && ev.sourceItems.length > 0) {
+      invoiceItemsListHtml = '<div class="calendar-invoice-subitems" style="margin-top:8px; padding:8px 10px; background:var(--surface-3, rgba(255,255,255,0.03)); border-radius:6px; font-size:0.80rem; border:1px solid var(--line); width:100%; box-sizing:border-box;">';
+      invoiceItemsListHtml += '<div style="font-weight:700; margin-bottom:4px; font-size:0.75rem; color:var(--text-muted); text-transform:uppercase;">Itens da Fatura</div>';
+      for (const item of ev.sourceItems) {
+        const itemDesc = item.description || 'Compra no cartão';
+        const itemAmt = formatCurrency(item.amount);
+        const itemInst = (item.installments && item.installments > 1) ? ` [Parc. ${item.installmentIndex}/${item.installments}]` : '';
+        const itemAction = item.sourceId ? `<button type="button" class="calendar-day-detail-action" data-action="view-expense" data-source-id="${escapeStr(item.sourceId)}" style="margin-left:6px; padding:2px 6px; font-size:0.68rem;" title="Ver em Despesas">Ver</button>` : '';
+        invoiceItemsListHtml += `
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:3px 0; border-bottom:1px dashed var(--line);">
+            <span>${escapeStr(itemDesc)}${escapeStr(itemInst)}</span>
+            <span style="font-family:'JetBrains Mono',monospace; font-weight:700;">${itemAmt}${itemAction}</span>
+          </div>
+        `;
+      }
+      invoiceItemsListHtml += '</div>';
+    }
+
+    const extraClass = isInvoice ? ' calendar-day-detail-item--invoice' : (isTransaction ? ' calendar-day-detail-item--transaction' : '');
+
+    return `
+      <div class="calendar-day-detail-item${extraClass}">
+        <div class="calendar-day-detail-info">
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <span class="calendar-day-detail-desc">${escapeStr(evDesc)}</span>
+            ${badgeHtml}
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:2px;">
+            <span class="calendar-day-detail-meta">${metaDetails}</span>
+            ${actionHtml}
+          </div>
+          ${invoiceItemsListHtml}
+        </div>
+        <div class="calendar-day-detail-value-wrap">
+          <span class="calendar-day-detail-amt ${dirClass}">${dirSign ? dirSign + ' ' : ''}${evAmount}</span>
+        </div>
+      </div>
+    `;
+  }
+
 
   /**
    * Helper puro de apresentação: agrupa os eventos de benefícios por data civil (YYYY-MM-DD).
@@ -637,6 +749,7 @@
         const dayData = eventsByDate[dateStr];
         const hasInflow = !!(dayData && dayData.hasInflow);
         const hasOutflow = !!(dayData && dayData.hasOutflow);
+        const hasTransactions = !!(dayData && dayData.hasTransactions);
 
         let mobileIndHtml = '';
         if (hasInflow && hasOutflow) {
@@ -645,6 +758,8 @@
           mobileIndHtml = '<span class="calendar-day-mobile-indicator calendar-day-mobile-indicator--inflow" aria-hidden="true">+</span>';
         } else if (hasOutflow) {
           mobileIndHtml = '<span class="calendar-day-mobile-indicator calendar-day-mobile-indicator--outflow" aria-hidden="true">-</span>';
+        } else if (hasTransactions) {
+          mobileIndHtml = '<span class="calendar-day-mobile-indicator calendar-day-mobile-indicator--tx" aria-hidden="true">•</span>';
         }
 
         let movementsHtml = '';
@@ -657,9 +772,11 @@
             movementsHtml += `<span class="calendar-day-amt calendar-day-amt--outflow">- ${formatCurrency(dayData.outflow)}</span>`;
           }
           movementsHtml += '</div>';
+        } else if (hasTransactions) {
+          movementsHtml = `<div class="calendar-day-movements"><span class="calendar-day-amt calendar-day-amt--tx">${dayData.transactionCount > 1 ? dayData.transactionCount + ' compras' : 'Compra cartão'}</span></div>`;
         }
 
-        const ariaLabel = `Dia ${d} de ${monthLabel}, ${hasInflow ? 'entradas previstas, ' : ''}${hasOutflow ? 'saídas previstas' : 'sem movimentações agendadas'}`;
+        const ariaLabel = `Dia ${d} de ${monthLabel}, ${hasInflow ? 'entradas previstas, ' : ''}${hasOutflow ? 'saídas previstas' : (hasTransactions ? 'compras no cartão registradas' : 'sem movimentações agendadas')}`;
         const selectedClasses = isSelected ? 'calendar-day--selected calendar-day-cell--selected' : '';
 
         daysGridHtml += `
@@ -702,27 +819,7 @@
           const previewEvents = dayData.events.slice(0, 5);
           let itemsHtml = '';
           for (const ev of previewEvents) {
-            const evDesc = ev.description || 'Movimentação';
-            const evSourceTypeLabel = getCalendarSourceTypeLabel(ev.sourceType);
-            const evAmount = formatCurrency(ev.amount);
-            const evDirClass = ev.direction === 'inflow' ? 'calendar-summary-value--inflow' : 'calendar-summary-value--outflow';
-            const evDirSign = ev.direction === 'inflow' ? '+' : '-';
-            const statusBadge = ev.status
-              ? `<span class="tag ${ev.status === 'paid' ? 'success' : (ev.status === 'partial' ? 'partial' : 'due')}">${ev.status === 'paid' ? 'Pago' : (ev.status === 'partial' ? 'Parcial' : 'Pendente')}</span>`
-              : '';
-
-            itemsHtml += `
-              <div class="calendar-day-detail-item">
-                <div class="calendar-day-detail-info">
-                  <span class="calendar-day-detail-desc">${escapeStr(evDesc)}</span>
-                  <span class="calendar-day-detail-meta">${escapeStr(evSourceTypeLabel)}</span>
-                </div>
-                <div class="calendar-day-detail-value-wrap">
-                  ${statusBadge}
-                  <span class="calendar-day-detail-amt ${evDirClass}">${evDirSign} ${evAmount}</span>
-                </div>
-              </div>
-            `;
+            itemsHtml += renderCalendarEventItem(ev);
           }
 
           let ctaHtml = '';
@@ -1427,6 +1524,31 @@
         };
       }
     }
+
+    // Delegação de eventos para ação "Ver em Despesas" no container do calendário
+    if (typeof container.addEventListener === 'function') {
+      container.addEventListener('click', (e) => {
+        const viewBtn = e.target?.closest ? e.target.closest('[data-action="view-expense"]') : null;
+        if (viewBtn) {
+          e?.preventDefault?.();
+          e?.stopPropagation?.();
+          const sId = viewBtn.getAttribute?.('data-source-id');
+          if (sId) navigateToExpense(sId);
+        }
+      });
+    } else {
+      const existingOnClick = container.onclick;
+      container.onclick = (e) => {
+        if (typeof existingOnClick === 'function') existingOnClick(e);
+        const viewBtn = e?.target?.closest ? e.target.closest('[data-action="view-expense"]') : null;
+        if (viewBtn) {
+          e?.preventDefault?.();
+          e?.stopPropagation?.();
+          const sId = viewBtn.getAttribute?.('data-source-id');
+          if (sId) navigateToExpense(sId);
+        }
+      };
+    }
   }
 
   /**
@@ -1568,29 +1690,34 @@
         if (dayData.events && dayData.events.length > 0) {
           let itemsHtml = '';
           for (const ev of dayData.events) {
-            const evDesc = ev.description || 'Movimentação';
-            const evSourceTypeLabel = getCalendarSourceTypeLabel(ev.sourceType);
-            const evAmount = formatCurrency(ev.amount);
-            const evDirClass = ev.direction === 'inflow' ? 'calendar-summary-value--inflow' : 'calendar-summary-value--outflow';
-            const evDirSign = ev.direction === 'inflow' ? '+' : '-';
-            const statusBadge = ev.status
-              ? `<span class="tag ${ev.status === 'paid' ? 'success' : (ev.status === 'partial' ? 'partial' : 'due')}">${ev.status === 'paid' ? 'Pago' : (ev.status === 'partial' ? 'Parcial' : 'Pendente')}</span>`
-              : '';
-
-            itemsHtml += `
-              <div class="calendar-day-detail-item">
-                <div class="calendar-day-detail-info">
-                  <span class="calendar-day-detail-desc">${escapeStr(evDesc)}</span>
-                  <span class="calendar-day-detail-meta">${escapeStr(evSourceTypeLabel)}</span>
-                </div>
-                <div class="calendar-day-detail-value-wrap">
-                  ${statusBadge}
-                  <span class="calendar-day-detail-amt ${evDirClass}">${evDirSign} ${evAmount}</span>
-                </div>
-              </div>
-            `;
+            itemsHtml += renderCalendarEventItem(ev, { isModal: true });
           }
           listEl.innerHTML = itemsHtml;
+
+          if (!listEl._viewExpenseBound) {
+            if (typeof listEl.addEventListener === 'function') {
+              listEl.addEventListener('click', (e) => {
+                const viewBtn = e.target?.closest ? e.target.closest('[data-action="view-expense"]') : null;
+                if (viewBtn) {
+                  e?.preventDefault?.();
+                  const sId = viewBtn.getAttribute?.('data-source-id');
+                  if (sId) navigateToExpense(sId);
+                }
+              });
+            } else {
+              const existingClick = listEl.onclick;
+              listEl.onclick = (e) => {
+                if (typeof existingClick === 'function') existingClick(e);
+                const viewBtn = e?.target?.closest ? e.target.closest('[data-action="view-expense"]') : null;
+                if (viewBtn) {
+                  e?.preventDefault?.();
+                  const sId = viewBtn.getAttribute?.('data-source-id');
+                  if (sId) navigateToExpense(sId);
+                }
+              };
+            }
+            listEl._viewExpenseBound = true;
+          }
         } else {
           listEl.innerHTML = `
             <div class="calendar-selected-day-empty">
@@ -1635,6 +1762,60 @@
     }
   }
 
+  /**
+   * Navega para a aba de Despesas e abre o diálogo de edição da despesa pelo ID persistente.
+   * Totalmente imune a ordenação, paginação, filtros e nomes duplicados.
+   *
+   * @param {string} sourceId ID persistente da despesa
+   * @returns {boolean} true se encontrou e abriu, false caso contrário
+   */
+  function navigateToExpense(sourceId) {
+    if (!sourceId) {
+      if (typeof window.notify === 'function') {
+        window.notify('Identificador de despesa não fornecido.', 'warning');
+      }
+      return false;
+    }
+
+    closeDayDetailsModal();
+
+    if (typeof window.activateTab === 'function') {
+      window.activateTab('tab-expenses', true);
+    } else if (typeof window.uiShell?.activateTab === 'function') {
+      window.uiShell.activateTab('tab-expenses', true);
+    }
+
+    const state = (typeof window.getState === 'function') ? window.getState() : null;
+    if (!state) {
+      if (typeof window.notify === 'function') {
+        window.notify('Estado financeiro indisponível.', 'error');
+      }
+      return false;
+    }
+
+    const cleanId = String(sourceId).trim();
+    const varExpense = Array.isArray(state.variable) ? state.variable.find(v => v && String(v.id) === cleanId) : null;
+    const fixedExpense = Array.isArray(state.fixed) ? state.fixed.find(f => f && (String(f.id) === cleanId || String(f.fixedId) === cleanId)) : null;
+
+    if (varExpense) {
+      if (typeof window.openEntryDialog === 'function') {
+        window.openEntryDialog({ mode: 'edit', type: 'variable', id: varExpense.id });
+        return true;
+      }
+    } else if (fixedExpense) {
+      if (typeof window.openEntryDialog === 'function') {
+        window.openEntryDialog({ mode: 'edit', type: 'fixed', fixedId: fixedExpense.id, id: fixedExpense.id });
+        return true;
+      }
+    } else {
+      if (typeof window.notify === 'function') {
+        window.notify('Despesa não encontrada ou removida.', 'info');
+      }
+      return false;
+    }
+    return false;
+  }
+
 
   /**
    * Ponto de entrada chamado quando a aba do calendário é renderizada / ativada.
@@ -1665,6 +1846,8 @@
     nextDay,
     openDayDetailsModal,
     closeDayDetailsModal,
+    navigateToExpense,
+    renderCalendarEventItem,
     formatFriendlyDateCapitalized,
     getExpandableState: () => ({ ...calendarExpandableState }),
     setExpandableState: (s = {}) => { Object.assign(calendarExpandableState, s); },
@@ -1694,6 +1877,7 @@
   };
 
   window.CalendarModule = CalendarModule;
+  window.navigateToExpense = navigateToExpense;
   window.renderCalendarTab = renderCalendarTab;
   window.getCalendarSourceTypeLabel = getCalendarSourceTypeLabel;
 })();

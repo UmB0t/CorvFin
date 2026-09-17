@@ -48,5 +48,10 @@ module.exports = {
   isBusinessDay: TemporalDomain.isBusinessDay,
   getNextBusinessDay: TemporalDomain.getNextBusinessDay,
   getPrevBusinessDay: TemporalDomain.getPrevBusinessDay,
-  resolveTemporalRule: TemporalDomain.resolveTemporalRule
+  resolveTemporalRule: TemporalDomain.resolveTemporalRule,
+  // V2 Phase 3 Credit Card Billing Cycle
+  resolveNominalCivilDate: TemporalDomain.resolveNominalCivilDate,
+  resolveApplicableClosingDate: TemporalDomain.resolveApplicableClosingDate,
+  resolveInvoiceDueDate: TemporalDomain.resolveInvoiceDueDate,
+  resolveCreditCardBillingCycle: TemporalDomain.resolveCreditCardBillingCycle
 };

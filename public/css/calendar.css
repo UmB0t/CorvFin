@@ -1058,3 +1058,56 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* 8. TRANSAÇÕES DE CARTÃO & AÇÕES (FASE 3) */
+.calendar-day-detail-amt--transaction {
+  color: var(--text);
+  font-weight: 750;
+}
+
+.calendar-day-detail-item--transaction {
+  border-left: 3px solid var(--info, #3B82F6);
+}
+
+.calendar-day-detail-item--invoice {
+  border-left: 3px solid var(--warning, #F59E0B);
+  background: var(--surface-2);
+}
+
+.calendar-day-detail-action {
+  background: var(--surface-3, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--line);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.calendar-day-detail-action:hover,
+.calendar-day-detail-action:focus {
+  background: var(--brand-soft, rgba(16, 185, 129, 0.15));
+  border-color: var(--brand, #10B981);
+  color: var(--brand, #10B981);
+}
+
+.calendar-day-amt--tx {
+  font-size: 0.70rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.calendar-day-mobile-indicator--tx {
+  background: rgba(59, 130, 246, 0.20);
+  color: #3B82F6;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  font-size: 0.65rem;
+  font-weight: 800;
+}
