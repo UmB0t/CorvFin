@@ -216,6 +216,7 @@ window.TAB_TITLES = {
   'tab-dashboard': 'Dashboard',
   'tab-calendar': 'Calendário',
   'tab-expenses': 'Despesas',
+  'tab-reports': 'Relatórios Financeiros',
   'tab-extras': 'Rendas Extras',
   'tab-debtors': 'Devedores',
   'tab-benefits': 'Benefícios',

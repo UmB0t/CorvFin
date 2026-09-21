@@ -2240,16 +2240,18 @@ const saveDefaultPermissionsHandler = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Objeto de permissões inválido.' });
     }
 
+    const current = await getDefaultPermissions();
     const permsToSave = {
-      dashboard: permissions.dashboard !== false,
-      calendario: permissions.calendario !== false,
-      despesas: permissions.despesas !== false,
-      extras: permissions.extras !== false,
-      devedores: permissions.devedores !== false,
-      investimentos: permissions.investimentos !== false,
-      beneficios: permissions.beneficios !== false,
-      compras: permissions.compras !== false,
-      simulacao: permissions.simulacao !== false
+      dashboard: permissions.dashboard !== undefined ? permissions.dashboard !== false : current.dashboard !== false,
+      calendario: permissions.calendario !== undefined ? permissions.calendario !== false : current.calendario !== false,
+      despesas: permissions.despesas !== undefined ? permissions.despesas !== false : current.despesas !== false,
+      extras: permissions.extras !== undefined ? permissions.extras !== false : current.extras !== false,
+      devedores: permissions.devedores !== undefined ? permissions.devedores !== false : current.devedores !== false,
+      investimentos: permissions.investimentos !== undefined ? permissions.investimentos !== false : current.investimentos !== false,
+      beneficios: permissions.beneficios !== undefined ? permissions.beneficios !== false : current.beneficios !== false,
+      compras: permissions.compras !== undefined ? permissions.compras !== false : current.compras !== false,
+      simulacao: permissions.simulacao !== undefined ? permissions.simulacao !== false : current.simulacao !== false,
+      relatorios: permissions.relatorios !== undefined ? permissions.relatorios !== false : current.relatorios !== false
     };
 
     await saveDefaultPermissions(permsToSave);
@@ -2804,7 +2806,7 @@ app.put('/api/admin/maintenance', authMiddleware, adminOnlyMiddleware, async (re
       });
     }
 
-    const ALLOWED_MODULES = ['dashboard', 'calendario', 'despesas', 'extras', 'devedores', 'investimentos', 'beneficios', 'compras', 'simulacao'];
+    const ALLOWED_MODULES = ['dashboard', 'calendario', 'despesas', 'extras', 'devedores', 'investimentos', 'beneficios', 'compras', 'simulacao', 'relatorios'];
     const submittedKeys = Object.keys(rawMaintenance);
 
     // Validação de chaves desconhecidas

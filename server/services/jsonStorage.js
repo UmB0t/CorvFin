@@ -83,7 +83,8 @@ function getDefaultPermissions() {
     investimentos: true,
     beneficios: true,
     compras: true,
-    simulacao: true
+    simulacao: true,
+    relatorios: true
   };
   const saved = safeReadJSON(filePath, defaults);
   return Object.assign({}, defaults, saved);
@@ -91,7 +92,9 @@ function getDefaultPermissions() {
 
 function saveDefaultPermissions(permissions) {
   const filePath = config.DEFAULT_PERMISSIONS_FILE || path.join(config.DATA_DIR, 'default_permissions.json');
-  return safeWriteJSON(filePath, permissions);
+  const current = getDefaultPermissions();
+  const merged = Object.assign({}, current, permissions);
+  return safeWriteJSON(filePath, merged);
 }
 
 // Maintenance Storage Helpers
@@ -104,7 +107,8 @@ const DEFAULT_MAINTENANCE_CONFIG = {
   investimentos: { maintenance: false, name: 'Investimentos' },
   beneficios: { maintenance: false, name: 'Benefícios' },
   compras: { maintenance: false, name: 'Lista de Compras' },
-  simulacao: { maintenance: false, name: 'Simulação' }
+  simulacao: { maintenance: false, name: 'Simulação' },
+  relatorios: { maintenance: false, name: 'Relatórios Financeiros' }
 };
 
 function getMaintenanceConfig() {
@@ -162,6 +166,7 @@ function getUserPermissions(userId) {
       beneficios: true,
       compras: true,
       simulacao: true,
+      relatorios: true,
       configuracoes: false
     },
     defaultPerms

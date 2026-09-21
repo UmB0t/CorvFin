@@ -175,6 +175,7 @@
     'tab-dashboard',
     'tab-calendar',
     'tab-expenses',
+    'tab-reports',
     'tab-extras',
     'tab-debtors',
     'tab-investments',
@@ -249,6 +250,10 @@
           if (!state.collapsedSections.destChart && typeof renderDestinationChart === 'function') renderDestinationChart();
           if (!state.collapsedSections.categoryChart && typeof renderCategoryDistributionChart === 'function') renderCategoryDistributionChart();
           if (typeof renderExpensesLists === 'function') renderExpensesLists();
+        }
+      } else if (tabId === 'tab-reports') {
+        if (typeof window.renderReportsTab === 'function') {
+          window.renderReportsTab();
         }
       } else if (tabId === 'tab-extras') {
         const extraMetrics = $('#extraMetrics'); if (extraMetrics) extraMetrics.hidden = false;

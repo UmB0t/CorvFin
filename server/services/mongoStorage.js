@@ -12,7 +12,8 @@ const DEFAULT_MAINTENANCE_CONFIG = {
   investimentos: { maintenance: false, name: 'Investimentos' },
   beneficios: { maintenance: false, name: 'Benefícios' },
   compras: { maintenance: false, name: 'Lista de Compras' },
-  simulacao: { maintenance: false, name: 'Simulação' }
+  simulacao: { maintenance: false, name: 'Simulação' },
+  relatorios: { maintenance: false, name: 'Relatórios Financeiros' }
 };
 
 const DEFAULT_PERMISSIONS_FALLBACK = {
@@ -24,7 +25,8 @@ const DEFAULT_PERMISSIONS_FALLBACK = {
   investimentos: true,
   beneficios: true,
   compras: true,
-  simulacao: true
+  simulacao: true,
+  relatorios: true
 };
 
 /**
@@ -163,6 +165,7 @@ async function getUserPermissions(userId) {
       beneficios: true,
       compras: true,
       simulacao: true,
+      relatorios: true,
       configuracoes: false
     },
     defaultPerms
@@ -194,6 +197,7 @@ async function setUserPermissions(userId, userPerms) {
       beneficios: true,
       compras: true,
       simulacao: true,
+      relatorios: true,
       configuracoes: false
     },
     defaultPerms,
@@ -231,16 +235,18 @@ async function getDefaultPermissions() {
  */
 async function saveDefaultPermissions(permissions) {
   const col = await getCollection('default_permissions');
+  const current = await getDefaultPermissions();
   const sanitized = {
-    dashboard: permissions.dashboard !== false,
-    calendario: permissions.calendario !== false,
-    despesas: permissions.despesas !== false,
-    extras: permissions.extras !== false,
-    devedores: permissions.devedores !== false,
-    investimentos: permissions.investimentos !== false,
-    beneficios: permissions.beneficios !== false,
-    compras: permissions.compras === true,
-    simulacao: permissions.simulacao === true,
+    dashboard: permissions.dashboard !== undefined ? permissions.dashboard !== false : current.dashboard !== false,
+    calendario: permissions.calendario !== undefined ? permissions.calendario !== false : current.calendario !== false,
+    despesas: permissions.despesas !== undefined ? permissions.despesas !== false : current.despesas !== false,
+    extras: permissions.extras !== undefined ? permissions.extras !== false : current.extras !== false,
+    devedores: permissions.devedores !== undefined ? permissions.devedores !== false : current.devedores !== false,
+    investimentos: permissions.investimentos !== undefined ? permissions.investimentos !== false : current.investimentos !== false,
+    beneficios: permissions.beneficios !== undefined ? permissions.beneficios !== false : current.beneficios !== false,
+    compras: permissions.compras !== undefined ? permissions.compras === true : current.compras === true,
+    simulacao: permissions.simulacao !== undefined ? permissions.simulacao === true : current.simulacao === true,
+    relatorios: permissions.relatorios !== undefined ? permissions.relatorios !== false : current.relatorios !== false,
     updatedAt: new Date().toISOString()
   };
 

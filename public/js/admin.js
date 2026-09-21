@@ -64,6 +64,12 @@ const AdminModule = (() => {
       name: 'Simulação',
       desc: 'Simulador de novos gastos e parcelamentos em sandbox seguro',
       iconSvg: `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`
+    },
+    {
+      key: 'relatorios',
+      name: 'Relatórios Financeiros',
+      desc: 'Demonstrativos e relatórios de fluxo de caixa e competência orçamentária',
+      iconSvg: `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`
     }
   ];
 
@@ -2205,7 +2211,7 @@ const AdminModule = (() => {
       }
 
       if (perms) {
-        const modules = ['dashboard', 'calendario', 'despesas', 'extras', 'devedores', 'investimentos', 'beneficios', 'compras', 'simulacao'];
+        const modules = ['dashboard', 'calendario', 'despesas', 'extras', 'devedores', 'investimentos', 'beneficios', 'compras', 'simulacao', 'relatorios'];
         modules.forEach(m => {
           const el = document.getElementById(`default-perm-${m}`) || document.querySelector(`[data-default-module="${m}"]`);
           if (el) {
@@ -2237,7 +2243,8 @@ const AdminModule = (() => {
       investimentos: !!(document.getElementById('default-perm-investimentos') || document.querySelector('[data-default-module="investimentos"]'))?.checked,
       beneficios: !!(document.getElementById('default-perm-beneficios') || document.querySelector('[data-default-module="beneficios"]'))?.checked,
       compras: !!(document.getElementById('default-perm-compras') || document.querySelector('[data-default-module="compras"]'))?.checked,
-      simulacao: !!(document.getElementById('default-perm-simulacao') || document.querySelector('[data-default-module="simulacao"]'))?.checked
+      simulacao: !!(document.getElementById('default-perm-simulacao') || document.querySelector('[data-default-module="simulacao"]'))?.checked,
+      relatorios: !!(document.getElementById('default-perm-relatorios') || document.querySelector('[data-default-module="relatorios"]'))?.checked
     };
 
     if (btn) {
