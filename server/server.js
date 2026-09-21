@@ -67,6 +67,7 @@ const {
   projectFinancialMonth,
   validatePeriod
 } = require('./services/financeProjectionService');
+const financeReportService = require('./services/financeReportService');
 
 const app = express();
 
@@ -1089,6 +1090,85 @@ app.get('/api/finances/calendar', authMiddleware, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Erro interno ao gerar projeção do calendário financeiro.'
+    });
+  }
+});
+
+// GET /api/finances/reports - Relatórios Financeiros V2 (Lote R2: Domain & API Foundation)
+app.get('/api/finances/reports', authMiddleware, async (req, res) => {
+  try {
+    // 1. Verificação comercial e de permissões de módulo (RBAC + Entitlements populados pelo authMiddleware)
+    const hasPlanAccess = req.user?.entitlements?.relatorios?.enabled !== false;
+    const hasUserPerm = req.user?.permissions?.relatorios !== false;
+    if (!hasPlanAccess || !hasUserPerm) {
+      return res.status(403).json({
+        success: false,
+        error: 'PLAN_ACCESS_DENIED',
+        message: 'Acesso ao recurso "relatorios" não é permitido para o seu plano ou permissões atuais.'
+      });
+    }
+
+    // 2. Verificação de manutenção do módulo (fail-safe se storage indisponível)
+    try {
+      const maintenance = await getMaintenanceConfig();
+      if (maintenance && maintenance.relatorios && maintenance.relatorios.maintenance) {
+        return res.status(503).json({
+          success: false,
+          error: 'MODULE_MAINTENANCE',
+          message: 'O módulo de relatórios está temporariamente em manutenção.'
+        });
+      }
+    } catch (_) {}
+
+    // 3. Rejeição explícita de identificadores forjados na query (isolamento estrito req.user)
+    if (req.query.userId || req.query.ownerId || req.query.documentId) {
+      return res.status(400).json({
+        success: false,
+        error: 'FORBIDDEN_USER_QUERY',
+        message: 'A consulta de relatórios opera exclusivamente sobre o usuário autenticado.'
+      });
+    }
+
+    // 4. Extração e validação estrita fail-fast das opções de relatório
+    let validatedOptions;
+    try {
+      validatedOptions = financeReportService.validateReportOptions({
+        startYear: req.query.startYear,
+        startMonth: req.query.startMonth,
+        endYear: req.query.endYear,
+        endMonth: req.query.endMonth,
+        perspective: req.query.perspective
+      });
+    } catch (valErr) {
+      return res.status(valErr.status || 400).json({
+        success: false,
+        error: valErr.code || 'INVALID_REPORT_PERIOD',
+        message: valErr.message
+      });
+    }
+
+    // 5. Carregamento do documento financeiro exclusivo do usuário autenticado
+    const finances = await getUserFinances(req.user.id, req.user.nome);
+
+    // 6. Geração determinística do relatório consolidado
+    const report = financeReportService.generateFinancialReport(finances, validatedOptions);
+
+    return res.json(report);
+  } catch (err) {
+    if (err.code === 'INVALID_REPORT_PERIOD' ||
+        err.code === 'INVALID_REPORT_PERSPECTIVE' ||
+        err.code === 'REPORT_PERIOD_TOO_LARGE') {
+      return res.status(err.status || 400).json({
+        success: false,
+        error: err.code,
+        message: err.message
+      });
+    }
+
+    console.error('Erro ao gerar relatório financeiro:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro interno ao gerar relatório financeiro.'
     });
   }
 });
